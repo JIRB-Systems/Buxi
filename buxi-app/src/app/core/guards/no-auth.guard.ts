@@ -10,7 +10,7 @@ export class NoAuthGuard implements CanActivate {
     const session = this.supabase.currentSession;
     if (!session) return true;
 
-    await this.router.navigate(['/passenger/home']);
+    await this.router.navigate(['/passenger/map']);
     return false;
   }
 }

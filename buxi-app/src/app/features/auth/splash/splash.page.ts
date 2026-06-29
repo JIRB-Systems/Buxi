@@ -15,7 +15,7 @@ export class SplashPage implements OnInit {
     setTimeout(async () => {
       const session = this.supabase.currentSession;
       if (session) {
-        this.router.navigate(['/passenger/home'], { replaceUrl: true });
+        this.router.navigate(['/passenger/map'], { replaceUrl: true });
       } else {
         this.router.navigate(['/auth/login'], { replaceUrl: true });
       }

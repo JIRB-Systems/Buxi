@@ -1,52 +1,87 @@
 <ion-content [fullscreen]="true" class="map-content">
 
-  <!-- Mapa -->
   <div id="map"></div>
 
-  <!-- Header flotante -->
-  <div class="map-header">
-    <div class="search-bar" (click)="goHome()">
-      <ion-icon name="search-outline"></ion-icon>
-      <span>Buscar ruta o parada...</span>
+  <!-- Top: avatar + search -->
+  <div class="top-overlay">
+    <div class="top-row">
+      <div class="avatar-btn" routerLink="/passenger/profile">
+        <ion-icon name="person"></ion-icon>
+      </div>
+      <div class="search-pill" routerLink="/passenger/routes">
+        <ion-icon name="search-outline" class="s-icon"></ion-icon>
+        <span>¿A dónde quieres ir?</span>
+      </div>
+      <div class="notif-btn">
+        <ion-icon name="notifications-outline"></ion-icon>
+      </div>
     </div>
   </div>
 
-  <!-- Botón centrar en usuario -->
-  <div class="fab-location" (click)="centerOnUser()">
-    <ion-icon name="locate-outline"></ion-icon>
+  <!-- Live chip -->
+  <div class="live-chip" *ngIf="activeBusCount > 0">
+    <span class="live-dot"></span>
+    {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
   </div>
 
-  <!-- Loading overlay -->
-  <div class="map-loading" *ngIf="loading">
-    <ion-spinner name="crescent" color="primary"></ion-spinner>
-    <p>Cargando mapa...</p>
+  <!-- FAB -->
+  <div class="fab-locate" (click)="centerOnUser()">
+    <ion-icon name="navigate"></ion-icon>
   </div>
 
-  <!-- Info panel del bus seleccionado -->
-  <div class="bus-info-panel" *ngIf="selectedBus" (click)="closeBusInfo()">
-    <div class="bus-info-card" (click)="$event.stopPropagation()">
-      <div class="bus-info-header">
-        <div class="bus-icon-wrapper">
-          <ion-icon name="bus"></ion-icon>
-        </div>
-        <div class="bus-info-text">
-          <h3>{{ selectedBusPlaca }}</h3>
-          <p>{{ selectedBusRuta }}</p>
-        </div>
-        <ion-button fill="clear" size="small" (click)="closeBusInfo()">
-          <ion-icon name="close-outline" slot="icon-only"></ion-icon>
-        </ion-button>
+  <!-- Loading -->
+  <div class="loading-overlay" *ngIf="loading">
+    <div class="loading-pill">
+      <ion-spinner name="dots"></ion-spinner>
+      <span>Cargando mapa</span>
+    </div>
+  </div>
+
+  <!-- Bus bottom sheet -->
+  <div class="bus-sheet" *ngIf="selectedBus">
+    <div class="sheet-bar"></div>
+    <div class="sheet-row">
+      <div class="bus-badge">
+        <ion-icon name="bus"></ion-icon>
       </div>
-      <div class="bus-info-details">
-        <div class="detail-item">
-          <ion-icon name="speedometer-outline"></ion-icon>
-          <span>{{ selectedBus.velocidad | number:'1.0-0' }} km/h</span>
-        </div>
-        <div class="detail-item">
-          <ion-icon name="time-outline"></ion-icon>
-          <span>Actualizado {{ selectedBus.timestamp | date:'shortTime' }}</span>
-        </div>
+      <div class="sheet-info">
+        <strong>{{ selectedBusPlaca }}</strong>
+        <span>{{ selectedBusRuta }}</span>
       </div>
+      <ion-button fill="clear" (click)="closeBusInfo()" class="close-btn">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </div>
+    <div class="sheet-stats">
+      <div class="stat-item">
+        <ion-icon name="speedometer-outline"></ion-icon>
+        {{ selectedBus.velocidad | number:'1.0-0' }} km/h
+      </div>
+      <div class="stat-item">
+        <ion-icon name="time-outline"></ion-icon>
+        {{ selectedBus.timestamp | date:'shortTime' }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav bar -->
+  <div class="nav-bar" *ngIf="!selectedBus">
+    <div class="nav-item" routerLink="/passenger/home">
+      <ion-icon name="home-outline"></ion-icon>
+      <span>Inicio</span>
+    </div>
+    <div class="nav-item active">
+      <div class="nav-active-dot"></div>
+      <ion-icon name="map"></ion-icon>
+      <span>Mapa</span>
+    </div>
+    <div class="nav-item" routerLink="/passenger/routes">
+      <ion-icon name="git-branch-outline"></ion-icon>
+      <span>Rutas</span>
+    </div>
+    <div class="nav-item" routerLink="/passenger/profile">
+      <ion-icon name="person-outline"></ion-icon>
+      <span>Perfil</span>
     </div>
   </div>
 

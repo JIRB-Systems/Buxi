@@ -1,87 +1,76 @@
-<ion-content class="register-content" [fullscreen]="true">
-  <div class="register-container">
+<ion-content [fullscreen]="true" class="reg-content" [scrollY]="true">
+  <div class="reg-wrapper">
 
-    <div class="register-header">
+    <div class="reg-top">
       <ion-button fill="clear" routerLink="/auth/login" class="back-btn">
-        <ion-icon name="arrow-back-outline" slot="icon-only"></ion-icon>
+        <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
       </ion-button>
-      <h1 class="page-title">Crear cuenta</h1>
-      <p class="page-subtitle">Regístrate para ver tus buses en tiempo real</p>
+      <h2>Crear cuenta</h2>
+      <p>Únete para ver tus buses en vivo</p>
     </div>
 
-    <form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="register-form">
+    <form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="reg-form">
 
-      <div class="input-group">
-        <ion-icon name="person-outline" class="input-icon"></ion-icon>
-        <ion-input formControlName="nombre_completo" placeholder="Nombre completo" class="custom-input"></ion-input>
-      </div>
-      <div class="error-text" *ngIf="registerForm.get('nombre_completo')?.touched && registerForm.get('nombre_completo')?.hasError('required')">
-        El nombre es obligatorio
-      </div>
-      <div class="error-text" *ngIf="registerForm.get('nombre_completo')?.touched && registerForm.get('nombre_completo')?.hasError('minlength')">
-        Mínimo 3 caracteres
+      <div class="field">
+        <label>Nombre completo</label>
+        <div class="input-wrap">
+          <ion-input formControlName="nombre_completo" placeholder="Tu nombre"></ion-input>
+        </div>
+        <span class="err" *ngIf="registerForm.get('nombre_completo')?.touched && registerForm.get('nombre_completo')?.hasError('required')">Obligatorio</span>
       </div>
 
-      <div class="input-group">
-        <ion-icon name="mail-outline" class="input-icon"></ion-icon>
-        <ion-input formControlName="email" type="email" placeholder="Correo electrónico" class="custom-input"></ion-input>
-      </div>
-      <div class="error-text" *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('required')">
-        El correo es obligatorio
-      </div>
-      <div class="error-text" *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('email')">
-        Ingresa un correo válido
+      <div class="field">
+        <label>Correo electrónico</label>
+        <div class="input-wrap">
+          <ion-input formControlName="email" type="email" placeholder="tucorreo@ejemplo.com"></ion-input>
+        </div>
+        <span class="err" *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('email')">Correo no válido</span>
       </div>
 
-      <div class="input-group">
-        <ion-icon name="lock-closed-outline" class="input-icon"></ion-icon>
-        <ion-input formControlName="password" [type]="showPassword ? 'text' : 'password'" placeholder="Contraseña" class="custom-input"></ion-input>
-        <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" class="toggle-password" (click)="togglePassword()"></ion-icon>
+      <div class="row-2">
+        <div class="field">
+          <label>Contraseña</label>
+          <div class="input-wrap">
+            <ion-input formControlName="password" [type]="showPassword ? 'text' : 'password'" placeholder="6+ caracteres"></ion-input>
+            <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" class="eye" (click)="togglePassword()"></ion-icon>
+          </div>
+        </div>
+        <div class="field">
+          <label>Confirmar</label>
+          <div class="input-wrap">
+            <ion-input formControlName="confirmPassword" [type]="showConfirmPassword ? 'text' : 'password'" placeholder="Repetir"></ion-input>
+          </div>
+        </div>
       </div>
-      <div class="error-text" *ngIf="registerForm.get('password')?.touched && registerForm.get('password')?.hasError('required')">
-        La contraseña es obligatoria
-      </div>
-      <div class="error-text" *ngIf="registerForm.get('password')?.touched && registerForm.get('password')?.hasError('minlength')">
-        Mínimo 6 caracteres
+      <span class="err" *ngIf="registerForm.get('confirmPassword')?.touched && registerForm.hasError('passwordMismatch')">No coinciden</span>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Teléfono <span class="opt">(opcional)</span></label>
+          <div class="input-wrap">
+            <ion-input formControlName="telefono" type="tel" placeholder="8888-8888"></ion-input>
+          </div>
+        </div>
+        <div class="field">
+          <label>Provincia <span class="opt">(opcional)</span></label>
+          <div class="input-wrap select-wrap">
+            <ion-select formControlName="provincia" placeholder="Elegir" interface="action-sheet">
+              <ion-select-option *ngFor="let p of provincias" [value]="p">{{ p }}</ion-select-option>
+            </ion-select>
+          </div>
+        </div>
       </div>
 
-      <div class="input-group">
-        <ion-icon name="lock-closed-outline" class="input-icon"></ion-icon>
-        <ion-input formControlName="confirmPassword" [type]="showConfirmPassword ? 'text' : 'password'" placeholder="Confirmar contraseña" class="custom-input"></ion-input>
-        <ion-icon [name]="showConfirmPassword ? 'eye-off-outline' : 'eye-outline'" class="toggle-password" (click)="toggleConfirmPassword()"></ion-icon>
-      </div>
-      <div class="error-text" *ngIf="registerForm.get('confirmPassword')?.touched && registerForm.hasError('passwordMismatch')">
-        Las contraseñas no coinciden
+      <div class="terms">
+        <ion-checkbox [(ngModel)]="acceptTerms" [ngModelOptions]="{standalone: true}"></ion-checkbox>
+        <span>Acepto los <a href="#">Términos</a> y <a href="#">Privacidad</a></span>
       </div>
 
-      <div class="input-group">
-        <ion-icon name="call-outline" class="input-icon"></ion-icon>
-        <ion-input formControlName="telefono" type="tel" placeholder="Teléfono (opcional)" class="custom-input"></ion-input>
-      </div>
-
-      <div class="input-group select-group">
-        <ion-icon name="location-outline" class="input-icon"></ion-icon>
-        <ion-select formControlName="provincia" placeholder="Provincia (opcional)" class="custom-select" interface="action-sheet">
-          <ion-select-option *ngFor="let p of provincias" [value]="p">{{ p }}</ion-select-option>
-        </ion-select>
-      </div>
-
-      <div class="terms-group">
-        <ion-checkbox [(ngModel)]="acceptTerms" [ngModelOptions]="{standalone: true}" class="terms-checkbox"></ion-checkbox>
-        <span class="terms-text">
-          Acepto los <a href="#">Términos de servicio</a> y la <a href="#">Política de privacidad</a>
-        </span>
-      </div>
-
-      <ion-button expand="block" type="submit" class="btn-register" [disabled]="registerForm.invalid || !acceptTerms">
+      <ion-button expand="block" type="submit" class="btn-main" [disabled]="registerForm.invalid || !acceptTerms">
         Crear cuenta
       </ion-button>
 
-      <p class="login-link">
-        ¿Ya tienes cuenta?
-        <a routerLink="/auth/login">Iniciar sesión</a>
-      </p>
+      <p class="login-link">¿Ya tienes cuenta? <a routerLink="/auth/login">Entrar</a></p>
     </form>
-
   </div>
 </ion-content>

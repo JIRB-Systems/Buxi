@@ -49,7 +49,7 @@ export class LoginPage {
       if (profile) {
         this.navigateByRole(profile.rol);
       } else {
-        this.router.navigate(['/passenger/home'], { replaceUrl: true });
+        this.router.navigate(['/passenger/map'], { replaceUrl: true });
       }
     } catch (error: any) {
       const toast = await this.toastCtrl.create({
@@ -104,7 +104,7 @@ export class LoginPage {
         this.router.navigate(['/admin/dashboard'], { replaceUrl: true });
         break;
       default:
-        this.router.navigate(['/passenger/home'], { replaceUrl: true });
+        this.router.navigate(['/passenger/map'], { replaceUrl: true });
     }
   }
 

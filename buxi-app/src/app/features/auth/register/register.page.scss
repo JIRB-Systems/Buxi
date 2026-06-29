@@ -1,142 +1,54 @@
-.register-content {
-  --background: #f5f7fa;
+.reg-content { --background: #f6f8fb; }
+
+.reg-wrapper {
+  padding: 16px 20px 32px; max-width: 400px; margin: 0 auto;
 }
 
-.register-container {
-  padding: 16px 20px 32px;
-  max-width: 420px;
-  margin: 0 auto;
-}
-
-.register-header {
+.reg-top {
   margin-bottom: 24px;
-
-  .back-btn {
-    --color: #0d1b2a;
-    margin: 0 0 8px -12px;
-    font-size: 22px;
-  }
-
-  .page-title {
-    font-size: 26px;
-    font-weight: 700;
-    color: #0d1b2a;
-    margin: 0;
-  }
-
-  .page-subtitle {
-    font-size: 14px;
-    color: #6b7a8d;
-    margin-top: 4px;
-  }
+  .back-btn { --color: #1a2b3c; margin: 0 0 8px -14px; font-size: 20px; }
+  h2 { font-size: 24px; font-weight: 800; color: #1a2b3c; margin: 0; letter-spacing: -0.3px; }
+  p { font-size: 13px; color: #8a95a3; margin: 4px 0 0; }
 }
 
-.register-form {
-  display: flex;
-  flex-direction: column;
+.reg-form { display: flex; flex-direction: column; }
+
+.field {
+  margin-bottom: 14px; flex: 1;
+  label {
+    display: block; font-size: 13px; font-weight: 600; color: #3a4556; margin-bottom: 5px;
+    .opt { font-weight: 400; color: #b0b8c4; }
+  }
+  .input-wrap {
+    display: flex; align-items: center; background: #fff;
+    border: 1.5px solid #eef1f5; border-radius: 12px; padding: 0 14px;
+    transition: border-color 0.15s;
+    &:focus-within { border-color: #00c853; }
+    ion-input { --padding-start: 0; --padding-top: 11px; --padding-bottom: 11px; --color: #1a2b3c; font-size: 14px; flex: 1; }
+    .eye { font-size: 18px; color: #b0b8c4; cursor: pointer; }
+  }
+  .select-wrap {
+    ion-select { flex: 1; --padding-start: 0; font-size: 14px; --color: #1a2b3c; }
+  }
+  .err { display: block; font-size: 11px; color: #f44336; margin-top: 3px; }
 }
 
-.input-group {
-  display: flex;
-  align-items: center;
-  background: #fff;
-  border: 1.5px solid #e0e5ec;
-  border-radius: 14px;
-  padding: 0 16px;
-  margin-bottom: 4px;
-  transition: border-color 0.2s;
+.row-2 { display: flex; gap: 10px; }
 
-  &:focus-within {
-    border-color: #00c853;
-    box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.1);
-  }
+.err { font-size: 11px; color: #f44336; margin-bottom: 10px; }
 
-  .input-icon {
-    font-size: 20px;
-    color: #9aa5b4;
-    margin-right: 12px;
-  }
-
-  .custom-input {
-    --padding-start: 0;
-    --padding-top: 14px;
-    --padding-bottom: 14px;
-    --color: #0d1b2a;
-    font-size: 15px;
-    flex: 1;
-  }
-
-  .custom-select {
-    flex: 1;
-    --padding-start: 0;
-    --color: #0d1b2a;
-    font-size: 15px;
-  }
-
-  .toggle-password {
-    font-size: 20px;
-    color: #9aa5b4;
-    cursor: pointer;
-    padding: 4px;
-  }
+.terms {
+  display: flex; align-items: flex-start; gap: 10px; margin: 8px 0 20px;
+  ion-checkbox { --size: 18px; --border-radius: 5px; --checkbox-background-checked: #00c853; --border-color-checked: #00c853; margin-top: 1px; }
+  span { font-size: 12px; color: #8a95a3; line-height: 1.4; a { color: #00c853; font-weight: 600; text-decoration: none; } }
 }
 
-.select-group {
-  min-height: 52px;
-}
-
-.error-text {
-  font-size: 12px;
-  color: #ef4444;
-  padding: 2px 16px 8px;
-}
-
-.terms-group {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin: 16px 0 20px;
-
-  .terms-checkbox {
-    --size: 20px;
-    --border-radius: 6px;
-    --checkbox-background-checked: #00c853;
-    --border-color-checked: #00c853;
-    margin-top: 2px;
-  }
-
-  .terms-text {
-    font-size: 13px;
-    color: #6b7a8d;
-    line-height: 1.4;
-
-    a {
-      color: #00c853;
-      text-decoration: none;
-      font-weight: 500;
-    }
-  }
-}
-
-.btn-register {
-  --background: linear-gradient(135deg, #00c853, #00a844);
-  --border-radius: 14px;
-  --box-shadow: 0 4px 16px rgba(0, 200, 83, 0.3);
-  font-weight: 600;
-  font-size: 16px;
-  height: 52px;
-  text-transform: none;
-  margin-bottom: 16px;
+.btn-main {
+  --background: #00c853; --border-radius: 12px; --box-shadow: none;
+  font-weight: 700; font-size: 15px; height: 48px; text-transform: none;
 }
 
 .login-link {
-  text-align: center;
-  font-size: 14px;
-  color: #6b7a8d;
-
-  a {
-    color: #00c853;
-    font-weight: 600;
-    text-decoration: none;
-  }
+  text-align: center; font-size: 14px; color: #8a95a3; margin-top: 18px;
+  a { color: #00c853; font-weight: 700; text-decoration: none; }
 }
