@@ -17,6 +17,16 @@ export class AdminDashboardPage implements OnInit {
   profile: UserProfile | null = null;
   activeTab = 'overview';
   loading = true;
+  sidebarOpen = true;
+
+  menuItems = [
+    { id: 'overview', icon: 'grid-outline', label: 'Resumen' },
+    { id: 'empresas', icon: 'business-outline', label: 'Empresas' },
+    { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
+    { id: 'buses', icon: 'bus-outline', label: 'Buses' },
+    { id: 'usuarios', icon: 'people-outline', label: 'Usuarios' },
+    { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
+  ];
 
   stats = {
     totalEmpresas: 0, totalRutas: 0, totalBuses: 0, totalChoferes: 0,
@@ -68,6 +78,7 @@ export class AdminDashboardPage implements OnInit {
   }
 
   switchTab(tab: string) { this.activeTab = tab; }
+  toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
   // ---- EMPRESAS ----
   async addEmpresa() {
