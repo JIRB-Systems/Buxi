@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buxi — Tus buses en tiempo real | Costa Rica</title>
+  <meta name="description" content="Buxi es la plataforma de transporte público de Costa Rica. Ve tus buses en tiempo real, encuentra rutas y recibe alertas.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="container nav-inner">
+      <div class="nav-logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>
+        </div>
+        <span>Buxi</span>
+      </div>
+      <div class="nav-links">
+        <a href="#features">Funciones</a>
+        <a href="#empresas">Empresas</a>
+        <a href="#planes">Planes</a>
+        <a href="#contact">Contacto</a>
+      </div>
+      <a href="/buxi-app" class="nav-cta">Abrir app</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-text">
+        <span class="hero-badge">Transporte público inteligente</span>
+        <h1>Tus buses en<br><span class="green">tiempo real</span></h1>
+        <p>Buxi conecta pasajeros, choferes y empresas de transporte en una sola plataforma. Ve dónde está tu bus, cuánto falta para que llegue y recibe alertas.</p>
+        <div class="hero-buttons">
+          <a href="/buxi-app" class="btn btn-primary">Comenzar gratis</a>
+          <a href="#empresas" class="btn btn-outline">Soy empresa de transporte</a>
+        </div>
+        <div class="hero-stats">
+          <div class="hs"><strong>8+</strong><span>Rutas activas</span></div>
+          <div class="hs-sep"></div>
+          <div class="hs"><strong>6</strong><span>Empresas</span></div>
+          <div class="hs-sep"></div>
+          <div class="hs"><strong>24/7</strong><span>Tracking GPS</span></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="phone-mockup">
+          <div class="phone-screen">
+            <div class="mock-top">
+              <div class="mock-pill"></div>
+              <span>¿A dónde quieres ir?</span>
+            </div>
+            <div class="mock-map"></div>
+            <div class="mock-bus">
+              <div class="mock-bus-dot"></div>
+              <div class="mock-bus-info">
+                <strong>SJB-001</strong>
+                <span>San José → Alajuela</span>
+              </div>
+              <span class="mock-eta">~8 min</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Funciones</span>
+        <h2>Todo lo que necesitas para<br>moverte por Costa Rica</h2>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="fc-icon green"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
+          <h3>Mapa en tiempo real</h3>
+          <p>Ve la ubicación exacta de tu bus sobre el mapa con actualización cada 5 segundos.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon blue"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></div>
+          <h3>Tiempo estimado</h3>
+          <p>Conoce cuántos minutos faltan para que el bus llegue a tu parada más cercana.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon purple"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></div>
+          <h3>Alertas inteligentes</h3>
+          <p>Recibe notificaciones cuando tu bus esté cerca de tu parada.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon orange"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19.77 7.23l.01-.01-3.72-3.72L15 4.56l2.11 2.11c-.94.36-1.61 1.26-1.61 2.33 0 1.38 1.12 2.5 2.5 2.5.36 0 .69-.08 1-.21v7.21c0 .55-.45 1-1 1s-1-.45-1-1V14c0-1.1-.9-2-2-2h-1V5c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v16h10v-7.5h1.5v5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V9c0-.69-.28-1.32-.73-1.77zM12 10H6V5h6v5z"/></svg></div>
+          <h3>Rutas de Costa Rica</h3>
+          <p>Busca y filtra entre todas las rutas disponibles. Guarda tus favoritas.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon red"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+          <h3>Seguridad</h3>
+          <p>Comparte la ubicación de tu bus con familiares por WhatsApp.</p>
+        </div>
+        <div class="feature-card">
+          <div class="fc-icon teal"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg></div>
+          <h3>Modo offline</h3>
+          <p>Consulta rutas y paradas guardadas incluso sin conexión a internet.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EMPRESAS -->
+  <section class="empresas" id="empresas">
+    <div class="container">
+      <div class="section-header light">
+        <span class="section-badge">Para empresas</span>
+        <h2>Digitaliza tu empresa<br>de transporte</h2>
+        <p>Dashboard completo para gestionar buses, choferes, rutas y ver estadísticas en tiempo real.</p>
+      </div>
+      <div class="emp-features">
+        <div class="emp-card">
+          <div class="emp-num">01</div>
+          <h3>Seguimiento GPS</h3>
+          <p>Ve todos tus buses en el mapa en tiempo real desde tu panel de control.</p>
+        </div>
+        <div class="emp-card">
+          <div class="emp-num">02</div>
+          <h3>Gestión de choferes</h3>
+          <p>Crea cuentas, asigna rutas y buses a cada chofer de tu empresa.</p>
+        </div>
+        <div class="emp-card">
+          <div class="emp-num">03</div>
+          <h3>Reportes y datos</h3>
+          <p>Historial de viajes, puntualidad, pasajeros y rendimiento por ruta.</p>
+        </div>
+        <div class="emp-card">
+          <div class="emp-num">04</div>
+          <h3>Fácil de usar</h3>
+          <p>Sin instalaciones complicadas. Tu dashboard listo desde el primer día.</p>
+        </div>
+      </div>
+      <div class="emp-cta">
+        <a href="/buxi-app/#/auth/empresa-request" class="btn btn-primary btn-lg">Solicitar acceso empresarial</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLANES -->
+  <section class="planes" id="planes">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Planes</span>
+        <h2>Un plan para cada tamaño<br>de operación</h2>
+      </div>
+      <div class="plans-grid">
+        <div class="plan-card">
+          <h3>Básico</h3>
+          <p class="plan-desc">Para empresas que están comenzando</p>
+          <div class="plan-features">
+            <div class="pf">✓ Hasta 10 buses</div>
+            <div class="pf">✓ 5 rutas</div>
+            <div class="pf">✓ GPS cada 15 segundos</div>
+            <div class="pf">✓ Dashboard básico</div>
+          </div>
+          <a href="/buxi-app/#/auth/empresa-request" class="btn btn-outline btn-block">Comenzar</a>
+        </div>
+        <div class="plan-card featured">
+          <div class="plan-popular">Más popular</div>
+          <h3>Pro</h3>
+          <p class="plan-desc">Para empresas en crecimiento</p>
+          <div class="plan-features">
+            <div class="pf">✓ Hasta 50 buses</div>
+            <div class="pf">✓ Rutas ilimitadas</div>
+            <div class="pf">✓ GPS cada 5 segundos</div>
+            <div class="pf">✓ Reportes avanzados</div>
+            <div class="pf">✓ Soporte prioritario</div>
+          </div>
+          <a href="/buxi-app/#/auth/empresa-request" class="btn btn-primary btn-block">Comenzar</a>
+        </div>
+        <div class="plan-card">
+          <h3>Enterprise</h3>
+          <p class="plan-desc">Para operaciones grandes</p>
+          <div class="plan-features">
+            <div class="pf">✓ Buses ilimitados</div>
+            <div class="pf">✓ Rutas ilimitadas</div>
+            <div class="pf">✓ GPS cada 3 segundos</div>
+            <div class="pf">✓ API personalizada</div>
+            <div class="pf">✓ Soporte 24/7 dedicado</div>
+          </div>
+          <a href="/buxi-app/#/auth/empresa-request" class="btn btn-outline btn-block">Contactar</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section class="contact" id="contact">
+    <div class="container contact-inner">
+      <div class="section-header light">
+        <h2>¿Listo para modernizar<br>tu transporte?</h2>
+        <p>Contáctanos y te ayudamos a empezar.</p>
+      </div>
+      <div class="contact-info">
+        <a href="mailto:info@buxi.cr" class="ci">info@buxi.cr</a>
+        <span class="ci-sep">·</span>
+        <span class="ci">Costa Rica</span>
+        <span class="ci-sep">·</span>
+        <span class="ci">JIRB Systems</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-logo">
+        <div class="logo-icon sm">
+          <svg viewBox="0 0 24 24" fill="white" width="16" height="16"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>
+        </div>
+        <span>Buxi</span>
+      </div>
+      <p>© 2024 JIRB Systems. Todos los derechos reservados.</p>
+    </div>
+  </footer>
+
+</body>
+</html>
