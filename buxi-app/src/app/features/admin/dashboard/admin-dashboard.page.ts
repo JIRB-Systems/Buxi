@@ -137,7 +137,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       zoomControl: true, attributionControl: false,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
     }).addTo(this.adminMap);
 
