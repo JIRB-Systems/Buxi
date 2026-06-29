@@ -1,0 +1,80 @@
+.dash-toolbar { --background: #f6f8fb; --color: #1a2b3c; font-weight: 700; --border-width: 0; }
+.dash-content { --background: #f6f8fb; }
+.dash-container { padding: 0 16px 24px; max-width: 600px; margin: 0 auto; }
+.loading-state { display: flex; justify-content: center; padding: 60px 0; }
+
+.tab-row {
+  display: flex; gap: 4px; padding: 8px 0 16px; overflow-x: auto;
+  .tab {
+    padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+    color: #8a95a3; background: #fff; cursor: pointer; white-space: nowrap;
+    &.active { background: #1a2b3c; color: #fff; }
+  }
+}
+
+.tab-content { animation: fadeIn 0.15s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;
+  .stat-card {
+    background: #fff; border-radius: 14px; padding: 16px; text-align: center;
+    .stat-icon {
+      width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+      margin: 0 auto 10px;
+      ion-icon { font-size: 20px; }
+    }
+    .stat-num { font-size: 28px; font-weight: 800; color: #1a2b3c; }
+    .stat-label { font-size: 12px; color: #8a95a3; font-weight: 500; margin-top: 2px; }
+  }
+}
+
+.section-title { font-size: 15px; font-weight: 700; color: #1a2b3c; margin: 0 0 12px; }
+
+.bus-row {
+  display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 12px;
+  padding: 12px 16px; margin-bottom: 8px;
+  .bus-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .bus-row-info {
+    flex: 1; display: flex; flex-direction: column;
+    strong { font-size: 14px; color: #1a2b3c; }
+    span { font-size: 12px; color: #8a95a3; }
+  }
+  .bus-row-status { font-size: 11px; font-weight: 600; text-transform: uppercase; }
+}
+
+.btn-add {
+  --background: #1a2b3c; --border-radius: 12px; --box-shadow: none;
+  font-weight: 600; font-size: 14px; height: 44px; text-transform: none; margin-bottom: 16px;
+}
+
+.list-empty {
+  text-align: center; padding: 32px; color: #b0b8c4; font-size: 14px;
+}
+
+.card-item {
+  display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 14px;
+  padding: 14px 16px; margin-bottom: 8px;
+
+  .card-color { width: 4px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+
+  .card-avatar {
+    width: 36px; height: 36px; background: #f0f2f5; border-radius: 50%;
+    display: grid; place-items: center; flex-shrink: 0;
+    ion-icon { font-size: 18px; color: #8a95a3; }
+  }
+
+  .card-body {
+    flex: 1; display: flex; flex-direction: column;
+    strong { font-size: 14px; color: #1a2b3c;
+      .unit-badge { font-size: 11px; color: #8a95a3; font-weight: 400; margin-left: 6px; }
+    }
+    span { font-size: 12px; color: #8a95a3; margin-top: 1px; }
+  }
+
+  .card-status { font-size: 11px; font-weight: 600; text-transform: capitalize; flex-shrink: 0; }
+
+  .card-actions { display: flex; flex-shrink: 0;
+    ion-button { --padding-start: 6px; --padding-end: 6px; font-size: 18px; }
+  }
+}

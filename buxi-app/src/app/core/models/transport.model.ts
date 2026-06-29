@@ -40,6 +40,7 @@ export interface Bus {
   estado: string;
   ruta?: Ruta;
   empresa?: Empresa;
+  chofer?: { nombre_completo: string } | null;
 }
 
 export interface BusLocation {

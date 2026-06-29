@@ -1,4 +1,7 @@
-.routes-toolbar { --background: #f6f8fb; --color: #1a2b3c; font-weight: 700; --border-width: 0; }
+.routes-toolbar {
+  --background: #f6f8fb; --color: #1a2b3c; font-weight: 700; --border-width: 0;
+  ion-button { --color: #b0b8c4; &.fav-active { --color: #f44336; } }
+}
 
 .search-wrapper {
   padding: 0 16px 12px; background: #f6f8fb;
@@ -12,17 +15,15 @@
 .routes-content { --background: #f6f8fb; }
 .routes-container { padding: 12px 16px; max-width: 420px; margin: 0 auto; }
 .loading-state { display: flex; justify-content: center; padding: 60px 0; }
-
 .empty-state {
   text-align: center; padding: 60px 20px;
   ion-icon { font-size: 56px; color: #dfe3e8; }
-  h3 { font-size: 17px; font-weight: 700; color: #1a2b3c; margin: 14px 0 4px; }
-  p { font-size: 13px; color: #8a95a3; }
+  h3 { font-size: 17px; font-weight: 700; color: #1a2b3c; margin: 14px 0 0; }
 }
 
 .route-card {
   background: #fff; border-radius: 14px; padding: 14px 16px;
-  margin-bottom: 10px; display: flex; align-items: center; gap: 12px;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 12px; cursor: pointer;
 
   .route-color { width: 4px; height: 40px; border-radius: 2px; flex-shrink: 0; }
   .route-info {
@@ -41,7 +42,51 @@
       ion-icon { font-size: 11px; }
     }
   }
-  .card-arrow { font-size: 18px; color: #dfe3e8; flex-shrink: 0; }
+
+  .route-actions {
+    display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+    ion-icon {
+      font-size: 20px; color: #c0c8d0; cursor: pointer;
+      &.fav-on { color: #f44336; }
+    }
+  }
+}
+
+// Horarios sheet
+.horarios-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.4); display: grid; place-items: end center;
+}
+
+.horarios-sheet {
+  width: 100%; max-width: 420px;
+  background: #fff; border-radius: 22px 22px 0 0;
+  padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
+
+  .sheet-bar { width: 36px; height: 4px; background: #dfe3e8; border-radius: 2px; margin: 0 auto 16px; }
+  h3 { font-size: 17px; font-weight: 700; color: #1a2b3c; margin: 0 0 12px; }
+
+  .rating-row {
+    display: flex; align-items: center; gap: 3px; margin-bottom: 16px;
+    ion-icon { font-size: 16px; color: #dfe3e8; &.star-on { color: #ffc107; } }
+    span { font-size: 13px; color: #8a95a3; margin-left: 6px; }
+  }
+}
+
+.horario-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.horario-item {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: #f6f8fb; border-radius: 10px;
+  .h-dia { font-size: 13px; font-weight: 600; color: #1a2b3c; min-width: 70px; }
+  .h-time { font-size: 13px; color: #5a6677; flex: 1; }
+  .h-freq { font-size: 11px; color: #00c853; font-weight: 600; }
+}
+
+.no-horarios { text-align: center; padding: 20px; color: #b0b8c4; font-size: 14px; margin-bottom: 16px; }
+
+.btn-close {
+  --border-radius: 12px; --border-color: #eef1f5; --color: #8a95a3;
+  font-weight: 600; font-size: 14px; height: 44px; text-transform: none;
 }
 
 .tab-bar {

@@ -50,6 +50,18 @@
   --background: #00c853; --border-radius: 12px; --box-shadow: none;
   font-weight: 700; font-size: 15px; height: 48px; text-transform: none; margin-top: 8px;
 }
+.settings-section {
+  margin-bottom: 16px;
+  .section-label { font-size: 13px; font-weight: 700; color: #1a2b3c; margin: 0 0 8px; }
+  .setting-item {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; border-radius: 12px; padding: 13px 16px; margin-bottom: 6px; cursor: pointer;
+    ion-icon { font-size: 18px; color: #8a95a3; }
+    span { flex: 1; font-size: 14px; color: #1a2b3c; }
+    ion-toggle { --track-background: #dfe3e8; --track-background-checked: #00c853; }
+  }
+}
+
 .btn-logout {
   --border-color: #e8eaed; --color: #8a95a3; --border-radius: 12px;
   font-weight: 500; font-size: 14px; height: 44px; text-transform: none; margin-top: 8px;

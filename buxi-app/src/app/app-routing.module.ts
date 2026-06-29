@@ -49,6 +49,11 @@ const routes: Routes = [
     canActivate: [AuthGuard],
   },
   {
+    path: 'empresa/dashboard',
+    loadChildren: () => import('./features/empresa/dashboard/dashboard.module').then(m => m.EmpresaDashboardPageModule),
+    canActivate: [AuthGuard],
+  },
+  {
     path: 'chofer/home',
     loadChildren: () => import('./features/chofer/home/chofer-home.module').then(m => m.ChoferHomePageModule),
     canActivate: [AuthGuard],

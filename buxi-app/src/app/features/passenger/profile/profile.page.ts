@@ -3,6 +3,7 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { SupabaseService } from '../../../core/services/supabase.service';
+import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 
 @Component({
@@ -16,6 +17,8 @@ export class ProfilePage implements OnInit {
   profileForm: FormGroup;
   loading = true;
   editing = false;
+  darkMode = false;
+  notificationsEnabled = true;
 
   provincias = [
     'San José', 'Alajuela', 'Cartago', 'Heredia',
@@ -25,6 +28,7 @@ export class ProfilePage implements OnInit {
   constructor(
     private fb: FormBuilder,
     private supabase: SupabaseService,
+    private features: FeaturesService,
     private router: Router,
     private alertCtrl: AlertController,
     private loadingCtrl: LoadingController,
@@ -46,67 +50,69 @@ export class ProfilePage implements OnInit {
           telefono: this.profile.telefono || '',
           provincia: this.profile.provincia || '',
         });
+        const prefs = await this.features.getPreferences(this.profile.id);
+        if (prefs) {
+          this.darkMode = prefs.dark_mode;
+          this.notificationsEnabled = prefs.notifications_enabled;
+          this.applyDarkMode(prefs.dark_mode);
+        }
       }
-    } catch {
-    } finally {
+    } catch {} finally {
       this.loading = false;
     }
   }
 
-  toggleEdit() {
-    this.editing = !this.editing;
-  }
+  toggleEdit() { this.editing = !this.editing; }
 
   async onSave() {
-    if (this.profileForm.invalid) {
-      this.profileForm.markAllAsTouched();
-      return;
-    }
-
+    if (this.profileForm.invalid) { this.profileForm.markAllAsTouched(); return; }
     const loading = await this.loadingCtrl.create({ message: 'Guardando...' });
     await loading.present();
-
     try {
-      const updates = this.profileForm.value;
-      this.profile = await this.supabase.updateProfile(updates);
+      this.profile = await this.supabase.updateProfile(this.profileForm.value);
       this.editing = false;
+      this.showToast('Perfil actualizado');
+    } catch { this.showToast('Error al guardar', 'danger'); }
+    finally { await loading.dismiss(); }
+  }
 
-      const toast = await this.toastCtrl.create({
-        message: 'Perfil actualizado',
-        duration: 2000,
-        color: 'success',
-        position: 'top',
-      });
-      await toast.present();
-    } catch {
-      const toast = await this.toastCtrl.create({
-        message: 'Error al guardar los cambios',
-        duration: 3000,
-        color: 'danger',
-        position: 'top',
-      });
-      await toast.present();
-    } finally {
-      await loading.dismiss();
+  async toggleDarkMode() {
+    this.darkMode = !this.darkMode;
+    this.applyDarkMode(this.darkMode);
+    if (this.profile) {
+      await this.features.savePreferences(this.profile.id, { dark_mode: this.darkMode });
     }
+  }
+
+  async toggleNotifications() {
+    this.notificationsEnabled = !this.notificationsEnabled;
+    if (this.profile) {
+      await this.features.savePreferences(this.profile.id, { notifications_enabled: this.notificationsEnabled });
+    }
+    this.showToast(this.notificationsEnabled ? 'Notificaciones activadas' : 'Notificaciones desactivadas');
+  }
+
+  private applyDarkMode(enabled: boolean) {
+    document.body.classList.toggle('dark', enabled);
   }
 
   async onLogout() {
     const alert = await this.alertCtrl.create({
       header: 'Cerrar sesión',
-      message: '¿Estás seguro que deseas cerrar sesión?',
+      message: '¿Estás seguro?',
       buttons: [
         { text: 'Cancelar', role: 'cancel' },
-        {
-          text: 'Cerrar sesión',
-          role: 'confirm',
-          handler: async () => {
-            await this.supabase.signOut();
-            this.router.navigate(['/auth/login'], { replaceUrl: true });
-          },
-        },
+        { text: 'Cerrar sesión', handler: async () => {
+          await this.supabase.signOut();
+          this.router.navigate(['/auth/login'], { replaceUrl: true });
+        }},
       ],
     });
     await alert.present();
+  }
+
+  private async showToast(msg: string, color = 'success') {
+    const t = await this.toastCtrl.create({ message: msg, duration: 2000, color, position: 'top' });
+    await t.present();
   }
 }

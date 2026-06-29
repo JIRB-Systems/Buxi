@@ -46,3 +46,40 @@ ion-select {
 ion-loading {
   --spinner-color: #00c853;
 }
+
+// Dark mode
+body.dark {
+  --ion-background-color: #0f1720;
+  --ion-text-color: #e4e8ed;
+  --ion-toolbar-background: #0f1720;
+  --ion-item-background: #1a2432;
+  --ion-card-background: #1a2432;
+
+  ion-content { --background: #0f1720; }
+  ion-toolbar { --background: #0f1720; --color: #e4e8ed; }
+  ion-header { --ion-toolbar-background: #0f1720; }
+
+  .form-card, .info-section, .route-card, .bus-sheet, .nav-bar,
+  .search-pill, .avatar-btn, .notif-btn, .fab-locate,
+  .settings-section .setting-item, .stat-card, .card-item, .bus-row,
+  .horarios-sheet, .loading-pill, .info-card, .profile-card,
+  .welcome-card { background: #1a2432 !important; }
+
+  .tab-bar { background: #141d28 !important; }
+
+  h1, h2, h3, h4, strong, .page-title, .section-title,
+  .stat-num { color: #e4e8ed !important; }
+
+  p, span, label, .route-empresa, .bus-row-info span,
+  .sheet-info span, .card-body span { color: #8a95a3 !important; }
+
+  .input-wrap, .field .input-wrap {
+    background: #141d28 !important;
+    border-color: #2a3545 !important;
+  }
+
+  .search-wrapper { background: #0f1720 !important; }
+  .custom-searchbar { --background: #1a2432 !important; }
+
+  .top-overlay .search-pill span { color: #8a95a3 !important; }
+}

@@ -96,7 +96,21 @@
         </ion-button>
       </form>
 
-      <!-- Logout -->
+      <!-- Settings -->
+      <div class="settings-section">
+        <h3 class="section-label">Ajustes</h3>
+        <div class="setting-item" (click)="toggleDarkMode()">
+          <ion-icon name="moon-outline"></ion-icon>
+          <span>Modo oscuro</span>
+          <ion-toggle [checked]="darkMode" (click)="$event.stopPropagation()"></ion-toggle>
+        </div>
+        <div class="setting-item" (click)="toggleNotifications()">
+          <ion-icon name="notifications-outline"></ion-icon>
+          <span>Notificaciones</span>
+          <ion-toggle [checked]="notificationsEnabled" (click)="$event.stopPropagation()"></ion-toggle>
+        </div>
+      </div>
+
       <ion-button expand="block" fill="outline" class="btn-logout" (click)="onLogout()">
         <ion-icon name="log-out-outline" slot="start"></ion-icon>
         Cerrar sesión
