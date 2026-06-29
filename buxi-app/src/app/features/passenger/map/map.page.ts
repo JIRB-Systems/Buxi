@@ -1,12 +1,12 @@
 import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { ViewWillEnter } from '@ionic/angular';
 import * as L from 'leaflet';
 import { Subscription } from 'rxjs';
 import { BusTrackingService } from '../../../core/services/bus-tracking.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { Geolocation } from '@capacitor/geolocation';
-import { Platform } from '@ionic/angular';
 
 @Component({
   selector: 'app-map',
@@ -14,12 +14,12 @@ import { Platform } from '@ionic/angular';
   styleUrls: ['./map.page.scss'],
   standalone: false,
 })
-export class MapPage implements OnInit, AfterViewInit, OnDestroy {
+export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter {
   private map!: L.Map;
+  private mapReady = false;
   private busMarkers = new Map<string, L.Marker>();
   private userMarker: L.Marker | null = null;
-  private routePolyline: L.Polyline | null = null;
-  private stopMarkers: L.Marker[] = [];
+  private routeLayers: L.Layer[] = [];
   private locationSub: Subscription | null = null;
   private watchId: string | null = null;
 
@@ -30,7 +30,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
 
   activeRuta: Ruta | null = null;
   activeParadas: Parada[] = [];
-  private routeId: string | null = null;
 
   get selectedBusPlaca(): string {
     return (this.selectedBus?.bus as any)?.placa || 'Bus';
@@ -63,14 +62,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
     private supabase: SupabaseService,
     private router: Router,
     private route: ActivatedRoute,
-    private platform: Platform,
   ) {}
 
   async ngOnInit() {
-    this.route.queryParams.subscribe(params => {
-      this.routeId = params['ruta'] || null;
-    });
-
     try {
       const profile = await this.supabase.getProfile();
       if (profile) {
@@ -80,7 +74,23 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
-    setTimeout(() => this.initMap(), 100);
+    setTimeout(() => this.initMap(), 150);
+  }
+
+  ionViewWillEnter() {
+    const rutaId = this.route.snapshot.queryParams['ruta'] || null;
+
+    if (this.mapReady) {
+      this.clearRouteLayers();
+
+      if (rutaId) {
+        this.loadRoute(rutaId);
+      } else {
+        this.activeRuta = null;
+        this.activeParadas = [];
+        this.loadBusLocations();
+      }
+    }
   }
 
   private async initMap() {
@@ -95,8 +105,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
       maxZoom: 19,
     }).addTo(this.map);
 
-    if (this.routeId) {
-      await this.loadRoute(this.routeId);
+    this.mapReady = true;
+
+    const rutaId = this.route.snapshot.queryParams['ruta'] || null;
+    if (rutaId) {
+      await this.loadRoute(rutaId);
     } else {
       await this.loadBusLocations();
     }
@@ -107,17 +120,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async loadRoute(rutaId: string) {
+    this.loading = true;
     try {
       const [ruta, paradas] = await Promise.all([
         this.tracking.getRuta(rutaId),
         this.tracking.getParadas(rutaId),
       ]);
 
-      if (!ruta || paradas.length === 0) return;
+      if (!ruta || paradas.length === 0) {
+        this.loading = false;
+        return;
+      }
 
       this.activeRuta = ruta;
       this.activeParadas = paradas;
-
       this.drawRoute(paradas, ruta.color);
 
       const locations = await this.tracking.getLocationsByRuta(rutaId);
@@ -129,28 +145,22 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
       this.activeBusCount = locMap.size;
       this.tracking['_busLocations'].next(locMap);
     } catch {}
+    this.loading = false;
   }
 
   private drawRoute(paradas: Parada[], color: string) {
+    const c = color || '#00c853';
     const coords: L.LatLngExpression[] = paradas.map(p => [p.latitud, p.longitud]);
 
-    this.routePolyline = L.polyline(coords, {
-      color: color || '#00c853',
-      weight: 5,
-      opacity: 0.7,
-      lineCap: 'round',
-      lineJoin: 'round',
-      dashArray: '0',
+    const bgLine = L.polyline(coords, {
+      color: c, weight: 10, opacity: 0.15, lineCap: 'round', lineJoin: 'round',
     }).addTo(this.map);
+    this.routeLayers.push(bgLine);
 
-    // Línea de fondo más gruesa para efecto de contorno
-    L.polyline(coords, {
-      color: color || '#00c853',
-      weight: 10,
-      opacity: 0.15,
-      lineCap: 'round',
-      lineJoin: 'round',
+    const mainLine = L.polyline(coords, {
+      color: c, weight: 5, opacity: 0.8, lineCap: 'round', lineJoin: 'round',
     }).addTo(this.map);
+    this.routeLayers.push(mainLine);
 
     paradas.forEach((parada, i) => {
       const isTerminal = i === 0 || i === paradas.length - 1;
@@ -158,8 +168,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
       const stopIcon = L.divIcon({
         className: 'stop-marker',
         html: isTerminal
-          ? `<div class="stop-terminal" style="border-color:${color}"><div class="stop-inner" style="background:${color}"></div></div>`
-          : `<div class="stop-dot" style="border-color:${color}"></div>`,
+          ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div>`
+          : `<div class="stop-dot" style="border-color:${c}"></div>`,
         iconSize: isTerminal ? [18, 18] : [12, 12],
         iconAnchor: isTerminal ? [9, 9] : [6, 6],
       });
@@ -173,30 +183,28 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
           className: 'stop-tooltip',
         });
 
-      this.stopMarkers.push(marker);
+      this.routeLayers.push(marker);
     });
 
-    this.map.fitBounds(this.routePolyline.getBounds(), { padding: [60, 40] });
+    this.map.fitBounds(mainLine.getBounds(), { padding: [60, 60] });
   }
 
-  clearRoute() {
-    this.activeRuta = null;
-    this.activeParadas = [];
-    this.routeId = null;
-
-    if (this.routePolyline) {
-      this.map.removeLayer(this.routePolyline);
-      this.routePolyline = null;
-    }
-
-    this.stopMarkers.forEach(m => this.map.removeLayer(m));
-    this.stopMarkers = [];
+  private clearRouteLayers() {
+    this.routeLayers.forEach(layer => this.map.removeLayer(layer));
+    this.routeLayers = [];
 
     this.busMarkers.forEach(m => this.map.removeLayer(m));
     this.busMarkers.clear();
+    this.activeBusCount = 0;
+    this.selectedBus = null;
+  }
 
-    this.router.navigate(['/passenger/map'], { replaceUrl: true });
+  clearRoute() {
+    this.clearRouteLayers();
+    this.activeRuta = null;
+    this.activeParadas = [];
 
+    this.router.navigate(['/passenger/map'], { replaceUrl: true, queryParams: {} });
     this.loadBusLocations();
   }
 
@@ -238,7 +246,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy {
       if (permission.location === 'denied') return;
       const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
       this.updateUserPosition(position.coords.latitude, position.coords.longitude);
-      if (!this.routeId) {
+      if (!this.activeRuta) {
         this.map.setView([position.coords.latitude, position.coords.longitude], 15);
       }
       this.watchId = await Geolocation.watchPosition(
