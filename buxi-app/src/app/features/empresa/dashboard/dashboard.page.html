@@ -1,139 +1,118 @@
-<ion-header class="ion-no-border">
-  <ion-toolbar class="dash-toolbar">
-    <ion-title>Panel de empresa</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="onLogout()">
-        <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
+<ion-content [fullscreen]="true" class="emp-shell" [scrollY]="false">
+  <div class="layout" [class.sidebar-closed]="!sidebarOpen">
 
-<ion-content class="dash-content">
-  <div class="dash-container">
-
-    <div *ngIf="loading" class="loading-state">
-      <ion-spinner name="crescent"></ion-spinner>
-    </div>
-
-    <div *ngIf="!loading">
-      <!-- Tabs -->
-      <div class="tab-row">
-        <div class="tab" [class.active]="activeTab==='overview'" (click)="switchTab('overview')">Resumen</div>
-        <div class="tab" [class.active]="activeTab==='rutas'" (click)="switchTab('rutas')">Rutas</div>
-        <div class="tab" [class.active]="activeTab==='buses'" (click)="switchTab('buses')">Buses</div>
-        <div class="tab" [class.active]="activeTab==='choferes'" (click)="switchTab('choferes')">Choferes</div>
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" fill="white" width="22" height="22"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>
+        </div>
+        <div class="logo-text" *ngIf="sidebarOpen">
+          <span class="logo-name">Buxi</span>
+          <span class="logo-sub">Empresa</span>
+        </div>
       </div>
 
-      <!-- OVERVIEW -->
-      <div *ngIf="activeTab==='overview'" class="tab-content">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(0,200,83,0.1)">
-              <ion-icon name="bus" style="color:#00c853"></ion-icon>
+      <nav class="sidebar-nav">
+        <div class="nav-link" *ngFor="let item of menuItems" [class.active]="activeTab===item.id" (click)="switchTab(item.id)">
+          <ion-icon [name]="activeTab===item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
+          <span *ngIf="sidebarOpen">{{ item.label }}</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="nav-link logout" (click)="onLogout()">
+          <ion-icon name="log-out-outline"></ion-icon>
+          <span *ngIf="sidebarOpen">Cerrar sesión</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="topbar">
+        <ion-icon name="menu-outline" class="menu-toggle" (click)="toggleSidebar()"></ion-icon>
+        <h1>{{ activeTab==='overview'?'Resumen':activeTab==='rutas'?'Rutas':activeTab==='buses'?'Buses':'Choferes' }}</h1>
+        <div class="topbar-user" *ngIf="profile">
+          <span>{{ profile.nombre_completo }}</span>
+        </div>
+      </div>
+
+      <div class="content-area">
+        <div *ngIf="loading" class="loading-state"><ion-spinner name="crescent"></ion-spinner></div>
+
+        <div *ngIf="!loading">
+          <!-- OVERVIEW -->
+          <div *ngIf="activeTab==='overview'">
+            <div class="stats-row">
+              <div class="stat-card green"><div class="sc-val">{{ stats.buses }}</div><div class="sc-lbl">Buses</div></div>
+              <div class="stat-card blue"><div class="sc-val">{{ stats.rutas }}</div><div class="sc-lbl">Rutas</div></div>
+              <div class="stat-card purple"><div class="sc-val">{{ stats.choferes }}</div><div class="sc-lbl">Choferes</div></div>
+              <div class="stat-card orange"><div class="sc-val">{{ stats.busesEnRuta }}</div><div class="sc-lbl">En ruta</div></div>
             </div>
-            <div class="stat-num">{{ stats.buses }}</div>
-            <div class="stat-label">Buses</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(33,150,243,0.1)">
-              <ion-icon name="git-branch-outline" style="color:#2196f3"></ion-icon>
+
+            <div class="panel">
+              <div class="panel-header"><h3>Buses</h3></div>
+              <div class="table-row" *ngFor="let bus of buses">
+                <div class="dot" [style.background]="getBusStatusColor(bus.estado)"></div>
+                <strong>{{ bus.placa }}</strong>
+                <span class="muted flex1">{{ $any(bus.ruta)?.nombre || 'Sin ruta' }}</span>
+                <span class="badge" [style.color]="getBusStatusColor(bus.estado)">{{ getBusStatus(bus.estado) }}</span>
+              </div>
+              <div class="empty" *ngIf="buses.length===0">No hay buses</div>
             </div>
-            <div class="stat-num">{{ stats.rutas }}</div>
-            <div class="stat-label">Rutas</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(156,39,176,0.1)">
-              <ion-icon name="people" style="color:#9c27b0"></ion-icon>
+
+          <!-- RUTAS -->
+          <div *ngIf="activeTab==='rutas'">
+            <ion-button class="btn-primary" (click)="addRuta()"><ion-icon name="add" slot="start"></ion-icon>Nueva ruta</ion-button>
+            <div class="panel">
+              <div class="table-row" *ngFor="let r of rutas">
+                <div class="color-pip" [style.background]="r.color"></div>
+                <strong>{{ r.nombre }}</strong>
+                <span class="muted flex1">{{ r.origen }} → {{ r.destino }}</span>
+                <span class="badge" [style.color]="r.estado==='activa'?'#00c853':'#aaa'">{{ r.estado }}</span>
+                <ion-icon name="trash-outline" class="action-icon danger" (click)="deleteRuta(r)"></ion-icon>
+              </div>
+              <div class="empty" *ngIf="rutas.length===0">No hay rutas</div>
             </div>
-            <div class="stat-num">{{ stats.choferes }}</div>
-            <div class="stat-label">Choferes</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-icon" style="background:rgba(255,152,0,0.1)">
-              <ion-icon name="navigate" style="color:#ff9800"></ion-icon>
+
+          <!-- BUSES -->
+          <div *ngIf="activeTab==='buses'">
+            <ion-button class="btn-primary" (click)="addBus()"><ion-icon name="add" slot="start"></ion-icon>Nuevo bus</ion-button>
+            <div class="panel">
+              <div class="table-row" *ngFor="let bus of buses">
+                <div class="dot" [style.background]="getBusStatusColor(bus.estado)"></div>
+                <div class="row-info">
+                  <strong>{{ bus.placa }}</strong>
+                  <span class="muted">Ruta: {{ $any(bus.ruta)?.nombre || '-' }} · Chofer: {{ bus.chofer?.nombre_completo || '-' }}</span>
+                </div>
+                <div class="row-actions">
+                  <ion-icon name="git-branch-outline" class="action-icon" (click)="assignBusRoute(bus)"></ion-icon>
+                  <ion-icon name="person-outline" class="action-icon" (click)="assignBusChofer(bus)"></ion-icon>
+                  <ion-icon name="trash-outline" class="action-icon danger" (click)="deleteBus(bus)"></ion-icon>
+                </div>
+              </div>
+              <div class="empty" *ngIf="buses.length===0">No hay buses</div>
             </div>
-            <div class="stat-num">{{ stats.busesEnRuta }}</div>
-            <div class="stat-label">En ruta</div>
           </div>
-        </div>
 
-        <h3 class="section-title">Buses activos</h3>
-        <div class="list-empty" *ngIf="buses.length === 0">No hay buses registrados</div>
-        <div class="bus-row" *ngFor="let bus of buses">
-          <div class="bus-status-dot" [style.background]="getBusStatusColor(bus.estado)"></div>
-          <div class="bus-row-info">
-            <strong>{{ bus.placa }}</strong>
-            <span>{{ $any(bus.ruta)?.nombre || 'Sin ruta' }}</span>
-          </div>
-          <span class="bus-row-status" [style.color]="getBusStatusColor(bus.estado)">{{ getBusStatus(bus.estado) }}</span>
-        </div>
-      </div>
-
-      <!-- RUTAS -->
-      <div *ngIf="activeTab==='rutas'" class="tab-content">
-        <ion-button expand="block" class="btn-add" (click)="addRuta()">
-          <ion-icon name="add-outline" slot="start"></ion-icon> Nueva ruta
-        </ion-button>
-        <div class="list-empty" *ngIf="rutas.length === 0">No hay rutas creadas</div>
-        <div class="card-item" *ngFor="let ruta of rutas">
-          <div class="card-color" [style.background]="ruta.color"></div>
-          <div class="card-body">
-            <strong>{{ ruta.nombre }}</strong>
-            <span>{{ ruta.origen }} → {{ ruta.destino }}</span>
-            <span class="card-status" [style.color]="ruta.estado==='activa'?'#00c853':'#9aa5b4'">{{ ruta.estado }}</span>
-          </div>
-          <ion-button fill="clear" size="small" color="danger" (click)="deleteRuta(ruta)">
-            <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
-          </ion-button>
-        </div>
-      </div>
-
-      <!-- BUSES -->
-      <div *ngIf="activeTab==='buses'" class="tab-content">
-        <ion-button expand="block" class="btn-add" (click)="addBus()">
-          <ion-icon name="add-outline" slot="start"></ion-icon> Nuevo bus
-        </ion-button>
-        <div class="list-empty" *ngIf="buses.length === 0">No hay buses registrados</div>
-        <div class="card-item" *ngFor="let bus of buses">
-          <div class="card-color" [style.background]="getBusStatusColor(bus.estado)"></div>
-          <div class="card-body">
-            <strong>{{ bus.placa }} <span class="unit-badge" *ngIf="bus.numero_unidad">{{ bus.numero_unidad }}</span></strong>
-            <span>Ruta: {{ $any(bus.ruta)?.nombre || 'Sin asignar' }}</span>
-            <span>Chofer: {{ $any(bus.chofer)?.nombre_completo || 'Sin asignar' }}</span>
-          </div>
-          <div class="card-actions">
-            <ion-button fill="clear" size="small" (click)="assignBusRoute(bus)">
-              <ion-icon name="git-branch-outline" slot="icon-only"></ion-icon>
-            </ion-button>
-            <ion-button fill="clear" size="small" (click)="assignBusChofer(bus)">
-              <ion-icon name="person-outline" slot="icon-only"></ion-icon>
-            </ion-button>
-            <ion-button fill="clear" size="small" color="danger" (click)="deleteBus(bus)">
-              <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
-            </ion-button>
+          <!-- CHOFERES -->
+          <div *ngIf="activeTab==='choferes'">
+            <ion-button class="btn-primary" (click)="addChofer()"><ion-icon name="add" slot="start"></ion-icon>Nuevo chofer</ion-button>
+            <div class="panel">
+              <div class="table-row" *ngFor="let c of choferes">
+                <div class="avatar-mini"><ion-icon name="person"></ion-icon></div>
+                <div class="row-info">
+                  <strong>{{ c.nombre_completo }}</strong>
+                  <span class="muted">{{ c.correo }}</span>
+                </div>
+                <span class="badge" [style.color]="c.estado==='activo'?'#00c853':'#aaa'">{{ c.estado }}</span>
+              </div>
+              <div class="empty" *ngIf="choferes.length===0">No hay choferes</div>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- CHOFERES -->
-      <div *ngIf="activeTab==='choferes'" class="tab-content">
-        <ion-button expand="block" class="btn-add" (click)="addChofer()">
-          <ion-icon name="add-outline" slot="start"></ion-icon> Nuevo chofer
-        </ion-button>
-        <div class="list-empty" *ngIf="choferes.length === 0">No hay choferes registrados</div>
-        <div class="card-item" *ngFor="let chofer of choferes">
-          <div class="card-avatar">
-            <ion-icon name="person"></ion-icon>
-          </div>
-          <div class="card-body">
-            <strong>{{ chofer.nombre_completo }}</strong>
-            <span>{{ chofer.correo }}</span>
-            <span *ngIf="chofer.telefono">Tel: {{ chofer.telefono }}</span>
-          </div>
-          <span class="card-status" [style.color]="chofer.estado==='activo'?'#00c853':'#9aa5b4'">{{ chofer.estado }}</span>
-        </div>
-      </div>
-    </div>
+    </main>
   </div>
 </ion-content>

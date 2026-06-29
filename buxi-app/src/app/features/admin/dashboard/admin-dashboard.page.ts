@@ -445,23 +445,45 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async approveSolicitud(sol: any) {
-    const loading = await this.loadingCtrl.create({ message: 'Creando empresa...' });
-    await loading.present();
-    try {
-      await this.admin.createEmpresa({
-        nombre: sol.nombre_empresa,
-        cedula_juridica: sol.cedula_juridica || null,
-        telefono: sol.telefono || null,
-        email: sol.email || null,
-        logo_url: sol.logo_url || null,
-        estado: 'activo',
-      });
-      await this.admin.updateSolicitud(sol.id, 'aprobada');
-      await this.logAction('Aprobar solicitud', sol.nombre_empresa, 'solicitud', sol.id);
-      await this.loadData();
-      this.showToast(`Empresa "${sol.nombre_empresa}" creada`);
-    } catch { this.showToast('Error al aprobar', 'danger'); }
-    await loading.dismiss();
+    const alert = await this.alertCtrl.create({
+      header: 'Aprobar solicitud',
+      message: `Se creará la empresa "${sol.nombre_empresa}" y una cuenta admin_empresa para ${sol.email}`,
+      inputs: [
+        { name: 'password', placeholder: 'Contraseña temporal para el admin', type: 'password', value: 'Buxi2024!' },
+      ],
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Aprobar y crear', handler: async (data) => {
+          const loading = await this.loadingCtrl.create({ message: 'Creando empresa y cuenta...' });
+          await loading.present();
+          try {
+            const empresa = await this.admin.createEmpresa({
+              nombre: sol.nombre_empresa,
+              cedula_juridica: sol.cedula_juridica || null,
+              telefono: sol.telefono || null,
+              email: sol.email || null,
+              logo_url: sol.logo_url || null,
+              estado: 'activo',
+            });
+
+            await this.admin.createAdminEmpresa(
+              sol.email, data.password || 'Buxi2024!',
+              sol.nombre_contacto, empresa.id
+            );
+
+            await this.admin.updateSolicitud(sol.id, 'aprobada');
+            await this.logAction('Aprobar solicitud', `${sol.nombre_empresa} + cuenta ${sol.email}`, 'solicitud', sol.id);
+            await this.loadData();
+            this.showToast(`Empresa y cuenta admin creadas. Credenciales: ${sol.email}`);
+          } catch (e: any) {
+            this.showToast(e?.message || 'Error al aprobar', 'danger');
+          }
+          await loading.dismiss();
+          return true;
+        }},
+      ],
+    });
+    await alert.present();
   }
 
   async rejectSolicitud(sol: any) {

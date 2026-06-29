@@ -16,6 +16,15 @@ export class EmpresaDashboardPage implements OnInit {
   profile: UserProfile | null = null;
   activeTab = 'overview';
   loading = true;
+  sidebarOpen = true;
+  empresaNombre = '';
+
+  menuItems = [
+    { id: 'overview', icon: 'grid-outline', label: 'Resumen' },
+    { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
+    { id: 'buses', icon: 'bus-outline', label: 'Buses' },
+    { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
+  ];
 
   stats = { buses: 0, rutas: 0, choferes: 0, busesEnRuta: 0 };
   rutas: Ruta[] = [];
@@ -57,9 +66,8 @@ export class EmpresaDashboardPage implements OnInit {
     this.choferes = choferes;
   }
 
-  switchTab(tab: string) {
-    this.activeTab = tab;
-  }
+  switchTab(tab: string) { this.activeTab = tab; }
+  toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
   // ---- RUTAS ----
   async addRuta() {

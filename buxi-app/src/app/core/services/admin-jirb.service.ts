@@ -275,6 +275,20 @@ export class AdminJirbService {
     if (error) throw error;
   }
 
+  // ---- CREAR ADMIN EMPRESA ----
+  async createAdminEmpresa(email: string, password: string, nombre: string, empresaId: string): Promise<void> {
+    const { data, error } = await this.supabase.auth.signUp({
+      email, password,
+      options: { data: { nombre_completo: nombre } },
+    });
+    if (error) throw error;
+    if (data.user) {
+      await this.supabase.from('profiles').update({
+        rol: 'admin_empresa', empresa_id: empresaId,
+      }).eq('id', data.user.id);
+    }
+  }
+
   // ---- SOLICITUDES ----
   async getSolicitudes(): Promise<any[]> {
     const { data, error } = await this.supabase.from('solicitudes_empresa').select('*').order('created_at', { ascending: false });
