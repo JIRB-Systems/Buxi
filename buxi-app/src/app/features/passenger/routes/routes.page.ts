@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { BusTrackingService } from '../../../core/services/bus-tracking.service';
 import { Ruta } from '../../../core/models/transport.model';
 
@@ -14,7 +15,7 @@ export class RoutesPage implements OnInit {
   loading = true;
   searchText = '';
 
-  constructor(private tracking: BusTrackingService) {}
+  constructor(private tracking: BusTrackingService, private router: Router) {}
 
   async ngOnInit() {
     try {
@@ -34,5 +35,9 @@ export class RoutesPage implements OnInit {
       r.origen.toLowerCase().includes(query) ||
       r.destino.toLowerCase().includes(query)
     );
+  }
+
+  openRoute(ruta: Ruta) {
+    this.router.navigate(['/passenger/map'], { queryParams: { ruta: ruta.id } });
   }
 }

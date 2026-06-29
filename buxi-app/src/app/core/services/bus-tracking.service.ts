@@ -44,6 +44,47 @@ export class BusTrackingService implements OnDestroy {
     return data as Bus[];
   }
 
+  async getRuta(rutaId: string): Promise<Ruta | null> {
+    const { data, error } = await this.supabase
+      .from('rutas')
+      .select('*, empresa:empresas(nombre)')
+      .eq('id', rutaId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as Ruta | null;
+  }
+
+  async getBusesByRuta(rutaId: string): Promise<Bus[]> {
+    const { data, error } = await this.supabase
+      .from('buses')
+      .select('*, ruta:rutas(nombre, origen, destino, color)')
+      .eq('ruta_id', rutaId)
+      .in('estado', ['activo', 'en_ruta']);
+    if (error) throw error;
+    return data as Bus[];
+  }
+
+  async getLocationsByRuta(rutaId: string): Promise<BusLocation[]> {
+    const buses = await this.getBusesByRuta(rutaId);
+    const busIds = buses.map(b => b.id);
+    if (busIds.length === 0) return [];
+
+    const { data, error } = await this.supabase
+      .from('bus_locations')
+      .select('*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color))')
+      .in('bus_id', busIds)
+      .order('timestamp', { ascending: false });
+    if (error) throw error;
+
+    const latest = new Map<string, BusLocation>();
+    for (const loc of (data as BusLocation[])) {
+      if (!latest.has(loc.bus_id)) {
+        latest.set(loc.bus_id, loc);
+      }
+    }
+    return Array.from(latest.values());
+  }
+
   async getLatestLocations(): Promise<BusLocation[]> {
     const { data, error } = await this.supabase
       .from('bus_locations')

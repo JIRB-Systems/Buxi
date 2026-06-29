@@ -61,6 +61,64 @@
   ion-icon { font-size: 19px; color: #1a2b3c; }
 }
 
+// ---- ROUTE HEADER ----
+.route-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 10px 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+
+  .route-back {
+    width: 36px; height: 36px;
+    display: grid; place-items: center;
+    cursor: pointer;
+    ion-icon { font-size: 20px; color: #1a2b3c; }
+  }
+
+  .route-header-info {
+    flex: 1;
+    display: flex; flex-direction: column;
+    strong { font-size: 14px; color: #1a2b3c; letter-spacing: -0.2px; }
+    span { font-size: 11px; color: #8a95a3; margin-top: 1px; }
+  }
+
+  .route-color-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+}
+
+// ---- ROUTE CHIP ----
+.route-chip {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 20px) + 78px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #1a2b3c;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  .live-dot {
+    width: 7px; height: 7px;
+    background: #00e676;
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+  }
+
+  .chip-sep { opacity: 0.4; }
+}
+
 // ---- LIVE CHIP ----
 .live-chip {
   position: absolute;
@@ -264,4 +322,42 @@
   }
 
   .leaflet-control-zoom { display: none !important; }
+
+  // Stop markers
+  .stop-dot {
+    width: 10px; height: 10px;
+    background: #fff;
+    border: 2.5px solid #00c853;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+
+  .stop-terminal {
+    width: 16px; height: 16px;
+    background: #fff;
+    border: 2.5px solid #00c853;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+
+    .stop-inner {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+  }
+
+  .stop-tooltip {
+    background: #1a2b3c;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+
+    &::before {
+      border-top-color: #1a2b3c !important;
+    }
+  }
 }

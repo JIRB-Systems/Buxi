@@ -2,9 +2,10 @@
 
   <div id="map"></div>
 
-  <!-- Top: avatar + search -->
+  <!-- Top: avatar + search / route info -->
   <div class="top-overlay">
-    <div class="top-row">
+    <!-- Normal mode -->
+    <div class="top-row" *ngIf="!activeRuta">
       <div class="avatar-btn" routerLink="/passenger/profile">
         <ion-icon name="person"></ion-icon>
       </div>
@@ -16,12 +17,32 @@
         <ion-icon name="notifications-outline"></ion-icon>
       </div>
     </div>
+
+    <!-- Route active mode -->
+    <div class="route-header" *ngIf="activeRuta">
+      <div class="route-back" (click)="clearRoute()">
+        <ion-icon name="chevron-back"></ion-icon>
+      </div>
+      <div class="route-header-info">
+        <strong>{{ activeRuta.nombre }}</strong>
+        <span>{{ activeRuta.origen }} → {{ activeRuta.destino }}</span>
+      </div>
+      <div class="route-color-dot" [style.background]="activeRuta.color"></div>
+    </div>
   </div>
 
   <!-- Live chip -->
-  <div class="live-chip" *ngIf="activeBusCount > 0">
+  <div class="live-chip" *ngIf="activeBusCount > 0 && !activeRuta">
     <span class="live-dot"></span>
     {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
+  </div>
+
+  <!-- Route info chip -->
+  <div class="route-chip" *ngIf="activeRuta">
+    <span class="live-dot"></span>
+    {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en esta ruta
+    <span class="chip-sep">·</span>
+    {{ activeParadas.length }} paradas
   </div>
 
   <!-- FAB -->
@@ -65,7 +86,7 @@
   </div>
 
   <!-- Nav bar -->
-  <div class="nav-bar" *ngIf="!selectedBus">
+  <div class="nav-bar" *ngIf="!selectedBus && !activeRuta">
     <div class="nav-item" routerLink="/passenger/home">
       <ion-icon name="home-outline"></ion-icon>
       <span>Inicio</span>
