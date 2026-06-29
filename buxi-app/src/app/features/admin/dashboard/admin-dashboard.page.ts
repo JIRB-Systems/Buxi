@@ -36,6 +36,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
     { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
     { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
+    { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
     { id: 'planes', icon: 'card-outline', label: 'Planes' },
     { id: 'config', icon: 'settings-outline', label: 'Configuración' },
   ];
@@ -58,6 +59,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   planes: Plan[] = [];
   suscripciones: Suscripcion[] = [];
   suscripcionMap = new Map<string, Suscripcion>();
+  solicitudes: any[] = [];
 
   filteredUsers: UserProfile[] = [];
   userRoleFilter = 'todos';
@@ -80,7 +82,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async loadData() {
-    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, planes, suscripciones] = await Promise.all([
+    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, planes, suscripciones, solicitudes] = await Promise.all([
       this.admin.getGlobalStats(),
       this.admin.getEmpresas(),
       this.admin.getAllRutas(),
@@ -93,6 +95,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getAllLiveLocations(),
       this.admin.getPlanes(),
       this.admin.getSuscripciones(),
+      this.admin.getSolicitudes(),
     ]);
     this.stats = stats;
     this.empresas = empresas;
@@ -106,6 +109,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.liveLocations = liveLocations;
     this.planes = planes;
     this.suscripciones = suscripciones;
+    this.solicitudes = solicitudes;
     this.suscripcionMap.clear();
     for (const s of suscripciones) {
       this.suscripcionMap.set(s.empresa_id, s);
@@ -436,6 +440,36 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     return Array.from({ length: 5 }, (_, i) => i < n ? 1 : 0);
   }
 
+  get pendingSolicitudes(): number {
+    return this.solicitudes.filter(s => s.estado === 'pendiente').length;
+  }
+
+  async approveSolicitud(sol: any) {
+    const loading = await this.loadingCtrl.create({ message: 'Creando empresa...' });
+    await loading.present();
+    try {
+      await this.admin.createEmpresa({
+        nombre: sol.nombre_empresa,
+        cedula_juridica: sol.cedula_juridica || null,
+        telefono: sol.telefono || null,
+        email: sol.email || null,
+        estado: 'activo',
+      });
+      await this.admin.updateSolicitud(sol.id, 'aprobada');
+      await this.logAction('Aprobar solicitud', sol.nombre_empresa, 'solicitud', sol.id);
+      await this.loadData();
+      this.showToast(`Empresa "${sol.nombre_empresa}" creada`);
+    } catch { this.showToast('Error al aprobar', 'danger'); }
+    await loading.dismiss();
+  }
+
+  async rejectSolicitud(sol: any) {
+    await this.admin.updateSolicitud(sol.id, 'rechazada');
+    await this.logAction('Rechazar solicitud', sol.nombre_empresa, 'solicitud', sol.id);
+    await this.loadData();
+    this.showToast('Solicitud rechazada');
+  }
+
   getEmpresaPlan(empresaId: string): string {
     const sub = this.suscripcionMap.get(empresaId);
     return (sub?.plan as any)?.nombre || 'Sin plan';
@@ -489,7 +523,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       empresas: 'Gestión de empresas', rutas: 'Gestión de rutas',
       buses: 'Gestión de buses', usuarios: 'Gestión de usuarios',
       viajes: 'Historial de viajes', calificaciones: 'Reseñas y calificaciones',
-      logs: 'Registro de actividad', planes: 'Planes y suscripciones',
+      solicitudes: 'Solicitudes de empresas', logs: 'Registro de actividad', planes: 'Planes y suscripciones',
       config: 'Configuración del sistema',
     };
     return titles[this.activeTab] || '';

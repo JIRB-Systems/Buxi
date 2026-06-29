@@ -1,0 +1,80 @@
+<ion-content [fullscreen]="true" class="req-content" [scrollY]="true">
+  <div class="req-wrapper">
+
+    <ion-button fill="clear" routerLink="/auth/login" class="back-btn">
+      <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
+    </ion-button>
+
+    <!-- Formulario -->
+    <div *ngIf="!submitted" class="req-body">
+      <div class="req-icon">
+        <ion-icon name="business"></ion-icon>
+      </div>
+      <h2>Solicitar acceso empresarial</h2>
+      <p>Completa el formulario y nuestro equipo se pondrá en contacto contigo para activar tu empresa en Buxi.</p>
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="field">
+          <label>Nombre de la empresa *</label>
+          <div class="input-wrap">
+            <ion-input formControlName="nombre_empresa" placeholder="Transportes ejemplo S.A."></ion-input>
+          </div>
+          <span class="err" *ngIf="form.get('nombre_empresa')?.touched && form.get('nombre_empresa')?.hasError('required')">Obligatorio</span>
+        </div>
+
+        <div class="field">
+          <label>Cédula jurídica <span class="opt">(opcional)</span></label>
+          <div class="input-wrap">
+            <ion-input formControlName="cedula_juridica" placeholder="3-101-XXXXXX"></ion-input>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Persona de contacto *</label>
+          <div class="input-wrap">
+            <ion-input formControlName="nombre_contacto" placeholder="Nombre completo"></ion-input>
+          </div>
+          <span class="err" *ngIf="form.get('nombre_contacto')?.touched && form.get('nombre_contacto')?.hasError('required')">Obligatorio</span>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label>Correo *</label>
+            <div class="input-wrap">
+              <ion-input formControlName="email" type="email" placeholder="correo@empresa.cr"></ion-input>
+            </div>
+            <span class="err" *ngIf="form.get('email')?.touched && form.get('email')?.hasError('email')">Correo no válido</span>
+          </div>
+          <div class="field">
+            <label>Teléfono *</label>
+            <div class="input-wrap">
+              <ion-input formControlName="telefono" type="tel" placeholder="8888-8888"></ion-input>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Mensaje <span class="opt">(opcional)</span></label>
+          <div class="input-wrap textarea-wrap">
+            <ion-textarea formControlName="mensaje" placeholder="Cuéntanos sobre tu empresa, cantidad de buses, rutas que operan..." rows="3"></ion-textarea>
+          </div>
+        </div>
+
+        <ion-button expand="block" type="submit" class="btn-main" [disabled]="form.invalid">
+          Enviar solicitud
+        </ion-button>
+      </form>
+    </div>
+
+    <!-- Confirmación -->
+    <div *ngIf="submitted" class="req-body sent">
+      <div class="req-icon ok">
+        <ion-icon name="checkmark"></ion-icon>
+      </div>
+      <h2>¡Solicitud enviada!</h2>
+      <p>Nuestro equipo revisará tu solicitud y te contactará pronto para activar tu empresa en Buxi.</p>
+      <ion-button expand="block" class="btn-main" (click)="backToLogin()">Volver al inicio</ion-button>
+    </div>
+
+  </div>
+</ion-content>

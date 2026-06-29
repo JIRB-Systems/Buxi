@@ -1,0 +1,49 @@
+.req-content { --background: #f6f8fb; }
+
+.req-wrapper { padding: 16px 20px 32px; max-width: 440px; margin: 0 auto; }
+
+.back-btn { --color: #1a2b3c; margin: 0 0 0 -14px; font-size: 20px; }
+
+.req-body {
+  text-align: center;
+
+  h2 { font-size: 22px; font-weight: 800; color: #1a2b3c; margin: 0 0 6px; }
+  p { font-size: 14px; color: #8a95a3; line-height: 1.5; margin: 0 0 24px; }
+
+  form { text-align: left; }
+
+  &.sent { padding-top: 48px; }
+}
+
+.req-icon {
+  width: 64px; height: 64px; background: rgba(0,200,83,0.08);
+  border-radius: 50%; display: grid; place-items: center; margin: 0 auto 16px;
+  ion-icon { font-size: 28px; color: #00c853; }
+  &.ok { background: #00c853; ion-icon { color: #fff; font-size: 32px; } }
+}
+
+.field {
+  margin-bottom: 14px;
+  label {
+    display: block; font-size: 13px; font-weight: 600; color: #3a4556; margin-bottom: 5px;
+    .opt { font-weight: 400; color: #b0b8c4; }
+  }
+  .input-wrap {
+    display: flex; align-items: center; background: #fff;
+    border: 1.5px solid #eef1f5; border-radius: 12px; padding: 0 14px;
+    &:focus-within { border-color: #00c853; }
+    ion-input, ion-textarea {
+      --padding-start: 0; --padding-top: 11px; --padding-bottom: 11px;
+      --color: #1a2b3c; font-size: 14px; flex: 1;
+    }
+  }
+  .textarea-wrap { align-items: flex-start; padding: 8px 14px; }
+  .err { display: block; font-size: 11px; color: #f44336; margin-top: 3px; }
+}
+
+.row-2 { display: flex; gap: 10px; }
+
+.btn-main {
+  --background: #00c853; --border-radius: 12px; --box-shadow: none;
+  font-weight: 700; font-size: 15px; height: 48px; text-transform: none; margin-top: 8px;
+}

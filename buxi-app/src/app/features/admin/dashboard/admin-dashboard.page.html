@@ -22,6 +22,7 @@
         >
           <ion-icon [name]="activeTab === item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
           <span *ngIf="sidebarOpen">{{ item.label }}</span>
+          <span class="nav-badge" *ngIf="item.id === 'solicitudes' && pendingSolicitudes > 0">{{ pendingSolicitudes }}</span>
         </div>
       </nav>
 
@@ -261,6 +262,46 @@
                 <span class="col-md muted">{{ log.entidad || '-' }}</span>
               </div>
               <div class="empty" *ngIf="logs.length===0">No hay actividad registrada</div>
+            </div>
+          </div>
+
+          <!-- ========== SOLICITUDES ========== -->
+          <div *ngIf="activeTab==='solicitudes'" class="section">
+            <div class="panel" *ngIf="pendingSolicitudes > 0">
+              <div class="panel-header"><h3>Pendientes ({{ pendingSolicitudes }})</h3></div>
+              <div class="table-row solicitud-row" *ngFor="let s of solicitudes" [class.resolved]="s.estado !== 'pendiente'">
+                <div class="sol-info">
+                  <strong>{{ s.nombre_empresa }}</strong>
+                  <span>{{ s.nombre_contacto }} · {{ s.email }} · {{ s.telefono }}</span>
+                  <span *ngIf="s.cedula_juridica" class="muted">Cédula: {{ s.cedula_juridica }}</span>
+                  <span *ngIf="s.mensaje" class="sol-msg">{{ s.mensaje }}</span>
+                  <span class="muted">{{ s.created_at | date:'medium' }}</span>
+                </div>
+                <div class="sol-actions" *ngIf="s.estado === 'pendiente'">
+                  <ion-button size="small" color="success" (click)="approveSolicitud(s)">
+                    <ion-icon name="checkmark" slot="start"></ion-icon> Aprobar
+                  </ion-button>
+                  <ion-button size="small" color="danger" fill="outline" (click)="rejectSolicitud(s)">
+                    <ion-icon name="close" slot="start"></ion-icon> Rechazar
+                  </ion-button>
+                </div>
+                <span *ngIf="s.estado !== 'pendiente'" class="badge" [style.color]="s.estado==='aprobada'?'#00c853':'#f44336'">{{ s.estado }}</span>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><h3>Todas las solicitudes</h3></div>
+              <div class="table-header">
+                <span class="col-expand">Empresa</span><span class="col-md">Contacto</span><span class="col-md">Email</span><span class="col-sm">Estado</span><span class="col-md">Fecha</span>
+              </div>
+              <div class="table-row" *ngFor="let s of solicitudes">
+                <span class="col-expand"><strong>{{ s.nombre_empresa }}</strong></span>
+                <span class="col-md muted">{{ s.nombre_contacto }}</span>
+                <span class="col-md muted">{{ s.email }}</span>
+                <span class="col-sm"><span class="badge" [style.color]="s.estado==='pendiente'?'#ff9800':s.estado==='aprobada'?'#00c853':'#f44336'">{{ s.estado }}</span></span>
+                <span class="col-md muted">{{ s.created_at | date:'shortDate' }}</span>
+              </div>
+              <div class="empty" *ngIf="solicitudes.length===0">No hay solicitudes</div>
             </div>
           </div>
 

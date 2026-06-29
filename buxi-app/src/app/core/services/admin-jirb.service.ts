@@ -275,6 +275,18 @@ export class AdminJirbService {
     if (error) throw error;
   }
 
+  // ---- SOLICITUDES ----
+  async getSolicitudes(): Promise<any[]> {
+    const { data, error } = await this.supabase.from('solicitudes_empresa').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+
+  async updateSolicitud(id: string, estado: string): Promise<void> {
+    const { error } = await this.supabase.from('solicitudes_empresa').update({ estado }).eq('id', id);
+    if (error) throw error;
+  }
+
   // ---- EMPRESA REPORTS ----
   async getEmpresaReport(empresaId: string): Promise<{
     totalBuses: number; busesActivos: number; totalRutas: number;

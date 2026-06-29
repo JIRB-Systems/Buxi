@@ -9,6 +9,7 @@ const routes: Routes = [
   { path: 'splash', loadChildren: () => import('./features/auth/splash/splash.module').then(m => m.SplashPageModule) },
   { path: 'auth/login', loadChildren: () => import('./features/auth/login/login.module').then(m => m.LoginPageModule), canActivate: [NoAuthGuard] },
   { path: 'auth/register', loadChildren: () => import('./features/auth/register/register.module').then(m => m.RegisterPageModule), canActivate: [NoAuthGuard] },
+  { path: 'auth/empresa-request', loadChildren: () => import('./features/auth/empresa-request/empresa-request.module').then(m => m.EmpresaRequestPageModule) },
   { path: 'auth/forgot-password', loadChildren: () => import('./features/auth/forgot-password/forgot-password.module').then(m => m.ForgotPasswordPageModule), canActivate: [NoAuthGuard] },
   { path: 'passenger/home', loadChildren: () => import('./features/passenger/home/home.module').then(m => m.PassengerHomePageModule), canActivate: [AuthGuard] },
   { path: 'passenger/map', loadChildren: () => import('./features/passenger/map/map.module').then(m => m.MapPageModule), canActivate: [AuthGuard] },
