@@ -131,6 +131,11 @@ export class RoutesPage implements OnInit, ViewWillEnter {
     return map[dia] || dia;
   }
 
+  async doRefresh(event: any) {
+    await this.loadData();
+    event.target.complete();
+  }
+
   openRoute(ruta: Ruta) {
     this.router.navigate(['/passenger/map'], { queryParams: { ruta: ruta.id } });
   }

@@ -15,10 +15,20 @@
 .routes-content { --background: #f6f8fb; }
 .routes-container { padding: 12px 16px; max-width: 420px; margin: 0 auto; }
 .loading-state { display: flex; justify-content: center; padding: 60px 0; }
+.skeleton-list { padding-top: 8px; }
+
 .empty-state {
-  text-align: center; padding: 60px 20px;
-  ion-icon { font-size: 56px; color: #dfe3e8; }
-  h3 { font-size: 17px; font-weight: 700; color: #1a2b3c; margin: 14px 0 0; }
+  text-align: center; padding: 48px 20px;
+
+  .empty-illustration {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: #f0f2f5; display: grid; place-items: center;
+    margin: 0 auto 16px;
+    ion-icon { font-size: 36px; color: #c0c8d4; }
+  }
+
+  h3 { font-size: 17px; font-weight: 700; color: #1a2b3c; margin: 0 0 4px; }
+  p { font-size: 13px; color: #8a95a3; margin: 0; }
 }
 
 .route-card {

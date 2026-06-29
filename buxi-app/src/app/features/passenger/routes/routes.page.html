@@ -13,15 +13,25 @@
 </ion-header>
 
 <ion-content class="routes-content">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content pullingText="Jalar para actualizar" refreshingSpinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
   <div class="routes-container">
 
-    <div *ngIf="loading" class="loading-state"><ion-spinner name="crescent"></ion-spinner></div>
+    <div *ngIf="loading" class="skeleton-list">
+      <div class="skeleton skeleton-card" *ngFor="let i of [1,2,3,4,5]"></div>
+    </div>
 
     <div *ngIf="!loading && filteredRutas.length === 0" class="empty-state">
-      <ion-icon name="map-outline"></ion-icon>
+      <div class="empty-illustration">
+        <ion-icon [name]="showFavoritesOnly ? 'heart-outline' : searchText ? 'search-outline' : 'map-outline'"></ion-icon>
+      </div>
       <h3 *ngIf="showFavoritesOnly">No tienes rutas favoritas</h3>
       <h3 *ngIf="searchText && !showFavoritesOnly">No se encontraron rutas</h3>
       <h3 *ngIf="!searchText && !showFavoritesOnly">No hay rutas disponibles</h3>
+      <p *ngIf="showFavoritesOnly">Toca el corazón en una ruta para guardarla</p>
+      <p *ngIf="searchText && !showFavoritesOnly">Intenta con otro término</p>
     </div>
 
     <div class="route-card" *ngFor="let ruta of filteredRutas" (click)="openRoute(ruta)">
