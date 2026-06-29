@@ -1,0 +1,48 @@
+@import "@ionic/angular/css/core.css";
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import "@ionic/angular/css/display.css";
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+ion-content {
+  --keyboard-offset: 0px !important;
+}
+
+ion-input {
+  --highlight-color-focused: #00c853;
+  --highlight-color-valid: #00c853;
+}
+
+ion-toggle {
+  --track-background: #e0e5ec;
+  --track-background-checked: #00c853;
+  --handle-background-checked: #fff;
+}
+
+ion-checkbox {
+  --checkbox-background-checked: #00c853;
+  --border-color-checked: #00c853;
+}
+
+ion-select {
+  --highlight-color-focused: #00c853;
+}
+
+ion-loading {
+  --spinner-color: #00c853;
+}

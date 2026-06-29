@@ -1,0 +1,53 @@
+<ion-content [fullscreen]="true" class="map-content">
+
+  <!-- Mapa -->
+  <div id="map"></div>
+
+  <!-- Header flotante -->
+  <div class="map-header">
+    <div class="search-bar" (click)="goHome()">
+      <ion-icon name="search-outline"></ion-icon>
+      <span>Buscar ruta o parada...</span>
+    </div>
+  </div>
+
+  <!-- Botón centrar en usuario -->
+  <div class="fab-location" (click)="centerOnUser()">
+    <ion-icon name="locate-outline"></ion-icon>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="map-loading" *ngIf="loading">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Cargando mapa...</p>
+  </div>
+
+  <!-- Info panel del bus seleccionado -->
+  <div class="bus-info-panel" *ngIf="selectedBus" (click)="closeBusInfo()">
+    <div class="bus-info-card" (click)="$event.stopPropagation()">
+      <div class="bus-info-header">
+        <div class="bus-icon-wrapper">
+          <ion-icon name="bus"></ion-icon>
+        </div>
+        <div class="bus-info-text">
+          <h3>{{ selectedBusPlaca }}</h3>
+          <p>{{ selectedBusRuta }}</p>
+        </div>
+        <ion-button fill="clear" size="small" (click)="closeBusInfo()">
+          <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
+      <div class="bus-info-details">
+        <div class="detail-item">
+          <ion-icon name="speedometer-outline"></ion-icon>
+          <span>{{ selectedBus.velocidad | number:'1.0-0' }} km/h</span>
+        </div>
+        <div class="detail-item">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>Actualizado {{ selectedBus.timestamp | date:'shortTime' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</ion-content>

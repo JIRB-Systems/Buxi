@@ -1,0 +1,7 @@
+{
+  "name": "buxi-app",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}

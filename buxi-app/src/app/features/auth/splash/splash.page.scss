@@ -1,0 +1,62 @@
+.splash-content {
+  --background: linear-gradient(160deg, #0d1b2a 0%, #1b2e45 50%, #00c853 100%);
+}
+
+.splash-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  animation: fadeIn 0.8s ease-in;
+}
+
+.logo-wrapper {
+  text-align: center;
+}
+
+.logo-icon {
+  width: 100px;
+  height: 100px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  backdrop-filter: blur(10px);
+
+  ion-icon {
+    font-size: 52px;
+    color: #00c853;
+  }
+}
+
+.logo-text {
+  font-size: 48px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.tagline {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 8px;
+}
+
+.loading-indicator {
+  position: absolute;
+  bottom: 80px;
+
+  ion-spinner {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}

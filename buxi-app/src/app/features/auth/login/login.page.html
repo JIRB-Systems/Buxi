@@ -1,0 +1,96 @@
+<ion-content class="login-content" [fullscreen]="true">
+  <div class="login-container">
+
+    <!-- Header con logo -->
+    <div class="login-header">
+      <div class="logo-icon">
+        <ion-icon name="bus-outline"></ion-icon>
+      </div>
+      <h1 class="app-title">Bienvenido a Buxi</h1>
+      <p class="app-subtitle">Tus buses en tiempo real</p>
+    </div>
+
+    <!-- Formulario -->
+    <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
+
+      <div class="input-group">
+        <ion-icon name="mail-outline" class="input-icon"></ion-icon>
+        <ion-input
+          formControlName="email"
+          type="email"
+          placeholder="Correo electrónico"
+          class="custom-input"
+        ></ion-input>
+      </div>
+      <div class="error-text" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('required')">
+        El correo es obligatorio
+      </div>
+      <div class="error-text" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('email')">
+        Ingresa un correo válido
+      </div>
+
+      <div class="input-group">
+        <ion-icon name="lock-closed-outline" class="input-icon"></ion-icon>
+        <ion-input
+          formControlName="password"
+          [type]="showPassword ? 'text' : 'password'"
+          placeholder="Contraseña"
+          class="custom-input"
+        ></ion-input>
+        <ion-icon
+          [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"
+          class="toggle-password"
+          (click)="togglePassword()"
+        ></ion-icon>
+      </div>
+      <div class="error-text" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('required')">
+        La contraseña es obligatoria
+      </div>
+      <div class="error-text" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('minlength')">
+        Mínimo 6 caracteres
+      </div>
+
+      <div class="form-options">
+        <ion-toggle [(ngModel)]="rememberMe" [ngModelOptions]="{standalone: true}" class="remember-toggle">
+          Recordarme
+        </ion-toggle>
+        <a routerLink="/auth/forgot-password" class="forgot-link">¿Olvidaste tu contraseña?</a>
+      </div>
+
+      <ion-button expand="block" type="submit" class="btn-login" [disabled]="loginForm.invalid">
+        Iniciar sesión
+      </ion-button>
+    </form>
+
+    <!-- Separador -->
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span class="divider-text">o continúa con</span>
+      <div class="divider-line"></div>
+    </div>
+
+    <!-- Botones sociales -->
+    <div class="social-buttons">
+      <ion-button expand="block" fill="outline" class="btn-social btn-google" (click)="onGoogleLogin()">
+        <ion-icon name="logo-google" slot="start"></ion-icon>
+        Continuar con Google
+      </ion-button>
+      <ion-button expand="block" fill="outline" class="btn-social btn-facebook" (click)="onFacebookLogin()">
+        <ion-icon name="logo-facebook" slot="start"></ion-icon>
+        Continuar con Facebook
+      </ion-button>
+    </div>
+
+    <!-- Links inferiores -->
+    <div class="bottom-links">
+      <p class="register-link">
+        ¿No tienes cuenta?
+        <a routerLink="/auth/register">Crear cuenta</a>
+      </p>
+      <p class="empresa-link">
+        <a routerLink="/auth/login">¿Eres una empresa de autobuses? Ingresa aquí</a>
+      </p>
+    </div>
+
+  </div>
+</ion-content>
