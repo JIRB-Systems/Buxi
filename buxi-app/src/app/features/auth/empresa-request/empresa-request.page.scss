@@ -22,6 +22,37 @@
   &.ok { background: #00c853; ion-icon { color: #fff; font-size: 32px; } }
 }
 
+.logo-upload {
+  margin-bottom: 18px;
+
+  .logo-preview {
+    position: relative; width: 100px; height: 100px;
+    margin: 0 auto; border-radius: 16px; overflow: hidden; cursor: pointer;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+
+    img { width: 100%; height: 100%; object-fit: cover; }
+
+    .logo-remove {
+      position: absolute; top: 4px; right: 4px;
+      width: 24px; height: 24px; background: rgba(0,0,0,0.6);
+      border-radius: 50%; display: grid; place-items: center;
+      ion-icon { font-size: 14px; color: #fff; }
+    }
+  }
+
+  .logo-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 20px; border: 2px dashed #dfe3e8; border-radius: 14px;
+    cursor: pointer; transition: border-color 0.15s;
+
+    &:hover { border-color: #00c853; }
+
+    ion-icon { font-size: 28px; color: #b0b8c4; }
+    span { font-size: 13px; color: #5a6677; font-weight: 500; }
+    .opt { font-size: 11px; color: #b0b8c4; font-weight: 400; }
+  }
+}
+
 .field {
   margin-bottom: 14px;
   label {

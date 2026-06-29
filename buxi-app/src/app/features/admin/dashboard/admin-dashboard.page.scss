@@ -243,6 +243,17 @@
   flex-direction: column; align-items: flex-start !important; gap: 10px !important;
   &.resolved { opacity: 0.5; }
 
+  .sol-logo {
+    width: 48px; height: 48px; border-radius: 12px; object-fit: cover;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1); flex-shrink: 0;
+  }
+
+  .sol-placeholder {
+    width: 48px; height: 48px; border-radius: 12px; background: #f0f2f5;
+    display: grid; place-items: center; flex-shrink: 0;
+    ion-icon { font-size: 22px; color: #b0b8c4; }
+  }
+
   .sol-info {
     display: flex; flex-direction: column; gap: 2px;
     strong { font-size: 15px; }

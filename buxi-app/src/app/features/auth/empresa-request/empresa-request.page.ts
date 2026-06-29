@@ -14,6 +14,8 @@ import { environment } from '../../../../environments/environment';
 export class EmpresaRequestPage {
   form: FormGroup;
   submitted = false;
+  logoFile: File | null = null;
+  logoPreview: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -31,6 +33,21 @@ export class EmpresaRequestPage {
     });
   }
 
+  onLogoSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      this.logoFile = input.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => { this.logoPreview = e.target?.result as string; };
+      reader.readAsDataURL(this.logoFile);
+    }
+  }
+
+  removeLogo() {
+    this.logoFile = null;
+    this.logoPreview = null;
+  }
+
   async onSubmit() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -42,7 +59,23 @@ export class EmpresaRequestPage {
 
     try {
       const supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
-      const { error } = await supabase.from('solicitudes_empresa').insert(this.form.value);
+      let logoUrl = null;
+
+      if (this.logoFile) {
+        const ext = this.logoFile.name.split('.').pop();
+        const fileName = `solicitudes/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('logos')
+          .upload(fileName, this.logoFile, { contentType: this.logoFile.type });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('logos').getPublicUrl(fileName);
+          logoUrl = urlData.publicUrl;
+        }
+      }
+
+      const insertData = { ...this.form.value, logo_url: logoUrl };
+      const { error } = await supabase.from('solicitudes_empresa').insert(insertData);
       if (error) throw error;
       this.submitted = true;
     } catch {

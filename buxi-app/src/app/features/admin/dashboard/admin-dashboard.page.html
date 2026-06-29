@@ -270,6 +270,8 @@
             <div class="panel" *ngIf="pendingSolicitudes > 0">
               <div class="panel-header"><h3>Pendientes ({{ pendingSolicitudes }})</h3></div>
               <div class="table-row solicitud-row" *ngFor="let s of solicitudes" [class.resolved]="s.estado !== 'pendiente'">
+                <img *ngIf="s.logo_url" [src]="s.logo_url" class="sol-logo" />
+                <div class="sol-placeholder" *ngIf="!s.logo_url"><ion-icon name="business"></ion-icon></div>
                 <div class="sol-info">
                   <strong>{{ s.nombre_empresa }}</strong>
                   <span>{{ s.nombre_contacto }} · {{ s.email }} · {{ s.telefono }}</span>

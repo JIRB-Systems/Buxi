@@ -453,6 +453,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         cedula_juridica: sol.cedula_juridica || null,
         telefono: sol.telefono || null,
         email: sol.email || null,
+        logo_url: sol.logo_url || null,
         estado: 'activo',
       });
       await this.admin.updateSolicitud(sol.id, 'aprobada');

@@ -14,6 +14,20 @@
       <p>Completa el formulario y nuestro equipo se pondrá en contacto contigo para activar tu empresa en Buxi.</p>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <!-- Logo upload -->
+        <div class="logo-upload">
+          <div class="logo-preview" *ngIf="logoPreview" (click)="removeLogo()">
+            <img [src]="logoPreview" alt="Logo" />
+            <div class="logo-remove"><ion-icon name="close"></ion-icon></div>
+          </div>
+          <label class="logo-btn" *ngIf="!logoPreview">
+            <ion-icon name="image-outline"></ion-icon>
+            <span>Subir logo de la empresa</span>
+            <span class="opt">PNG, JPG o SVG (máx 5MB)</span>
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" (change)="onLogoSelected($event)" hidden />
+          </label>
+        </div>
+
         <div class="field">
           <label>Nombre de la empresa *</label>
           <div class="input-wrap">
