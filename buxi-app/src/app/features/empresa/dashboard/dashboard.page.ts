@@ -93,7 +93,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       zoomControl: this.activeTab === 'mapa', attributionControl: false,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(this.liveMap);
+    L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(this.liveMap);
 
     this.liveMarkers.forEach(m => m.remove());
     this.liveMarkers.clear();
