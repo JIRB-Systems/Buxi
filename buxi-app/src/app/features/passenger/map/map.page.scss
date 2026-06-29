@@ -324,6 +324,12 @@
   .leaflet-control-zoom { display: none !important; }
 
   // Stop markers
+  .stop-small {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+
   .stop-dot {
     width: 10px; height: 10px;
     background: #fff;

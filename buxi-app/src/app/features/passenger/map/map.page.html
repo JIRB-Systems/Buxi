@@ -20,7 +20,7 @@
 
     <!-- Route active mode -->
     <div class="route-header" *ngIf="activeRuta">
-      <div class="route-back" (click)="clearRoute()">
+      <div class="route-back" (click)="unfocusRoute()">
         <ion-icon name="chevron-back"></ion-icon>
       </div>
       <div class="route-header-info">
@@ -29,6 +29,12 @@
       </div>
       <div class="route-color-dot" [style.background]="activeRuta.color"></div>
     </div>
+  </div>
+
+  <!-- Routes chip (when no buses are transmitting) -->
+  <div class="live-chip" *ngIf="activeBusCount === 0 && !activeRuta && totalRoutes > 0">
+    <ion-icon name="git-branch-outline" style="font-size:13px"></ion-icon>
+    {{ totalRoutes }} rutas disponibles
   </div>
 
   <!-- Live chip -->

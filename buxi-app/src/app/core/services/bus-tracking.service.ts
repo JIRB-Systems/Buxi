@@ -85,6 +85,16 @@ export class BusTrackingService implements OnDestroy {
     return Array.from(latest.values());
   }
 
+  async getAllParadas(): Promise<Parada[]> {
+    const { data, error } = await this.supabase
+      .from('paradas')
+      .select('*')
+      .order('ruta_id')
+      .order('orden');
+    if (error) throw error;
+    return data as Parada[];
+  }
+
   async getLatestLocations(): Promise<BusLocation[]> {
     const { data, error } = await this.supabase
       .from('bus_locations')
