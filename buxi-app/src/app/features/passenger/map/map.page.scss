@@ -286,9 +286,13 @@
   z-index: 1000;
   display: flex;
   justify-content: space-around;
+  align-items: center;
   background: #fff;
-  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
-  box-shadow: 0 -1px 10px rgba(0,0,0,0.05);
+  margin: 0 14px calc(10px + env(safe-area-inset-bottom));
+  border-radius: 20px;
+  padding: 7px 2px;
+  box-shadow: 0 6px 24px rgba(15,28,46,0.14);
+  border: 1px solid #f0f2f5;
 }
 
 .nav-item {
@@ -297,7 +301,7 @@
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  padding: 6px 18px;
+  padding: 6px 10px;
   cursor: pointer;
 
   ion-icon { font-size: 21px; color: #b0b8c4; transition: color 0.15s; }

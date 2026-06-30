@@ -1,18 +1,18 @@
 .routes-toolbar {
-  --background: #f6f8fb; --color: #1a2b3c; font-weight: 700; --border-width: 0;
+  --background: #f5f7fa; --color: #0f1c2e; font-weight: 700; --border-width: 0;
   ion-button { --color: #b0b8c4; &.fav-active { --color: #f44336; } }
 }
 
 .search-wrapper {
-  padding: 0 16px 12px; background: #f6f8fb;
+  padding: 0 16px 12px; background: #f5f7fa;
   .custom-searchbar {
     --background: #fff; --border-radius: 14px; --box-shadow: none;
-    --placeholder-color: #b0b8c4; --icon-color: #b0b8c4; --color: #1a2b3c;
+    --placeholder-color: #b0b8c4; --icon-color: #b0b8c4; --color: #0f1c2e;
     font-size: 14px; padding: 0;
   }
 }
 
-.routes-content { --background: #f6f8fb; }
+.routes-content { --background: #f5f7fa; }
 .routes-container { padding: 12px 16px; max-width: 420px; margin: 0 auto; }
 .loading-state { display: flex; justify-content: center; padding: 60px 0; }
 .skeleton-list { padding-top: 8px; }
@@ -27,7 +27,7 @@
     ion-icon { font-size: 36px; color: #c0c8d4; }
   }
 
-  h3 { font-size: 17px; font-weight: 700; color: #1a2b3c; margin: 0 0 4px; }
+  h3 { font-size: 17px; font-weight: 700; color: #0f1c2e; margin: 0 0 4px; }
   p { font-size: 13px; color: #8a95a3; margin: 0; }
 }
 
@@ -38,7 +38,7 @@
   .route-color { width: 4px; height: 40px; border-radius: 2px; flex-shrink: 0; }
   .route-info {
     flex: 1;
-    h3 { font-size: 14px; font-weight: 600; color: #1a2b3c; margin: 0 0 6px; }
+    h3 { font-size: 14px; font-weight: 600; color: #0f1c2e; margin: 0 0 6px; }
     .route-path {
       display: flex; align-items: center; gap: 6px;
       .path-point { display: flex; align-items: center; gap: 4px;
@@ -74,7 +74,7 @@
   padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
 
   .sheet-bar { width: 36px; height: 4px; background: #dfe3e8; border-radius: 2px; margin: 0 auto 16px; }
-  h3 { font-size: 17px; font-weight: 700; color: #1a2b3c; margin: 0 0 12px; }
+  h3 { font-size: 17px; font-weight: 700; color: #0f1c2e; margin: 0 0 12px; }
 
   .rating-row {
     display: flex; align-items: center; gap: 3px; margin-bottom: 16px;
@@ -86,8 +86,8 @@
 .horario-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .horario-item {
   display: flex; align-items: center; gap: 8px; padding: 10px 14px;
-  background: #f6f8fb; border-radius: 10px;
-  .h-dia { font-size: 13px; font-weight: 600; color: #1a2b3c; min-width: 70px; }
+  background: #f5f7fa; border-radius: 10px;
+  .h-dia { font-size: 13px; font-weight: 600; color: #0f1c2e; min-width: 70px; }
   .h-time { font-size: 13px; color: #5a6677; flex: 1; }
   .h-freq { font-size: 11px; color: #00c853; font-weight: 600; }
 }
@@ -99,13 +99,3 @@
   font-weight: 600; font-size: 14px; height: 44px; text-transform: none;
 }
 
-.tab-bar {
-  display: flex; justify-content: space-around; background: #fff;
-  padding: 6px 0 calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -1px 10px rgba(0,0,0,0.04);
-  .tab-item {
-    display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 18px; cursor: pointer;
-    ion-icon { font-size: 21px; color: #b0b8c4; }
-    span { font-size: 10px; color: #b0b8c4; font-weight: 600; }
-    &.active { ion-icon { color: #00c853; } span { color: #00c853; } }
-  }
-}

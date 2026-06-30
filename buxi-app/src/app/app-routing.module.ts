@@ -14,6 +14,7 @@ const routes: Routes = [
   { path: 'passenger/home', loadChildren: () => import('./features/passenger/home/home.module').then(m => m.PassengerHomePageModule), canActivate: [AuthGuard] },
   { path: 'passenger/map', loadChildren: () => import('./features/passenger/map/map.module').then(m => m.MapPageModule), canActivate: [AuthGuard] },
   { path: 'passenger/routes', loadChildren: () => import('./features/passenger/routes/routes.module').then(m => m.RoutesPageModule), canActivate: [AuthGuard] },
+  { path: 'passenger/empresas', loadChildren: () => import('./features/passenger/empresas/empresas.module').then(m => m.EmpresasPageModule), canActivate: [AuthGuard] },
   { path: 'passenger/profile', loadChildren: () => import('./features/passenger/profile/profile.module').then(m => m.ProfilePageModule), canActivate: [AuthGuard] },
   {
     path: 'admin/dashboard',

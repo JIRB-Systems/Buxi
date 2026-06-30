@@ -8,7 +8,7 @@
     </ion-buttons>
   </ion-toolbar>
   <div class="search-wrapper">
-    <ion-searchbar placeholder="Buscar ruta, origen o destino..." debounce="300" (ionInput)="onSearch($event)" class="custom-searchbar"></ion-searchbar>
+    <ion-searchbar [value]="searchText" placeholder="Buscar ruta, origen o destino..." debounce="300" (ionInput)="onSearch($event)" class="custom-searchbar"></ion-searchbar>
   </div>
 </ion-header>
 
@@ -85,6 +85,7 @@
     <div class="tab-item" routerLink="/passenger/home"><ion-icon name="home-outline"></ion-icon><span>Inicio</span></div>
     <div class="tab-item" routerLink="/passenger/map"><ion-icon name="map-outline"></ion-icon><span>Mapa</span></div>
     <div class="tab-item active"><ion-icon name="search"></ion-icon><span>Rutas</span></div>
+    <div class="tab-item" routerLink="/passenger/empresas"><ion-icon name="business-outline"></ion-icon><span>Empresas</span></div>
     <div class="tab-item" routerLink="/passenger/profile"><ion-icon name="person-outline"></ion-icon><span>Perfil</span></div>
   </div>
 </ion-footer>

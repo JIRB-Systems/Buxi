@@ -1,0 +1,69 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="empresas-toolbar">
+    <ion-title>Empresas de buses</ion-title>
+  </ion-toolbar>
+  <div class="search-wrapper">
+    <ion-searchbar placeholder="Buscar empresa o ruta" debounce="300" (ionInput)="onSearch($event)" class="custom-searchbar"></ion-searchbar>
+  </div>
+  <div class="filter-tabs">
+    <div class="filter-tab" [class.active]="activeFilter==='todas'" (click)="setFilter('todas')">Todas</div>
+    <div class="filter-tab" [class.active]="activeFilter==='usadas'" (click)="setFilter('usadas')">Más usadas</div>
+    <div class="filter-tab" [class.active]="activeFilter==='valoradas'" (click)="setFilter('valoradas')">Mejor valoradas</div>
+  </div>
+</ion-header>
+
+<ion-content class="empresas-content">
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content pullingText="Jalar para actualizar" refreshingSpinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="empresas-container">
+
+    <div *ngIf="loading" class="skeleton-list">
+      <div class="skeleton skeleton-card" *ngFor="let i of [1,2,3,4,5]"></div>
+    </div>
+
+    <div *ngIf="!loading && filteredEmpresas.length === 0" class="empty-state">
+      <div class="empty-illustration">
+        <ion-icon name="business-outline"></ion-icon>
+      </div>
+      <h3 *ngIf="searchText">No se encontraron empresas</h3>
+      <h3 *ngIf="!searchText">No hay empresas disponibles</h3>
+      <p *ngIf="searchText">Intenta con otro término</p>
+    </div>
+
+    <div class="empresa-card" *ngFor="let emp of filteredEmpresas" (click)="openEmpresa(emp)">
+      <div class="empresa-logo">
+        <img *ngIf="emp.logo_url" [src]="emp.logo_url" [alt]="emp.nombre" />
+        <ion-icon *ngIf="!emp.logo_url" name="business"></ion-icon>
+      </div>
+      <div class="empresa-info">
+        <div class="empresa-top">
+          <h3>{{ emp.nombre }}</h3>
+          <span class="badge" *ngIf="emp.badge==='Popular'"><ion-icon name="flame"></ion-icon> Popular</span>
+          <span class="badge rec" *ngIf="emp.badge==='Recomendada'"><ion-icon name="checkmark-circle"></ion-icon> Recomendada</span>
+        </div>
+        <p class="empresa-ruta">{{ emp.rutaResumen }}</p>
+        <p class="empresa-freq" *ngIf="emp.frecuencia">Servicios cada {{ emp.frecuencia }} min</p>
+      </div>
+      <div class="empresa-rating">
+        <div class="rating-val" *ngIf="emp.ratingCount > 0">
+          <ion-icon name="star"></ion-icon>
+          <span>{{ emp.ratingAvg | number:'1.1-1' }}</span>
+        </div>
+        <span class="rating-count" *ngIf="emp.ratingCount > 0">{{ emp.ratingCount }} reseñas</span>
+        <span class="rating-count" *ngIf="emp.ratingCount === 0">Sin reseñas</span>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer class="ion-no-border">
+  <div class="tab-bar">
+    <div class="tab-item" routerLink="/passenger/home"><ion-icon name="home-outline"></ion-icon><span>Inicio</span></div>
+    <div class="tab-item" routerLink="/passenger/map"><ion-icon name="map-outline"></ion-icon><span>Mapa</span></div>
+    <div class="tab-item" routerLink="/passenger/routes"><ion-icon name="search-outline"></ion-icon><span>Rutas</span></div>
+    <div class="tab-item active"><ion-icon name="business"></ion-icon><span>Empresas</span></div>
+    <div class="tab-item" routerLink="/passenger/profile"><ion-icon name="person-outline"></ion-icon><span>Perfil</span></div>
+  </div>
+</ion-footer>

@@ -71,24 +71,30 @@
 
       <!-- Edit mode -->
       <form *ngIf="editing" [formGroup]="profileForm" (ngSubmit)="onSave()" class="edit-section">
-        <div class="input-group">
-          <ion-icon name="person-outline" class="input-icon"></ion-icon>
-          <ion-input formControlName="nombre_completo" placeholder="Nombre completo" class="custom-input"></ion-input>
-        </div>
-        <div class="error-text" *ngIf="profileForm.get('nombre_completo')?.touched && profileForm.get('nombre_completo')?.hasError('required')">
-          El nombre es obligatorio
-        </div>
-
-        <div class="input-group">
-          <ion-icon name="call-outline" class="input-icon"></ion-icon>
-          <ion-input formControlName="telefono" type="tel" placeholder="Teléfono" class="custom-input"></ion-input>
+        <div class="field">
+          <div class="input-wrap">
+            <ion-icon name="person-outline" class="input-icon"></ion-icon>
+            <ion-input formControlName="nombre_completo" placeholder="Nombre completo"></ion-input>
+          </div>
+          <div class="error-text" *ngIf="profileForm.get('nombre_completo')?.touched && profileForm.get('nombre_completo')?.hasError('required')">
+            El nombre es obligatorio
+          </div>
         </div>
 
-        <div class="input-group">
-          <ion-icon name="location-outline" class="input-icon"></ion-icon>
-          <ion-select formControlName="provincia" placeholder="Provincia" class="custom-select" interface="action-sheet">
-            <ion-select-option *ngFor="let p of provincias" [value]="p">{{ p }}</ion-select-option>
-          </ion-select>
+        <div class="field">
+          <div class="input-wrap">
+            <ion-icon name="call-outline" class="input-icon"></ion-icon>
+            <ion-input formControlName="telefono" type="tel" placeholder="Teléfono"></ion-input>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="input-wrap">
+            <ion-icon name="location-outline" class="input-icon"></ion-icon>
+            <ion-select formControlName="provincia" placeholder="Provincia" class="custom-select" interface="action-sheet">
+              <ion-select-option *ngFor="let p of provincias" [value]="p">{{ p }}</ion-select-option>
+            </ion-select>
+          </div>
         </div>
 
         <ion-button expand="block" type="submit" class="btn-save" [disabled]="profileForm.invalid">
@@ -132,6 +138,10 @@
     <div class="tab-item" routerLink="/passenger/routes">
       <ion-icon name="search-outline"></ion-icon>
       <span>Rutas</span>
+    </div>
+    <div class="tab-item" routerLink="/passenger/empresas">
+      <ion-icon name="business-outline"></ion-icon>
+      <span>Empresas</span>
     </div>
     <div class="tab-item active">
       <ion-icon name="person"></ion-icon>

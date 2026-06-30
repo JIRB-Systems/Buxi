@@ -1,6 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { AlertController } from '@ionic/angular';
 import { ViewWillEnter } from '@ionic/angular';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
@@ -18,22 +17,33 @@ export class PassengerHomePage implements OnInit, ViewWillEnter {
   profile: UserProfile | null = null;
   loading = true;
   favoriteRutas: Ruta[] = [];
+  rutasCount = 0;
+  greeting = '';
 
   constructor(
     private supabase: SupabaseService,
     private features: FeaturesService,
     private tracking: BusTrackingService,
     private router: Router,
-    private alertCtrl: AlertController,
   ) {}
 
   async ngOnInit() {
+    this.greeting = this.getGreeting();
     try {
       this.profile = await this.supabase.getProfile();
       if (this.profile) await this.loadFavorites();
+      const rutas = await this.tracking.getRutas();
+      this.rutasCount = rutas.length;
     } catch {} finally {
       this.loading = false;
     }
+  }
+
+  private getGreeting(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
   }
 
   ionViewWillEnter() {
@@ -54,20 +64,5 @@ export class PassengerHomePage implements OnInit, ViewWillEnter {
 
   openRoute(ruta: Ruta) {
     this.router.navigate(['/passenger/map'], { queryParams: { ruta: ruta.id } });
-  }
-
-  async onLogout() {
-    const alert = await this.alertCtrl.create({
-      header: 'Cerrar sesión',
-      message: '¿Estás seguro?',
-      buttons: [
-        { text: 'Cancelar', role: 'cancel' },
-        { text: 'Cerrar sesión', handler: async () => {
-          await this.supabase.signOut();
-          this.router.navigate(['/auth/login'], { replaceUrl: true });
-        }},
-      ],
-    });
-    await alert.present();
   }
 }

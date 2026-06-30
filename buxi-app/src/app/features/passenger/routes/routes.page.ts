@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ViewWillEnter, ModalController, ToastController } from '@ionic/angular';
 import { BusTrackingService } from '../../../core/services/bus-tracking.service';
 import { FeaturesService } from '../../../core/services/features.service';
@@ -32,6 +32,7 @@ export class RoutesPage implements OnInit, ViewWillEnter {
     private features: FeaturesService,
     private supabase: SupabaseService,
     private router: Router,
+    private route: ActivatedRoute,
     private toastCtrl: ToastController,
   ) {}
 
@@ -39,6 +40,8 @@ export class RoutesPage implements OnInit, ViewWillEnter {
     try {
       const profile = await this.supabase.getProfile();
       if (profile) this.userId = profile.id;
+      const q = this.route.snapshot.queryParams['q'];
+      if (q) this.searchText = q.toLowerCase();
       await this.loadData();
     } catch {} finally {
       this.loading = false;
@@ -47,6 +50,11 @@ export class RoutesPage implements OnInit, ViewWillEnter {
 
   ionViewWillEnter() {
     if (this.userId) this.loadFavoritos();
+    const q = this.route.snapshot.queryParams['q'];
+    if (q && q.toLowerCase() !== this.searchText) {
+      this.searchText = q.toLowerCase();
+      this.applyFilter();
+    }
   }
 
   private async loadData() {
@@ -83,7 +91,8 @@ export class RoutesPage implements OnInit, ViewWillEnter {
       list = list.filter(r =>
         r.nombre.toLowerCase().includes(this.searchText) ||
         r.origen.toLowerCase().includes(this.searchText) ||
-        r.destino.toLowerCase().includes(this.searchText)
+        r.destino.toLowerCase().includes(this.searchText) ||
+        ((r.empresa as any)?.nombre || '').toLowerCase().includes(this.searchText)
       );
     }
     this.filteredRutas = list;
