@@ -115,4 +115,27 @@ export class ProfilePage implements OnInit {
     const t = await this.toastCtrl.create({ message: msg, duration: 2000, color, position: 'top' });
     await t.present();
   }
+
+  async onDeleteAccount() {
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar cuenta',
+      message: 'Esto borra tu cuenta, tus favoritos, calificaciones y preferencias de forma permanente. No se puede deshacer. ¿Estás seguro?',
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Eliminar', role: 'destructive', handler: async () => {
+          const loading = await this.loadingCtrl.create({ message: 'Eliminando cuenta...' });
+          await loading.present();
+          try {
+            await this.supabase.deleteAccount();
+            await loading.dismiss();
+            this.router.navigate(['/auth/login'], { replaceUrl: true });
+          } catch (e: any) {
+            await loading.dismiss();
+            this.showToast(e?.message || 'No se pudo eliminar la cuenta', 'danger');
+          }
+        }},
+      ],
+    });
+    await alert.present();
+  }
 }

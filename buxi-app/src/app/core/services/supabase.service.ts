@@ -89,6 +89,13 @@ export class SupabaseService {
     if (error) throw error;
   }
 
+  async deleteAccount(): Promise<void> {
+    const { data, error } = await this.supabase.functions.invoke('delete-account', { method: 'POST' });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    await this.signOut();
+  }
+
   async getProfile(): Promise<UserProfile | null> {
     const session = await this.getSessionAsync();
     if (!session) return null;
