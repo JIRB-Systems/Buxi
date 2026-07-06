@@ -14,6 +14,12 @@ export class AdminJirbService {
     this.supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
   }
 
+  private newIsolatedClient(): SupabaseClient {
+    return createClient(environment.supabaseUrl, environment.supabaseAnonKey, {
+      auth: { persistSession: false, storageKey: `sb-temp-${crypto.randomUUID()}` },
+    });
+  }
+
   // ---- STATS GLOBALES ----
   async getGlobalStats(): Promise<{
     totalEmpresas: number; totalRutas: number; totalBuses: number;
@@ -277,7 +283,8 @@ export class AdminJirbService {
 
   // ---- CREAR ADMIN EMPRESA ----
   async createAdminEmpresa(email: string, password: string, nombre: string, empresaId: string): Promise<void> {
-    const { data, error } = await this.supabase.auth.signUp({
+    const isolated = this.newIsolatedClient();
+    const { data, error } = await isolated.auth.signUp({
       email, password,
       options: { data: { nombre_completo: nombre } },
     });
