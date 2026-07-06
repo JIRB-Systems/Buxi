@@ -121,7 +121,6 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.liveMarkersLastSeen.clear();
     this.rutaPathLayers = [];
 
-    const busesEnRuta = this.buses.filter(b => b.estado === 'en_ruta' || b.estado === 'activo');
     // Subscribe to realtime
     if (!this.realtimeChannel) {
       const sb = createClient(environment.supabaseUrl, environment.supabaseAnonKey);

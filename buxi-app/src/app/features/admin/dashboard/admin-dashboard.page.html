@@ -231,6 +231,23 @@
             </div>
           </div>
 
+          <!-- ========== ALERTAS GPS ========== -->
+          <div *ngIf="activeTab==='alertas'" class="section">
+            <div class="panel">
+              <div class="panel-header"><h3>Saltos de GPS físicamente imposibles ({{ anomalias.length }})</h3></div>
+              <div class="table-row" *ngFor="let a of anomalias">
+                <div class="dot" style="background:#ffc107"></div>
+                <strong>{{ $any(a.bus)?.placa || 'Bus' }}</strong>
+                <span class="col-expand muted">{{ $any(a.bus)?.empresa?.nombre || '-' }} · {{ $any(a.bus)?.ruta?.nombre || 'Sin ruta' }}</span>
+                <span class="muted">{{ a.timestamp | date:'short' }}</span>
+                <span class="col-sm actions">
+                  <ion-icon name="checkmark-circle-outline" class="success" (click)="dismissAnomalia(a)" title="Descartar"></ion-icon>
+                </span>
+              </div>
+              <div class="empty" *ngIf="anomalias.length===0">Sin alertas — ningún bus registró un salto de posición sospechoso</div>
+            </div>
+          </div>
+
           <!-- ========== VIAJES ========== -->
           <div *ngIf="activeTab==='viajes'" class="section">
             <div class="panel">

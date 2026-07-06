@@ -35,6 +35,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     { id: 'usuarios', icon: 'people-outline', label: 'Usuarios' },
     { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
     { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
+    { id: 'alertas', icon: 'warning-outline', label: 'Alertas GPS' },
     { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
     { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
     { id: 'planes', icon: 'card-outline', label: 'Planes' },
@@ -56,6 +57,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   logs: ActivityLog[] = [];
   configItems: SystemConfig[] = [];
   liveLocations: BusLocation[] = [];
+  anomalias: BusLocation[] = [];
   planes: Plan[] = [];
   suscripciones: Suscripcion[] = [];
   suscripcionMap = new Map<string, Suscripcion>();
@@ -82,7 +84,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async loadData() {
-    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, planes, suscripciones, solicitudes] = await Promise.all([
+    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes] = await Promise.all([
       this.admin.getGlobalStats(),
       this.admin.getEmpresas(),
       this.admin.getAllRutas(),
@@ -93,6 +95,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getLogs(),
       this.admin.getConfig(),
       this.admin.getAllLiveLocations(),
+      this.admin.getAnomalousLocations(),
       this.admin.getPlanes(),
       this.admin.getSuscripciones(),
       this.admin.getSolicitudes(),
@@ -107,6 +110,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.logs = logs;
     this.configItems = config;
     this.liveLocations = liveLocations;
+    this.anomalias = anomalias;
     this.planes = planes;
     this.suscripciones = suscripciones;
     this.solicitudes = solicitudes;
@@ -429,6 +433,15 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     return { pasajero: '#00c853', chofer: '#2196f3', admin_empresa: '#9c27b0', admin_jirb: '#ff5722' }[rol] || '#9aa5b4';
   }
 
+  // ---- ALERTAS GPS ----
+  async dismissAnomalia(loc: BusLocation) {
+    try {
+      await this.admin.dismissAnomaly(loc.id);
+      this.anomalias = this.anomalias.filter(a => a.id !== loc.id);
+      this.showToast('Alerta descartada');
+    } catch { this.showToast('Error', 'danger'); }
+  }
+
   // ---- CALIFICACIONES ----
   async deleteCalificacion(cal: Calificacion) {
     await this.admin.deleteCalificacion(cal.id);
@@ -546,6 +559,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       empresas: 'Gestión de empresas', rutas: 'Gestión de rutas',
       buses: 'Gestión de buses', usuarios: 'Gestión de usuarios',
       viajes: 'Historial de viajes', calificaciones: 'Reseñas y calificaciones',
+      alertas: 'Alertas de GPS sospechoso',
       solicitudes: 'Solicitudes de empresas', logs: 'Registro de actividad', planes: 'Planes y suscripciones',
       config: 'Configuración del sistema',
     };

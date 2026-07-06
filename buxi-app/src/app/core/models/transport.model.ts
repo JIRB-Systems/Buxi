@@ -52,5 +52,6 @@ export interface BusLocation {
   velocidad: number;
   heading: number;
   timestamp: string;
+  anomalo?: boolean;
   bus?: Bus;
 }

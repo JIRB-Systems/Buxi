@@ -241,6 +241,23 @@ export class AdminJirbService {
     return Array.from(latest.values());
   }
 
+  // ---- ALERTAS DE GPS SOSPECHOSO ----
+  async getAnomalousLocations(): Promise<BusLocation[]> {
+    const { data, error } = await this.supabase
+      .from('bus_locations')
+      .select('*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color), empresa:empresas(nombre))')
+      .eq('anomalo', true)
+      .order('timestamp', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return data as BusLocation[];
+  }
+
+  async dismissAnomaly(id: string): Promise<void> {
+    const { error } = await this.supabase.from('bus_locations').update({ anomalo: false }).eq('id', id);
+    if (error) throw error;
+  }
+
   // ---- PLANES ----
   async getPlanes(): Promise<Plan[]> {
     const { data, error } = await this.supabase.from('planes').select('*').order('precio_mensual');
