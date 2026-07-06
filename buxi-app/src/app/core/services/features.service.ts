@@ -107,8 +107,41 @@ export class FeaturesService {
     if (error) throw error;
   }
 
+  // ---- BÚSQUEDA DE LUGARES (autocompletado) ----
+  async searchPlaces(query: string): Promise<{ label: string; lat: number; lng: number }[]> {
+    if (!query || query.trim().length < 3) return [];
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=cr`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data.map((d: any) => ({ label: d.display_name, lat: parseFloat(d.lat), lng: parseFloat(d.lon) }));
+      }
+    } catch {}
+    return [];
+  }
+
   // ---- GEOCODIFICACIÓN (nombre de lugar -> coordenadas) ----
   async geocode(query: string): Promise<{ lat: number; lng: number } | null> {
+    const direct = await this.geocodeRaw(query);
+    if (direct) return direct;
+
+    // Nombres de terminales/estaciones suelen no existir tal cual en el mapa;
+    // reintenta con el nombre del pueblo/ciudad real, sin palabras genéricas.
+    const cleaned = query
+      .replace(/\b(terminal|municipal|estaci[oó]n|autobuses|buses|de)\b/gi, ' ')
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/\s+/g, ' ')
+      .replace(/^[,\s]+/, '')
+      .trim();
+
+    if (cleaned && cleaned.toLowerCase() !== query.toLowerCase()) {
+      return this.geocodeRaw(cleaned);
+    }
+    return null;
+  }
+
+  private async geocodeRaw(query: string): Promise<{ lat: number; lng: number } | null> {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
     try {
       const res = await fetch(url);

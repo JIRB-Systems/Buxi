@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
-import { AlertController, LoadingController, ToastController } from '@ionic/angular';
+import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import * as L from 'leaflet';
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
@@ -9,6 +9,7 @@ import { AdminEmpresaService } from '../../../core/services/admin-empresa.servic
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
+import { RutaFormComponent } from './ruta-form.component';
 
 @Component({
   selector: 'app-empresa-dashboard',
@@ -53,6 +54,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
+    private modalCtrl: ModalController,
   ) {}
 
   async ngOnInit() {
@@ -309,50 +311,34 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   get activeRoutesCount(): number { return this.rutas.filter(r => r.estado === 'activa').length; }
 
   // ---- RUTAS ----
-  private async generateAutoTrazado(ruta: Ruta, origenNombre: string, destinoNombre: string): Promise<void> {
-    const [origenPunto, destinoPunto] = await Promise.all([
-      this.features.geocode(`${origenNombre}, Costa Rica`),
-      this.features.geocode(`${destinoNombre}, Costa Rica`),
-    ]);
-
-    if (!origenPunto || !destinoPunto) {
-      this.showToast('Ruta creada — no se pudo ubicar el trazado automáticamente, agregalo desde "Trazado"', 'warning');
-      return;
-    }
-
-    const origenParada = await this.admin.createParada({ ruta_id: ruta.id, nombre: origenNombre, latitud: origenPunto.lat, longitud: origenPunto.lng, orden: 0 });
-    const destinoParada = await this.admin.createParada({ ruta_id: ruta.id, nombre: destinoNombre, latitud: destinoPunto.lat, longitud: destinoPunto.lng, orden: 1 });
-
-    const geometria = await this.features.fetchRoadRouteCoords([origenParada, destinoParada]);
-    await this.admin.updateRuta(ruta.id, { geometria });
-
-    this.showToast('Ruta creada con recorrido automático');
-  }
-
   async addRuta() {
-    const alert = await this.alertCtrl.create({
-      header: 'Nueva ruta',
-      inputs: [
-        { name: 'nombre', placeholder: 'Nombre de la ruta', type: 'text' },
-        { name: 'origen', placeholder: 'Origen', type: 'text' },
-        { name: 'destino', placeholder: 'Destino', type: 'text' },
-        { name: 'color', placeholder: 'Color (#hex)', type: 'text', value: '#00c853' },
-      ],
-      buttons: [
-        { text: 'Cancelar', role: 'cancel' },
-        { text: 'Crear', handler: async (d) => {
-          if (!d.nombre || !d.origen || !d.destino) return false;
-          try {
-            const nueva = await this.admin.createRuta({ empresa_id: this.profile!.empresa_id!, nombre: d.nombre, origen: d.origen, destino: d.destino, color: d.color || '#00c853', estado: 'activa' });
-            await this.generateAutoTrazado(nueva, d.origen, d.destino);
-            await this.loadData();
-            if (this.activeTab === 'mapa' || this.activeTab === 'inicio') setTimeout(() => this.initLiveMap(), 150);
-          } catch { this.showToast('Error', 'danger'); }
-          return true;
-        }},
-      ],
-    });
-    await alert.present();
+    const modal = await this.modalCtrl.create({ component: RutaFormComponent });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      const nueva = await this.admin.createRuta({
+        empresa_id: this.profile!.empresa_id!,
+        nombre: data.nombre,
+        origen: data.origen.label,
+        destino: data.destino.label,
+        color: data.color || '#00c853',
+        estado: 'activa',
+      });
+
+      const origenParada = await this.admin.createParada({ ruta_id: nueva.id, nombre: data.origen.label, latitud: data.origen.lat, longitud: data.origen.lng, orden: 0 });
+      const destinoParada = await this.admin.createParada({ ruta_id: nueva.id, nombre: data.destino.label, latitud: data.destino.lat, longitud: data.destino.lng, orden: 1 });
+
+      const geometria = await this.features.fetchRoadRouteCoords([origenParada, destinoParada]);
+      await this.admin.updateRuta(nueva.id, { geometria });
+
+      await this.loadData();
+      if (this.activeTab === 'mapa' || this.activeTab === 'inicio') setTimeout(() => this.initLiveMap(), 150);
+      this.showToast('Ruta creada con recorrido automático');
+    } catch {
+      this.showToast('Error creando la ruta', 'danger');
+    }
   }
 
   async deleteRuta(r: Ruta) {

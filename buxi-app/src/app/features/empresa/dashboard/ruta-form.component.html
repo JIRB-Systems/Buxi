@@ -1,0 +1,54 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Nueva ruta</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">Cerrar</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ruta-form-content">
+  <div class="field">
+    <label>Nombre de la ruta</label>
+    <ion-input [(ngModel)]="nombre" placeholder="Ej. San José - Cartago" fill="outline"></ion-input>
+  </div>
+
+  <div class="field autocomplete">
+    <label>Origen</label>
+    <ion-input
+      [(ngModel)]="origenQuery"
+      (ionInput)="onOrigenInput()"
+      placeholder="Escribí una letra para empezar..."
+      fill="outline"
+    ></ion-input>
+    <div class="suggestions" *ngIf="origenSuggestions.length">
+      <div class="suggestion" *ngFor="let s of origenSuggestions" (click)="pickOrigen(s)">{{ s.label }}</div>
+    </div>
+    <div class="picked" *ngIf="origenSelected">
+      <ion-icon name="checkmark-circle"></ion-icon> Ubicación confirmada
+    </div>
+  </div>
+
+  <div class="field autocomplete">
+    <label>Destino</label>
+    <ion-input
+      [(ngModel)]="destinoQuery"
+      (ionInput)="onDestinoInput()"
+      placeholder="Escribí una letra para empezar..."
+      fill="outline"
+    ></ion-input>
+    <div class="suggestions" *ngIf="destinoSuggestions.length">
+      <div class="suggestion" *ngFor="let s of destinoSuggestions" (click)="pickDestino(s)">{{ s.label }}</div>
+    </div>
+    <div class="picked" *ngIf="destinoSelected">
+      <ion-icon name="checkmark-circle"></ion-icon> Ubicación confirmada
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Color</label>
+    <input type="color" [(ngModel)]="color" class="color-picker" />
+  </div>
+
+  <ion-button expand="block" [disabled]="!canCreate" (click)="create()">Crear ruta</ion-button>
+</ion-content>
