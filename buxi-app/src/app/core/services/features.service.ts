@@ -123,28 +123,33 @@ export class FeaturesService {
     const q = query.trim();
     if (q.length < 2) return [];
 
-    // Busca el nombre tal cual Y con sesgo hacia terminales de buses en paralelo,
-    // porque Nominatim solo prioriza la ciudad si buscás nada más "Liberia" y
-    // esconde la terminal real aunque sí exista en el mapa.
-    const [direct, terminal] = await Promise.all([
-      this.searchPlacesRaw(q),
-      this.searchPlacesRaw(`terminal de buses ${q}`),
-    ]);
+    // El sesgo hacia terminales siempre se arma sobre el nombre YA limpiado de
+    // palabras genéricas, nunca sobre el texto crudo — si no, escribir el nombre
+    // completo de una terminal ("Terminal de Buses Municipal de X") termina
+    // buscando "terminal de buses Terminal de Buses Municipal de X", que no
+    // encuentra nada. Nominatim tampoco prioriza la terminal si buscás solo
+    // el nombre del pueblo, así que se consultan las 3 variantes en paralelo.
+    const cleaned = this.cleanPlaceQuery(q) || q;
+    const variants = Array.from(new Set([q, cleaned, `terminal de buses ${cleaned}`]));
+
+    const results = await Promise.all(variants.map(v => this.searchPlacesRaw(v)));
 
     const merged: { label: string; lat: number; lng: number }[] = [];
     const seen = new Set<string>();
-    for (const item of [...terminal, ...direct]) {
-      const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        merged.push(item);
+    for (const list of results) {
+      for (const item of list) {
+        const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(item);
+        }
       }
     }
     return merged.slice(0, 8);
   }
 
   private async searchPlacesRaw(query: string): Promise<{ label: string; lat: number; lng: number }[]> {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=cr`;
+    const url = `${environment.supabaseUrl}/functions/v1/geocode?q=${encodeURIComponent(query)}&limit=5`;
     try {
       const res = await fetch(url);
       const data = await res.json();
@@ -168,7 +173,7 @@ export class FeaturesService {
   }
 
   private async geocodeRaw(query: string): Promise<{ lat: number; lng: number } | null> {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+    const url = `${environment.supabaseUrl}/functions/v1/geocode?q=${encodeURIComponent(query)}&limit=1`;
     try {
       const res = await fetch(url);
       const data = await res.json();
