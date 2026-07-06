@@ -1,8 +1,32 @@
+:host {
+  ion-header ion-toolbar {
+    --background: #0d1826;
+    --color: #fff;
+    --border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  ion-header ion-button {
+    --color: #7d93b2;
+  }
+}
+
 .ruta-form-content {
   --background: #0d1826;
+  --color: #e6edf5;
   --padding-start: 16px;
   --padding-end: 16px;
   --padding-top: 16px;
+
+  ion-input {
+    --background: #162238;
+    --color: #fff;
+    --placeholder-color: #5a7090;
+    --placeholder-opacity: 1;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --border-color: rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+  }
 }
 
 .field {
@@ -39,6 +63,14 @@
 
   &:last-child { border-bottom: none; }
   &:hover { background: rgba(0, 200, 83, 0.12); }
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 12px;
+
+  &.searching { color: #7d93b2; }
+  &.error { color: #ffc107; }
 }
 
 .picked {

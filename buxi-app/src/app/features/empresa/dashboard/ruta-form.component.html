@@ -21,9 +21,11 @@
       placeholder="Escribí una letra para empezar..."
       fill="outline"
     ></ion-input>
+    <div class="hint searching" *ngIf="origenSearching">Buscando...</div>
     <div class="suggestions" *ngIf="origenSuggestions.length">
       <div class="suggestion" *ngFor="let s of origenSuggestions" (click)="pickOrigen(s)">{{ s.label }}</div>
     </div>
+    <div class="hint error" *ngIf="!origenSearching && origenError">Sin resultados — probá con otro nombre</div>
     <div class="picked" *ngIf="origenSelected">
       <ion-icon name="checkmark-circle"></ion-icon> Ubicación confirmada
     </div>
@@ -37,9 +39,11 @@
       placeholder="Escribí una letra para empezar..."
       fill="outline"
     ></ion-input>
+    <div class="hint searching" *ngIf="destinoSearching">Buscando...</div>
     <div class="suggestions" *ngIf="destinoSuggestions.length">
       <div class="suggestion" *ngFor="let s of destinoSuggestions" (click)="pickDestino(s)">{{ s.label }}</div>
     </div>
+    <div class="hint error" *ngIf="!destinoSearching && destinoError">Sin resultados — probá con otro nombre</div>
     <div class="picked" *ngIf="destinoSelected">
       <ion-icon name="checkmark-circle"></ion-icon> Ubicación confirmada
     </div>

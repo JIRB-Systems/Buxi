@@ -17,28 +17,52 @@ export class RutaFormComponent {
   origenQuery = '';
   origenSuggestions: PlaceSuggestion[] = [];
   origenSelected: PlaceSuggestion | null = null;
+  origenSearching = false;
+  origenError = false;
   private origenTimeout: any;
 
   destinoQuery = '';
   destinoSuggestions: PlaceSuggestion[] = [];
   destinoSelected: PlaceSuggestion | null = null;
+  destinoSearching = false;
+  destinoError = false;
   private destinoTimeout: any;
 
   constructor(private modalCtrl: ModalController, private features: FeaturesService) {}
 
   onOrigenInput() {
     this.origenSelected = null;
+    this.origenError = false;
     clearTimeout(this.origenTimeout);
+    if (this.origenQuery.trim().length < 2) { this.origenSuggestions = []; return; }
+    this.origenSearching = true;
     this.origenTimeout = setTimeout(async () => {
-      this.origenSuggestions = await this.features.searchPlaces(this.origenQuery);
+      try {
+        this.origenSuggestions = await this.features.searchPlaces(this.origenQuery);
+        this.origenError = this.origenSuggestions.length === 0;
+      } catch {
+        this.origenError = true;
+      } finally {
+        this.origenSearching = false;
+      }
     }, 350);
   }
 
   onDestinoInput() {
     this.destinoSelected = null;
+    this.destinoError = false;
     clearTimeout(this.destinoTimeout);
+    if (this.destinoQuery.trim().length < 2) { this.destinoSuggestions = []; return; }
+    this.destinoSearching = true;
     this.destinoTimeout = setTimeout(async () => {
-      this.destinoSuggestions = await this.features.searchPlaces(this.destinoQuery);
+      try {
+        this.destinoSuggestions = await this.features.searchPlaces(this.destinoQuery);
+        this.destinoError = this.destinoSuggestions.length === 0;
+      } catch {
+        this.destinoError = true;
+      } finally {
+        this.destinoSearching = false;
+      }
     }, 350);
   }
 
@@ -46,12 +70,14 @@ export class RutaFormComponent {
     this.origenSelected = s;
     this.origenQuery = s.label;
     this.origenSuggestions = [];
+    this.origenError = false;
   }
 
   pickDestino(s: PlaceSuggestion) {
     this.destinoSelected = s;
     this.destinoQuery = s.label;
     this.destinoSuggestions = [];
+    this.destinoError = false;
   }
 
   get canCreate(): boolean {
