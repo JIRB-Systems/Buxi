@@ -132,11 +132,14 @@ export class FeaturesService {
     const cleaned = this.cleanPlaceQuery(q) || q;
     const variants = Array.from(new Set([q, cleaned, `terminal de buses ${cleaned}`]));
 
-    const results = await Promise.all(variants.map(v => this.searchPlacesRaw(v)));
+    const [osmResults, custom] = await Promise.all([
+      Promise.all(variants.map(v => this.searchPlacesRaw(v))),
+      this.searchCustomPlaces(q),
+    ]);
 
     const merged: { label: string; lat: number; lng: number }[] = [];
     const seen = new Set<string>();
-    for (const list of results) {
+    for (const list of [custom, ...osmResults]) {
       for (const item of list) {
         const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
         if (!seen.has(key)) {
@@ -146,6 +149,22 @@ export class FeaturesService {
       }
     }
     return merged.slice(0, 8);
+  }
+
+  // ---- LUGARES PERSONALIZADOS (lo que el mapa público no tiene mapeado) ----
+  async searchCustomPlaces(query: string): Promise<{ label: string; lat: number; lng: number }[]> {
+    const { data, error } = await this.supabase
+      .from('lugares_personalizados')
+      .select('nombre, latitud, longitud')
+      .ilike('nombre', `%${query}%`)
+      .limit(5);
+    if (error || !data) return [];
+    return data.map(d => ({ label: d.nombre, lat: d.latitud, lng: d.longitud }));
+  }
+
+  async addCustomPlace(nombre: string, lat: number, lng: number): Promise<void> {
+    const { error } = await this.supabase.from('lugares_personalizados').insert({ nombre, latitud: lat, longitud: lng });
+    if (error) throw error;
   }
 
   private async searchPlacesRaw(query: string): Promise<{ label: string; lat: number; lng: number }[]> {

@@ -21,11 +21,14 @@ export class RutaFormComponent {
   origenError = false;
   private origenTimeout: any;
 
+  origenAdding = false;
+
   destinoQuery = '';
   destinoSuggestions: PlaceSuggestion[] = [];
   destinoSelected: PlaceSuggestion | null = null;
   destinoSearching = false;
   destinoError = false;
+  destinoAdding = false;
   private destinoTimeout: any;
 
   constructor(private modalCtrl: ModalController, private features: FeaturesService) {}
@@ -78,6 +81,38 @@ export class RutaFormComponent {
     this.destinoQuery = s.label;
     this.destinoSuggestions = [];
     this.destinoError = false;
+  }
+
+  async addOrigenAsNewPlace() {
+    const nombre = this.origenQuery.trim();
+    if (!nombre) return;
+    this.origenAdding = true;
+    try {
+      const point = await this.features.geocode(nombre);
+      if (!point) { this.origenError = true; return; }
+      await this.features.addCustomPlace(nombre, point.lat, point.lng);
+      this.pickOrigen({ label: nombre, lat: point.lat, lng: point.lng });
+    } catch {
+      this.origenError = true;
+    } finally {
+      this.origenAdding = false;
+    }
+  }
+
+  async addDestinoAsNewPlace() {
+    const nombre = this.destinoQuery.trim();
+    if (!nombre) return;
+    this.destinoAdding = true;
+    try {
+      const point = await this.features.geocode(nombre);
+      if (!point) { this.destinoError = true; return; }
+      await this.features.addCustomPlace(nombre, point.lat, point.lng);
+      this.pickDestino({ label: nombre, lat: point.lat, lng: point.lng });
+    } catch {
+      this.destinoError = true;
+    } finally {
+      this.destinoAdding = false;
+    }
   }
 
   get canCreate(): boolean {
