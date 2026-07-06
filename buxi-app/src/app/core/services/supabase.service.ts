@@ -32,6 +32,21 @@ export class SupabaseService {
     return this._session.value;
   }
 
+  async getSessionAsync(): Promise<Session | null> {
+    const { data } = await this.supabase.auth.getSession();
+    this._session.next(data.session);
+    return data.session;
+  }
+
+  homeRouteForRole(rol: string): string[] {
+    switch (rol) {
+      case 'admin_jirb': return ['/admin/dashboard'];
+      case 'admin_empresa': return ['/empresa/dashboard'];
+      case 'chofer': return ['/chofer/home'];
+      default: return ['/passenger/map'];
+    }
+  }
+
   async signUp(email: string, password: string, metadata: { nombre_completo: string; telefono?: string; provincia?: string }) {
     const { data, error } = await this.supabase.auth.signUp({
       email,
@@ -75,7 +90,7 @@ export class SupabaseService {
   }
 
   async getProfile(): Promise<UserProfile | null> {
-    const session = this.currentSession;
+    const session = await this.getSessionAsync();
     if (!session) return null;
 
     const { data, error } = await this.supabase

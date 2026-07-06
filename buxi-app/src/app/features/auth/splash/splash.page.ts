@@ -13,25 +13,14 @@ export class SplashPage implements OnInit {
 
   ngOnInit() {
     setTimeout(async () => {
-      const session = this.supabase.currentSession;
+      const session = await this.supabase.getSessionAsync();
       if (session) {
+        let target = ['/passenger/map'];
         try {
           const profile = await this.supabase.getProfile();
-          if (profile) {
-            switch (profile.rol) {
-              case 'admin_jirb':
-                this.router.navigate(['/admin/dashboard'], { replaceUrl: true });
-                return;
-              case 'admin_empresa':
-                this.router.navigate(['/empresa/dashboard'], { replaceUrl: true });
-                return;
-              case 'chofer':
-                this.router.navigate(['/chofer/home'], { replaceUrl: true });
-                return;
-            }
-          }
+          if (profile) target = this.supabase.homeRouteForRole(profile.rol);
         } catch {}
-        this.router.navigate(['/passenger/map'], { replaceUrl: true });
+        this.router.navigate(target, { replaceUrl: true });
       } else {
         this.router.navigate(['/auth/login'], { replaceUrl: true });
       }

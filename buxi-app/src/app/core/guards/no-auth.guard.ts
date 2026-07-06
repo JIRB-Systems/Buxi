@@ -7,10 +7,16 @@ export class NoAuthGuard implements CanActivate {
   constructor(private supabase: SupabaseService, private router: Router) {}
 
   async canActivate(): Promise<boolean> {
-    const session = this.supabase.currentSession;
+    const session = await this.supabase.getSessionAsync();
     if (!session) return true;
 
-    await this.router.navigate(['/passenger/map']);
+    let target = ['/passenger/map'];
+    try {
+      const profile = await this.supabase.getProfile();
+      if (profile) target = this.supabase.homeRouteForRole(profile.rol);
+    } catch {}
+
+    await this.router.navigate(target);
     return false;
   }
 }
