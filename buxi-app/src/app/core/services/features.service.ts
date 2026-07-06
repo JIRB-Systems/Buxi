@@ -107,9 +107,43 @@ export class FeaturesService {
     if (error) throw error;
   }
 
+  // Nombres de terminales/estaciones municipales suelen no existir tal cual en el
+  // mapa; esto deja solo el nombre del pueblo/ciudad real para reintentar la búsqueda.
+  private cleanPlaceQuery(query: string): string {
+    return query
+      .replace(/\b(terminal|municipal|estaci[oó]n|autobuses|buses|de)\b/gi, ' ')
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/\s+/g, ' ')
+      .replace(/^[,\s]+/, '')
+      .trim();
+  }
+
   // ---- BÚSQUEDA DE LUGARES (autocompletado) ----
   async searchPlaces(query: string): Promise<{ label: string; lat: number; lng: number }[]> {
-    if (!query || query.trim().length < 3) return [];
+    const q = query.trim();
+    if (q.length < 2) return [];
+
+    // Busca el nombre tal cual Y con sesgo hacia terminales de buses en paralelo,
+    // porque Nominatim solo prioriza la ciudad si buscás nada más "Liberia" y
+    // esconde la terminal real aunque sí exista en el mapa.
+    const [direct, terminal] = await Promise.all([
+      this.searchPlacesRaw(q),
+      this.searchPlacesRaw(`terminal de buses ${q}`),
+    ]);
+
+    const merged: { label: string; lat: number; lng: number }[] = [];
+    const seen = new Set<string>();
+    for (const item of [...terminal, ...direct]) {
+      const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(item);
+      }
+    }
+    return merged.slice(0, 8);
+  }
+
+  private async searchPlacesRaw(query: string): Promise<{ label: string; lat: number; lng: number }[]> {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&countrycodes=cr`;
     try {
       const res = await fetch(url);
@@ -126,15 +160,7 @@ export class FeaturesService {
     const direct = await this.geocodeRaw(query);
     if (direct) return direct;
 
-    // Nombres de terminales/estaciones suelen no existir tal cual en el mapa;
-    // reintenta con el nombre del pueblo/ciudad real, sin palabras genéricas.
-    const cleaned = query
-      .replace(/\b(terminal|municipal|estaci[oó]n|autobuses|buses|de)\b/gi, ' ')
-      .replace(/\s*,\s*/g, ', ')
-      .replace(/\s+/g, ' ')
-      .replace(/^[,\s]+/, '')
-      .trim();
-
+    const cleaned = this.cleanPlaceQuery(query);
     if (cleaned && cleaned.toLowerCase() !== query.toLowerCase()) {
       return this.geocodeRaw(cleaned);
     }
