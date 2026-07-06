@@ -26,6 +26,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   private watchId: string | null = null;
   private currentLat = 0;
   private currentLng = 0;
+  private currentSpeedKmh = 0;
   private trackingInterval: any = null;
   private rutaParadas: Parada[] = [];
   private nextParadaIndex = 1;
@@ -82,14 +83,14 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     try {
       await Geolocation.requestPermissions();
       const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-      this.updatePosition(pos.coords.latitude, pos.coords.longitude);
+      this.updatePosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed);
       this.map.setView([pos.coords.latitude, pos.coords.longitude], 16);
 
       this.watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true },
         (position) => {
           if (position) {
-            this.updatePosition(position.coords.latitude, position.coords.longitude);
+            this.updatePosition(position.coords.latitude, position.coords.longitude, position.coords.speed);
           }
         }
       ) as unknown as string;
@@ -97,9 +98,10 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private updatePosition(lat: number, lng: number) {
+  private updatePosition(lat: number, lng: number, speedMs?: number | null) {
     this.currentLat = lat;
     this.currentLng = lng;
+    this.currentSpeedKmh = speedMs && speedMs > 0 ? speedMs * 3.6 : 0;
 
     if (this.userMarker) {
       this.userMarker.setLatLng([lat, lng]);
@@ -183,6 +185,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         this.assignedBus.id,
         this.currentLat,
         this.currentLng,
+        this.currentSpeedKmh,
       );
     } catch {
     }
