@@ -128,9 +128,12 @@ export class FeaturesService {
     // completo de una terminal ("Terminal de Buses Municipal de X") termina
     // buscando "terminal de buses Terminal de Buses Municipal de X", que no
     // encuentra nada. Nominatim tampoco prioriza la terminal si buscás solo
-    // el nombre del pueblo, así que se consultan las 3 variantes en paralelo.
+    // el nombre del pueblo o el de una empresa (ej. "Pulmitan"), así que se
+    // consultan varias variantes en paralelo: "terminal de buses X" cubre
+    // terminales municipales, "terminal X" cubre terminales con nombre de
+    // empresa (ej. "Terminal Pulmitan").
     const cleaned = this.cleanPlaceQuery(q) || q;
-    const variants = Array.from(new Set([q, cleaned, `terminal de buses ${cleaned}`]));
+    const variants = Array.from(new Set([q, cleaned, `terminal de buses ${cleaned}`, `terminal ${cleaned}`]));
 
     const [osmResults, custom] = await Promise.all([
       Promise.all(variants.map(v => this.searchPlacesRaw(v))),
