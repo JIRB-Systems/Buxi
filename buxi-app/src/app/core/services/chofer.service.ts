@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Bus } from '../models/transport.model';
+import { Bus, Parada } from '../models/transport.model';
 import { Viaje } from '../models/features.model';
 
 @Injectable({ providedIn: 'root' })
@@ -52,6 +52,27 @@ export class ChoferService {
     }).eq('id', this.currentViajeId);
     if (error) throw error;
     this.currentViajeId = null;
+  }
+
+  async getParadasOrdenadas(rutaId: string): Promise<Parada[]> {
+    const { data, error } = await this.supabase
+      .from('paradas')
+      .select('*')
+      .eq('ruta_id', rutaId)
+      .order('orden');
+    if (error) throw error;
+    return data as Parada[];
+  }
+
+  async logTramo(rutaId: string, busId: string, paradaOrigenId: string, paradaDestinoId: string, duracionSegundos: number): Promise<void> {
+    const now = new Date();
+    const { error } = await this.supabase.from('tramos_historial').insert({
+      ruta_id: rutaId, bus_id: busId,
+      parada_origen_id: paradaOrigenId, parada_destino_id: paradaDestinoId,
+      duracion_segundos: Math.round(duracionSegundos),
+      hora_dia: now.getHours(), dia_semana: now.getDay(),
+    });
+    if (error) throw error;
   }
 
   async getMyViajes(choferId: string): Promise<Viaje[]> {
