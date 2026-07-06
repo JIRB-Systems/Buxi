@@ -20,9 +20,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private mapReady = false;
   private routeLayers: L.Layer[] = [];
   private busMarkers = new Map<string, L.Marker>();
+  private busLastSeen = new Map<string, number>();
+  private staleCheckInterval: any = null;
   private userMarker: L.Marker | null = null;
   private locationSub: Subscription | null = null;
   private watchId: string | null = null;
+
+  private readonly STALE_MS = 45000;
+  private readonly REMOVE_MS = 5 * 60 * 1000;
 
   selectedBus: BusLocation | null = null;
   loading = true;
@@ -115,7 +120,27 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
     this.startRealtimeTracking();
     this.startUserLocation();
+    this.startStaleBusWatcher();
     this.loading = false;
+  }
+
+  private startStaleBusWatcher() {
+    this.staleCheckInterval = setInterval(() => {
+      const now = Date.now();
+      this.busLastSeen.forEach((lastSeen, busId) => {
+        const marker = this.busMarkers.get(busId);
+        if (!marker) return;
+        const age = now - lastSeen;
+        if (age > this.REMOVE_MS) {
+          this.map.removeLayer(marker);
+          this.busMarkers.delete(busId);
+          this.busLastSeen.delete(busId);
+          this.activeBusCount = this.busMarkers.size;
+        } else if (age > this.STALE_MS) {
+          marker.setOpacity(0.35);
+        }
+      });
+    }, 10000);
   }
 
   private async loadRoute(rutaId: string) {
@@ -191,6 +216,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
     this.busMarkers.forEach(m => this.map.removeLayer(m));
     this.busMarkers.clear();
+    this.busLastSeen.clear();
     this.activeBusCount = 0;
     this.selectedBus = null;
     this.activeRuta = null;
@@ -221,8 +247,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   private addOrUpdateBusMarker(location: BusLocation) {
     const latlng: L.LatLngExpression = [location.latitud, location.longitud];
+    this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
+
     if (this.busMarkers.has(location.bus_id)) {
-      this.busMarkers.get(location.bus_id)!.setLatLng(latlng);
+      const marker = this.busMarkers.get(location.bus_id)!;
+      marker.setLatLng(latlng);
+      marker.setOpacity(1);
     } else {
       const marker = L.marker(latlng, { icon: this.busIcon })
         .addTo(this.map)
@@ -306,6 +336,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   ngOnDestroy() {
     this.tracking.unsubscribe();
     this.locationSub?.unsubscribe();
+    if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
     if (this.watchId) Geolocation.clearWatch({ id: this.watchId });
     if (this.map) this.map.remove();
   }

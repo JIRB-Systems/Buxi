@@ -39,9 +39,14 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   private liveMap: L.Map | null = null;
   private liveMarkers = new Map<string, L.Marker>();
+  private liveMarkersLastSeen = new Map<string, number>();
+  private staleCheckInterval: any = null;
   private realtimeChannel: RealtimeChannel | null = null;
   private rutaPathLayers: L.Layer[] = [];
   private mapClickHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
+
+  private readonly STALE_MS = 45000;
+  private readonly REMOVE_MS = 5 * 60 * 1000;
 
   editingRuta: Ruta | null = null;
   editingParadas: Parada[] = [];
@@ -112,6 +117,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
     this.liveMarkers.forEach(m => m.remove());
     this.liveMarkers.clear();
+    this.liveMarkersLastSeen.clear();
     this.rutaPathLayers = [];
 
     const busesEnRuta = this.buses.filter(b => b.estado === 'en_ruta' || b.estado === 'activo');
@@ -121,10 +127,12 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.realtimeChannel = sb.channel('emp-live')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bus_locations' }, (payload) => {
           const loc = payload.new as BusLocation;
-          this.updateMapMarker(loc.bus_id, loc.latitud, loc.longitud);
+          this.updateMapMarker(loc.bus_id, loc.latitud, loc.longitud, loc.timestamp);
         })
         .subscribe();
     }
+
+    if (!this.staleCheckInterval) this.startStaleBusWatcher();
 
     if (this.editingRuta) {
       this.mapClickHandler = (e) => this.onMapClickAddParada(e);
@@ -292,10 +300,14 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     }
   }
 
-  private updateMapMarker(busId: string, lat: number, lng: number) {
+  private updateMapMarker(busId: string, lat: number, lng: number, timestamp?: string) {
     if (!this.liveMap) return;
+    this.liveMarkersLastSeen.set(busId, timestamp ? (Date.parse(timestamp) || Date.now()) : Date.now());
+
     if (this.liveMarkers.has(busId)) {
-      this.liveMarkers.get(busId)!.setLatLng([lat, lng]);
+      const marker = this.liveMarkers.get(busId)!;
+      marker.setLatLng([lat, lng]);
+      marker.setOpacity(1);
     } else {
       const icon = L.divIcon({
         className: 'emp-bus-marker',
@@ -305,6 +317,25 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       const m = L.marker([lat, lng], { icon }).addTo(this.liveMap);
       this.liveMarkers.set(busId, m);
     }
+  }
+
+  private startStaleBusWatcher() {
+    this.staleCheckInterval = setInterval(() => {
+      if (!this.liveMap) return;
+      const now = Date.now();
+      this.liveMarkersLastSeen.forEach((lastSeen, busId) => {
+        const marker = this.liveMarkers.get(busId);
+        if (!marker) return;
+        const age = now - lastSeen;
+        if (age > this.REMOVE_MS) {
+          this.liveMap!.removeLayer(marker);
+          this.liveMarkers.delete(busId);
+          this.liveMarkersLastSeen.delete(busId);
+        } else if (age > this.STALE_MS) {
+          marker.setOpacity(0.35);
+        }
+      });
+    }, 10000);
   }
 
   get activeBusCount(): number { return this.buses.filter(b => b.estado === 'en_ruta').length; }
@@ -415,6 +446,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private async showToast(m: string, c = 'success') { const t = await this.toastCtrl.create({ message: m, duration: 2000, color: c, position: 'top' }); await t.present(); }
 
   ngOnDestroy() {
+    if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
     if (this.liveMap) this.liveMap.remove();
     if (this.realtimeChannel) {
       createClient(environment.supabaseUrl, environment.supabaseAnonKey).removeChannel(this.realtimeChannel);
