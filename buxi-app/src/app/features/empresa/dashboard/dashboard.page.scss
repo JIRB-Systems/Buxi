@@ -84,6 +84,30 @@
 // ====== GRID ======
 .grid-2 { display: flex; gap: 14px; margin-bottom: 16px; }
 
+:host ::ng-deep {
+  .ruta-stop-tooltip {
+    background: #1a2b3c;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+}
+
+.edit-ruta-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #162238; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+  padding: 12px 16px; margin-bottom: 12px; flex-wrap: wrap;
+
+  strong { display: block; }
+  .muted { font-size: 12px; color: #7d93b2; }
+}
+
+.edit-ruta-actions { display: flex; gap: 8px; }
+
 // ====== CARDS ======
 .card {
   background: #162238; border-radius: 14px; overflow: hidden;

@@ -6,8 +6,9 @@ import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminEmpresaService } from '../../../core/services/admin-empresa.service';
+import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
-import { Bus, Ruta, BusLocation } from '../../../core/models/transport.model';
+import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
 
 @Component({
   selector: 'app-empresa-dashboard',
@@ -38,10 +39,16 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private liveMap: L.Map | null = null;
   private liveMarkers = new Map<string, L.Marker>();
   private realtimeChannel: RealtimeChannel | null = null;
+  private rutaPathLayers: L.Layer[] = [];
+  private mapClickHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
+
+  editingRuta: Ruta | null = null;
+  editingParadas: Parada[] = [];
 
   constructor(
     private supabase: SupabaseService,
     private admin: AdminEmpresaService,
+    private features: FeaturesService,
     private router: Router,
     private alertCtrl: AlertController,
     private loadingCtrl: LoadingController,
@@ -76,6 +83,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   switchTab(tab: string) {
+    if (this.editingRuta && tab !== 'mapa') {
+      this.exitEditMode();
+    }
     this.activeTab = tab;
     if (tab === 'mapa' || tab === 'inicio') {
       setTimeout(() => this.initLiveMap(), 150);
@@ -100,6 +110,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
     this.liveMarkers.forEach(m => m.remove());
     this.liveMarkers.clear();
+    this.rutaPathLayers = [];
 
     const busesEnRuta = this.buses.filter(b => b.estado === 'en_ruta' || b.estado === 'activo');
     // Subscribe to realtime
@@ -113,7 +124,170 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         .subscribe();
     }
 
+    if (this.editingRuta) {
+      this.mapClickHandler = (e) => this.onMapClickAddParada(e);
+      this.liveMap.on('click', this.mapClickHandler);
+      this.drawEditingRutaPath();
+    } else {
+      this.drawAllRutaPaths();
+    }
+
     setTimeout(() => this.liveMap?.invalidateSize(), 200);
+  }
+
+  // ---- TRAZADO DE RUTAS ----
+  private async drawAllRutaPaths() {
+    const activas = this.rutas.filter(r => r.estado === 'activa');
+    const results = await Promise.all(activas.map(async r => {
+      const paradas = await this.admin.getParadas(r.id);
+      return { ruta: r, paradas };
+    }));
+
+    if (!this.liveMap) return;
+    for (const { ruta, paradas } of results) {
+      if (paradas.length === 0) continue;
+      const color = ruta.color || '#00c853';
+
+      if (paradas.length >= 2) {
+        let coords: [number, number][] = ruta.geometria as [number, number][] | null || [];
+        if (coords.length === 0) {
+          coords = await this.features.fetchRoadRouteCoords(paradas);
+          this.admin.updateRuta(ruta.id, { geometria: coords }).catch(() => {});
+        }
+        const bg = L.polyline(coords, { color, weight: 8, opacity: 0.15, lineCap: 'round', lineJoin: 'round' }).addTo(this.liveMap);
+        const main = L.polyline(coords, { color, weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }).addTo(this.liveMap);
+        this.rutaPathLayers.push(bg, main);
+      }
+
+      paradas.forEach((p, i) => {
+        const isTerminal = i === 0 || i === paradas.length - 1;
+        const icon = L.divIcon({
+          className: 'ruta-stop-marker',
+          html: isTerminal
+            ? `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`
+            : `<div style="width:9px;height:9px;border-radius:50%;background:${color};border:1.5px solid #fff"></div>`,
+          iconSize: isTerminal ? [16, 16] : [9, 9],
+          iconAnchor: isTerminal ? [8, 8] : [4, 4],
+        });
+        const m = L.marker([p.latitud, p.longitud], { icon })
+          .addTo(this.liveMap!)
+          .bindTooltip(p.nombre, { permanent: isTerminal, direction: 'top', offset: [0, -8], className: 'ruta-stop-tooltip' });
+        this.rutaPathLayers.push(m);
+      });
+    }
+  }
+
+  async startEditRuta(r: Ruta) {
+    this.editingRuta = r;
+    this.editingParadas = await this.admin.getParadas(r.id);
+    this.activeTab = 'mapa';
+    setTimeout(() => this.initLiveMap(), 150);
+  }
+
+  private exitEditMode() {
+    if (this.mapClickHandler && this.liveMap) {
+      this.liveMap.off('click', this.mapClickHandler);
+      this.mapClickHandler = null;
+    }
+    this.editingRuta = null;
+    this.editingParadas = [];
+  }
+
+  stopEditRuta() {
+    this.exitEditMode();
+    setTimeout(() => this.initLiveMap(), 150);
+  }
+
+  private async onMapClickAddParada(e: L.LeafletMouseEvent) {
+    if (!this.editingRuta) return;
+    const orden = this.editingParadas.length;
+    const optimistic: Parada = {
+      id: `temp-${Date.now()}`,
+      ruta_id: this.editingRuta.id,
+      nombre: `Parada ${orden + 1}`,
+      latitud: e.latlng.lat,
+      longitud: e.latlng.lng,
+      orden,
+    };
+
+    // Se dibuja de inmediato para que el click siempre dé feedback visual,
+    // aunque el guardado en el servidor falle (RLS, red, etc.).
+    this.editingParadas.push(optimistic);
+    this.drawEditingRutaPath();
+
+    try {
+      const saved = await this.admin.createParada({
+        ruta_id: optimistic.ruta_id,
+        nombre: optimistic.nombre,
+        latitud: optimistic.latitud,
+        longitud: optimistic.longitud,
+        orden: optimistic.orden,
+      });
+      const idx = this.editingParadas.findIndex(p => p.id === optimistic.id);
+      if (idx >= 0) this.editingParadas[idx] = saved;
+    } catch (err: any) {
+      this.editingParadas = this.editingParadas.filter(p => p.id !== optimistic.id);
+      this.drawEditingRutaPath();
+      this.showToast(err?.message || 'No se pudo guardar la parada', 'danger');
+    }
+  }
+
+  async undoLastParada() {
+    const last = this.editingParadas[this.editingParadas.length - 1];
+    if (!last) return;
+
+    if (!last.id.startsWith('temp-')) {
+      const alert = await this.alertCtrl.create({
+        header: 'Quitar parada',
+        message: `¿Eliminar "${last.nombre}" del trazado? Esto la borra permanentemente.`,
+        buttons: [
+          { text: 'Cancelar', role: 'cancel' },
+          { text: 'Eliminar', role: 'destructive', handler: async () => {
+            this.editingParadas.pop();
+            try { await this.admin.deleteParada(last.id); } catch {}
+            await this.drawEditingRutaPath();
+          }},
+        ],
+      });
+      await alert.present();
+    } else {
+      this.editingParadas.pop();
+      await this.drawEditingRutaPath();
+    }
+  }
+
+  private async drawEditingRutaPath() {
+    if (!this.liveMap) return;
+    this.rutaPathLayers.forEach(l => this.liveMap!.removeLayer(l));
+    this.rutaPathLayers = [];
+
+    const color = this.editingRuta?.color || '#00c853';
+    this.editingParadas.forEach((p, i) => {
+      const icon = L.divIcon({
+        className: 'ruta-point-marker',
+        html: `<div style="width:22px;height:22px;background:${color};border-radius:50%;border:2px solid #fff;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,0.35)">${i + 1}</div>`,
+        iconSize: [22, 22], iconAnchor: [11, 11],
+      });
+      const m = L.marker([p.latitud, p.longitud], { icon })
+        .addTo(this.liveMap!)
+        .bindTooltip(p.nombre, { direction: 'top', offset: [0, -12], className: 'ruta-stop-tooltip' });
+      this.rutaPathLayers.push(m);
+    });
+
+    if (this.editingParadas.length >= 2) {
+      const coords = await this.features.fetchRoadRouteCoords(this.editingParadas);
+      const line = L.polyline(coords, { color, weight: 5, opacity: 0.9 }).addTo(this.liveMap);
+      this.rutaPathLayers.push(line);
+
+      if (this.editingRuta) {
+        this.editingRuta.geometria = coords;
+        this.admin.updateRuta(this.editingRuta.id, { geometria: coords }).catch(() => {});
+      }
+    } else if (this.editingRuta && this.editingRuta.geometria) {
+      // Ya no hay suficientes paradas para formar un camino: no dejar un trazado viejo huérfano.
+      this.editingRuta.geometria = null;
+      this.admin.updateRuta(this.editingRuta.id, { geometria: null }).catch(() => {});
+    }
   }
 
   private updateMapMarker(busId: string, lat: number, lng: number) {
@@ -135,6 +309,26 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   get activeRoutesCount(): number { return this.rutas.filter(r => r.estado === 'activa').length; }
 
   // ---- RUTAS ----
+  private async generateAutoTrazado(ruta: Ruta, origenNombre: string, destinoNombre: string): Promise<void> {
+    const [origenPunto, destinoPunto] = await Promise.all([
+      this.features.geocode(`${origenNombre}, Costa Rica`),
+      this.features.geocode(`${destinoNombre}, Costa Rica`),
+    ]);
+
+    if (!origenPunto || !destinoPunto) {
+      this.showToast('Ruta creada — no se pudo ubicar el trazado automáticamente, agregalo desde "Trazado"', 'warning');
+      return;
+    }
+
+    const origenParada = await this.admin.createParada({ ruta_id: ruta.id, nombre: origenNombre, latitud: origenPunto.lat, longitud: origenPunto.lng, orden: 0 });
+    const destinoParada = await this.admin.createParada({ ruta_id: ruta.id, nombre: destinoNombre, latitud: destinoPunto.lat, longitud: destinoPunto.lng, orden: 1 });
+
+    const geometria = await this.features.fetchRoadRouteCoords([origenParada, destinoParada]);
+    await this.admin.updateRuta(ruta.id, { geometria });
+
+    this.showToast('Ruta creada con recorrido automático');
+  }
+
   async addRuta() {
     const alert = await this.alertCtrl.create({
       header: 'Nueva ruta',
@@ -149,8 +343,10 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         { text: 'Crear', handler: async (d) => {
           if (!d.nombre || !d.origen || !d.destino) return false;
           try {
-            await this.admin.createRuta({ empresa_id: this.profile!.empresa_id!, nombre: d.nombre, origen: d.origen, destino: d.destino, color: d.color || '#00c853', estado: 'activa' });
-            await this.loadData(); this.showToast('Ruta creada');
+            const nueva = await this.admin.createRuta({ empresa_id: this.profile!.empresa_id!, nombre: d.nombre, origen: d.origen, destino: d.destino, color: d.color || '#00c853', estado: 'activa' });
+            await this.generateAutoTrazado(nueva, d.origen, d.destino);
+            await this.loadData();
+            if (this.activeTab === 'mapa' || this.activeTab === 'inicio') setTimeout(() => this.initLiveMap(), 150);
           } catch { this.showToast('Error', 'danger'); }
           return true;
         }},

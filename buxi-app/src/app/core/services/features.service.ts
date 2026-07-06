@@ -107,6 +107,19 @@ export class FeaturesService {
     if (error) throw error;
   }
 
+  // ---- GEOCODIFICACIÓN (nombre de lugar -> coordenadas) ----
+  async geocode(query: string): Promise<{ lat: number; lng: number } | null> {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+    } catch {}
+    return null;
+  }
+
   // ---- ETA & PARADA CERCANA ----
   findNearestStop(userLat: number, userLng: number, paradas: Parada[]): { parada: Parada; distanceKm: number } | null {
     if (paradas.length === 0) return null;
@@ -127,6 +140,30 @@ export class FeaturesService {
     if (speedKmh <= 0) return null;
     const dist = this.haversine(busLat, busLng, stopLat, stopLng);
     return Math.round((dist / speedKmh) * 60);
+  }
+
+  // ---- TRAZADO DE RUTA (siguiendo calles) ----
+  async fetchRoadRouteCoords(paradas: Parada[]): Promise<[number, number][]> {
+    const fallback: [number, number][] = paradas.map(p => [p.latitud, p.longitud]);
+    if (paradas.length < 2) return fallback;
+
+    const waypoints = paradas.map(p => `${p.longitud},${p.latitud}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson`;
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      const geoCoords = data?.routes?.[0]?.geometry?.coordinates;
+      if (data.code === 'Ok' && Array.isArray(geoCoords) && geoCoords.length > 1) {
+        return geoCoords.map((c: number[]) => [c[1], c[0]] as [number, number]);
+      }
+    } catch {}
+
+    return fallback;
+  }
+
+  distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    return this.haversine(lat1, lon1, lat2, lon2);
   }
 
   private haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {

@@ -129,6 +129,16 @@
 
         <!-- ===== MAPA COMPLETO ===== -->
         <div *ngIf="activeTab==='mapa'" class="page">
+          <div class="edit-ruta-banner" *ngIf="editingRuta">
+            <div>
+              <strong>Editando trazado: {{ editingRuta.nombre }}</strong>
+              <span class="muted">Tocá el mapa para agregar paradas en orden ({{ editingParadas.length }} agregadas)</span>
+            </div>
+            <div class="edit-ruta-actions">
+              <ion-button size="small" fill="outline" [disabled]="editingParadas.length===0" (click)="undoLastParada()">Deshacer último punto</ion-button>
+              <ion-button size="small" (click)="stopEditRuta()">Terminar</ion-button>
+            </div>
+          </div>
           <div class="card" style="padding:0;overflow:hidden">
             <div id="emp-map-full" style="height:calc(100vh - 120px)"></div>
           </div>
@@ -145,6 +155,7 @@
                 <span class="muted">{{ r.origen }} → {{ r.destino }}</span>
               </div>
               <span class="badge" [style.color]="r.estado==='activa'?'#00c853':'#aaa'">{{ r.estado }}</span>
+              <ion-icon name="map-outline" class="act-icon" (click)="startEditRuta(r)"></ion-icon>
               <ion-icon name="trash-outline" class="act-icon danger" (click)="deleteRuta(r)"></ion-icon>
             </div>
             <div class="empty" *ngIf="rutas.length===0">No hay rutas creadas</div>

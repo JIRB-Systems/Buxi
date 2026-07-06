@@ -133,7 +133,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
       this.activeRuta = ruta;
       this.activeParadas = paradas;
-      this.drawRoute(paradas, ruta.color);
+      await this.drawRoute(paradas, ruta.color, ruta.geometria);
 
       const locations = await this.tracking.getLocationsByRuta(rutaId);
       this.activeBusCount = locations.length;
@@ -144,9 +144,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.loading = false;
   }
 
-  private drawRoute(paradas: Parada[], color: string) {
+  private async drawRoute(paradas: Parada[], color: string, geometria?: [number, number][] | null) {
     const c = color || '#00c853';
-    const coords: L.LatLngExpression[] = paradas.map(p => [p.latitud, p.longitud]);
+    const coords: L.LatLngExpression[] = geometria?.length
+      ? geometria
+      : await this.featuresService.fetchRoadRouteCoords(paradas);
 
     const bg = L.polyline(coords, {
       color: c, weight: 12, opacity: 0.12, lineCap: 'round', lineJoin: 'round',

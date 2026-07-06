@@ -17,6 +17,7 @@ export interface Ruta {
   destino: string;
   color: string;
   estado: string;
+  geometria: [number, number][] | null;
   empresa?: Empresa;
 }
 
