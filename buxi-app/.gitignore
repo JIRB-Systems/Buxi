@@ -24,7 +24,17 @@ log.txt
 /plugins
 
 # Capacitor native platforms
-/android
+# El android/ folder es generado (npx cap add/sync), asi que se ignora
+# entero salvo AndroidManifest.xml: trae un intent-filter de deep link
+# custom (login OAuth) que Capacitor no vuelve a escribir solo.
+/android/*
+!/android/app
+/android/app/*
+!/android/app/src
+/android/app/src/*
+!/android/app/src/main
+/android/app/src/main/*
+!/android/app/src/main/AndroidManifest.xml
 /ios
 
 # Compiled output

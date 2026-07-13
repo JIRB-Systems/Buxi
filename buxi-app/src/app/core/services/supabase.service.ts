@@ -1,8 +1,12 @@
 import { Injectable } from '@angular/core';
 import { createClient, SupabaseClient, AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { environment } from '../../../environments/environment';
 import { UserProfile } from '../models/user-profile.model';
 import { BehaviorSubject } from 'rxjs';
+
+const OAUTH_NATIVE_REDIRECT = 'cr.buxi.app://login-callback';
 
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {
@@ -67,9 +71,43 @@ export class SupabaseService {
   }
 
   async signInWithGoogle() {
-    const { data, error } = await this.supabase.auth.signInWithOAuth({ provider: 'google' });
+    if (Capacitor.isNativePlatform()) {
+      // En la app nativa no hay una URL de navegador que redirija sola: pedimos
+      // la URL de Google sin que Supabase intente redirigir, y la abrimos
+      // nosotros en el navegador in-app. El regreso llega por deep link
+      // (cr.buxi.app://login-callback), capturado en app.component.ts.
+      const { data, error } = await this.supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: OAUTH_NATIVE_REDIRECT, skipBrowserRedirect: true },
+      });
+      if (error) throw error;
+      if (data.url) await Browser.open({ url: data.url });
+      return data;
+    }
+
+    const { data, error } = await this.supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/login` },
+    });
     if (error) throw error;
     return data;
+  }
+
+  // Se llama desde app.component.ts cuando el deep link de vuelta del login
+  // nativo abre la app. La URL trae los tokens en el fragmento (#access_token=...),
+  // igual que hace el navegador en el flujo web, pero acá nadie los parsea solo.
+  async handleOAuthCallbackUrl(url: string): Promise<boolean> {
+    const hashIndex = url.indexOf('#');
+    if (hashIndex === -1) return false;
+
+    const params = new URLSearchParams(url.substring(hashIndex + 1));
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if (!access_token || !refresh_token) return false;
+
+    const { error } = await this.supabase.auth.setSession({ access_token, refresh_token });
+    if (error) throw error;
+    return true;
   }
 
   async signInWithFacebook() {
