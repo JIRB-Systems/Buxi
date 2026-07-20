@@ -1,13 +1,14 @@
 import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AlertController, ToastController } from '@ionic/angular';
-import * as L from 'leaflet';
+import * as maplibregl from 'maplibre-gl';
 import { Geolocation } from '@capacitor/geolocation';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Parada } from '../../../core/models/transport.model';
 import { ChoferService } from '../../../core/services/chofer.service';
+import { createMap, htmlMarkerEl } from '../../../core/utils/maplibre';
 
 @Component({
   selector: 'app-chofer-home',
@@ -21,8 +22,8 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   tracking = false;
   loading = true;
 
-  private map!: L.Map;
-  private userMarker: L.Marker | null = null;
+  private map!: maplibregl.Map;
+  private userMarker: maplibregl.Marker | null = null;
   private watchId: string | null = null;
   private currentLat = 0;
   private currentLng = 0;
@@ -31,13 +32,6 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   private rutaParadas: Parada[] = [];
   private nextParadaIndex = 1;
   private segmentStartTime = 0;
-
-  private busIcon = L.divIcon({
-    className: 'chofer-marker',
-    html: `<div class="chofer-marker-inner"><ion-icon name="bus"></ion-icon></div>`,
-    iconSize: [48, 48],
-    iconAnchor: [24, 24],
-  });
 
   constructor(
     private supabase: SupabaseService,
@@ -65,17 +59,11 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async initMap() {
-    this.map = L.map('chofer-map', {
-      center: [9.9281, -84.0907],
+    this.map = await createMap({
+      container: 'chofer-map',
+      center: [-84.0907, 9.9281],
       zoom: 15,
-      zoomControl: false,
     });
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      maxZoom: 20,
-    }).addTo(this.map);
 
     await this.startWatchingPosition();
   }
@@ -85,7 +73,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       await Geolocation.requestPermissions();
       const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
       this.updatePosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed);
-      this.map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+      this.map.jumpTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 });
 
       this.watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true },
@@ -105,9 +93,12 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     this.currentSpeedKmh = speedMs && speedMs > 0 ? speedMs * 3.6 : 0;
 
     if (this.userMarker) {
-      this.userMarker.setLatLng([lat, lng]);
+      this.userMarker.setLngLat([lng, lat]);
     } else {
-      this.userMarker = L.marker([lat, lng], { icon: this.busIcon }).addTo(this.map);
+      const el = htmlMarkerEl('chofer-marker', `<div class="chofer-marker-inner"><ion-icon name="bus"></ion-icon></div>`);
+      this.userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([lng, lat])
+        .addTo(this.map);
     }
   }
 
@@ -213,7 +204,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
 
   centerOnMe() {
     if (this.currentLat && this.currentLng) {
-      this.map.setView([this.currentLat, this.currentLng], 16, { animate: true });
+      this.map.flyTo({ center: [this.currentLng, this.currentLat], zoom: 16 });
     }
   }
 

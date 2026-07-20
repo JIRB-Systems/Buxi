@@ -31,9 +31,9 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["node_modules/leaflet/dist/leaflet.css", "src/global.scss", "src/theme/variables.scss"],
+            "styles": ["node_modules/leaflet/dist/leaflet.css", "node_modules/maplibre-gl/dist/maplibre-gl.css", "src/global.scss", "src/theme/variables.scss"],
             "scripts": [],
-            "allowedCommonJsDependencies": ["leaflet"]
+            "allowedCommonJsDependencies": ["leaflet", "maplibre-gl"]
           },
           "configurations": {
             "production": {
@@ -112,7 +112,7 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["node_modules/leaflet/dist/leaflet.css", "src/global.scss", "src/theme/variables.scss"],
+            "styles": ["node_modules/leaflet/dist/leaflet.css", "node_modules/maplibre-gl/dist/maplibre-gl.css", "src/global.scss", "src/theme/variables.scss"],
             "scripts": []
           },
           "configurations": {

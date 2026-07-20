@@ -403,4 +403,34 @@
       border-top-color: var(--dash-surface) !important;
     }
   }
+
+  // ---- Ajustes MapLibre ----
+  // MapLibre posiciona el marker por transform (no por iconSize como Leaflet),
+  // así que el contenedor del user marker necesita un tamaño explícito para
+  // que el punto y el pulso (absolute/inset) se ubiquen bien.
+  .user-marker { position: relative; width: 24px; height: 24px; }
+
+  .stop-marker { position: relative; display: grid; place-items: center; }
+  .stop-label {
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    background: var(--dash-surface);
+    color: #fff;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    pointer-events: none;
+  }
+
+  // Ocultar todo el chrome de MapLibre (logo, atribución, controles).
+  .maplibregl-ctrl-bottom-left,
+  .maplibregl-ctrl-bottom-right,
+  .maplibregl-ctrl-top-left,
+  .maplibregl-ctrl-top-right { display: none !important; }
+  .maplibregl-canvas:focus { outline: none; }
 }

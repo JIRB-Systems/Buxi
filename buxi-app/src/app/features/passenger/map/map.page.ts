@@ -1,14 +1,14 @@
 import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ViewWillEnter } from '@ionic/angular';
-import * as L from 'leaflet';
+import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
 import { BusTrackingService } from '../../../core/services/bus-tracking.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
-import { animateMarkerTo } from '../../../core/utils/leaflet-marker-animation';
+import { createMap, animateMarkerTo, htmlMarkerEl } from '../../../core/utils/maplibre';
 
 @Component({
   selector: 'app-map',
@@ -17,13 +17,15 @@ import { animateMarkerTo } from '../../../core/utils/leaflet-marker-animation';
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter {
-  private map!: L.Map;
+  private map!: maplibregl.Map;
   private mapReady = false;
-  private routeLayers: L.Layer[] = [];
-  private busMarkers = new Map<string, L.Marker>();
+  // Rutas dibujadas como capas GeoJSON + paradas como markers HTML.
+  private routeLayerIds: string[] = [];
+  private routeMarkers: maplibregl.Marker[] = [];
+  private busMarkers = new Map<string, maplibregl.Marker>();
   private busLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
-  private userMarker: L.Marker | null = null;
+  private userMarker: maplibregl.Marker | null = null;
   private locationSub: Subscription | null = null;
   private watchId: string | null = null;
 
@@ -59,19 +61,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     return (this.selectedBus?.bus as any)?.ruta?.nombre || 'Sin ruta asignada';
   }
 
-  private busIcon = L.divIcon({
-    className: 'bus-marker',
-    html: `<div class="bus-dot"><svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-  });
-
-  private userIcon = L.divIcon({
-    className: 'user-marker',
-    html: `<div class="user-dot"></div><div class="user-pulse"></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  });
+  private busMarkerHtml(): string {
+    return `<div class="bus-dot"><svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`;
+  }
 
   constructor(
     private tracking: BusTrackingService,
@@ -108,18 +100,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   }
 
   private async initMap() {
-    this.map = L.map('map', {
-      center: [9.9281, -84.0907],
+    // MapLibre usa [lng, lat]. San José, Costa Rica.
+    this.map = await createMap({
+      container: 'map',
+      center: [-84.0907, 9.9281],
       zoom: 14,
-      zoomControl: false,
-      attributionControl: false,
     });
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      maxZoom: 20,
-    }).addTo(this.map);
 
     this.mapReady = true;
 
@@ -144,12 +130,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         if (!marker) return;
         const age = now - lastSeen;
         if (age > this.REMOVE_MS) {
-          this.map.removeLayer(marker);
+          marker.remove();
           this.busMarkers.delete(busId);
           this.busLastSeen.delete(busId);
           this.activeBusCount = this.busMarkers.size;
         } else if (age > this.STALE_MS) {
-          marker.setOpacity(0.35);
+          marker.getElement().style.opacity = '0.35';
         }
       });
     }, 10000);
@@ -183,50 +169,65 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   private async drawRoute(paradas: Parada[], color: string, geometria?: [number, number][] | null) {
     const c = color || '#00c853';
-    const coords: L.LatLngExpression[] = geometria?.length
+    // Coords guardadas en formato Leaflet [lat, lng]; MapLibre las quiere [lng, lat].
+    const latlng: [number, number][] = geometria?.length
       ? geometria
       : await this.featuresService.fetchRoadRouteCoords(paradas);
+    const coords: [number, number][] = latlng.map(([lat, lng]) => [lng, lat]);
 
-    const bg = L.polyline(coords, {
-      color: c, weight: 12, opacity: 0.12, lineCap: 'round', lineJoin: 'round',
-    }).addTo(this.map);
-    this.routeLayers.push(bg);
-
-    const main = L.polyline(coords, {
-      color: c, weight: 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round',
-    }).addTo(this.map);
-    this.routeLayers.push(main);
+    const srcId = `route-${Date.now()}`;
+    this.map.addSource(srcId, {
+      type: 'geojson',
+      data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
+    });
+    // Halo grueso translúcido + línea principal encima.
+    const bgId = `${srcId}-bg`;
+    const mainId = `${srcId}-main`;
+    this.map.addLayer({
+      id: bgId, type: 'line', source: srcId,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': c, 'line-width': 12, 'line-opacity': 0.12 },
+    });
+    this.map.addLayer({
+      id: mainId, type: 'line', source: srcId,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': c, 'line-width': 5, 'line-opacity': 0.9 },
+    });
+    this.routeLayerIds.push(bgId, mainId);
 
     paradas.forEach((parada, i) => {
       const isTerminal = i === 0 || i === paradas.length - 1;
-      const icon = L.divIcon({
-        className: 'stop-marker',
-        html: isTerminal
-          ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div>`
-          : `<div class="stop-dot" style="border-color:${c}"></div>`,
-        iconSize: isTerminal ? [18, 18] : [12, 12],
-        iconAnchor: isTerminal ? [9, 9] : [6, 6],
-      });
-
-      const m = L.marker([parada.latitud, parada.longitud], { icon })
-        .addTo(this.map)
-        .bindTooltip(parada.nombre, {
-          permanent: isTerminal,
-          direction: 'top',
-          offset: [0, -10],
-          className: 'stop-tooltip',
-        });
-      this.routeLayers.push(m);
+      const html = isTerminal
+        ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div><div class="stop-label">${parada.nombre}</div>`
+        : `<div class="stop-dot" style="border-color:${c}"></div>`;
+      const el = htmlMarkerEl('stop-marker', html);
+      const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([parada.longitud, parada.latitud])
+        .addTo(this.map);
+      this.routeMarkers.push(m);
     });
 
-    this.map.fitBounds(main.getBounds(), { padding: [60, 60] });
+    // Encuadrar la ruta.
+    const bounds = coords.reduce(
+      (b, coord) => b.extend(coord as [number, number]),
+      new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number]),
+    );
+    this.map.fitBounds(bounds, { padding: 60, duration: 0 });
   }
 
   clearRoute(navigate = true) {
-    this.routeLayers.forEach(l => this.map.removeLayer(l));
-    this.routeLayers = [];
+    this.routeLayerIds.forEach(id => {
+      if (this.map.getLayer(id)) this.map.removeLayer(id);
+    });
+    // Cada par de layers comparte un source (route-<ts>); quitarlos.
+    const srcIds = new Set(this.routeLayerIds.map(id => id.replace(/-bg$|-main$/, '')));
+    srcIds.forEach(sid => { if (this.map.getSource(sid)) this.map.removeSource(sid); });
+    this.routeLayerIds = [];
 
-    this.busMarkers.forEach(m => this.map.removeLayer(m));
+    this.routeMarkers.forEach(m => m.remove());
+    this.routeMarkers = [];
+
+    this.busMarkers.forEach(m => m.remove());
     this.busMarkers.clear();
     this.busLastSeen.clear();
     this.activeBusCount = 0;
@@ -258,17 +259,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   }
 
   private addOrUpdateBusMarker(location: BusLocation) {
-    const latlng: L.LatLngExpression = [location.latitud, location.longitud];
+    const lngLat: [number, number] = [location.longitud, location.latitud];
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
 
     if (this.busMarkers.has(location.bus_id)) {
       const marker = this.busMarkers.get(location.bus_id)!;
-      animateMarkerTo(marker, latlng);
-      marker.setOpacity(1);
+      animateMarkerTo(marker, lngLat);
+      marker.getElement().style.opacity = '1';
     } else {
-      const marker = L.marker(latlng, { icon: this.busIcon })
-        .addTo(this.map)
-        .on('click', () => { this.selectedBus = location; });
+      const el = htmlMarkerEl('bus-marker', this.busMarkerHtml());
+      el.addEventListener('click', () => { this.selectedBus = location; });
+      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat(lngLat)
+        .addTo(this.map);
       this.busMarkers.set(location.bus_id, marker);
     }
   }
@@ -280,7 +283,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
       this.updateUserPosition(position.coords.latitude, position.coords.longitude);
       if (!this.activeRuta) {
-        this.map.setView([position.coords.latitude, position.coords.longitude], 15);
+        this.map.jumpTo({ center: [position.coords.longitude, position.coords.latitude], zoom: 15 });
       }
       this.watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true },
@@ -294,9 +297,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.userLng = lng;
 
     if (this.userMarker) {
-      this.userMarker.setLatLng([lat, lng]);
+      this.userMarker.setLngLat([lng, lat]);
     } else {
-      this.userMarker = L.marker([lat, lng], { icon: this.userIcon }).addTo(this.map);
+      const el = htmlMarkerEl('user-marker', `<div class="user-dot"></div><div class="user-pulse"></div>`);
+      this.userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([lng, lat])
+        .addTo(this.map);
     }
 
     this.updateETA();
@@ -309,9 +315,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       if (this.nearestStop && this.busMarkers.size > 0) {
         const firstBus = this.busMarkers.values().next().value;
         if (firstBus) {
-          const busLatLng = firstBus.getLatLng();
+          const busLngLat = firstBus.getLngLat();
           this.etaMinutes = this.featuresService.calculateETA(
-            busLatLng.lat, busLatLng.lng,
+            busLngLat.lat, busLngLat.lng,
             this.nearestStop.parada.latitud, this.nearestStop.parada.longitud,
             20
           );
@@ -327,7 +333,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   centerOnUser() {
     if (this.userMarker) {
-      this.map.setView(this.userMarker.getLatLng(), 16, { animate: true });
+      this.map.flyTo({ center: this.userMarker.getLngLat(), zoom: 16 });
     }
   }
 
