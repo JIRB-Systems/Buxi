@@ -19,6 +19,7 @@ import { createMap, animateMarkerTo, htmlMarkerEl } from '../../../core/utils/ma
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter {
   private map!: maplibregl.Map;
   private mapReady = false;
+  private destroyed = false;
   // Rutas dibujadas como capas GeoJSON + paradas como markers HTML.
   private routeLayerIds: string[] = [];
   private routeMarkers: maplibregl.Marker[] = [];
@@ -106,6 +107,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       center: [-84.0907, 9.9281],
       zoom: 14,
     });
+    // Si el usuario navegó fuera mientras el estilo cargaba, no operar sobre
+    // un mapa huérfano (evita errores async que rompen la navegación).
+    if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
     this.mapReady = true;
 
@@ -352,10 +356,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     this.tracking.unsubscribe();
     this.locationSub?.unsubscribe();
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
     if (this.watchId) Geolocation.clearWatch({ id: this.watchId });
-    if (this.map) this.map.remove();
+    if (this.map) { try { this.map.remove(); } catch {} }
   }
 }

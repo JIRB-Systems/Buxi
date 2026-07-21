@@ -23,6 +23,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   loading = true;
 
   private map!: maplibregl.Map;
+  private destroyed = false;
   private userMarker: maplibregl.Marker | null = null;
   private watchId: string | null = null;
   private currentLat = 0;
@@ -64,6 +65,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       center: [-84.0907, 9.9281],
       zoom: 15,
     });
+    if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
     await this.startWatchingPosition();
   }
@@ -232,6 +234,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
     if (this.tracking) {
       clearInterval(this.trackingInterval);
     }
@@ -239,7 +242,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       Geolocation.clearWatch({ id: this.watchId });
     }
     if (this.map) {
-      this.map.remove();
+      try { this.map.remove(); } catch {}
     }
   }
 }
