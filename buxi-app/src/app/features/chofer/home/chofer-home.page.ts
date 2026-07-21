@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
 import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
@@ -72,7 +73,9 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
 
   private async startWatchingPosition() {
     try {
-      await Geolocation.requestPermissions();
+      if (Capacitor.isNativePlatform()) {
+        await Geolocation.requestPermissions();
+      }
       const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
       this.updatePosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed);
       this.map.jumpTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 });

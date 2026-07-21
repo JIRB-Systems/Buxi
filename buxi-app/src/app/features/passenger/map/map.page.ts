@@ -8,6 +8,7 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 import { createMap, animateMarkerTo, htmlMarkerEl } from '../../../core/utils/maplibre';
 
 @Component({
@@ -282,8 +283,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   private async startUserLocation() {
     try {
-      const permission = await Geolocation.requestPermissions();
-      if (permission.location === 'denied') return;
+      // requestPermissions() sólo existe en nativo; en web lanza "Not
+      // implemented on web" y frenaba toda la geolocalización. En el navegador
+      // el permiso se pide solo al llamar getCurrentPosition().
+      if (Capacitor.isNativePlatform()) {
+        const permission = await Geolocation.requestPermissions();
+        if (permission.location === 'denied') return;
+      }
       const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
       this.updateUserPosition(position.coords.latitude, position.coords.longitude);
       if (!this.activeRuta) {
