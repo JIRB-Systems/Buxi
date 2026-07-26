@@ -127,7 +127,7 @@ export class BusTrackingService implements OnDestroy {
     const { data: empresas, error } = await this.supabase
       .from('empresas')
       .select('id, nombre, logo_url, estado')
-      .eq('estado', 'activa');
+      .eq('estado', 'activo');
     if (error) throw error;
     if (!empresas?.length) return [];
 

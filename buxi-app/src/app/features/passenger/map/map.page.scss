@@ -7,6 +7,146 @@
 
 #map { width: 100%; height: 100%; z-index: 1; }
 
+// ====== DESKTOP LAYOUT (tablet/desktop width) ======
+// Mobile keeps the floating-overlay UX above unchanged; on wider screens the
+// map stays full-bleed underneath and a fixed sidebar + topbar sit on top,
+// like a native web app shell instead of stretched phone chrome.
+.desktop-topbar, .desktop-sidebar { display: none; }
+
+.desktop-topbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 1001;
+  align-items: center; gap: 20px;
+  height: 64px; padding: 0 20px;
+  background: var(--dash-bg-main, #0f1c2e);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+
+  .dt-logo {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    img { width: 30px; height: 30px; object-fit: contain; }
+    span { font-size: 17px; font-weight: 800; color: #fff; }
+  }
+
+  .dt-search {
+    flex: 1; max-width: 420px;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 9px 14px; cursor: pointer;
+    transition: border-color 0.15s;
+    &:hover { border-color: #00c853; }
+    ion-icon { font-size: 16px; color: #7d93b2; }
+    span { font-size: 13px; color: #7d93b2; }
+  }
+}
+
+.desktop-sidebar {
+  position: absolute; top: 64px; left: 0; bottom: 0; z-index: 1000;
+  width: 340px; flex-direction: column; gap: 14px;
+  padding: 16px; overflow-y: auto;
+  background: var(--dash-bg-elevated, #0e1e32);
+  border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+.ds-section {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.ds-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  h3 { font-size: 13px; font-weight: 700; color: #fff; margin: 0; }
+}
+
+.ds-label {
+  font-size: 11px; font-weight: 700; color: #7d93b2;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+
+.empresa-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border-radius: 10px; cursor: pointer;
+  transition: background 0.12s;
+  &:hover { background: rgba(255,255,255,0.05); }
+
+  .empresa-logo {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    background: rgba(255,255,255,0.06);
+    display: grid; place-items: center; overflow: hidden;
+    img { width: 100%; height: 100%; object-fit: cover; }
+    ion-icon { font-size: 16px; color: #7d93b2; }
+  }
+
+  .empresa-info {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    strong { font-size: 13px; color: #fff; font-weight: 600; }
+    span { font-size: 11px; color: #7d93b2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  }
+
+  .empresa-freq {
+    font-size: 10px; font-weight: 700; color: #00c853; white-space: nowrap;
+  }
+}
+
+.ds-empty { font-size: 12px; color: #7d93b2; padding: 8px; text-align: center; }
+
+.ds-link {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: 12px; font-weight: 600; color: #00c853; cursor: pointer;
+  padding: 8px; border-radius: 8px;
+  ion-icon { font-size: 13px; }
+  &:hover { background: rgba(0,200,83,0.08); }
+}
+
+.ds-card {
+  background: var(--dash-surface, #162238); border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+
+.ds-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  .ds-clear { font-size: 16px; color: #7d93b2; cursor: pointer; &:hover { color: #fff; } }
+}
+
+.ds-route-row {
+  display: flex; align-items: center; gap: 10px;
+  .route-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ds-route-info {
+    display: flex; flex-direction: column;
+    strong { font-size: 14px; color: #fff; }
+    span { font-size: 11px; color: #7d93b2; margin-top: 1px; }
+  }
+}
+
+.ds-eta-row {
+  display: flex; align-items: center; gap: 10px;
+  > ion-icon { font-size: 20px; color: #00c853; }
+  .ds-eta-info {
+    flex: 1; display: flex; flex-direction: column;
+    strong { font-size: 13px; color: #fff; }
+    span { font-size: 11px; color: #7d93b2; }
+  }
+  .ds-eta-time {
+    background: #00c853; border-radius: 8px; padding: 5px 10px;
+    strong { font-size: 13px; color: #fff; }
+  }
+}
+
+.ds-bus-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  &:first-of-type { border-top: none; }
+  ion-icon { font-size: 15px; color: #00c853; flex-shrink: 0; }
+  strong { font-size: 12px; color: #fff; }
+  .ds-bus-dist { flex: 1; font-size: 11px; color: #7d93b2; }
+  .ds-bus-eta { font-size: 11px; font-weight: 700; color: #00c853; }
+}
+
+.ds-hint {
+  flex-direction: row; align-items: center; gap: 10px;
+  ion-icon { font-size: 24px; color: #00c853; flex-shrink: 0; }
+  strong { display: block; font-size: 13px; color: #fff; }
+  span { font-size: 11px; color: #7d93b2; }
+}
+
 // ---- TOP OVERLAY ----
 .top-overlay {
   position: absolute;
@@ -433,4 +573,21 @@
   .maplibregl-ctrl-top-left,
   .maplibregl-ctrl-top-right { display: none !important; }
   .maplibregl-canvas:focus { outline: none; }
+}
+
+// ---- DESKTOP LAYOUT OVERRIDES ----
+// Placed last so these win the cascade against the mobile rules above
+// (same specificity, later source order).
+@media (min-width: 900px) {
+  .desktop-topbar, .desktop-sidebar { display: flex; }
+
+  // Mobile-only overlays hidden at this width.
+  .top-overlay, .live-chip, .route-chip, .eta-card, .fab-locate { display: none; }
+  .nav-bar { left: 360px; margin-left: 14px; max-width: 480px; }
+
+  .bus-sheet {
+    left: 360px; right: auto; width: 360px;
+    border-radius: 16px; bottom: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+  }
 }

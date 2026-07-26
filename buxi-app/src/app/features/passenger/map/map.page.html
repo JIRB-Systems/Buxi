@@ -2,6 +2,89 @@
 
   <div id="map"></div>
 
+  <!-- ====== DESKTOP LAYOUT (tablet/desktop width) ====== -->
+  <div class="desktop-topbar">
+    <div class="dt-logo">
+      <img src="assets/icon/buxi-logo-mark.png" alt="Buxi" />
+      <span>Buxi</span>
+    </div>
+    <div class="dt-search" routerLink="/passenger/routes">
+      <ion-icon name="search-outline"></ion-icon>
+      <span>Buscar rutas, paradas o destinos...</span>
+    </div>
+  </div>
+
+  <aside class="desktop-sidebar">
+    <div class="ds-section">
+      <div class="ds-section-header">
+        <h3>Empresas disponibles</h3>
+      </div>
+      <div class="empresa-row" *ngFor="let e of empresas" (click)="goToEmpresa(e)">
+        <div class="empresa-logo">
+          <img *ngIf="e.logo_url" [src]="e.logo_url" alt="" />
+          <ion-icon *ngIf="!e.logo_url" name="business"></ion-icon>
+        </div>
+        <div class="empresa-info">
+          <strong>{{ e.nombre }}</strong>
+          <span>{{ e.rutaResumen }}</span>
+        </div>
+        <div class="empresa-freq" *ngIf="e.frecuencia">cada {{ e.frecuencia }} min</div>
+      </div>
+      <div class="ds-empty" *ngIf="empresas.length === 0">Sin empresas disponibles</div>
+      <div class="ds-link" routerLink="/passenger/routes">Ver todas las rutas <ion-icon name="chevron-forward"></ion-icon></div>
+    </div>
+
+    <div class="ds-section" *ngIf="activeRuta">
+      <div class="ds-card">
+        <div class="ds-card-header">
+          <span class="ds-label">Ruta actual</span>
+          <ion-icon name="close" class="ds-clear" (click)="clearRoute()"></ion-icon>
+        </div>
+        <div class="ds-route-row">
+          <div class="route-color-dot" [style.background]="activeRuta.color"></div>
+          <div class="ds-route-info">
+            <strong>{{ activeRuta.nombre }}</strong>
+            <span>{{ activeRuta.origen }} → {{ activeRuta.destino }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-card" *ngIf="nearestStop">
+        <span class="ds-label">Próximo bus</span>
+        <div class="ds-eta-row">
+          <ion-icon name="location"></ion-icon>
+          <div class="ds-eta-info">
+            <strong>{{ nearestStop.parada.nombre }}</strong>
+            <span>a {{ nearestStop.distanceKm < 1 ? (nearestStop.distanceKm * 1000 | number:'1.0-0') + ' m' : (nearestStop.distanceKm | number:'1.1-1') + ' km' }}</span>
+          </div>
+          <div class="ds-eta-time" *ngIf="etaMinutes !== null">
+            <strong>~{{ etaMinutes }} min</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-card" *ngIf="nearbyBuses.length > 0">
+        <span class="ds-label">Próximos buses a tu parada</span>
+        <div class="ds-bus-row" *ngFor="let b of nearbyBuses">
+          <ion-icon name="bus"></ion-icon>
+          <strong>{{ b.placa }}</strong>
+          <span class="ds-bus-dist">{{ b.distanceKm | number:'1.1-1' }} km</span>
+          <span class="ds-bus-eta" *ngIf="b.etaMinutes !== null">{{ b.etaMinutes }} min</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ds-section" *ngIf="!activeRuta">
+      <div class="ds-card ds-hint">
+        <ion-icon name="navigate-circle-outline"></ion-icon>
+        <div>
+          <strong>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo</strong>
+          <span>Elige una ruta para ver el próximo bus a tu parada</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
   <!-- Top: search or route header -->
   <div class="top-overlay">
     <div class="top-row" *ngIf="!activeRuta">

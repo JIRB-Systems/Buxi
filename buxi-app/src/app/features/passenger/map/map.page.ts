@@ -3,7 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ViewWillEnter } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
-import { BusTrackingService } from '../../../core/services/bus-tracking.service';
+import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-tracking.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { FeaturesService } from '../../../core/services/features.service';
@@ -25,6 +25,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private routeLayerIds: string[] = [];
   private routeMarkers: maplibregl.Marker[] = [];
   private busMarkers = new Map<string, maplibregl.Marker>();
+  private busLocationsMap = new Map<string, BusLocation>();
   private busLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
   private userMarker: maplibregl.Marker | null = null;
@@ -45,6 +46,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   etaMinutes: number | null = null;
   private userLat = 0;
   private userLng = 0;
+
+  empresas: EmpresaListItem[] = [];
+
+  get nearbyBuses(): { placa: string; etaMinutes: number | null; distanceKm: number }[] {
+    if (!this.nearestStop) return [];
+    const stop = this.nearestStop.parada;
+    const rows = Array.from(this.busLocationsMap.values()).map(loc => {
+      const distanceKm = this.featuresService.distanceKm(loc.latitud, loc.longitud, stop.latitud, stop.longitud);
+      const etaMinutes = this.featuresService.calculateETA(loc.latitud, loc.longitud, stop.latitud, stop.longitud, 20);
+      return { placa: (loc.bus as any)?.placa || 'Bus', etaMinutes, distanceKm };
+    });
+    rows.sort((a, b) => (a.etaMinutes ?? 999) - (b.etaMinutes ?? 999));
+    return rows.slice(0, 3);
+  }
 
   get selectedBusPlaca(): string {
     return (this.selectedBus?.bus as any)?.placa || 'Bus';
@@ -82,6 +97,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         this.userName = profile.nombre_completo.split(' ')[0];
       }
     } catch {}
+
+    try {
+      this.empresas = await this.tracking.getEmpresas();
+    } catch {}
+  }
+
+  goToEmpresa(empresa: EmpresaListItem) {
+    this.router.navigate(['/passenger/routes'], { queryParams: { q: empresa.nombre } });
   }
 
   ngAfterViewInit() {
@@ -137,6 +160,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         if (age > this.REMOVE_MS) {
           marker.remove();
           this.busMarkers.delete(busId);
+          this.busLocationsMap.delete(busId);
           this.busLastSeen.delete(busId);
           this.activeBusCount = this.busMarkers.size;
         } else if (age > this.STALE_MS) {
@@ -234,6 +258,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
     this.busMarkers.forEach(m => m.remove());
     this.busMarkers.clear();
+    this.busLocationsMap.clear();
     this.busLastSeen.clear();
     this.activeBusCount = 0;
     this.selectedBus = null;
@@ -266,6 +291,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private addOrUpdateBusMarker(location: BusLocation) {
     const lngLat: [number, number] = [location.longitud, location.latitud];
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
+    this.busLocationsMap.set(location.bus_id, location);
 
     if (this.busMarkers.has(location.bus_id)) {
       const marker = this.busMarkers.get(location.bus_id)!;
