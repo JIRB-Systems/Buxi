@@ -5,38 +5,49 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo-mark">
-          <svg viewBox="0 0 24 24" fill="white" width="22" height="22"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>
+          <svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg>
         </div>
         <div class="logo-text" *ngIf="sidebarOpen">
           <span class="logo-name">Buxi</span>
-          <span class="logo-badge">JIRB</span>
+          <span class="logo-sub">Tus buses en tiempo real</span>
         </div>
       </div>
 
       <nav class="sidebar-nav">
         <div
           class="nav-link"
-          *ngFor="let item of menuItems"
+          *ngFor="let item of topNavItems"
           [class.active]="activeTab === item.id"
           (click)="switchTab(item.id)"
         >
           <ion-icon [name]="activeTab === item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
           <span *ngIf="sidebarOpen">{{ item.label }}</span>
-          <span class="nav-badge" *ngIf="item.id === 'solicitudes' && pendingSolicitudes > 0">{{ pendingSolicitudes }}</span>
+        </div>
+
+        <div *ngFor="let group of navGroups">
+          <div class="nav-group-label" *ngIf="sidebarOpen">{{ group.label }}</div>
+          <div
+            class="nav-link"
+            *ngFor="let item of group.items"
+            [class.active]="activeTab === item.id"
+            (click)="switchTab(item.id)"
+          >
+            <ion-icon [name]="activeTab === item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
+            <span *ngIf="sidebarOpen">{{ item.label }}</span>
+            <span class="nav-badge" *ngIf="item.id === 'solicitudes' && pendingSolicitudes > 0">{{ pendingSolicitudes }}</span>
+          </div>
         </div>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="nav-link" (click)="refreshData()">
-          <ion-icon name="refresh-outline"></ion-icon>
-          <span *ngIf="sidebarOpen">Actualizar</span>
-        </div>
         <div class="nav-link logout" (click)="onLogout()">
           <ion-icon name="log-out-outline"></ion-icon>
           <span *ngIf="sidebarOpen">Cerrar sesión</span>
         </div>
       </div>
     </aside>
+
+    <div class="sidebar-backdrop" *ngIf="sidebarOpen" (click)="toggleSidebar()"></div>
 
     <!-- ====== MAIN CONTENT ====== -->
     <main class="main-content">
@@ -45,11 +56,14 @@
       <div class="topbar">
         <ion-icon name="menu-outline" class="menu-toggle" (click)="toggleSidebar()"></ion-icon>
         <div class="topbar-title">
-          <h1>{{ getTabTitle() }}</h1>
+          <h1 *ngIf="activeTab !== 'overview'">{{ getTabTitle() }}</h1>
         </div>
         <div class="topbar-user" *ngIf="profile">
-          <span>{{ profile.nombre_completo }}</span>
-          <div class="user-dot">{{ profile.nombre_completo.charAt(0) }}</div>
+          <div class="user-info">
+            <span class="user-name">{{ profile.nombre_completo }}</span>
+            <span class="user-role">Administrador JIRB</span>
+          </div>
+          <div class="user-dot">{{ profile.nombre_completo.charAt(0) }}<span class="online-dot"></span></div>
         </div>
       </div>
 
@@ -62,27 +76,138 @@
 
           <!-- ========== OVERVIEW ========== -->
           <div *ngIf="activeTab==='overview'" class="section">
-            <div class="stats-row">
-              <div class="stat-card green"><div class="sc-val">{{ stats.totalEmpresas }}</div><div class="sc-lbl">Empresas</div><ion-icon name="business"></ion-icon></div>
-              <div class="stat-card blue"><div class="sc-val">{{ stats.totalRutas }}</div><div class="sc-lbl">Rutas</div><ion-icon name="git-branch"></ion-icon></div>
-              <div class="stat-card purple"><div class="sc-val">{{ stats.totalBuses }}</div><div class="sc-lbl">Buses</div><ion-icon name="bus"></ion-icon></div>
-              <div class="stat-card orange"><div class="sc-val">{{ stats.busesEnRuta }}</div><div class="sc-lbl">En ruta</div><ion-icon name="navigate"></ion-icon></div>
-            </div>
-            <div class="stats-row">
-              <div class="stat-card teal"><div class="sc-val">{{ stats.totalPasajeros }}</div><div class="sc-lbl">Pasajeros</div><ion-icon name="people"></ion-icon></div>
-              <div class="stat-card red"><div class="sc-val">{{ stats.totalChoferes }}</div><div class="sc-lbl">Choferes</div><ion-icon name="person"></ion-icon></div>
-              <div class="stat-card yellow"><div class="sc-val">{{ stats.promedioGeneral || '-' }}</div><div class="sc-lbl">Rating ({{ stats.totalCalificaciones }})</div><ion-icon name="star"></ion-icon></div>
+
+            <div class="welcome-header">
+              <h2>¡Bienvenido{{ profile ? ', ' + profile.nombre_completo.split(' ')[0] : '' }}!</h2>
+              <p>Aquí tienes un resumen general de la plataforma Buxi.</p>
             </div>
 
-            <div class="panel">
-              <div class="panel-header"><h3>Empresas activas</h3></div>
-              <div class="table-row" *ngFor="let e of empresas">
-                <div class="dot" [style.background]="e.estado==='activo'?'#00c853':'#ccc'"></div>
-                <strong>{{ e.nombre }}</strong>
-                <span class="muted">{{ e.cedula_juridica || '' }}</span>
-                <span class="badge" [style.color]="e.estado==='activo'?'#00c853':'#aaa'">{{ e.estado }}</span>
+            <div class="stats-row">
+              <div class="stat-card">
+                <div class="sc-icon green"><ion-icon name="bus"></ion-icon></div>
+                <div class="sc-body"><div class="sc-val">{{ stats.totalBuses }}</div><div class="sc-lbl">Buses</div></div>
               </div>
-              <div class="empty" *ngIf="empresas.length===0">Sin empresas</div>
+              <div class="stat-card">
+                <div class="sc-icon red"><ion-icon name="person"></ion-icon></div>
+                <div class="sc-body"><div class="sc-val">{{ stats.totalChoferes }}</div><div class="sc-lbl">Choferes</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="sc-icon orange"><ion-icon name="navigate"></ion-icon></div>
+                <div class="sc-body"><div class="sc-val">{{ stats.busesEnRuta }}</div><div class="sc-lbl">En recorrido</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="sc-icon yellow"><ion-icon name="star"></ion-icon></div>
+                <div class="sc-body"><div class="sc-val">{{ stats.promedioGeneral || '-' }}</div><div class="sc-lbl">Calificación</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="sc-icon blue"><ion-icon name="business"></ion-icon></div>
+                <div class="sc-body"><div class="sc-val">{{ stats.totalEmpresas }}</div><div class="sc-lbl">Empresas</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="sc-icon teal"><ion-icon name="git-branch"></ion-icon></div>
+                <div class="sc-body"><div class="sc-val">{{ stats.totalRutas }}</div><div class="sc-lbl">Rutas</div></div>
+              </div>
+              <div class="stat-card">
+                <div class="sc-icon purple"><ion-icon name="people"></ion-icon></div>
+                <div class="sc-body"><div class="sc-val">{{ stats.totalPasajeros }}</div><div class="sc-lbl">Pasajeros</div></div>
+              </div>
+            </div>
+
+            <div class="overview-main">
+              <div class="live-map-container">
+                <div class="panel-header row">
+                  <h3>Mapa en vivo</h3>
+                  <span class="live-dot"></span>
+                  <span class="muted small">Actualizado en tiempo real</span>
+                </div>
+                <div id="admin-map-overview"></div>
+                <div class="map-legend">
+                  <div class="legend-item"><div class="legend-dot green"></div> En ruta</div>
+                  <div class="legend-item"><div class="legend-dot blue"></div> Activo</div>
+                  <div class="legend-item"><div class="legend-dot gray"></div> Inactivo</div>
+                </div>
+              </div>
+
+              <div class="activity-feed">
+                <div class="panel-header row">
+                  <h3>Actividad en tiempo real</h3>
+                  <span class="link-btn" (click)="switchTab('logs')">Ver todo</span>
+                </div>
+                <div class="feed-list">
+                  <div class="feed-item" *ngFor="let log of logs.slice(0, 8)">
+                    <div class="feed-icon" [style.background]="getLogColor(log.accion) + '22'" [style.color]="getLogColor(log.accion)">
+                      <ion-icon [name]="getLogIcon(log.accion)"></ion-icon>
+                    </div>
+                    <div class="feed-body">
+                      <strong>{{ log.accion }}</strong>
+                      <span>{{ log.detalle || log.entidad || '-' }}</span>
+                    </div>
+                    <span class="feed-time">{{ log.created_at | date:'shortTime' }}</span>
+                  </div>
+                  <div class="empty" *ngIf="logs.length===0">Sin actividad reciente</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="charts-row">
+              <div class="panel chart-panel">
+                <div class="panel-header"><h3>Viajes por día</h3><span class="muted small">Últimos 7 días</span></div>
+                <svg class="line-chart" viewBox="0 0 320 140" preserveAspectRatio="none">
+                  <polyline
+                    class="line-fill"
+                    [attr.points]="viajesChartFillPoints"
+                  ></polyline>
+                  <polyline
+                    class="line-stroke"
+                    [attr.points]="viajesChartPoints"
+                  ></polyline>
+                  <circle *ngFor="let p of viajesPorDia" [attr.cx]="p.x" [attr.cy]="p.y" r="3.5" class="line-dot"></circle>
+                </svg>
+                <div class="chart-x-labels">
+                  <span *ngFor="let p of viajesPorDia">{{ p.label }}</span>
+                </div>
+              </div>
+
+              <div class="panel chart-panel">
+                <div class="panel-header"><h3>Buses por estado</h3></div>
+                <div class="donut-row">
+                  <svg class="donut-chart" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="48" fill="none" stroke="var(--dash-track)" stroke-width="16"></circle>
+                    <circle
+                      *ngFor="let seg of busEstadoBreakdown"
+                      cx="60" cy="60" r="48" fill="none"
+                      [attr.stroke]="seg.color" stroke-width="16"
+                      [attr.stroke-dasharray]="seg.dash"
+                      [attr.stroke-dashoffset]="seg.offset"
+                      transform="rotate(-90 60 60)"
+                    ></circle>
+                    <text x="60" y="56" text-anchor="middle" class="donut-total">{{ stats.totalBuses }}</text>
+                    <text x="60" y="72" text-anchor="middle" class="donut-total-lbl">Total</text>
+                  </svg>
+                  <div class="donut-legend">
+                    <div class="legend-row" *ngFor="let seg of busEstadoBreakdown">
+                      <div class="legend-dot" [style.background]="seg.color"></div>
+                      <span>{{ seg.label }}</span>
+                      <strong>{{ seg.count }} ({{ seg.pct }}%)</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel chart-panel">
+                <div class="panel-header row">
+                  <h3>Empresas por plan</h3>
+                  <span class="link-btn" (click)="switchTab('planes')">Ver reporte</span>
+                </div>
+                <div class="bar-list">
+                  <div class="bar-row" *ngFor="let p of empresaPlanBreakdown">
+                    <span class="bar-label">{{ p.label }}</span>
+                    <div class="bar-track"><div class="bar-fill" [style.width]="p.pct + '%'" [style.background]="p.color"></div></div>
+                    <span class="bar-value">{{ p.count }} ({{ p.pct }}%)</span>
+                  </div>
+                  <div class="empty" *ngIf="empresaPlanBreakdown.length===0">Sin datos de planes</div>
+                </div>
+              </div>
             </div>
           </div>
 

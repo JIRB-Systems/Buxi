@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import * as L from 'leaflet';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
@@ -20,26 +22,45 @@ import { BusLocation } from '../../../core/models/transport.model';
 export class AdminDashboardPage implements OnInit, OnDestroy {
   private adminMap: L.Map | null = null;
   private adminBusMarkers = new Map<string, L.Marker>();
+  private adminUserMarker: L.Marker | null = null;
   private realtimeChannel: RealtimeChannel | null = null;
   profile: UserProfile | null = null;
   activeTab = 'overview';
   loading = true;
   sidebarOpen = true;
 
-  menuItems = [
-    { id: 'overview', icon: 'grid-outline', label: 'Resumen' },
+  topNavItems = [
+    { id: 'overview', icon: 'grid-outline', label: 'Dashboard' },
     { id: 'mapa', icon: 'map-outline', label: 'Mapa en vivo' },
-    { id: 'empresas', icon: 'business-outline', label: 'Empresas' },
-    { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
-    { id: 'buses', icon: 'bus-outline', label: 'Buses' },
-    { id: 'usuarios', icon: 'people-outline', label: 'Usuarios' },
-    { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
-    { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
-    { id: 'alertas', icon: 'warning-outline', label: 'Alertas GPS' },
-    { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
-    { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
-    { id: 'planes', icon: 'card-outline', label: 'Planes' },
-    { id: 'config', icon: 'settings-outline', label: 'Configuración' },
+  ];
+
+  navGroups = [
+    {
+      label: 'OPERACIÓN',
+      items: [
+        { id: 'empresas', icon: 'business-outline', label: 'Empresas' },
+        { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
+        { id: 'buses', icon: 'bus-outline', label: 'Buses' },
+        { id: 'usuarios', icon: 'people-outline', label: 'Usuarios' },
+      ],
+    },
+    {
+      label: 'CONTROL',
+      items: [
+        { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
+        { id: 'alertas', icon: 'warning-outline', label: 'Alertas GPS' },
+        { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
+      ],
+    },
+    {
+      label: 'ADMINISTRACIÓN',
+      items: [
+        { id: 'planes', icon: 'card-outline', label: 'Planes' },
+        { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
+        { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
+        { id: 'config', icon: 'settings-outline', label: 'Configuración' },
+      ],
+    },
   ];
 
   stats = {
@@ -80,7 +101,12 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     try {
       this.profile = await this.supabase.getProfile();
       await this.loadData();
-    } catch {} finally { this.loading = false; }
+    } catch {} finally {
+      this.loading = false;
+      if (this.activeTab === 'overview') {
+        setTimeout(() => this.initAdminMap('admin-map-overview'), 150);
+      }
+    }
   }
 
   async loadData() {
@@ -124,19 +150,119 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   switchTab(tab: string) {
     this.activeTab = tab;
     if (tab === 'mapa') {
-      setTimeout(() => this.initAdminMap(), 150);
+      setTimeout(() => this.initAdminMap('admin-map'), 150);
+    }
+    if (tab === 'overview') {
+      setTimeout(() => this.initAdminMap('admin-map-overview'), 150);
     }
   }
 
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
-  private initAdminMap() {
-    if (this.adminMap) { this.adminMap.remove(); this.adminMap = null; }
+  // ---- OVERVIEW WIDGETS (computed from already-loaded data) ----
 
-    const el = document.getElementById('admin-map');
+  get busEstadoBreakdown(): { estado: string; label: string; color: string; count: number; pct: number; dash: string; offset: number }[] {
+    const total = this.buses.length;
+    const order = ['activo', 'en_ruta', 'inactivo', 'mantenimiento'];
+    const circumference = 2 * Math.PI * 48;
+    let offsetAcc = 0;
+    const rows: { estado: string; label: string; color: string; count: number; pct: number; dash: string; offset: number }[] = [];
+    for (const estado of order) {
+      const count = this.buses.filter(b => b.estado === estado).length;
+      if (count === 0) continue;
+      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      const segLength = total > 0 ? (count / total) * circumference : 0;
+      rows.push({
+        estado,
+        label: this.getBusStatusLabel(estado),
+        color: this.getBusStatusColor(estado),
+        count, pct,
+        dash: `${segLength} ${circumference - segLength}`,
+        offset: -offsetAcc,
+      });
+      offsetAcc += segLength;
+    }
+    return rows;
+  }
+
+  get empresaPlanBreakdown(): { plan: string; label: string; color: string; count: number; pct: number }[] {
+    const total = this.empresas.length;
+    if (total === 0) return [];
+    const byPlan = new Map<string, number>();
+    for (const e of this.empresas) {
+      const plan = this.getEmpresaPlan(e.id);
+      byPlan.set(plan, (byPlan.get(plan) || 0) + 1);
+    }
+    return Array.from(byPlan.entries()).map(([plan, count]) => ({
+      plan, label: plan,
+      color: this.getPlanColorByName(plan),
+      count, pct: Math.round((count / total) * 100),
+    }));
+  }
+
+  private getPlanColorByName(name: string): string {
+    if (name === 'Enterprise') return '#ff5722';
+    if (name === 'Pro') return '#9c27b0';
+    if (name === 'Básico') return '#2196f3';
+    return '#9aa5b4';
+  }
+
+  get viajesPorDia(): { label: string; count: number; x: number; y: number }[] {
+    const days: { label: string; count: number }[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const count = this.viajes.filter(v => {
+        const vd = new Date(v.inicio);
+        return vd.toDateString() === d.toDateString();
+      }).length;
+      days.push({ label: d.toLocaleDateString('es-CR', { day: '2-digit', month: 'short' }), count });
+    }
+    const max = Math.max(1, ...days.map(d => d.count));
+    const chartW = 320, chartH = 140, padX = 10, padY = 14;
+    return days.map((d, i) => ({
+      ...d,
+      x: padX + (i * (chartW - padX * 2)) / (days.length - 1),
+      y: chartH - padY - (d.count / max) * (chartH - padY * 2),
+    }));
+  }
+
+  get viajesChartPoints(): string {
+    return this.viajesPorDia.map(p => `${p.x},${p.y}`).join(' ');
+  }
+
+  get viajesChartFillPoints(): string {
+    const pts = this.viajesPorDia;
+    if (pts.length === 0) return '';
+    const first = pts[0], last = pts[pts.length - 1];
+    return `${first.x},140 ${this.viajesChartPoints} ${last.x},140`;
+  }
+
+  getLogIcon(accion: string): string {
+    const a = (accion || '').toLowerCase();
+    if (a.includes('eliminar') || a.includes('rechazar')) return 'trash-outline';
+    if (a.includes('crear') || a.includes('aprobar')) return 'add-circle-outline';
+    if (a.includes('cambiar') || a.includes('actualizar') || a.includes('asignar')) return 'sync-outline';
+    return 'information-circle-outline';
+  }
+
+  getLogColor(accion: string): string {
+    const a = (accion || '').toLowerCase();
+    if (a.includes('eliminar') || a.includes('rechazar')) return '#f44336';
+    if (a.includes('crear') || a.includes('aprobar')) return '#00c853';
+    if (a.includes('cambiar') || a.includes('actualizar') || a.includes('asignar')) return '#2196f3';
+    return '#9aa5b4';
+  }
+
+  private initAdminMap(elementId: string) {
+    if (this.adminMap) { this.adminMap.remove(); this.adminMap = null; }
+    this.adminUserMarker = null;
+
+    const el = document.getElementById(elementId);
     if (!el) return;
 
-    this.adminMap = L.map('admin-map', {
+    this.adminMap = L.map(elementId, {
       center: [9.9281, -84.0907], zoom: 10,
       zoomControl: true, attributionControl: false,
     });
@@ -160,7 +286,40 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     }
 
     this.startMapRealtime();
+    this.centerOnUserLocation();
     setTimeout(() => this.adminMap?.invalidateSize(), 200);
+    setTimeout(() => this.adminMap?.invalidateSize(), 600);
+  }
+
+  private async centerOnUserLocation() {
+    try {
+      // requestPermissions() sólo existe en nativo; en web el permiso se pide
+      // directamente al llamar getCurrentPosition() (mismo patrón que el mapa
+      // de pasajero).
+      if (Capacitor.isNativePlatform()) {
+        const permission = await Geolocation.requestPermissions();
+        if (permission.location === 'denied') return;
+      }
+      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
+      const { latitude, longitude } = position.coords;
+      if (!this.adminMap) return;
+
+      // Si no hay buses transmitiendo para encuadrar, abre centrado en el
+      // usuario en vez del centro fijo de Costa Rica.
+      if (this.liveLocations.length === 0) {
+        this.adminMap.setView([latitude, longitude], 14);
+      }
+
+      if (this.adminUserMarker) { this.adminUserMarker.remove(); }
+      const icon = L.divIcon({
+        className: 'admin-user-marker',
+        html: `<div class="admin-user-dot"></div><div class="admin-user-pulse"></div>`,
+        iconSize: [22, 22], iconAnchor: [11, 11],
+      });
+      this.adminUserMarker = L.marker([latitude, longitude], { icon, zIndexOffset: 500 })
+        .addTo(this.adminMap)
+        .bindPopup('Tu ubicación');
+    } catch {}
   }
 
   private addAdminBusMarker(loc: BusLocation) {
