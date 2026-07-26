@@ -5,7 +5,11 @@
   --padding-end: 0;
 }
 
-#map { width: 100%; height: 100%; z-index: 1; }
+// Fijo al viewport (no en flujo normal) para que nunca dependa de que el
+// contenido "quepa" — con scrollY desactivado en el ion-content, esto evita
+// que el nav de abajo quede fuera del área visible sin forma de alcanzarlo
+// (el mapa se come el gesto de arrastre, así que nunca hay scroll de página).
+#map { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
 // ====== DESKTOP LAYOUT (tablet/desktop width) ======
 // Mobile keeps the floating-overlay UX above unchanged; on wider screens the
