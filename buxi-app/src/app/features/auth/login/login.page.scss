@@ -111,3 +111,43 @@
 .version-text {
   margin-top: 18px; font-size: 11px; color: #3d4a5c; text-align: center;
 }
+
+// ---- Mobile scale-up ----
+// On a real phone this reads as a native full-screen app, not a compact
+// card, so everything gets noticeably bigger — logo, headline, inputs,
+// button — instead of looking small and "far away" in the middle of the
+// screen.
+@media (max-width: 480px) {
+  .login-wrapper { padding: 32px 24px 28px; }
+
+  .brand {
+    margin-bottom: 26px;
+    .brand-mark { width: 116px; height: 116px; }
+    .wordmark { font-size: 30px; }
+    .tagline { font-size: 11px; }
+  }
+
+  .welcome {
+    margin-bottom: 26px;
+    h2 { font-size: 22px; }
+    p { font-size: 14px; }
+  }
+
+  .field .input-wrap {
+    padding: 0 16px;
+    .field-icon { font-size: 20px; }
+    ion-input { --padding-top: 16px; --padding-bottom: 16px; font-size: 16px; }
+    .eye { font-size: 20px; }
+  }
+
+  .forgot-row .forgot { font-size: 13px; }
+
+  .btn-main { height: 54px; font-size: 16px; }
+
+  .social-row .btn-social { height: 50px; font-size: 14px; }
+
+  .sep span { font-size: 12px; }
+
+  .bottom-text { font-size: 14px; margin-top: 30px; }
+  .empresa-link { font-size: 12px; }
+}

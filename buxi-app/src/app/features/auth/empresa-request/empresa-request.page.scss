@@ -113,3 +113,35 @@
   --border-radius: 12px; --box-shadow: 0 4px 14px rgba(0, 200, 83, 0.18);
   font-weight: 700; font-size: 15px; height: 48px; text-transform: none; margin-top: 8px;
 }
+
+// ---- Mobile scale-up ----
+@media (max-width: 480px) {
+  .req-wrapper { padding: 16px 18px 28px; }
+
+  .req-body {
+    h2 { font-size: 25px; }
+    p { font-size: 15px; }
+  }
+
+  .req-icon {
+    width: 96px; height: 96px;
+    ion-icon { font-size: 36px; }
+    &.ok ion-icon { font-size: 40px; }
+  }
+
+  .logo-upload .logo-btn {
+    padding: 24px;
+    ion-icon { font-size: 32px; }
+    span { font-size: 14px; }
+  }
+
+  .field {
+    label { font-size: 14px; }
+    .input-wrap {
+      padding: 0 15px;
+      ion-input, ion-textarea { --padding-top: 14px; --padding-bottom: 14px; font-size: 15px; }
+    }
+  }
+
+  .btn-main { height: 52px; font-size: 16px; }
+}

@@ -73,3 +73,30 @@
   text-align: center; font-size: 14px; color: #8a95a3; margin-top: 18px;
   a { color: #2f8bff; font-weight: 700; text-decoration: none; }
 }
+
+// ---- Mobile scale-up ----
+@media (max-width: 480px) {
+  .reg-wrapper { padding: 16px 18px 28px; }
+
+  .reg-top {
+    .brand-mark { width: 66px; height: 66px; }
+    h2 { font-size: 27px; }
+    p { font-size: 14px; }
+  }
+
+  .field {
+    label { font-size: 14px; }
+    .input-wrap {
+      padding: 0 15px;
+      ion-input { --padding-top: 14px; --padding-bottom: 14px; font-size: 15px; }
+      .eye { font-size: 19px; }
+    }
+    .select-wrap ion-select { font-size: 15px; }
+  }
+
+  .terms span { font-size: 13px; }
+
+  .btn-main { height: 52px; font-size: 16px; }
+
+  .login-link { font-size: 15px; }
+}
