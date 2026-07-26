@@ -48,6 +48,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private userLng = 0;
 
   empresas: EmpresaListItem[] = [];
+  private allRutas: Ruta[] = [];
+  selectedEmpresaId: string | null = null;
 
   get nearbyBuses(): { placa: string; etaMinutes: number | null; distanceKm: number }[] {
     if (!this.nearestStop) return [];
@@ -99,12 +101,57 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     } catch {}
 
     try {
-      this.empresas = await this.tracking.getEmpresas();
+      const [empresas, rutas] = await Promise.all([
+        this.tracking.getEmpresas(),
+        this.tracking.getRutas(),
+      ]);
+      this.empresas = empresas;
+      this.allRutas = rutas;
     } catch {}
   }
 
-  goToEmpresa(empresa: EmpresaListItem) {
-    this.router.navigate(['/passenger/routes'], { queryParams: { q: empresa.nombre } });
+  async showEmpresaRoutes(empresa: EmpresaListItem) {
+    if (!this.mapReady) return;
+
+    // Tocar la misma empresa otra vez quita sus rutas del mapa.
+    if (this.selectedEmpresaId === empresa.id) {
+      this.clearEmpresaRoutes();
+      return;
+    }
+
+    const rutas = this.allRutas.filter(r => r.empresa_id === empresa.id);
+    if (rutas.length === 0) {
+      // Sin geometría que dibujar: mandamos al buscador filtrado por empresa.
+      this.router.navigate(['/passenger/routes'], { queryParams: { q: empresa.nombre } });
+      return;
+    }
+
+    this.loading = true;
+    this.clearRoute(false);
+    this.selectedEmpresaId = empresa.id;
+
+    try {
+      const allCoords: [number, number][] = [];
+      for (const ruta of rutas) {
+        const paradas = await this.tracking.getParadas(ruta.id);
+        if (paradas.length < 2) continue;
+        const coords = await this.drawRouteLayer(paradas, ruta.color, ruta.geometria);
+        allCoords.push(...coords);
+
+        const locations = await this.tracking.getLocationsByRuta(ruta.id);
+        for (const loc of locations) this.addOrUpdateBusMarker(loc);
+      }
+      this.activeBusCount = this.busMarkers.size;
+
+      if (allCoords.length > 0) {
+        const bounds = allCoords.reduce(
+          (b, coord) => b.extend(coord),
+          new maplibregl.LngLatBounds(allCoords[0], allCoords[0]),
+        );
+        this.map.fitBounds(bounds, { padding: 60, duration: 300 });
+      }
+    } catch {}
+    this.loading = false;
   }
 
   ngAfterViewInit() {
@@ -196,7 +243,24 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.loading = false;
   }
 
+  clearEmpresaRoutes() {
+    this.clearRoute(false);
+    this.loadBusLocations();
+  }
+
   private async drawRoute(paradas: Parada[], color: string, geometria?: [number, number][] | null) {
+    const coords = await this.drawRouteLayer(paradas, color, geometria);
+    // Encuadrar la ruta.
+    const bounds = coords.reduce(
+      (b, coord) => b.extend(coord),
+      new maplibregl.LngLatBounds(coords[0], coords[0]),
+    );
+    this.map.fitBounds(bounds, { padding: 60, duration: 0 });
+  }
+
+  // Dibuja una ruta (línea + paradas) sin encuadrar el mapa, para poder
+  // dibujar varias rutas seguidas y encuadrar todas juntas al final.
+  private async drawRouteLayer(paradas: Parada[], color: string, geometria?: [number, number][] | null): Promise<[number, number][]> {
     const c = color || '#00c853';
     // Coords guardadas en formato Leaflet [lat, lng]; MapLibre las quiere [lng, lat].
     const latlng: [number, number][] = geometria?.length
@@ -204,7 +268,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       : await this.featuresService.fetchRoadRouteCoords(paradas);
     const coords: [number, number][] = latlng.map(([lat, lng]) => [lng, lat]);
 
-    const srcId = `route-${Date.now()}`;
+    const srcId = `route-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     this.map.addSource(srcId, {
       type: 'geojson',
       data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
@@ -236,12 +300,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       this.routeMarkers.push(m);
     });
 
-    // Encuadrar la ruta.
-    const bounds = coords.reduce(
-      (b, coord) => b.extend(coord as [number, number]),
-      new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number]),
-    );
-    this.map.fitBounds(bounds, { padding: 60, duration: 0 });
+    return coords;
   }
 
   clearRoute(navigate = true) {
@@ -264,6 +323,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.selectedBus = null;
     this.activeRuta = null;
     this.activeParadas = [];
+    this.selectedEmpresaId = null;
 
     if (navigate) {
       this.router.navigate(['/passenger/map'], { replaceUrl: true, queryParams: {} });

@@ -18,8 +18,9 @@
     <div class="ds-section">
       <div class="ds-section-header">
         <h3>Empresas disponibles</h3>
+        <span class="ds-clear-empresa" *ngIf="selectedEmpresaId" (click)="clearEmpresaRoutes()">Quitar del mapa</span>
       </div>
-      <div class="empresa-row" *ngFor="let e of empresas" (click)="goToEmpresa(e)">
+      <div class="empresa-row" *ngFor="let e of empresas" [class.active]="selectedEmpresaId === e.id" (click)="showEmpresaRoutes(e)">
         <div class="empresa-logo">
           <img *ngIf="e.logo_url" [src]="e.logo_url" alt="" />
           <ion-icon *ngIf="!e.logo_url" name="business"></ion-icon>

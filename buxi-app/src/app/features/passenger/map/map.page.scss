@@ -53,6 +53,11 @@
 .ds-section-header {
   display: flex; align-items: center; justify-content: space-between;
   h3 { font-size: 13px; font-weight: 700; color: #fff; margin: 0; }
+
+  .ds-clear-empresa {
+    font-size: 11px; font-weight: 600; color: #ff6659; cursor: pointer;
+    &:hover { text-decoration: underline; }
+  }
 }
 
 .ds-label {
@@ -63,8 +68,10 @@
 .empresa-row {
   display: flex; align-items: center; gap: 10px;
   padding: 8px; border-radius: 10px; cursor: pointer;
-  transition: background 0.12s;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
   &:hover { background: rgba(255,255,255,0.05); }
+  &.active { background: rgba(0,200,83,0.1); border-color: rgba(0,200,83,0.3); }
 
   .empresa-logo {
     width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
