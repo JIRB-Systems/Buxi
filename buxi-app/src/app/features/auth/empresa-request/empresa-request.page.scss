@@ -2,19 +2,23 @@
   --background: radial-gradient(120% 90% at 50% 0%, #0d2036 0%, #0a1420 55%, #070f1c 100%);
 }
 
-.req-wrapper { padding: 16px 20px 32px; max-width: 440px; margin: 0 auto; }
+.req-wrapper {
+  min-height: 100%;
+  display: flex; flex-direction: column;
+  padding: 16px 20px 32px; max-width: 440px; margin: 0 auto;
+}
 
-.back-btn { --color: #c0c8d4; margin: 0 0 0 -14px; font-size: 20px; }
+.back-btn { --color: #c0c8d4; margin: 0 0 0 -14px; font-size: 20px; flex-shrink: 0; }
 
 .req-body {
-  text-align: center; padding-top: 24px;
+  flex: 1;
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: center;
 
   h2 { font-size: 22px; font-weight: 800; color: #f5f7fa; margin: 0 0 6px; }
   p { font-size: 14px; color: #8a95a3; line-height: 1.5; margin: 0 0 24px; }
 
   form { text-align: left; }
-
-  &.sent { padding-top: 48px; }
 }
 
 .req-icon {
