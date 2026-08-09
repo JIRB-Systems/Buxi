@@ -12,6 +12,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
 import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
+import { enableCooperativeGestures } from '../../../core/utils/leaflet-cooperative-gestures';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -23,6 +24,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private adminMap: L.Map | null = null;
   private adminBusMarkers = new Map<string, L.Marker>();
   private adminUserMarker: L.Marker | null = null;
+  private adminAccuracyCircle: L.Circle | null = null;
+  private adminUserWatchId: string | null = null;
   private realtimeChannel: RealtimeChannel | null = null;
   profile: UserProfile | null = null;
   activeTab = 'overview';
@@ -257,7 +260,11 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
   private initAdminMap(elementId: string) {
     if (this.adminMap) { this.adminMap.remove(); this.adminMap = null; }
+    // El mapa se reconstruye al cambiar de pestaña: soltar el watch anterior,
+    // si no queda uno colgado por cada visita alimentando un mapa muerto.
+    this.stopWatchingUserLocation();
     this.adminUserMarker = null;
+    this.adminAccuracyCircle = null;
 
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -265,7 +272,11 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.adminMap = L.map(elementId, {
       center: [9.9281, -84.0907], zoom: 10,
       zoomControl: true, attributionControl: false,
+      // El mapa vive dentro de una página con scroll: sin esto la rueda hace
+      // zoom en vez de bajar y el usuario no puede pasar de largo.
+      scrollWheelZoom: false,
     });
+    enableCooperativeGestures(this.adminMap);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       subdomains: 'abcd',
@@ -301,8 +312,10 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         if (permission.location === 'denied') return;
       }
       const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-      const { latitude, longitude } = position.coords;
       if (!this.adminMap) return;
+
+      const { latitude, longitude, accuracy } = position.coords;
+      this.renderUserPosition(latitude, longitude, accuracy);
 
       // Si no hay buses transmitiendo para encuadrar, abre centrado en el
       // usuario en vez del centro fijo de Costa Rica.
@@ -310,16 +323,64 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         this.adminMap.setView([latitude, longitude], 14);
       }
 
-      if (this.adminUserMarker) { this.adminUserMarker.remove(); }
+      // La primera lectura suele venir de WiFi/IP y puede errar kilómetros; el
+      // navegador la refina en los segundos siguientes. Sin este watch el mapa
+      // se quedaba clavado en esa primera lectura mala, que es justo la razón
+      // por la que acá la ubicación no coincidía con la del mapa de pasajero.
+      this.adminUserWatchId = await Geolocation.watchPosition(
+        { enableHighAccuracy: true },
+        (pos) => {
+          if (!pos || !this.adminMap) return;
+          // Sin recentrar: mover la vista mientras el admin navega el mapa
+          // sería peor que el error de precisión.
+          this.renderUserPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+        },
+      ) as unknown as string;
+    } catch {}
+  }
+
+  // Dibuja (o mueve) el punto del usuario junto a un círculo del radio de
+  // precisión que reporta el navegador, para que un dato de ±3 km no se vea
+  // igual de confiable que uno de ±10 m.
+  private renderUserPosition(lat: number, lng: number, accuracy?: number | null) {
+    if (!this.adminMap) return;
+    const latLng: L.LatLngTuple = [lat, lng];
+
+    if (this.adminUserMarker) {
+      this.adminUserMarker.setLatLng(latLng);
+    } else {
       const icon = L.divIcon({
         className: 'admin-user-marker',
         html: `<div class="admin-user-dot"></div><div class="admin-user-pulse"></div>`,
         iconSize: [22, 22], iconAnchor: [11, 11],
       });
-      this.adminUserMarker = L.marker([latitude, longitude], { icon, zIndexOffset: 500 })
-        .addTo(this.adminMap)
-        .bindPopup('Tu ubicación');
-    } catch {}
+      this.adminUserMarker = L.marker(latLng, { icon, zIndexOffset: 500 }).addTo(this.adminMap);
+    }
+
+    const precision = accuracy && accuracy > 0
+      ? (accuracy >= 1000 ? `± ${(accuracy / 1000).toFixed(1)} km` : `± ${Math.round(accuracy)} m`)
+      : 'precisión desconocida';
+    this.adminUserMarker.bindPopup(`Tu ubicación<br><small>${precision}</small>`);
+
+    if (accuracy && accuracy > 0) {
+      if (this.adminAccuracyCircle) {
+        this.adminAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
+      } else {
+        this.adminAccuracyCircle = L.circle(latLng, {
+          radius: accuracy,
+          color: '#4285f4', weight: 1, opacity: 0.4,
+          fillColor: '#4285f4', fillOpacity: 0.1,
+          interactive: false,
+        }).addTo(this.adminMap);
+      }
+    }
+  }
+
+  private stopWatchingUserLocation() {
+    if (this.adminUserWatchId) {
+      Geolocation.clearWatch({ id: this.adminUserWatchId });
+      this.adminUserWatchId = null;
+    }
   }
 
   private addAdminBusMarker(loc: BusLocation) {
@@ -356,6 +417,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.stopWatchingUserLocation();
     if (this.adminMap) this.adminMap.remove();
     if (this.realtimeChannel) {
       const sb = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
