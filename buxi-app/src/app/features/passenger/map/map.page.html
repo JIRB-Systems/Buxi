@@ -8,7 +8,7 @@
       <img src="assets/icon/buxi-logo-mark.png" alt="Buxi" />
       <span>Buxi</span>
     </div>
-    <div class="dt-search" routerLink="/passenger/routes">
+    <div class="dt-search" (click)="openSearch()">
       <ion-icon name="search-outline"></ion-icon>
       <span>Buscar rutas, paradas o destinos...</span>
     </div>
@@ -32,7 +32,7 @@
         <div class="empresa-freq" *ngIf="e.frecuencia">cada {{ e.frecuencia }} min</div>
       </div>
       <div class="ds-empty" *ngIf="empresas.length === 0">Sin empresas disponibles</div>
-      <div class="ds-link" routerLink="/passenger/routes">Ver todas las rutas <ion-icon name="chevron-forward"></ion-icon></div>
+      <div class="ds-link" (click)="openPanel('rutas')">Ver todas las rutas <ion-icon name="chevron-forward"></ion-icon></div>
     </div>
 
     <div class="ds-section" *ngIf="activeRuta">
@@ -92,7 +92,7 @@
       <div class="tb-logo">
         <img src="assets/icon/buxi-logo-mark.png" alt="Buxi" />
       </div>
-      <div class="tb-search" routerLink="/passenger/routes">
+      <div class="tb-search" (click)="openSearch()">
         <ion-icon name="search-outline"></ion-icon>
         <span>Buscar rutas, empresas, paradas o destinos</span>
       </div>
@@ -266,7 +266,8 @@
         type="text"
         placeholder="Buscar ruta, empresa o destino"
         [value]="panelSearch"
-        (input)="onPanelSearch($event)" />
+        (input)="onPanelSearch($event)"
+        #panelSearchInput />
     </div>
 
     <div class="lp-body">

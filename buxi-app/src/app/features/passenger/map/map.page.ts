@@ -106,6 +106,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     return ruta.empresa?.nombre || '';
   }
 
+  // El buscador de la barra superior abre el panel de rutas con el cursor ya
+  // puesto, en vez de navegar a otra pantalla. Antes mandaba a la página vieja
+  // de rutas, que arrastraba consigo la barra inferior y el diseño anteriores.
+  @ViewChild('panelSearchInput') panelSearchInput?: ElementRef<HTMLInputElement>;
+
+  async openSearch(prefill = '') {
+    await this.openPanel('rutas');
+    this.activePanel = 'rutas';
+    this.panelSearch = prefill;
+    // El input recién existe tras el ciclo de render que abre el panel.
+    setTimeout(() => this.panelSearchInput?.nativeElement.focus(), 120);
+  }
+
   async openPanel(panel: 'rutas' | 'favoritos' | 'alertas') {
     this.activePanel = this.activePanel === panel ? null : panel;
     this.panelSearch = '';
@@ -344,7 +357,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     const rutas = this.allRutas.filter(r => r.empresa_id === empresa.id);
     if (rutas.length === 0) {
       // Sin geometría que dibujar: mandamos al buscador filtrado por empresa.
-      this.router.navigate(['/passenger/routes'], { queryParams: { q: empresa.nombre } });
+      await this.openSearch(empresa.nombre);
       return;
     }
 

@@ -12,11 +12,17 @@ const routes: Routes = [
   { path: 'legal/privacy', loadChildren: () => import('./features/legal/privacy/privacy.module').then(m => m.PrivacyPageModule) },
   { path: 'legal/terms', loadChildren: () => import('./features/legal/terms/terms.module').then(m => m.TermsPageModule) },
   { path: 'auth/forgot-password', loadChildren: () => import('./features/auth/forgot-password/forgot-password.module').then(m => m.ForgotPasswordPageModule), canActivate: [NoAuthGuard] },
-  { path: 'passenger/home', loadChildren: () => import('./features/passenger/home/home.module').then(m => m.PassengerHomePageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'] } },
   { path: 'passenger/map', loadChildren: () => import('./features/passenger/map/map.module').then(m => m.MapPageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'] } },
-  { path: 'passenger/routes', loadChildren: () => import('./features/passenger/routes/routes.module').then(m => m.RoutesPageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'] } },
-  { path: 'passenger/empresas', loadChildren: () => import('./features/passenger/empresas/empresas.module').then(m => m.EmpresasPageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'] } },
-  { path: 'passenger/profile', loadChildren: () => import('./features/passenger/profile/profile.module').then(m => m.ProfilePageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'] } },
+
+  // La experiencia del pasajero vive entera sobre el mapa: rutas, favoritos,
+  // alertas y perfil son paneles flotantes, no pantallas. Estas cuatro rutas
+  // son las pantallas anteriores; se redirigen en vez de borrarse para que un
+  // marcador o un enlace viejo no caiga en un 404 — ni en el diseño anterior,
+  // que es a donde llevaban hasta ahora arrastrando su propia barra inferior.
+  { path: 'passenger/home', redirectTo: 'passenger/map', pathMatch: 'full' },
+  { path: 'passenger/routes', redirectTo: 'passenger/map', pathMatch: 'full' },
+  { path: 'passenger/empresas', redirectTo: 'passenger/map', pathMatch: 'full' },
+  { path: 'passenger/profile', redirectTo: 'passenger/map', pathMatch: 'full' },
   {
     path: 'admin/dashboard',
     loadChildren: () => import('./features/admin/dashboard/admin-dashboard.module').then(m => m.AdminDashboardPageModule),
