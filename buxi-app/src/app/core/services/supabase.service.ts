@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient, AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { SupabaseClient, AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { supabaseClient } from '../supabase-client';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../../environments/environment';
@@ -16,12 +17,7 @@ export class SupabaseService {
   session$ = this._session.asObservable();
 
   constructor() {
-    this.supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-      },
-    });
+    this.supabase = supabaseClient();
 
     this.supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       this._session.next(session);

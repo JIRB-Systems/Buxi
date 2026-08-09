@@ -1,9 +1,10 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { supabaseClient } from '../../../core/supabase-client';
 import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
-import { createClient, RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { SupabaseService } from '../../../core/services/supabase.service';
@@ -407,7 +408,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   private startMapRealtime() {
-    const sb = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+    const sb = supabaseClient();
     this.realtimeChannel = sb.channel('admin-live-map')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bus_locations' }, (payload) => {
         const loc = payload.new as BusLocation;
@@ -420,7 +421,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.stopWatchingUserLocation();
     if (this.adminMap) this.adminMap.remove();
     if (this.realtimeChannel) {
-      const sb = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+      const sb = supabaseClient();
       sb.removeChannel(this.realtimeChannel);
     }
   }

@@ -1,8 +1,9 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
+import { supabaseClient } from '../../../core/supabase-client';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import * as L from 'leaflet';
-import { createClient, RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminEmpresaService } from '../../../core/services/admin-empresa.service';
@@ -123,7 +124,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
     // Subscribe to realtime
     if (!this.realtimeChannel) {
-      const sb = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+      const sb = supabaseClient();
       this.realtimeChannel = sb.channel('emp-live')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bus_locations' }, (payload) => {
           const loc = payload.new as BusLocation;
@@ -461,7 +462,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
     if (this.liveMap) this.liveMap.remove();
     if (this.realtimeChannel) {
-      createClient(environment.supabaseUrl, environment.supabaseAnonKey).removeChannel(this.realtimeChannel);
+      supabaseClient().removeChannel(this.realtimeChannel);
     }
   }
 }

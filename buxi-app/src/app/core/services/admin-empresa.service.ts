@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Ruta, Parada } from '../models/transport.model';
@@ -10,7 +11,7 @@ export class AdminEmpresaService {
   private supabase: SupabaseClient;
 
   constructor() {
-    this.supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+    this.supabase = supabaseClient();
   }
 
   private newIsolatedClient(): SupabaseClient {

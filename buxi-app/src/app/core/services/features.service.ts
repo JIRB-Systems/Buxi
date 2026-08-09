@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { supabaseClient } from '../supabase-client';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Favorito, Horario, Calificacion, UserPreferences } from '../models/features.model';
 import { Parada } from '../models/transport.model';
@@ -9,7 +10,7 @@ export class FeaturesService {
   private supabase: SupabaseClient;
 
   constructor() {
-    this.supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+    this.supabase = supabaseClient();
   }
 
   // ---- FAVORITOS ----

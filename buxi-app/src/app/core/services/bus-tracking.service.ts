@@ -1,5 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { supabaseClient } from '../supabase-client';
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BusLocation, Ruta, Parada, Bus } from '../models/transport.model';
@@ -25,7 +26,7 @@ export class BusTrackingService implements OnDestroy {
   busLocations$ = this._busLocations.asObservable();
 
   constructor() {
-    this.supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+    this.supabase = supabaseClient();
   }
 
   async getRutas(): Promise<Ruta[]> {

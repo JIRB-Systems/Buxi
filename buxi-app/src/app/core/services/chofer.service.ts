@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { supabaseClient } from '../supabase-client';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Parada } from '../models/transport.model';
 import { Viaje } from '../models/features.model';
@@ -10,7 +11,7 @@ export class ChoferService {
   private currentViajeId: string | null = null;
 
   constructor() {
-    this.supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+    this.supabase = supabaseClient();
   }
 
   async getAssignedBus(choferId: string): Promise<Bus | null> {

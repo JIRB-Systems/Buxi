@@ -1,8 +1,8 @@
 import { Component } from '@angular/core';
+import { supabaseClient } from '../../../core/supabase-client';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LoadingController, ToastController } from '@ionic/angular';
-import { createClient } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 
 @Component({
@@ -58,7 +58,7 @@ export class EmpresaRequestPage {
     await loading.present();
 
     try {
-      const supabase = createClient(environment.supabaseUrl, environment.supabaseAnonKey);
+      const supabase = supabaseClient();
       let logoUrl = null;
 
       if (this.logoFile) {
