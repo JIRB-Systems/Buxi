@@ -25,7 +25,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  animation: chrome-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  // Sin `both`: ese modo deja aplicado el fotograma inicial (opacity 0) si la
+  // animación no llega a correr —pestaña en segundo plano, animaciones
+  // limitadas por batería—, y la barra quedaba invisible para siempre. El
+  // estado natural del elemento ya es el final, así que no hace falta fijarlo.
+  animation: chrome-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tb-logo {
@@ -323,7 +327,7 @@
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   border: 1px solid rgba(255,255,255,0.12);
   box-shadow: 0 14px 44px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
-  animation: sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.following { border-color: rgba(0, 224, 106, 0.4); }
 }
@@ -591,7 +595,13 @@
   // ---- UBICACIÓN DEL USUARIO ----
   // Dos marcadores: el cono va acostado en el suelo, la chapa siempre derecha.
 
-  .user-marker { position: relative; width: 34px; height: 34px; }
+  // OJO: no se le toca `position` ni `transform` a la raíz de un marcador.
+  // MapLibre le escribe ambos para clavarlo a su coordenada, y como estas
+  // reglas viven bajo ::ng-deep le ganan en especificidad: al forzar
+  // `position: relative` el marcador salía del posicionamiento del mapa, caía
+  // en el flujo normal debajo del canvas y se movía con la pantalla en vez de
+  // quedarse pegado al terreno. El tamaño y la maquetación van en un envoltorio.
+  .um-inner { position: relative; width: 34px; height: 34px; }
 
   // Chapa circular con la persona (o la foto de perfil). De cara a la cámara,
   // así que se lee igual con el mapa girado o inclinado.
@@ -648,7 +658,7 @@
 
   // Haz de luz sobre el suelo. El degradado se apaga hacia afuera y los bordes
   // se suavizan, para que parezca luz y no un triángulo pegado.
-  .user-cone-marker { position: relative; width: 0; height: 0; }
+  .ucm-inner { position: relative; width: 0; height: 0; }
 
   .user-cone {
     position: absolute;
@@ -705,7 +715,8 @@
   // así que el contenedor del user marker necesita un tamaño explícito para
   // que el punto y el pulso (absolute/inset) se ubiquen bien.
 
-  .stop-marker { position: relative; display: grid; place-items: center; }
+  // Mismo motivo que arriba: nada de `position` en la raíz del marcador.
+  .stop-marker { display: grid; place-items: center; }
   .stop-label {
     position: absolute;
     top: calc(100% + 3px);

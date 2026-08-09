@@ -918,7 +918,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       this.userConeMarker.setLngLat([lng, lat]);
       this.userMarker.setLngLat([lng, lat]);
     } else {
-      const coneEl = htmlMarkerEl('user-cone-marker', `<div class="user-cone"></div>`);
+      const coneEl = htmlMarkerEl(
+        'user-cone-marker',
+        `<div class="ucm-inner"><div class="user-cone"></div></div>`,
+      );
       this.userConeMarker = new maplibregl.Marker({
         element: coneEl,
         anchor: 'center',
@@ -926,7 +929,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         pitchAlignment: 'map',
       }).setLngLat([lng, lat]).addTo(this.map);
 
-      const el = htmlMarkerEl('user-marker', `<div class="user-pulse"></div>${this.userPuckHtml()}`);
+      // El contenido va dentro de un envoltorio propio. La raíz del marcador se
+      // deja intacta para que MapLibre la posicione: es él quien le escribe
+      // position y transform, y pisárselos desancla el marcador del mapa.
+      const el = htmlMarkerEl(
+        'user-marker',
+        `<div class="um-inner"><div class="user-pulse"></div>${this.userPuckHtml()}</div>`,
+      );
       this.userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([lng, lat])
         .addTo(this.map);
