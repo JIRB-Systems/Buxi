@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ViewWillEnter } from '@ionic/angular';
+import { ViewWillEnter, AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
 import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-tracking.service';
@@ -10,7 +10,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
-import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled } from '../../../core/utils/maplibre';
+import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled, circlePolygon } from '../../../core/utils/maplibre';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
@@ -32,7 +32,7 @@ const PROVINCIA_CENTERS: Record<string, [number, number]> = {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.desktop.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter {
@@ -47,6 +47,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private busLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
   private userMarker: maplibregl.Marker | null = null;
+  private userHeading = 0;
   private locationSub: Subscription | null = null;
   private watchId: string | null = null;
 
@@ -306,6 +307,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     private router: Router,
     private route: ActivatedRoute,
     private zone: NgZone,
+    private alertCtrl: AlertController,
+    private toastCtrl: ToastController,
   ) {}
 
   async ngOnInit() {
@@ -468,9 +471,156 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.zone.run(() => { this.navVisible = visible; });
   }
 
-  toggleProfilePanel() {
+  // ---- PANEL DE PERFIL ----
+  // Todo se resuelve acá adentro: editar, preferencias, salir y borrar cuenta.
+  // Antes cada ítem navegaba a la página vieja de perfil y se perdía el mapa.
+  editingProfile = false;
+  savingProfile = false;
+  editName = '';
+  editPhone = '';
+  editProvincia = '';
+  notificationsEnabled = true;
+  darkMode = false;
+  readonly provincias = [
+    'San José', 'Alajuela', 'Cartago', 'Heredia', 'Guanacaste', 'Puntarenas', 'Limón',
+  ];
+
+  async toggleProfilePanel() {
     this.profilePanelOpen = !this.profilePanelOpen;
-    if (this.profilePanelOpen) this.navVisible = true;
+    if (this.profilePanelOpen) {
+      this.activePanel = null;
+      this.navVisible = true;
+      this.resetProfileForm();
+      await this.loadPreferences();
+    } else {
+      this.editingProfile = false;
+    }
+  }
+
+  private resetProfileForm() {
+    this.editName = this.profile?.nombre_completo || '';
+    this.editPhone = this.profile?.telefono || '';
+    this.editProvincia = this.profile?.provincia || '';
+  }
+
+  private async loadPreferences() {
+    if (!this.profile) return;
+    try {
+      const prefs = await this.featuresService.getPreferences(this.profile.id);
+      if (prefs) {
+        this.notificationsEnabled = prefs.notifications_enabled;
+        this.darkMode = prefs.dark_mode;
+      }
+    } catch {}
+  }
+
+  startEditProfile() {
+    this.resetProfileForm();
+    this.editingProfile = true;
+  }
+
+  cancelEditProfile() {
+    this.editingProfile = false;
+    this.resetProfileForm();
+  }
+
+  async saveProfile() {
+    const nombre = this.editName.trim();
+    if (nombre.length < 3) {
+      await this.toast('El nombre debe tener al menos 3 caracteres', 'warning');
+      return;
+    }
+
+    this.savingProfile = true;
+    try {
+      this.profile = await this.supabase.updateProfile({
+        nombre_completo: nombre,
+        telefono: this.editPhone.trim() || null,
+        provincia: this.editProvincia || null,
+      });
+      this.userName = this.profile.nombre_completo.split(' ')[0];
+      this.editingProfile = false;
+      await this.toast('Perfil actualizado');
+    } catch {
+      await this.toast('No se pudo guardar', 'danger');
+    }
+    this.savingProfile = false;
+  }
+
+  async toggleNotifications() {
+    this.notificationsEnabled = !this.notificationsEnabled;
+    if (!this.profile) return;
+    try {
+      await this.featuresService.savePreferences(this.profile.id, {
+        notifications_enabled: this.notificationsEnabled,
+      });
+    } catch {
+      this.notificationsEnabled = !this.notificationsEnabled;
+      await this.toast('No se pudo guardar la preferencia', 'danger');
+    }
+  }
+
+  // El mapa 3D y todo el chrome ya son oscuros; este interruptor controla el
+  // tema del resto de la app (páginas de auth, legales, etc.).
+  async toggleDarkMode() {
+    this.darkMode = !this.darkMode;
+    document.body.classList.toggle('dark', this.darkMode);
+    if (!this.profile) return;
+    try {
+      await this.featuresService.savePreferences(this.profile.id, { dark_mode: this.darkMode });
+    } catch {}
+  }
+
+  openFavoritosFromProfile() {
+    this.profilePanelOpen = false;
+    this.openPanel('favoritos');
+  }
+
+  async confirmLogout() {
+    const alert = await this.alertCtrl.create({
+      header: 'Cerrar sesión',
+      message: '¿Seguro que querés salir?',
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        {
+          text: 'Cerrar sesión',
+          role: 'confirm',
+          handler: async () => {
+            await this.supabase.signOut();
+            this.router.navigate(['/auth/login'], { replaceUrl: true });
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  async confirmDeleteAccount() {
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar cuenta',
+      message: 'Esto borra tu cuenta, favoritos, calificaciones y preferencias de forma permanente. No se puede deshacer.',
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        {
+          text: 'Eliminar',
+          role: 'destructive',
+          handler: async () => {
+            try {
+              await this.supabase.deleteAccount();
+              this.router.navigate(['/auth/login'], { replaceUrl: true });
+            } catch (e: any) {
+              await this.toast(e?.message || 'No se pudo eliminar la cuenta', 'danger');
+            }
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  private async toast(message: string, color = 'success') {
+    const t = await this.toastCtrl.create({ message, duration: 2200, color, position: 'top' });
+    await t.present();
   }
 
   toggle3D() {
@@ -691,31 +841,83 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         if (permission.location === 'denied') return;
       }
       const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-      this.updateUserPosition(position.coords.latitude, position.coords.longitude);
+      const c = position.coords;
+      this.updateUserPosition(c.latitude, c.longitude, c.accuracy, c.heading);
       if (!this.activeRuta) {
-        this.map.jumpTo({ center: [position.coords.longitude, position.coords.latitude], zoom: 15 });
+        this.map.jumpTo({ center: [c.longitude, c.latitude], zoom: 15 });
       }
       this.watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true },
-        (pos) => { if (pos) this.updateUserPosition(pos.coords.latitude, pos.coords.longitude); }
+        (pos) => {
+          if (!pos) return;
+          const p = pos.coords;
+          this.updateUserPosition(p.latitude, p.longitude, p.accuracy, p.heading);
+        },
       ) as unknown as string;
     } catch {}
   }
 
-  private updateUserPosition(lat: number, lng: number) {
+  private updateUserPosition(lat: number, lng: number, accuracy?: number | null, heading?: number | null) {
     this.userLat = lat;
     this.userLng = lng;
+
+    // El cono sólo se muestra si el dispositivo reporta rumbo: en escritorio
+    // no hay brújula, y dibujar un cono apuntando siempre al norte sería
+    // información inventada.
+    const hasHeading = heading !== null && heading !== undefined && !isNaN(heading);
+    if (hasHeading) this.userHeading = heading as number;
 
     if (this.userMarker) {
       this.userMarker.setLngLat([lng, lat]);
     } else {
-      const el = htmlMarkerEl('user-marker', `<div class="user-dot"></div><div class="user-pulse"></div>`);
-      this.userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      const el = htmlMarkerEl(
+        'user-marker',
+        `<div class="user-cone"></div><div class="user-pulse"></div><div class="user-dot"></div>`,
+      );
+      this.userMarker = new maplibregl.Marker({
+        element: el,
+        anchor: 'center',
+        rotationAlignment: 'map',
+        pitchAlignment: 'map',
+      })
         .setLngLat([lng, lat])
         .addTo(this.map);
     }
 
+    this.userMarker.getElement().classList.toggle('has-heading', hasHeading);
+    if (hasHeading) this.userMarker.setRotation(this.userHeading);
+
+    this.updateAccuracyCircle(lng, lat, accuracy);
     this.updateETA();
+  }
+
+  // Radio de precisión como capa GeoJSON en metros reales: si el navegador
+  // ubica por WiFi y erra kilómetros, el círculo lo muestra grande y honesto
+  // en vez de fingir un punto exacto.
+  private updateAccuracyCircle(lng: number, lat: number, accuracy?: number | null) {
+    if (!this.mapReady || !accuracy || accuracy <= 0) return;
+
+    const data = circlePolygon(lng, lat, accuracy);
+    const existing = this.map.getSource('user-accuracy') as maplibregl.GeoJSONSource | undefined;
+
+    if (existing) {
+      existing.setData(data);
+      return;
+    }
+
+    this.map.addSource('user-accuracy', { type: 'geojson', data });
+    this.map.addLayer({
+      id: 'user-accuracy-fill',
+      type: 'fill',
+      source: 'user-accuracy',
+      paint: { 'fill-color': '#4285f4', 'fill-opacity': 0.12 },
+    });
+    this.map.addLayer({
+      id: 'user-accuracy-line',
+      type: 'line',
+      source: 'user-accuracy',
+      paint: { 'line-color': '#4285f4', 'line-width': 1, 'line-opacity': 0.35 },
+    });
   }
 
   private updateETA() {

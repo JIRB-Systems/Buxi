@@ -325,33 +325,63 @@
     </div>
 
     <div class="pp-links">
-      <div class="pp-link" routerLink="/passenger/profile">
+      <!-- ---- Editar perfil, en el mismo panel ---- -->
+      <div class="pp-link" *ngIf="!editingProfile" (click)="startEditProfile()">
         <ion-icon name="create-outline"></ion-icon><span>Editar perfil</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
-      <div class="pp-link" routerLink="/passenger/empresas">
+
+      <div class="pp-form" *ngIf="editingProfile">
+        <label>Nombre completo</label>
+        <input type="text" [(ngModel)]="editName" placeholder="Tu nombre" />
+
+        <label>Teléfono</label>
+        <input type="tel" [(ngModel)]="editPhone" placeholder="8888-8888" />
+
+        <label>Provincia</label>
+        <div class="pp-chips">
+          <button
+            *ngFor="let p of provincias"
+            class="pp-chip"
+            [class.on]="editProvincia === p"
+            (click)="editProvincia = p">{{ p }}</button>
+        </div>
+
+        <div class="pp-form-actions">
+          <button class="pp-btn ghost" (click)="cancelEditProfile()">Cancelar</button>
+          <button class="pp-btn solid" [disabled]="savingProfile" (click)="saveProfile()">
+            {{ savingProfile ? 'Guardando…' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="pp-link" (click)="openFavoritosFromProfile()">
         <ion-icon name="star-outline"></ion-icon><span>Favoritos</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
-      <div class="pp-link" routerLink="/passenger/home">
-        <ion-icon name="time-outline"></ion-icon><span>Historial</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
-      </div>
-      <div class="pp-link" routerLink="/passenger/profile">
+
+      <!-- ---- Preferencias con interruptor real ---- -->
+      <div class="pp-link" (click)="toggleNotifications()">
         <ion-icon name="notifications-outline"></ion-icon><span>Notificaciones</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+        <div class="pp-switch" [class.on]="notificationsEnabled"><i></i></div>
       </div>
-      <div class="pp-link" routerLink="/passenger/profile">
-        <ion-icon name="settings-outline"></ion-icon><span>Configuración</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+
+      <div class="pp-link" (click)="toggleDarkMode()">
+        <ion-icon name="moon-outline"></ion-icon><span>Modo oscuro</span>
+        <div class="pp-switch" [class.on]="darkMode"><i></i></div>
       </div>
+
       <div class="pp-link" routerLink="/legal/terms">
-        <ion-icon name="help-circle-outline"></ion-icon><span>Ayuda</span>
+        <ion-icon name="document-text-outline"></ion-icon><span>Términos y privacidad</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+
+      <div class="pp-danger" (click)="confirmDeleteAccount()">
+        <ion-icon name="trash-outline"></ion-icon><span>Eliminar cuenta</span>
       </div>
     </div>
 
-    <div class="pp-logout" (click)="onLogout()">
+    <div class="pp-logout" (click)="confirmLogout()">
       <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
     </div>
   </aside>

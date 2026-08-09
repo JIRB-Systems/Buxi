@@ -192,6 +192,34 @@ export function animateMarkerTo(
   requestAnimationFrame(step);
 }
 
+// Aproxima un círculo geográfico como polígono GeoJSON. Se usa para el radio
+// de precisión de la ubicación: dibujarlo como capa (y no como un div de N
+// píxeles) hace que represente METROS REALES, así que al alejar el zoom se
+// encoge igual que el terreno — que es justamente lo que tiene que comunicar.
+export function circlePolygon(
+  lng: number,
+  lat: number,
+  radiusMeters: number,
+  steps = 64,
+): GeoJSON.Feature<GeoJSON.Polygon> {
+  const coords: [number, number][] = [];
+  const latRad = (lat * Math.PI) / 180;
+  // Grados de longitud por metro varían con la latitud; los de latitud no.
+  const dLat = radiusMeters / 111320;
+  const dLng = radiusMeters / (111320 * Math.cos(latRad));
+
+  for (let i = 0; i <= steps; i++) {
+    const theta = (i / steps) * 2 * Math.PI;
+    coords.push([lng + dLng * Math.cos(theta), lat + dLat * Math.sin(theta)]);
+  }
+
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'Polygon', coordinates: [coords] },
+  };
+}
+
 // Crea un elemento HTML para usar como marcador custom (MapLibre no tiene
 // divIcon como Leaflet; se le pasa un HTMLElement directo).
 export function htmlMarkerEl(className: string, innerHtml: string): HTMLDivElement {

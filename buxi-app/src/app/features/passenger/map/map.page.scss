@@ -548,257 +548,6 @@
   box-shadow: 0 8px 26px rgba(0, 224, 106, 0.7), 0 2px 8px rgba(0,0,0,0.35);
 }
 
-// ---- PANEL FLOTANTE DE LISTAS (Rutas / Favoritos / Alertas) ----
-// Hoja que sube sobre el mapa. No es una pantalla: el mapa sigue vivo detrás
-// y se ve por encima del panel.
-.sheet-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 1400;
-  background: rgba(4, 10, 20, 0.42);
-  opacity: 0; visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-  &.open { opacity: 1; visibility: visible; }
-}
-
-.list-panel {
-  position: absolute;
-  left: 12px; right: 12px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
-  z-index: 1450;
-  max-height: min(62vh, 520px);
-  display: flex;
-  flex-direction: column;
-  padding: 8px 0 6px;
-  border-radius: 26px;
-  background: rgba(11, 26, 46, 0.86);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.12);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.52), inset 0 1px 0 rgba(255,255,255,0.08);
-
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(24px) scale(0.98);
-  transition:
-    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0.3s;
-
-  &.open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
-}
-
-.lp-grip {
-  width: 38px; height: 4px;
-  background: rgba(255,255,255,0.22);
-  border-radius: 2px;
-  margin: 0 auto 10px;
-  flex-shrink: 0;
-}
-
-.lp-head {
-  display: flex; align-items: center;
-  padding: 0 18px 10px;
-  flex-shrink: 0;
-
-  h2 {
-    flex: 1; margin: 0;
-    font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.3px;
-  }
-  ion-icon { font-size: 22px; color: #6f83a0; cursor: pointer; }
-}
-
-.lp-search {
-  display: flex; align-items: center; gap: 9px;
-  margin: 0 14px 10px;
-  padding: 0 14px;
-  height: 40px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.09);
-  flex-shrink: 0;
-
-  ion-icon { font-size: 16px; color: #7e93b0; flex-shrink: 0; }
-
-  input {
-    flex: 1; min-width: 0;
-    background: none; border: none; outline: none;
-    font-size: 13.5px; color: #fff; font-family: inherit;
-    &::placeholder { color: #6f83a0; }
-  }
-}
-
-.lp-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 10px 8px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.18) transparent;
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
-}
-
-.lp-row {
-  display: flex; align-items: center; gap: 11px;
-  padding: 11px 10px;
-  border-radius: 15px;
-  cursor: pointer;
-  transition: background 0.16s ease;
-
-  &:active { background: rgba(255,255,255,0.08); }
-
-  // Franja del color de la ruta: el mismo código de color que en el mapa.
-  .lp-stripe {
-    width: 4px; align-self: stretch; min-height: 34px;
-    border-radius: 2px; flex-shrink: 0;
-  }
-
-  .lp-info {
-    flex: 1; min-width: 0;
-    display: flex; flex-direction: column; gap: 1px;
-
-    strong {
-      font-size: 14px; color: #fff; font-weight: 700;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .lp-trip {
-      font-size: 12px; color: #9fb2cc;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .lp-empresa { font-size: 10.5px; color: #6f83a0; font-weight: 600; }
-  }
-
-  .lp-fav {
-    font-size: 20px; color: #56698a; flex-shrink: 0;
-    padding: 4px;
-    transition: color 0.16s ease, transform 0.16s ease;
-    &.on { color: #ffc93c; }
-    &:active { transform: scale(0.85); }
-  }
-}
-
-.lp-empty {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 7px; padding: 34px 26px; text-align: center;
-
-  ion-icon { font-size: 34px; color: #3e5170; }
-  strong { font-size: 14px; color: #dbe6f5; font-weight: 700; }
-  span { font-size: 12.5px; color: #7e93b0; line-height: 1.45; }
-}
-
-// ---- PANEL LATERAL DE PERFIL ----
-// Se desliza sobre el mapa; el mapa nunca se descarga ni se oculta detrás de
-// otra pantalla.
-.panel-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 1600;
-  background: rgba(4, 10, 20, 0.5);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-
-  &.open { opacity: 1; visibility: visible; }
-}
-
-.profile-panel {
-  position: absolute;
-  top: 0; bottom: 0; right: 0;
-  z-index: 1700;
-  width: min(84vw, 340px);
-  display: flex;
-  flex-direction: column;
-  padding: calc(env(safe-area-inset-top, 20px) + 18px) 0 calc(env(safe-area-inset-bottom, 0px) + 18px);
-  background: rgba(9, 20, 36, 0.86);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border-left: 1px solid rgba(255,255,255,0.1);
-  box-shadow: -14px 0 40px rgba(0,0,0,0.45);
-  transform: translateX(100%);
-  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
-
-  &.open { transform: translateX(0); }
-}
-
-.pp-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 18px 18px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-
-.pp-avatar {
-  width: 52px; height: 52px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  overflow: hidden;
-  display: grid; place-items: center;
-  background: rgba(255,255,255,0.09);
-  border: 1px solid rgba(255,255,255,0.16);
-
-  img { width: 100%; height: 100%; object-fit: cover; }
-  ion-icon { font-size: 24px; color: #9fb2cc; }
-}
-
-.pp-id {
-  flex: 1; min-width: 0;
-  display: flex; flex-direction: column; gap: 2px;
-
-  strong {
-    font-size: 15px; color: #fff; font-weight: 700;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  span {
-    font-size: 12px; color: #8fa3bd;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-}
-
-.pp-close { font-size: 22px; color: #8fa3bd; cursor: pointer; flex-shrink: 0; }
-
-.pp-links {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 12px;
-}
-
-.pp-link {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: 13px 12px;
-  border-radius: 13px;
-  cursor: pointer;
-  transition: background 0.16s ease;
-
-  &:active { background: rgba(255,255,255,0.07); }
-
-  ion-icon { font-size: 19px; color: #7f96b4; flex-shrink: 0; }
-  span { flex: 1; font-size: 14px; color: #e2ecf8; font-weight: 500; }
-  .pp-chev { font-size: 15px; color: #4a5d78; }
-}
-
-.pp-logout {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  margin: 0 18px;
-  padding: 13px 12px;
-  border-radius: 13px;
-  border: 1px solid rgba(255, 82, 82, 0.24);
-  background: rgba(255, 82, 82, 0.09);
-  cursor: pointer;
-  transition: background 0.16s ease;
-
-  &:active { background: rgba(255, 82, 82, 0.16); }
-
-  ion-icon { font-size: 19px; color: #ff6b6b; }
-  span { font-size: 14px; color: #ff8585; font-weight: 600; }
-}
-
 // ---- MARKERS ----
 :host ::ng-deep {
   // El bus se acuesta sobre el plano del mapa y gira con él, así que el
@@ -815,15 +564,18 @@
 
   .bus-marker:active .bus-3d { filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45)) brightness(1.2); }
 
+  // Punto azul estilo Apple Maps: núcleo, halo pulsante y cono de orientación.
+  // El marcador se acuesta sobre el plano del mapa y rota con el rumbo, así
+  // que el cono apunta a donde mira el usuario aunque el mapa esté girado.
   .user-dot {
     width: 14px; height: 14px;
     background: #4285f4;
     border-radius: 50%;
     border: 2.5px solid #fff;
-    box-shadow: 0 1px 6px rgba(66,133,244,0.4);
+    box-shadow: 0 1px 6px rgba(66,133,244,0.5);
     position: absolute;
     top: 5px; left: 5px;
-    z-index: 2;
+    z-index: 3;
   }
 
   .user-pulse {
@@ -832,7 +584,30 @@
     border-radius: 50%;
     background: rgba(66,133,244,0.18);
     animation: pulsate 2s ease-out infinite;
+    z-index: 2;
   }
+
+  // Triángulo que nace en el punto y se desvanece hacia afuera. Oculto por
+  // defecto: sin rumbo (escritorio, o teléfono detenido) apuntaría siempre al
+  // norte, y eso sería inventar información.
+  .user-cone {
+    position: absolute;
+    left: 50%; bottom: 50%;
+    width: 62px; height: 46px;
+    margin-left: -31px;
+    z-index: 1;
+    background: linear-gradient(
+      to top,
+      rgba(66,133,244,0.55) 0%,
+      rgba(66,133,244,0.26) 45%,
+      rgba(66,133,244,0) 100%
+    );
+    clip-path: polygon(50% 100%, 8% 0%, 92% 0%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .user-marker.has-heading .user-cone { opacity: 1; }
 
   @keyframes pulsate {
     0% { transform: scale(1); opacity: 0.6; }
