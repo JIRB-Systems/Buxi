@@ -96,9 +96,11 @@
         <ion-icon name="search-outline"></ion-icon>
         <span>Buscar rutas, empresas, paradas o destinos</span>
       </div>
+      <!-- El ícono va siempre debajo y la foto encima: si la foto no carga,
+           queda el ícono en vez de un círculo vacío. -->
       <div class="tb-profile" (click)="toggleProfilePanel()">
-        <ng-container *ngIf="avatarUrl as url"><img [src]="url" alt="" /></ng-container>
-        <ion-icon *ngIf="!avatarUrl" name="person"></ion-icon>
+        <ion-icon name="person"></ion-icon>
+        <img *ngIf="avatarUrl as url" [src]="url" alt="" class="av-photo" />
       </div>
     </div>
 
@@ -321,8 +323,8 @@
   <aside class="profile-panel" [class.open]="profilePanelOpen">
     <div class="pp-head">
       <div class="pp-avatar">
-        <ng-container *ngIf="avatarUrl as url"><img [src]="url" alt="" /></ng-container>
-        <ion-icon *ngIf="!avatarUrl" name="person"></ion-icon>
+        <ion-icon name="person"></ion-icon>
+        <img *ngIf="avatarUrl as url" [src]="url" alt="" class="av-photo" />
       </div>
       <div class="pp-id">
         <strong>{{ displayName }}</strong>

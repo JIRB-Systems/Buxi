@@ -189,8 +189,12 @@
   background: rgba(255,255,255,0.09);
   border: 1px solid rgba(255,255,255,0.16);
 
-  img { width: 100%; height: 100%; object-fit: cover; }
+  position: relative;
   ion-icon { font-size: 24px; color: #9fb2cc; }
+  .av-photo {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover;
+  }
 }
 
 .pp-id {

@@ -922,20 +922,27 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.updateETA();
   }
 
-  // Foto de perfil si existe; si no, la persona saludando.
+  // La persona va SIEMPRE dibujada como base, y la foto de perfil (si hay) se
+  // superpone encima. Así, si la foto no carga —bloqueada por CSP, caída, o el
+  // enlace vencido— queda el dibujo debajo en vez de una chapa vacía, que es
+  // justo lo que pasaba antes.
   private userPuckHtml(): string {
-    const inner = this.profile?.foto_url
-      ? `<img src="${this.profile.foto_url}" alt="" />`
-      : `<svg viewBox="0 0 24 24" width="17" height="17" fill="none"
-              stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <circle cx="11" cy="5.2" r="2.6" fill="#fff" stroke="none"/>
-           <path d="M11 8.4v6.2"/>
-           <path d="M11 14.6 8.6 21"/>
-           <path d="M11 14.6 13.2 21"/>
-           <path d="M11 10.4 7.6 12.6"/>
-           <path d="M11 10.2 15.4 6.6"/>
-         </svg>`;
-    return `<div class="user-puck">${inner}</div>`;
+    const photo = this.profile?.foto_url
+      ? `<img class="up-photo" src="${this.profile.foto_url}" alt="" />`
+      : '';
+    return `
+      <div class="user-puck">
+        <svg class="up-person" viewBox="0 0 24 24" width="20" height="20" fill="none"
+             stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="5" r="2.9" fill="#fff" stroke="none"/>
+          <path d="M11 8.4v6"/>
+          <path d="M11 14.4 8.4 20.6"/>
+          <path d="M11 14.4 13.4 20.6"/>
+          <path d="M11 10.4 7.4 12.8"/>
+          <path d="M11 10.2 15.6 6.2"/>
+        </svg>
+        ${photo}
+      </div>`;
   }
 
   // El cono apunta a donde MIRA el teléfono cuando hay brújula. Si no la hay,
