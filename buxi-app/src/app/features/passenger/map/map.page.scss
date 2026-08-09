@@ -17,37 +17,59 @@
 // like a native web app shell instead of stretched phone chrome.
 .desktop-topbar, .desktop-sidebar { display: none; }
 
+// Barra y panel flotan sobre el mapa en vez de recortarlo: el mapa se ve de
+// punta a punta y el chrome se apoya encima, igual que el dock inferior.
 .desktop-topbar {
-  position: absolute; top: 0; left: 0; right: 0; z-index: 1001;
-  align-items: center; gap: 20px;
-  height: 64px; padding: 0 20px;
-  background: var(--dash-bg-main, #0f1c2e);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  position: absolute; top: 16px; left: 16px; right: 16px; z-index: 1001;
+  align-items: center; gap: 18px;
+  height: 56px; padding: 0 16px;
+  border-radius: 20px;
+  background: rgba(11, 26, 46, 0.62);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.13);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
 
   .dt-logo {
     display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-    img { width: 30px; height: 30px; object-fit: contain; }
-    span { font-size: 17px; font-weight: 800; color: #fff; }
+    img { width: 28px; height: 28px; object-fit: contain; }
+    span { font-size: 16px; font-weight: 800; color: #fff; }
   }
 
   .dt-search {
-    flex: 1; max-width: 420px;
+    flex: 1; max-width: 460px;
     display: flex; align-items: center; gap: 10px;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px; padding: 9px 14px; cursor: pointer;
-    transition: border-color 0.15s;
-    &:hover { border-color: #00c853; }
-    ion-icon { font-size: 16px; color: #7d93b2; }
-    span { font-size: 13px; color: #7d93b2; }
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 999px; padding: 9px 16px; cursor: pointer;
+    transition: transform 0.16s ease;
+    &:hover { transform: scale(1.01); }
+    ion-icon { font-size: 16px; color: #8a97a8; }
+    span { font-size: 13px; color: #67748a; font-weight: 500; }
   }
 }
 
+// Panel flotante, no columna pegada al borde: separado de los bordes, con
+// esquinas redondeadas y sin llegar al fondo, para que el dock respire.
 .desktop-sidebar {
-  position: absolute; top: 64px; left: 0; bottom: 0; z-index: 1000;
-  width: 340px; flex-direction: column; gap: 14px;
+  position: absolute;
+  top: 88px; left: 16px; bottom: 116px; z-index: 1000;
+  width: 330px; flex-direction: column; gap: 14px;
   padding: 16px; overflow-y: auto;
-  background: var(--dash-bg-elevated, #0e1e32);
-  border-right: 1px solid rgba(255,255,255,0.06);
+  border-radius: 22px;
+  background: rgba(11, 26, 46, 0.62);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.13);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
+
+  // Scrollbar discreta: la barra nativa de Windows sobre glass se ve pésimo.
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.18); border-radius: 3px;
+  }
 }
 
 .ds-section {
@@ -106,9 +128,11 @@
   &:hover { background: rgba(0,200,83,0.08); }
 }
 
+// Translúcida, no sólida: dentro del panel glass un fondo opaco se lee como
+// un parche pegado encima.
 .ds-card {
-  background: var(--dash-surface, #162238); border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.055); border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.07);
   padding: 12px; display: flex; flex-direction: column; gap: 8px;
 }
 
@@ -903,9 +927,15 @@
   // Mobile-only overlays hidden at this width.
   .top-overlay, .live-chip, .route-chip, .eta-card { display: none; }
 
-  // El dock se corre a la derecha del sidebar y se acota, para no quedar
-  // estirado de punta a punta en pantallas anchas.
-  .dock { left: 376px; right: auto; width: 440px; }
+  // Centrado respecto a la pantalla completa: ahora que el panel lateral
+  // flota (no ocupa ancho en el layout), el mapa se ve de punta a punta y el
+  // dock tiene que quedar centrado sobre él, no desplazado a un costado.
+  .dock {
+    left: 0; right: 0;
+    width: 460px;
+    margin: 0 auto;
+  }
+
   .map-controls { bottom: calc(env(safe-area-inset-bottom, 0px) + 116px); }
 
   .bus-sheet {
