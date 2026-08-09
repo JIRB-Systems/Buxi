@@ -46,12 +46,28 @@ export function createMap(opts: {
   });
 
   return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve(map);
+    };
+
     map.on('load', () => {
       if (opts.threeD) {
         try { enable3D(map); } catch { /* el mapa sigue siendo usable en 2D */ }
       }
-      resolve(map);
+      done();
     });
+
+    // Si el estilo no carga (key vencida, sin red, 403 del proveedor), 'load'
+    // no dispara NUNCA. Sin esta salida la promesa queda pendiente para
+    // siempre, la página nunca apaga su bandera de "cargando" y el overlay
+    // de carga bloquea la pantalla entera: la app queda inutilizable por un
+    // fallo de un tercero. Mejor devolver el mapa vacío y dejar que el resto
+    // de la interfaz funcione.
+    map.on('error', done);
+    setTimeout(done, 8000);
   });
 }
 
