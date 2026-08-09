@@ -166,50 +166,86 @@
   padding: calc(env(safe-area-inset-top, 20px) + 12px) 14px 0;
 }
 
-.top-row {
+// ---- TOPBAR: logo · buscador · perfil ----
+// Todo glass sobre el mapa: nada de barra sólida que corte la escena.
+.topbar {
   display: flex;
   align-items: center;
   gap: 10px;
+  animation: chrome-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.avatar-btn {
-  width: 42px; height: 42px;
-  background: #fff;
-  border-radius: 50%;
+.tb-logo {
+  width: 40px; height: 40px;
+  flex-shrink: 0;
+  border-radius: 14px;
   display: grid; place-items: center;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-  ion-icon { font-size: 18px; color: var(--ion-text-color); }
+  background: rgba(10, 22, 40, 0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.28);
+
+  img { width: 24px; height: 24px; object-fit: contain; }
 }
 
-.search-pill {
+.tb-search {
   flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: #fff;
-  border-radius: 28px;
-  padding: 12px 18px;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+  gap: 9px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.22);
   cursor: pointer;
+  transition: transform 0.16s ease;
 
-  .s-icon { font-size: 18px; color: #aab4c0; }
+  &:active { transform: scale(0.985); }
+
+  ion-icon { font-size: 17px; color: #8a97a8; flex-shrink: 0; }
 
   span {
     flex: 1;
-    font-size: 15px;
+    min-width: 0;
+    font-size: 13.5px;
     font-weight: 500;
-    color: #5a6677;
+    color: #67748a;
     letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
-.notif-btn {
-  width: 42px; height: 42px;
-  background: #fff;
+.tb-profile {
+  width: 40px; height: 40px;
+  flex-shrink: 0;
   border-radius: 50%;
+  overflow: hidden;
   display: grid; place-items: center;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-  ion-icon { font-size: 19px; color: var(--ion-text-color); }
+  background: rgba(10, 22, 40, 0.55);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.28);
+  cursor: pointer;
+  transition: transform 0.16s ease;
+
+  &:active { transform: scale(0.92); }
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  ion-icon { font-size: 19px; color: #e6edf7; }
+}
+
+@keyframes chrome-in {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 // ---- ROUTE HEADER ----
@@ -326,20 +362,52 @@
   }
 }
 
-// ---- FAB ----
-.fab-locate {
+// ---- CONTROLES FLOTANTES (derecha) ----
+// Columna vertical de cápsulas glass. Sube cuando aparece la ficha del bus
+// para no quedar tapada.
+.map-controls {
   position: absolute;
-  bottom: 90px; right: 14px;
+  right: 14px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 116px);
   z-index: 1000;
-  width: 46px; height: 46px;
-  background: #fff;
-  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: bottom 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.lifted { bottom: calc(env(safe-area-inset-bottom, 0px) + 250px); }
+}
+
+.mc-btn {
+  width: 42px; height: 42px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 14px;
+  background: rgba(10, 22, 40, 0.6);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.3);
   display: grid; place-items: center;
-  box-shadow: 0 2px 14px rgba(0,0,0,0.13);
   cursor: pointer;
-  transition: transform 0.12s;
+  transition: transform 0.14s ease, background 0.2s ease;
+
   &:active { transform: scale(0.9); }
-  ion-icon { font-size: 20px; color: #4285f4; }
+
+  ion-icon { font-size: 19px; color: #e6edf7; }
+
+  &.mc-text {
+    font-size: 13px; font-weight: 800; color: #e6edf7;
+    letter-spacing: 0.3px;
+  }
+
+  &.mc-locate ion-icon { color: #4da3ff; }
+}
+
+// La aguja gira con el bearing del mapa (se escribe desde el componente).
+.mc-compass {
+  display: grid; place-items: center;
+  transition: transform 0.1s linear;
+  ion-icon { color: #ff5c5c; }
 }
 
 // ---- LOADING ----
@@ -363,127 +431,390 @@
   ion-spinner { width: 20px; height: 20px; --color: #00c853; }
 }
 
-// ---- BUS SHEET ----
+// ---- FICHA DEL BUS ----
+// Glass oscuro para no romper la escena del mapa: una tarjeta blanca sólida
+// cortaba la pantalla en dos.
 .bus-sheet {
   position: absolute;
-  bottom: 0; left: 0; right: 0;
-  z-index: 1000;
-  background: #fff;
-  border-radius: 22px 22px 0 0;
-  padding: 8px 18px calc(18px + env(safe-area-inset-bottom));
-  box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
+  left: 12px; right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  z-index: 1500;
+  padding: 8px 16px 16px;
+  border-radius: 26px;
+  background: rgba(11, 26, 46, 0.82);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 14px 44px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+  animation: sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  &.following { border-color: rgba(0, 224, 106, 0.4); }
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(28px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .sheet-bar {
   width: 36px; height: 4px;
-  background: #dfe3e8;
+  background: rgba(255,255,255,0.22);
   border-radius: 2px;
-  margin: 0 auto 14px;
+  margin: 0 auto 12px;
 }
 
 .sheet-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
 
   .bus-badge {
-    width: 42px; height: 42px;
-    background: #00c853;
-    border-radius: 14px;
+    width: 40px; height: 40px;
+    border-radius: 13px;
     display: grid; place-items: center;
-    ion-icon { font-size: 20px; color: #fff; }
+    flex-shrink: 0;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+    ion-icon { font-size: 19px; color: #fff; }
   }
 
   .sheet-info {
-    flex: 1;
+    flex: 1; min-width: 0;
     display: flex;
     flex-direction: column;
-    strong { font-size: 16px; color: var(--ion-text-color); }
-    span { font-size: 13px; color: #7a8694; margin-top: 1px; }
-    .signal-warning { color: #f57c00; font-weight: 600; }
-  }
-
-  .close-btn { --color: #aab4c0; }
-}
-
-.sheet-stats {
-  display: flex;
-  gap: 16px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid #f0f2f5;
-
-  .stat-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: #5a6677;
-    font-weight: 500;
-    ion-icon { font-size: 16px; color: #aab4c0; }
-
-    &.share-btn {
-      margin-left: auto;
-      color: #00c853;
-      cursor: pointer;
-      ion-icon { color: #00c853; }
+    strong {
+      font-size: 17px; color: #fff; font-weight: 800; letter-spacing: -0.3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    span {
+      font-size: 12.5px; color: #93a7c2; margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
   }
+
+  .estado-chip {
+    flex-shrink: 0;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    color: #9fb2cc;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.1);
+
+    &.live {
+      color: #4dffa0;
+      background: rgba(0, 224, 106, 0.14);
+      border-color: rgba(0, 224, 106, 0.32);
+    }
+  }
+
+  .sheet-close { font-size: 21px; color: #6f83a0; cursor: pointer; flex-shrink: 0; }
 }
 
-// ---- NAV BAR ----
-.nav-bar {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  z-index: 1000;
+.sheet-route {
   display: flex;
-  justify-content: space-around;
   align-items: center;
-  background: #fff;
-  margin: 0 14px calc(10px + env(safe-area-inset-bottom));
-  border-radius: 20px;
-  padding: 7px 2px;
-  box-shadow: 0 6px 24px rgba(15,28,46,0.14);
-  border: 1px solid #f0f2f5;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+
+  ion-icon { font-size: 15px; color: #6f83a0; flex-shrink: 0; }
+  span {
+    font-size: 13px; color: #dbe6f5; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 }
 
-.nav-item {
-  position: relative;
+.sheet-grid {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sg-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+
+  .sg-label { font-size: 10px; color: #7e93b0; font-weight: 600; letter-spacing: 0.3px; }
+  strong { font-size: 15px; color: #fff; font-weight: 700; letter-spacing: -0.2px; }
+  .sg-eta { color: #4dffa0; }
+}
+
+.sheet-updated {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 11px;
+  font-size: 11.5px;
+  color: #8298b6;
+  font-weight: 500;
+
+  .pulse-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #00e06a;
+    animation: live-pulse 1.8s ease-out infinite;
+    &.stale { background: #ffa726; animation: none; }
+  }
+
+  .sheet-share {
+    margin-left: auto;
+    font-size: 17px; color: #4dffa0; cursor: pointer;
+  }
+}
+
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 224, 106, 0.55); }
+  100% { box-shadow: 0 0 0 8px rgba(0, 224, 106, 0); }
+}
+
+.follow-btn {
+  width: 100%;
+  margin-top: 13px;
+  padding: 13px;
+  border: none;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px; font-weight: 700; letter-spacing: -0.2px;
+  color: #04140b;
+  background: linear-gradient(145deg, #00e06a, #00b552);
+  box-shadow: 0 5px 18px rgba(0, 200, 83, 0.36);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.2s ease;
+
+  ion-icon { font-size: 18px; }
+
+  &:active { transform: scale(0.975); }
+
+  &.on {
+    color: #ffd9d9;
+    background: rgba(255, 82, 82, 0.16);
+    border: 1px solid rgba(255, 82, 82, 0.35);
+    box-shadow: none;
+  }
+}
+
+// ---- DOCK FLOTANTE ----
+// Cápsula glass separada del borde: nunca pegada, siempre respetando el safe
+// area. Se desliza hacia abajo cuando el usuario manipula el mapa.
+.dock {
+  position: absolute;
+  left: 18px; right: 18px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+  z-index: 1000;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 6px;
+  border-radius: 34px;
+  background: rgba(11, 26, 46, 0.62);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.13);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.3s ease;
+
+  // Fuera de pantalla: 70px de alto + 22px de separación + safe area.
+  &.hidden {
+    transform: translateY(calc(100% + env(safe-area-inset-bottom, 0px) + 26px));
+    opacity: 0;
+    filter: blur(6px);
+    pointer-events: none;
+  }
+}
+
+.dock-item {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 6px 10px;
+  gap: 3px;
+  padding: 6px 0;
   cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
-  ion-icon { font-size: 21px; color: #b0b8c4; transition: color 0.15s; }
-  span { font-size: 10px; color: #b0b8c4; font-weight: 600; letter-spacing: 0.3px; }
+  &:active { transform: scale(0.92); }
+
+  ion-icon { font-size: 21px; color: rgba(226,236,248,0.62); transition: color 0.2s; }
+  span {
+    font-size: 9.5px; font-weight: 600; letter-spacing: 0.2px;
+    color: rgba(226,236,248,0.62); transition: color 0.2s;
+  }
 
   &.active {
-    ion-icon { color: #00c853; }
-    span { color: #00c853; }
-
-    .nav-active-dot {
-      position: absolute;
-      top: 0;
-      width: 4px; height: 4px;
-      background: #00c853;
-      border-radius: 50%;
-    }
+    ion-icon { color: #fff; }
+    span { color: #fff; }
   }
+}
+
+// Botón central: la marca de Buxi. Sobresale de la cápsula.
+.dock-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  transform: translateY(-14px);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:active { transform: translateY(-14px) scale(0.92); }
+
+  span { font-size: 9.5px; font-weight: 700; color: #fff; letter-spacing: 0.2px; }
+}
+
+.dc-orb {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: linear-gradient(145deg, #00e06a, #00a844);
+  border: 2.5px solid rgba(11, 26, 46, 0.85);
+  box-shadow: 0 6px 20px rgba(0, 200, 83, 0.5), 0 2px 8px rgba(0,0,0,0.35);
+
+  ion-icon { font-size: 23px; color: #fff; }
+}
+
+// ---- PANEL LATERAL DE PERFIL ----
+// Se desliza sobre el mapa; el mapa nunca se descarga ni se oculta detrás de
+// otra pantalla.
+.panel-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1600;
+  background: rgba(4, 10, 20, 0.5);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+
+  &.open { opacity: 1; visibility: visible; }
+}
+
+.profile-panel {
+  position: absolute;
+  top: 0; bottom: 0; right: 0;
+  z-index: 1700;
+  width: min(84vw, 340px);
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 20px) + 18px) 0 calc(env(safe-area-inset-bottom, 0px) + 18px);
+  background: rgba(9, 20, 36, 0.86);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-left: 1px solid rgba(255,255,255,0.1);
+  box-shadow: -14px 0 40px rgba(0,0,0,0.45);
+  transform: translateX(100%);
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.open { transform: translateX(0); }
+}
+
+.pp-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.pp-avatar {
+  width: 52px; height: 52px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid; place-items: center;
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.16);
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  ion-icon { font-size: 24px; color: #9fb2cc; }
+}
+
+.pp-id {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+
+  strong {
+    font-size: 15px; color: #fff; font-weight: 700;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  span {
+    font-size: 12px; color: #8fa3bd;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+.pp-close { font-size: 22px; color: #8fa3bd; cursor: pointer; flex-shrink: 0; }
+
+.pp-links {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+
+.pp-link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 12px;
+  border-radius: 13px;
+  cursor: pointer;
+  transition: background 0.16s ease;
+
+  &:active { background: rgba(255,255,255,0.07); }
+
+  ion-icon { font-size: 19px; color: #7f96b4; flex-shrink: 0; }
+  span { flex: 1; font-size: 14px; color: #e2ecf8; font-weight: 500; }
+  .pp-chev { font-size: 15px; color: #4a5d78; }
+}
+
+.pp-logout {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 0 18px;
+  padding: 13px 12px;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 82, 82, 0.24);
+  background: rgba(255, 82, 82, 0.09);
+  cursor: pointer;
+  transition: background 0.16s ease;
+
+  &:active { background: rgba(255, 82, 82, 0.16); }
+
+  ion-icon { font-size: 19px; color: #ff6b6b; }
+  span { font-size: 14px; color: #ff8585; font-weight: 600; }
 }
 
 // ---- MARKERS ----
 :host ::ng-deep {
-  .bus-dot {
-    width: 32px; height: 32px;
-    background: #00c853;
-    border-radius: 50%;
-    border: 2.5px solid #fff;
+  // El bus se acuesta sobre el plano del mapa y gira con él, así que el
+  // "3D" lo aporta la cámara inclinada + la sombra proyectada del SVG.
+  .bus-marker { cursor: pointer; }
+
+  .bus-3d {
     display: grid; place-items: center;
-    box-shadow: 0 2px 8px rgba(0,200,83,0.35);
-    transition: transform 0.2s;
+    transition: filter 0.2s ease;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45));
+
+    svg { display: block; overflow: visible; }
   }
+
+  .bus-marker:active .bus-3d { filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45)) brightness(1.2); }
 
   .user-dot {
     width: 14px; height: 14px;
@@ -509,15 +840,7 @@
     100% { transform: scale(2.2); opacity: 0; }
   }
 
-  .leaflet-control-zoom { display: none !important; }
-
   // Stop markers
-  .stop-small {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-  }
-
   .stop-dot {
     width: 10px; height: 10px;
     background: #fff;
@@ -537,21 +860,6 @@
     .stop-inner {
       width: 8px; height: 8px;
       border-radius: 50%;
-    }
-  }
-
-  .stop-tooltip {
-    background: var(--dash-surface);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-
-    &::before {
-      border-top-color: var(--dash-surface) !important;
     }
   }
 
@@ -593,8 +901,12 @@
   .desktop-topbar, .desktop-sidebar { display: flex; }
 
   // Mobile-only overlays hidden at this width.
-  .top-overlay, .live-chip, .route-chip, .eta-card, .fab-locate { display: none; }
-  .nav-bar { left: 360px; margin-left: 14px; max-width: 480px; }
+  .top-overlay, .live-chip, .route-chip, .eta-card { display: none; }
+
+  // El dock se corre a la derecha del sidebar y se acota, para no quedar
+  // estirado de punta a punta en pantallas anchas.
+  .dock { left: 376px; right: auto; width: 440px; }
+  .map-controls { bottom: calc(env(safe-area-inset-bottom, 0px) + 116px); }
 
   .bus-sheet {
     left: 360px; right: auto; width: 360px;

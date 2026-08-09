@@ -86,18 +86,19 @@
     </div>
   </aside>
 
-  <!-- Top: search or route header -->
+  <!-- ====== TOPBAR: logo · buscador · perfil ====== -->
   <div class="top-overlay">
-    <div class="top-row" *ngIf="!activeRuta">
-      <div class="avatar-btn" routerLink="/passenger/profile">
-        <ion-icon name="person"></ion-icon>
+    <div class="topbar" *ngIf="!activeRuta">
+      <div class="tb-logo">
+        <img src="assets/icon/buxi-logo-mark.png" alt="Buxi" />
       </div>
-      <div class="search-pill" routerLink="/passenger/routes">
-        <ion-icon name="search-outline" class="s-icon"></ion-icon>
-        <span>¿A dónde quieres ir?</span>
+      <div class="tb-search" routerLink="/passenger/routes">
+        <ion-icon name="search-outline"></ion-icon>
+        <span>Buscar rutas, empresas, paradas o destinos</span>
       </div>
-      <div class="notif-btn">
-        <ion-icon name="notifications-outline"></ion-icon>
+      <div class="tb-profile" (click)="toggleProfilePanel()">
+        <ng-container *ngIf="avatarUrl as url"><img [src]="url" alt="" /></ng-container>
+        <ion-icon *ngIf="!avatarUrl" name="person"></ion-icon>
       </div>
     </div>
 
@@ -111,6 +112,21 @@
       </div>
       <div class="route-color-dot" [style.background]="activeRuta.color"></div>
     </div>
+  </div>
+
+  <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
+  <div class="map-controls" [class.lifted]="selectedBus">
+    <button class="mc-btn" (click)="resetNorth()" aria-label="Orientar al norte">
+      <span class="mc-compass" #compassNeedle>
+        <ion-icon name="navigate"></ion-icon>
+      </span>
+    </button>
+    <button class="mc-btn mc-text" (click)="toggle3D()" [attr.aria-label]="is3D ? 'Ver en 2D' : 'Ver en 3D'">
+      {{ is3D ? '2D' : '3D' }}
+    </button>
+    <button class="mc-btn mc-locate" (click)="centerOnUser()" aria-label="Mi ubicación">
+      <ion-icon name="locate"></ion-icon>
+    </button>
   </div>
 
   <!-- Live chip -->
@@ -140,11 +156,6 @@
     </div>
   </div>
 
-  <!-- FAB -->
-  <div class="fab-locate" (click)="centerOnUser()">
-    <ion-icon name="navigate"></ion-icon>
-  </div>
-
   <!-- Loading -->
   <div class="loading-overlay" *ngIf="loading">
     <div class="loading-pill">
@@ -153,61 +164,137 @@
     </div>
   </div>
 
-  <!-- Bus bottom sheet -->
-  <div class="bus-sheet" *ngIf="selectedBus">
+  <!-- ====== FICHA DEL BUS ====== -->
+  <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus">
     <div class="sheet-bar"></div>
+
     <div class="sheet-row">
-      <div class="bus-badge">
+      <div class="bus-badge" [style.background]="selectedBus.bus?.ruta?.color || '#00c853'">
         <ion-icon name="bus"></ion-icon>
       </div>
       <div class="sheet-info">
         <strong>{{ selectedBusPlaca }}</strong>
-        <span>{{ selectedBusRuta }}</span>
-        <span class="signal-warning" *ngIf="selectedBusSignalText">{{ selectedBusSignalText }}</span>
+        <span>{{ selectedBusEmpresa }}</span>
       </div>
-      <ion-button fill="clear" (click)="closeBusInfo()" class="close-btn">
-        <ion-icon name="close" slot="icon-only"></ion-icon>
-      </ion-button>
+      <div class="estado-chip" [class.live]="selectedBusEstado === 'En recorrido'">
+        {{ selectedBusEstado }}
+      </div>
+      <ion-icon name="close" class="sheet-close" (click)="closeBusInfo()"></ion-icon>
     </div>
-    <div class="sheet-stats">
-      <div class="stat-item">
-        <ion-icon name="speedometer-outline"></ion-icon>
-        {{ selectedBus.velocidad | number:'1.0-0' }} km/h
+
+    <div class="sheet-route">
+      <ion-icon name="git-branch-outline"></ion-icon>
+      <span>{{ selectedBusRuta }}</span>
+    </div>
+
+    <div class="sheet-grid">
+      <div class="sg-cell">
+        <span class="sg-label">Velocidad</span>
+        <strong>{{ selectedBus.velocidad | number:'1.0-0' }} km/h</strong>
       </div>
-      <div class="stat-item">
-        <ion-icon name="time-outline"></ion-icon>
-        {{ selectedBus.timestamp | date:'shortTime' }}
+      <div class="sg-cell" *ngIf="selectedBusDistanceKm !== null">
+        <span class="sg-label">Distancia</span>
+        <strong>
+          {{ selectedBusDistanceKm! < 1
+              ? (selectedBusDistanceKm! * 1000 | number:'1.0-0') + ' m'
+              : (selectedBusDistanceKm! | number:'1.1-1') + ' km' }}
+        </strong>
       </div>
-      <div class="stat-item share-btn" (click)="shareBusLocation()">
-        <ion-icon name="share-social-outline"></ion-icon>
-        Compartir
+      <div class="sg-cell" *ngIf="selectedBusEtaMinutes !== null">
+        <span class="sg-label">Llegada</span>
+        <strong class="sg-eta">{{ selectedBusEtaMinutes }} min</strong>
       </div>
     </div>
+
+    <div class="sheet-updated">
+      <span class="pulse-dot" [class.stale]="!!selectedBusSignalText"></span>
+      {{ selectedBusSignalText || selectedBusAgeText }}
+      <ion-icon name="share-social-outline" class="sheet-share" (click)="shareBusLocation()"></ion-icon>
+    </div>
+
+    <button class="follow-btn" [class.on]="followingBus" (click)="toggleFollow()">
+      <ion-icon [name]="followingBus ? 'close-circle-outline' : 'navigate-circle-outline'"></ion-icon>
+      {{ followingBus ? 'Dejar de seguir' : 'Seguir recorrido' }}
+    </button>
   </div>
 
-  <!-- Nav bar -->
-  <div class="nav-bar" *ngIf="!selectedBus && !activeRuta">
-    <div class="nav-item" routerLink="/passenger/home">
-      <ion-icon name="home-outline"></ion-icon>
-      <span>Inicio</span>
-    </div>
-    <div class="nav-item active">
-      <div class="nav-active-dot"></div>
+  <!-- ====== DOCK FLOTANTE ====== -->
+  <nav class="dock" [class.hidden]="!navVisible || selectedBus">
+    <div class="dock-item active">
       <ion-icon name="map"></ion-icon>
       <span>Mapa</span>
     </div>
-    <div class="nav-item" routerLink="/passenger/routes">
-      <ion-icon name="git-branch-outline"></ion-icon>
+
+    <div class="dock-item" routerLink="/passenger/empresas">
+      <ion-icon name="star-outline"></ion-icon>
+      <span>Favoritos</span>
+    </div>
+
+    <!-- Botón central: la identidad de Buxi -->
+    <div class="dock-center" routerLink="/passenger/routes">
+      <div class="dc-orb">
+        <ion-icon name="bus"></ion-icon>
+      </div>
       <span>Rutas</span>
     </div>
-    <div class="nav-item" routerLink="/passenger/empresas">
-      <ion-icon name="business-outline"></ion-icon>
-      <span>Empresas</span>
+
+    <div class="dock-item" routerLink="/passenger/home">
+      <ion-icon name="notifications-outline"></ion-icon>
+      <span>Alertas</span>
     </div>
-    <div class="nav-item" routerLink="/passenger/profile">
+
+    <div class="dock-item" (click)="toggleProfilePanel()">
       <ion-icon name="person-outline"></ion-icon>
       <span>Perfil</span>
     </div>
-  </div>
+  </nav>
+
+  <!-- ====== PANEL LATERAL DE PERFIL ====== -->
+  <div class="panel-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>
+
+  <aside class="profile-panel" [class.open]="profilePanelOpen">
+    <div class="pp-head">
+      <div class="pp-avatar">
+        <ng-container *ngIf="avatarUrl as url"><img [src]="url" alt="" /></ng-container>
+        <ion-icon *ngIf="!avatarUrl" name="person"></ion-icon>
+      </div>
+      <div class="pp-id">
+        <strong>{{ displayName }}</strong>
+        <span>{{ displayEmail }}</span>
+      </div>
+      <ion-icon name="close" class="pp-close" (click)="toggleProfilePanel()"></ion-icon>
+    </div>
+
+    <div class="pp-links">
+      <div class="pp-link" routerLink="/passenger/profile">
+        <ion-icon name="create-outline"></ion-icon><span>Editar perfil</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+      <div class="pp-link" routerLink="/passenger/empresas">
+        <ion-icon name="star-outline"></ion-icon><span>Favoritos</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+      <div class="pp-link" routerLink="/passenger/home">
+        <ion-icon name="time-outline"></ion-icon><span>Historial</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+      <div class="pp-link" routerLink="/passenger/profile">
+        <ion-icon name="notifications-outline"></ion-icon><span>Notificaciones</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+      <div class="pp-link" routerLink="/passenger/profile">
+        <ion-icon name="settings-outline"></ion-icon><span>Configuración</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+      <div class="pp-link" routerLink="/legal/terms">
+        <ion-icon name="help-circle-outline"></ion-icon><span>Ayuda</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+    </div>
+
+    <div class="pp-logout" (click)="onLogout()">
+      <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
+    </div>
+  </aside>
 
 </ion-content>

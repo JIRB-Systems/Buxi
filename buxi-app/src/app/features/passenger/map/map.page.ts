@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ViewWillEnter } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -6,10 +6,26 @@ import { Subscription } from 'rxjs';
 import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-tracking.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
+import { UserProfile } from '../../../core/models/user-profile.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
-import { createMap, animateMarkerTo, htmlMarkerEl } from '../../../core/utils/maplibre';
+import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled } from '../../../core/utils/maplibre';
+
+// Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
+// usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
+// el salto feo de arrancar en San José y after moverse a Guanacaste.
+const PROVINCIA_CENTERS: Record<string, [number, number]> = {
+  'san josé': [-84.0907, 9.9281],
+  'san jose': [-84.0907, 9.9281],
+  alajuela: [-84.2117, 10.0162],
+  cartago: [-83.9194, 9.8644],
+  heredia: [-84.1165, 9.9986],
+  guanacaste: [-85.4377, 10.6339],
+  puntarenas: [-84.8386, 9.9763],
+  limón: [-83.0333, 9.9907],
+  limon: [-83.0333, 9.9907],
+};
 
 @Component({
   selector: 'app-map',
@@ -40,6 +56,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   userName = '';
   activeBusCount = 0;
 
+  // ---- Chrome flotante ----
+  @ViewChild('compassNeedle') compassNeedle?: ElementRef<HTMLElement>;
+  navVisible = true;
+  profilePanelOpen = false;
+  is3D = true;
+  profile: UserProfile | null = null;
+  private navIdleTimer: any = null;
+  private initialCenter: [number, number] = [-84.0907, 9.9281];
+
+  // ---- Modo seguimiento ----
+  followBusId: string | null = null;
+  nowTs = Date.now();
+  private clockInterval: any = null;
+
   activeRuta: Ruta | null = null;
   activeParadas: Parada[] = [];
   nearestStop: { parada: Parada; distanceKm: number } | null = null;
@@ -63,6 +93,54 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     return rows.slice(0, 3);
   }
 
+  // ---- Ficha del bus ----
+  get selectedBusEmpresa(): string {
+    return (this.selectedBus?.bus as any)?.empresa?.nombre || 'Sin empresa';
+  }
+
+  get selectedBusEstado(): string {
+    const estado = (this.selectedBus?.bus as any)?.estado;
+    if (estado === 'en_ruta') return 'En recorrido';
+    if (estado === 'activo') return 'Activo';
+    return 'Detenido';
+  }
+
+  // Distancia del bus al usuario, no a la parada: es la que el pasajero mira
+  // para saber si le da tiempo de llegar.
+  get selectedBusDistanceKm(): number | null {
+    if (!this.selectedBus || this.userLat === 0) return null;
+    return this.featuresService.distanceKm(
+      this.selectedBus.latitud, this.selectedBus.longitud, this.userLat, this.userLng,
+    );
+  }
+
+  get selectedBusEtaMinutes(): number | null {
+    if (!this.selectedBus || this.userLat === 0) return null;
+    // Si el bus va detenido, su velocidad instantánea daría ETA infinito;
+    // se usa 20 km/h como promedio urbano razonable.
+    const speed = this.selectedBus.velocidad > 5 ? this.selectedBus.velocidad : 20;
+    return this.featuresService.calculateETA(
+      this.selectedBus.latitud, this.selectedBus.longitud, this.userLat, this.userLng, speed,
+    );
+  }
+
+  get selectedBusAgeText(): string {
+    if (!this.selectedBus) return '';
+    const seconds = Math.max(0, Math.floor((this.nowTs - Date.parse(this.selectedBus.timestamp)) / 1000));
+    if (seconds < 60) return `Hace ${seconds} segundo${seconds === 1 ? '' : 's'}`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `Hace ${minutes} minuto${minutes === 1 ? '' : 's'}`;
+    return `Hace ${Math.floor(minutes / 60)} h`;
+  }
+
+  get followingBus(): boolean {
+    return this.followBusId !== null;
+  }
+
+  get avatarUrl(): string | null { return this.profile?.foto_url || null; }
+  get displayName(): string { return this.profile?.nombre_completo || 'Invitado'; }
+  get displayEmail(): string { return this.profile?.correo || ''; }
+
   get selectedBusPlaca(): string {
     return (this.selectedBus?.bus as any)?.placa || 'Bus';
   }
@@ -80,8 +158,27 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     return (this.selectedBus?.bus as any)?.ruta?.nombre || 'Sin ruta asignada';
   }
 
-  private busMarkerHtml(): string {
-    return `<div class="bus-dot"><svg viewBox="0 0 24 24" fill="white" width="14" height="14"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`;
+  // Bus visto desde arriba, apuntando al norte (0°). El marcador se acuesta
+  // sobre el plano del mapa (pitchAlignment) y gira con él (rotationAlignment),
+  // así que con la cámara inclinada se lee como un vehículo sobre la calle —
+  // el mismo efecto que los aviones de FlightRadar24.
+  private busMarkerHtml(color: string): string {
+    return `
+      <div class="bus-3d">
+        <svg viewBox="0 0 26 40" width="26" height="40">
+          <ellipse cx="13" cy="35" rx="9" ry="3" fill="rgba(0,0,0,0.35)"/>
+          <rect x="3" y="2" width="20" height="32" rx="7"
+                fill="${color}" stroke="rgba(255,255,255,0.92)" stroke-width="2"/>
+          <path d="M6 9 Q13 5 20 9 L20 13 Q13 10 6 13 Z" fill="rgba(255,255,255,0.85)"/>
+          <rect x="6.5" y="17" width="13" height="2.6" rx="1.3" fill="rgba(255,255,255,0.35)"/>
+          <rect x="6.5" y="22" width="13" height="2.6" rx="1.3" fill="rgba(255,255,255,0.35)"/>
+          <rect x="9" y="29" width="8" height="2.4" rx="1.2" fill="rgba(0,0,0,0.28)"/>
+        </svg>
+      </div>`;
+  }
+
+  private busColor(loc: BusLocation): string {
+    return (loc.bus as any)?.ruta?.color || '#00c853';
   }
 
   constructor(
@@ -90,13 +187,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     private featuresService: FeaturesService,
     private router: Router,
     private route: ActivatedRoute,
+    private zone: NgZone,
   ) {}
 
   async ngOnInit() {
     try {
       const profile = await this.supabase.getProfile();
       if (profile) {
+        this.profile = profile;
         this.userName = profile.nombre_completo.split(' ')[0];
+        const center = PROVINCIA_CENTERS[(profile.provincia || '').trim().toLowerCase()];
+        if (center) this.initialCenter = center;
       }
     } catch {}
 
@@ -172,11 +273,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   }
 
   private async initMap() {
-    // MapLibre usa [lng, lat]. San José, Costa Rica.
+    // MapLibre usa [lng, lat]. Arranca en la provincia del perfil; la
+    // geolocalización lo afina después.
     this.map = await createMap({
       container: 'map',
-      center: [-84.0907, 9.9281],
-      zoom: 14,
+      center: this.initialCenter,
+      zoom: 13,
+      pitch: 50,
+      threeD: true,
     });
     // Si el usuario navegó fuera mientras el estilo cargaba, no operar sobre
     // un mapa huérfano (evita errores async que rompen la navegación).
@@ -191,10 +295,78 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       await this.loadBusLocations();
     }
 
+    this.setupMapChrome();
+    this.startClock();
     this.startRealtimeTracking();
     this.startUserLocation();
     this.startStaleBusWatcher();
     this.loading = false;
+  }
+
+  // La barra inferior se esconde mientras el usuario manipula el mapa y vuelve
+  // ~2s después de que suelta. Los listeners viven FUERA de la zona de Angular:
+  // 'move' y 'rotate' disparan en cada frame y meterlos en la zona provocaría
+  // un ciclo de detección de cambios por frame.
+  private setupMapChrome() {
+    this.zone.runOutsideAngular(() => {
+      const hide = () => this.setNavVisible(false);
+      const scheduleShow = () => {
+        clearTimeout(this.navIdleTimer);
+        this.navIdleTimer = setTimeout(() => this.setNavVisible(true), 2000);
+      };
+
+      for (const ev of ['movestart', 'zoomstart', 'rotatestart', 'pitchstart']) {
+        this.map.on(ev as any, hide);
+      }
+      for (const ev of ['moveend', 'zoomend', 'rotateend', 'pitchend']) {
+        this.map.on(ev as any, scheduleShow);
+      }
+
+      // La aguja de la brújula se escribe directo en el DOM por el mismo
+      // motivo: gira en cada frame.
+      this.map.on('rotate', () => {
+        const el = this.compassNeedle?.nativeElement;
+        if (el) el.style.transform = `rotate(${-this.map.getBearing()}deg)`;
+      });
+    });
+  }
+
+  // "Hace 3 segundos" tiene que contar de verdad. Sólo corre mientras hay una
+  // ficha abierta: un tick por segundo sin nadie mirándolo es CD desperdiciada.
+  private startClock() {
+    this.zone.runOutsideAngular(() => {
+      this.clockInterval = setInterval(() => {
+        if (!this.selectedBus) return;
+        this.zone.run(() => { this.nowTs = Date.now(); });
+      }, 1000);
+    });
+  }
+
+  private setNavVisible(visible: boolean) {
+    // Con un panel abierto la barra se queda: el usuario no está explorando el
+    // mapa, está navegando la app.
+    if (!visible && this.profilePanelOpen) return;
+    if (this.navVisible === visible) return;
+    this.zone.run(() => { this.navVisible = visible; });
+  }
+
+  toggleProfilePanel() {
+    this.profilePanelOpen = !this.profilePanelOpen;
+    if (this.profilePanelOpen) this.navVisible = true;
+  }
+
+  toggle3D() {
+    this.is3D = !this.is3D;
+    set3DEnabled(this.map, this.is3D);
+  }
+
+  resetNorth() {
+    this.map.easeTo({ bearing: 0, pitch: this.is3D ? 50 : 0, duration: 500 });
+  }
+
+  async onLogout() {
+    await this.supabase.signOut();
+    this.router.navigate(['/auth/login'], { replaceUrl: true });
   }
 
   private startStaleBusWatcher() {
@@ -321,6 +493,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.busLastSeen.clear();
     this.activeBusCount = 0;
     this.selectedBus = null;
+    this.followBusId = null;
     this.activeRuta = null;
     this.activeParadas = [];
     this.selectedEmpresaId = null;
@@ -350,20 +523,43 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   private addOrUpdateBusMarker(location: BusLocation) {
     const lngLat: [number, number] = [location.longitud, location.latitud];
+    const heading = location.heading || 0;
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
 
     if (this.busMarkers.has(location.bus_id)) {
       const marker = this.busMarkers.get(location.bus_id)!;
-      animateMarkerTo(marker, lngLat);
+      animateMarkerTo(marker, lngLat, 1000, heading);
       marker.getElement().style.opacity = '1';
     } else {
-      const el = htmlMarkerEl('bus-marker', this.busMarkerHtml());
-      el.addEventListener('click', () => { this.selectedBus = location; });
-      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      const el = htmlMarkerEl('bus-marker', this.busMarkerHtml(this.busColor(location)));
+      el.addEventListener('click', () => {
+        this.zone.run(() => { this.selectedBus = this.busLocationsMap.get(location.bus_id) || location; });
+      });
+      const marker = new maplibregl.Marker({
+        element: el,
+        anchor: 'center',
+        rotation: heading,
+        rotationAlignment: 'map',
+        pitchAlignment: 'map',
+      })
         .setLngLat(lngLat)
         .addTo(this.map);
       this.busMarkers.set(location.bus_id, marker);
+    }
+
+    // La ficha abierta y el modo seguimiento tienen que reflejar el punto nuevo,
+    // no el que había cuando se tocó el bus.
+    if (this.selectedBus?.bus_id === location.bus_id) {
+      this.selectedBus = location;
+    }
+    if (this.followBusId === location.bus_id) {
+      this.map.easeTo({
+        center: lngLat,
+        bearing: heading,
+        duration: 1000,
+        easing: (t) => t,
+      });
     }
   }
 
@@ -433,7 +629,54 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     }
   }
 
-  closeBusInfo() { this.selectedBus = null; }
+  closeBusInfo() {
+    this.stopFollowing();
+    this.selectedBus = null;
+  }
+
+  // ---- MODO SEGUIMIENTO ----
+  // Centra el bus, lo persigue, inclina y rota la cámara hacia su rumbo, y
+  // dibuja su ruta con las paradas. El seguimiento se corta solo si el usuario
+  // arrastra el mapa: pelearle la cámara al dedo del usuario es lo peor que
+  // puede hacer un mapa.
+  async toggleFollow() {
+    if (this.followBusId) { this.stopFollowing(); return; }
+    if (!this.selectedBus) return;
+
+    const bus = this.selectedBus;
+    this.followBusId = bus.bus_id;
+
+    const rutaId = (bus.bus as any)?.ruta_id || this.activeRuta?.id;
+    if (rutaId && !this.activeRuta) {
+      try {
+        const [ruta, paradas] = await Promise.all([
+          this.tracking.getRuta(rutaId),
+          this.tracking.getParadas(rutaId),
+        ]);
+        if (ruta && paradas.length >= 2) {
+          this.activeRuta = ruta;
+          this.activeParadas = paradas;
+          await this.drawRouteLayer(paradas, ruta.color, ruta.geometria);
+        }
+      } catch {}
+    }
+
+    this.map.flyTo({
+      center: [bus.longitud, bus.latitud],
+      zoom: 16.5,
+      pitch: 60,
+      bearing: bus.heading || 0,
+      duration: 1200,
+    });
+
+    this.map.once('dragstart', () => this.zone.run(() => this.stopFollowing()));
+  }
+
+  stopFollowing() {
+    if (!this.followBusId) return;
+    this.followBusId = null;
+    this.map.easeTo({ pitch: this.is3D ? 50 : 0, duration: 600 });
+  }
 
   shareBusLocation() {
     if (!this.selectedBus) return;
@@ -451,6 +694,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.destroyed = true;
     this.tracking.unsubscribe();
     this.locationSub?.unsubscribe();
+    if (this.navIdleTimer) clearTimeout(this.navIdleTimer);
+    if (this.clockInterval) clearInterval(this.clockInterval);
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
     if (this.watchId) Geolocation.clearWatch({ id: this.watchId });
     if (this.map) { try { this.map.remove(); } catch {} }
