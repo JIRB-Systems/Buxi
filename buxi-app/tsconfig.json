@@ -12,14 +12,16 @@
     "noFallthroughCasesInSwitch": true,
     "sourceMap": true,
     "declaration": false,
-    "downlevelIteration": true,
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "importHelpers": true,
     "target": "es2022",
-    "module": "es2020",
+    "module": "es2022",
+    /* `lib` debe ir a la par de `target`: si queda atrás, TypeScript rechaza
+       métodos que el bundle sí soporta (Object.fromEntries, Promise.allSettled,
+       replaceAll, Array.at...). */
     "lib": [
-      "es2018",
+      "es2022",
       "dom"
     ],
     "skipLibCheck": true,
