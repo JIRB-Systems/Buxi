@@ -1,0 +1,206 @@
+// ====== DESKTOP LAYOUT (tablet/desktop width) ======
+// Mobile keeps the floating-overlay UX above unchanged; on wider screens the
+// map stays full-bleed underneath and a fixed sidebar + topbar sit on top,
+// like a native web app shell instead of stretched phone chrome.
+.desktop-topbar, .desktop-sidebar { display: none; }
+
+// Barra y panel flotan sobre el mapa en vez de recortarlo: el mapa se ve de
+// punta a punta y el chrome se apoya encima, igual que el dock inferior.
+.desktop-topbar {
+  position: absolute; top: 16px; left: 16px; right: 16px; z-index: 1001;
+  align-items: center; gap: 18px;
+  height: 56px; padding: 0 16px;
+  border-radius: 20px;
+  background: rgba(11, 26, 46, 0.62);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.13);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
+
+  .dt-logo {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    img { width: 28px; height: 28px; object-fit: contain; }
+    span { font-size: 16px; font-weight: 800; color: #fff; }
+  }
+
+  .dt-search {
+    flex: 1; max-width: 460px;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 999px; padding: 9px 16px; cursor: pointer;
+    transition: transform 0.16s ease;
+    &:hover { transform: scale(1.01); }
+    ion-icon { font-size: 16px; color: #8a97a8; }
+    span { font-size: 13px; color: #67748a; font-weight: 500; }
+  }
+}
+
+// Panel flotante, no columna pegada al borde: separado de los bordes, con
+// esquinas redondeadas y sin llegar al fondo, para que el dock respire.
+.desktop-sidebar {
+  position: absolute;
+  top: 88px; left: 16px; bottom: 116px; z-index: 1000;
+  width: 330px; flex-direction: column; gap: 14px;
+  padding: 16px; overflow-y: auto;
+  border-radius: 22px;
+  background: rgba(11, 26, 46, 0.62);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.13);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
+
+  // Scrollbar discreta: la barra nativa de Windows sobre glass se ve pésimo.
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.18); border-radius: 3px;
+  }
+}
+
+.ds-section {
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.ds-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  h3 { font-size: 13px; font-weight: 700; color: #fff; margin: 0; }
+
+  .ds-clear-empresa {
+    font-size: 11px; font-weight: 600; color: #ff6659; cursor: pointer;
+    &:hover { text-decoration: underline; }
+  }
+}
+
+.ds-label {
+  font-size: 11px; font-weight: 700; color: #7d93b2;
+  text-transform: uppercase; letter-spacing: 0.4px;
+}
+
+.empresa-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border-radius: 10px; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+  &:hover { background: rgba(255,255,255,0.05); }
+  &.active { background: rgba(0,200,83,0.1); border-color: rgba(0,200,83,0.3); }
+
+  .empresa-logo {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    background: rgba(255,255,255,0.06);
+    display: grid; place-items: center; overflow: hidden;
+    img { width: 100%; height: 100%; object-fit: cover; }
+    ion-icon { font-size: 16px; color: #7d93b2; }
+  }
+
+  .empresa-info {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    strong { font-size: 13px; color: #fff; font-weight: 600; }
+    span { font-size: 11px; color: #7d93b2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  }
+
+  .empresa-freq {
+    font-size: 10px; font-weight: 700; color: #00c853; white-space: nowrap;
+  }
+}
+
+.ds-empty { font-size: 12px; color: #7d93b2; padding: 8px; text-align: center; }
+
+.ds-link {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: 12px; font-weight: 600; color: #00c853; cursor: pointer;
+  padding: 8px; border-radius: 8px;
+  ion-icon { font-size: 13px; }
+  &:hover { background: rgba(0,200,83,0.08); }
+}
+
+// Translúcida, no sólida: dentro del panel glass un fondo opaco se lee como
+// un parche pegado encima.
+.ds-card {
+  background: rgba(255,255,255,0.055); border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.07);
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+
+.ds-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  .ds-clear { font-size: 16px; color: #7d93b2; cursor: pointer; &:hover { color: #fff; } }
+}
+
+.ds-route-row {
+  display: flex; align-items: center; gap: 10px;
+  .route-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ds-route-info {
+    display: flex; flex-direction: column;
+    strong { font-size: 14px; color: #fff; }
+    span { font-size: 11px; color: #7d93b2; margin-top: 1px; }
+  }
+}
+
+.ds-eta-row {
+  display: flex; align-items: center; gap: 10px;
+  > ion-icon { font-size: 20px; color: #00c853; }
+  .ds-eta-info {
+    flex: 1; display: flex; flex-direction: column;
+    strong { font-size: 13px; color: #fff; }
+    span { font-size: 11px; color: #7d93b2; }
+  }
+  .ds-eta-time {
+    background: #00c853; border-radius: 8px; padding: 5px 10px;
+    strong { font-size: 13px; color: #fff; }
+  }
+}
+
+.ds-bus-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  &:first-of-type { border-top: none; }
+  ion-icon { font-size: 15px; color: #00c853; flex-shrink: 0; }
+  strong { font-size: 12px; color: #fff; }
+  .ds-bus-dist { flex: 1; font-size: 11px; color: #7d93b2; }
+  .ds-bus-eta { font-size: 11px; font-weight: 700; color: #00c853; }
+}
+
+.ds-hint {
+  flex-direction: row; align-items: center; gap: 10px;
+  ion-icon { font-size: 24px; color: #00c853; flex-shrink: 0; }
+  strong { display: block; font-size: 13px; color: #fff; }
+  span { font-size: 11px; color: #7d93b2; }
+}
+
+// ---- DESKTOP LAYOUT OVERRIDES ----
+// Placed last so these win the cascade against the mobile rules above
+// (same specificity, later source order).
+@media (min-width: 900px) {
+  .desktop-topbar, .desktop-sidebar { display: flex; }
+
+  // Mobile-only overlays hidden at this width.
+  .top-overlay, .live-chip, .route-chip, .eta-card { display: none; }
+
+  // Centrado respecto a la pantalla completa: ahora que el panel lateral
+  // flota (no ocupa ancho en el layout), el mapa se ve de punta a punta y el
+  // dock tiene que quedar centrado sobre él, no desplazado a un costado.
+  .dock {
+    left: 0; right: 0;
+    width: 460px;
+    margin: 0 auto;
+  }
+
+  .map-controls { bottom: calc(env(safe-area-inset-bottom, 0px) + 116px); }
+
+  // Ficha y panel de listas se centran igual que el dock y se apoyan justo
+  // encima de él. Antes se anclaban al ancho del sidebar sólido, que ya no
+  // ocupa espacio en el layout.
+  .bus-sheet {
+    left: 0; right: 0;
+    width: 420px; margin: 0 auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
+  }
+
+  .list-panel {
+    left: 0; right: 0;
+    width: 460px; margin: 0 auto;
+    max-height: min(56vh, 460px);
+  }
+}

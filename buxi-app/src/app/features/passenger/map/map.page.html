@@ -220,34 +220,93 @@
 
   <!-- ====== DOCK FLOTANTE ====== -->
   <nav class="dock" [class.hidden]="!navVisible || selectedBus">
-    <div class="dock-item active">
+    <div class="dock-item" [class.active]="!activePanel && !profilePanelOpen" (click)="showMap()">
       <ion-icon name="map"></ion-icon>
       <span>Mapa</span>
     </div>
 
-    <div class="dock-item" routerLink="/passenger/empresas">
-      <ion-icon name="star-outline"></ion-icon>
+    <div class="dock-item" [class.active]="activePanel === 'favoritos'" (click)="openPanel('favoritos')">
+      <ion-icon [name]="activePanel === 'favoritos' ? 'star' : 'star-outline'"></ion-icon>
       <span>Favoritos</span>
     </div>
 
     <!-- Botón central: la identidad de Buxi -->
-    <div class="dock-center" routerLink="/passenger/routes">
+    <div class="dock-center" [class.active]="activePanel === 'rutas'" (click)="openPanel('rutas')">
       <div class="dc-orb">
         <ion-icon name="bus"></ion-icon>
       </div>
       <span>Rutas</span>
     </div>
 
-    <div class="dock-item" routerLink="/passenger/home">
-      <ion-icon name="notifications-outline"></ion-icon>
+    <div class="dock-item" [class.active]="activePanel === 'alertas'" (click)="openPanel('alertas')">
+      <ion-icon [name]="activePanel === 'alertas' ? 'notifications' : 'notifications-outline'"></ion-icon>
       <span>Alertas</span>
     </div>
 
-    <div class="dock-item" (click)="toggleProfilePanel()">
+    <div class="dock-item" [class.active]="profilePanelOpen" (click)="toggleProfilePanel()">
       <ion-icon name="person-outline"></ion-icon>
       <span>Perfil</span>
     </div>
   </nav>
+
+  <!-- ====== PANEL FLOTANTE: RUTAS / FAVORITOS / ALERTAS ====== -->
+  <div class="sheet-scrim" [class.open]="!!activePanel" (click)="closePanel()"></div>
+
+  <section class="list-panel" [class.open]="!!activePanel">
+    <div class="lp-grip"></div>
+
+    <div class="lp-head">
+      <h2>{{ panelTitle }}</h2>
+      <ion-icon name="close" (click)="closePanel()"></ion-icon>
+    </div>
+
+    <div class="lp-search" *ngIf="activePanel !== 'alertas'">
+      <ion-icon name="search-outline"></ion-icon>
+      <input
+        type="text"
+        placeholder="Buscar ruta, empresa o destino"
+        [value]="panelSearch"
+        (input)="onPanelSearch($event)" />
+    </div>
+
+    <div class="lp-body">
+      <!-- Rutas y favoritos comparten la misma lista -->
+      <ng-container *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
+        <div class="lp-row" *ngFor="let r of panelRutas" (click)="selectRutaFromPanel(r)">
+          <div class="lp-stripe" [style.background]="r.color"></div>
+          <div class="lp-info">
+            <strong>{{ r.nombre }}</strong>
+            <span class="lp-trip">{{ r.origen }} → {{ r.destino }}</span>
+            <span class="lp-empresa" *ngIf="empresaNombre(r)">{{ empresaNombre(r) }}</span>
+          </div>
+          <ion-icon
+            class="lp-fav"
+            [class.on]="isFavorito(r.id)"
+            [name]="isFavorito(r.id) ? 'star' : 'star-outline'"
+            (click)="toggleFavorito(r, $event)"></ion-icon>
+        </div>
+
+        <div class="lp-empty" *ngIf="favoritosLoading">
+          <ion-spinner name="dots"></ion-spinner>
+        </div>
+
+        <div class="lp-empty" *ngIf="!favoritosLoading && panelRutas.length === 0">
+          <ion-icon [name]="activePanel === 'favoritos' ? 'star-outline' : 'search-outline'"></ion-icon>
+          <strong *ngIf="activePanel === 'favoritos'">Todavía no tenés favoritos</strong>
+          <strong *ngIf="activePanel === 'rutas'">Sin resultados</strong>
+          <span *ngIf="activePanel === 'favoritos'">Tocá la estrella de una ruta para guardarla acá.</span>
+          <span *ngIf="activePanel === 'rutas'">Probá con otro nombre, empresa o destino.</span>
+        </div>
+      </ng-container>
+
+      <!-- Alertas: todavía sin respaldo en la base -->
+      <div class="lp-empty" *ngIf="activePanel === 'alertas'">
+        <ion-icon name="notifications-off-outline"></ion-icon>
+        <strong>Sin alertas por ahora</strong>
+        <span>Cuando un chofer reporte tráfico, un accidente o una avería, lo vas a ver acá y sobre el mapa.</span>
+      </div>
+    </div>
+  </section>
 
   <!-- ====== PANEL LATERAL DE PERFIL ====== -->
   <div class="panel-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>

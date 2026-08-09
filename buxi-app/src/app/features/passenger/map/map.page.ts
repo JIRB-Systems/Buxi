@@ -30,7 +30,9 @@ const PROVINCIA_CENTERS: Record<string, [number, number]> = {
 @Component({
   selector: 'app-map',
   templateUrl: './map.page.html',
-  styleUrls: ['./map.page.scss'],
+  // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
+  // el presupuesto de estilos por componente.
+  styleUrls: ['./map.page.scss', './map.desktop.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter {
@@ -69,6 +71,122 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   followBusId: string | null = null;
   nowTs = Date.now();
   private clockInterval: any = null;
+
+  // ---- Paneles flotantes (Rutas / Favoritos / Alertas) ----
+  // Son hojas sobre el mapa en vez de pantallas aparte: el mapa nunca se
+  // pierde de vista y, de paso, no hay chunk lazy que pueda fallar al navegar.
+  activePanel: 'rutas' | 'favoritos' | 'alertas' | null = null;
+  panelSearch = '';
+  favoritoRutaIds = new Set<string>();
+  favoritosLoading = false;
+
+  get panelTitle(): string {
+    switch (this.activePanel) {
+      case 'rutas': return 'Rutas y empresas';
+      case 'favoritos': return 'Tus favoritos';
+      case 'alertas': return 'Alertas';
+      default: return '';
+    }
+  }
+
+  // Rutas filtradas por el buscador del panel (nombre, origen, destino o empresa).
+  get panelRutas(): Ruta[] {
+    const q = this.panelSearch.trim().toLowerCase();
+    const base = this.activePanel === 'favoritos'
+      ? this.allRutas.filter(r => this.favoritoRutaIds.has(r.id))
+      : this.allRutas;
+    if (!q) return base;
+    return base.filter(r =>
+      `${r.nombre} ${r.origen} ${r.destino} ${r.empresa?.nombre || ''}`.toLowerCase().includes(q),
+    );
+  }
+
+  empresaNombre(ruta: Ruta): string {
+    return ruta.empresa?.nombre || '';
+  }
+
+  async openPanel(panel: 'rutas' | 'favoritos' | 'alertas') {
+    this.activePanel = this.activePanel === panel ? null : panel;
+    this.panelSearch = '';
+    if (this.activePanel) {
+      // Un solo panel a la vez: perfil y listas comparten la pantalla.
+      this.profilePanelOpen = false;
+      this.navVisible = true;
+    }
+    if (this.activePanel === 'favoritos') await this.loadFavoritos();
+  }
+
+  // "Mapa" devuelve al mapa limpio, venga de donde venga.
+  showMap() {
+    this.activePanel = null;
+    this.profilePanelOpen = false;
+    this.panelSearch = '';
+  }
+
+  closePanel() {
+    this.activePanel = null;
+    this.panelSearch = '';
+  }
+
+  onPanelSearch(ev: any) {
+    this.panelSearch = ev?.detail?.value ?? '';
+  }
+
+  private async loadFavoritos() {
+    if (!this.profile) return;
+    this.favoritosLoading = true;
+    try {
+      const favoritos = await this.featuresService.getFavoritos(this.profile.id);
+      this.favoritoRutaIds = new Set(favoritos.map(f => f.ruta_id));
+    } catch {}
+    this.favoritosLoading = false;
+  }
+
+  isFavorito(rutaId: string): boolean {
+    return this.favoritoRutaIds.has(rutaId);
+  }
+
+  async toggleFavorito(ruta: Ruta, ev: Event) {
+    // Sin esto, marcar favorito además abriría la ruta en el mapa.
+    ev.stopPropagation();
+    if (!this.profile) return;
+
+    const wasFav = this.favoritoRutaIds.has(ruta.id);
+    // Optimista: la estrella responde al toque sin esperar al servidor.
+    if (wasFav) this.favoritoRutaIds.delete(ruta.id);
+    else this.favoritoRutaIds.add(ruta.id);
+
+    try {
+      if (wasFav) await this.featuresService.removeFavorito(this.profile.id, ruta.id);
+      else await this.featuresService.addFavorito(this.profile.id, ruta.id);
+    } catch {
+      // Revertir si el servidor rechazó, para no mentirle al usuario.
+      if (wasFav) this.favoritoRutaIds.add(ruta.id);
+      else this.favoritoRutaIds.delete(ruta.id);
+    }
+  }
+
+  // Dibuja la ruta elegida y cierra el panel: la acción termina en el mapa,
+  // no en otra lista.
+  async selectRutaFromPanel(ruta: Ruta) {
+    this.closePanel();
+    if (!this.mapReady) return;
+
+    this.loading = true;
+    this.clearRoute(false);
+    try {
+      const paradas = await this.tracking.getParadas(ruta.id);
+      if (paradas.length >= 2) {
+        this.activeRuta = ruta;
+        this.activeParadas = paradas;
+        await this.drawRoute(paradas, ruta.color, ruta.geometria);
+      }
+      const locations = await this.tracking.getLocationsByRuta(ruta.id);
+      this.activeBusCount = locations.length;
+      for (const loc of locations) this.addOrUpdateBusMarker(loc);
+    } catch {}
+    this.loading = false;
+  }
 
   activeRuta: Ruta | null = null;
   activeParadas: Parada[] = [];
