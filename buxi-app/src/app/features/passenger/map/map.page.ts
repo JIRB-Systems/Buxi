@@ -51,6 +51,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private gpsHeading: number | null = null;
   private compassHeading: number | null = null;
   private compassHandler?: (e: DeviceOrientationEvent) => void;
+  locating = false;
+  locationError: string | null = null;
   private locationSub: Subscription | null = null;
   private watchId: string | null = null;
 
@@ -861,21 +863,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         const permission = await Geolocation.requestPermissions();
         if (permission.location === 'denied') return;
       }
-      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-      const c = position.coords;
+      const c = await this.acquirePosition();
       this.updateUserPosition(c.latitude, c.longitude, c.accuracy, c.heading);
       if (!this.activeRuta) {
         this.map.jumpTo({ center: [c.longitude, c.latitude], zoom: 15 });
       }
-      this.watchId = await Geolocation.watchPosition(
-        { enableHighAccuracy: true },
-        (pos) => {
-          if (!pos) return;
-          const p = pos.coords;
-          this.updateUserPosition(p.latitude, p.longitude, p.accuracy, p.heading);
-        },
-      ) as unknown as string;
-    } catch {}
+      await this.startWatching();
+    } catch (e) {
+      // Antes esto era un `catch {}` mudo: si la ubicación fallaba al abrir, no
+      // aparecía el punto azul y nadie se enteraba de por qué. No se muestra un
+      // aviso automático para no recibir al usuario con un error; queda marcado
+      // el botón, y tocarlo reintenta y explica lo que pasó.
+      this.locationError = this.geolocationError(e);
+    }
   }
 
   // Son DOS marcadores en la misma coordenada, a propósito:
@@ -1031,9 +1031,87 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     // Aprovecha el gesto para pedir el permiso de brújula que iOS sólo concede
     // dentro de una interacción del usuario.
     await this.requestCompassPermission();
+
     if (this.userMarker) {
       this.map.flyTo({ center: this.userMarker.getLngLat(), zoom: 16 });
+      return;
     }
+
+    // Antes esto terminaba acá con un `if` sin `else`: si la ubicación nunca
+    // había llegado, el botón no hacía NADA y no decía por qué. Ahora vuelve a
+    // intentarlo y, si falla, explica el motivo.
+    this.locating = true;
+    try {
+      const coords = await this.acquirePosition();
+      this.locationError = null;
+      this.updateUserPosition(coords.latitude, coords.longitude, coords.accuracy, coords.heading);
+      this.map.flyTo({ center: [coords.longitude, coords.latitude], zoom: 16 });
+      // Si al abrir no había señal, el seguimiento continuo tampoco arrancó.
+      if (!this.watchId) this.startWatching();
+    } catch (e) {
+      this.locationError = this.geolocationError(e);
+      await this.toast(this.locationError, 'warning');
+    }
+    this.locating = false;
+  }
+
+  // Seguimiento continuo. Vive aparte porque también hay que poder arrancarlo
+  // desde el botón, cuando al abrir la app no había señal todavía.
+  private async startWatching() {
+    if (this.watchId) return;
+    this.watchId = await Geolocation.watchPosition(
+      { enableHighAccuracy: true },
+      (pos) => {
+        if (!pos) return;
+        const p = pos.coords;
+        this.updateUserPosition(p.latitude, p.longitude, p.accuracy, p.heading);
+      },
+    ) as unknown as string;
+  }
+
+  // Dos intentos: alta precisión primero (GPS), y si expira, una lectura
+  // aproximada. En escritorio no hay GPS y la alta precisión suele vencer sin
+  // devolver nada, aunque la ubicación por red sí esté disponible.
+  private async acquirePosition() {
+    try {
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 8000,
+      });
+      return pos.coords;
+    } catch (highAccuracyError) {
+      try {
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: 12000,
+          maximumAge: 60000,
+        });
+        return pos.coords;
+      } catch {
+        throw highAccuracyError;
+      }
+    }
+  }
+
+  private geolocationError(e: any): string {
+    // isSecureContext cubre el caso de probar por IP de red local sin HTTPS,
+    // donde el navegador bloquea la geolocalización sin siquiera preguntar.
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      return 'La ubicación necesita HTTPS. Abrí la app en localhost o en buxi.vercel.app.';
+    }
+    const code = e?.code;
+    const msg = String(e?.message || '').toLowerCase();
+
+    if (code === 1 || msg.includes('denied') || msg.includes('permission')) {
+      return 'Bloqueaste la ubicación para este sitio. Habilitala en el candado de la barra de direcciones.';
+    }
+    if (code === 3 || msg.includes('timeout')) {
+      return 'La ubicación tardó demasiado. Revisá que el GPS esté encendido y probá de nuevo.';
+    }
+    if (code === 2 || msg.includes('unavailable')) {
+      return 'No se pudo determinar tu ubicación en este momento.';
+    }
+    return 'No se pudo obtener tu ubicación.';
   }
 
   closeBusInfo() {

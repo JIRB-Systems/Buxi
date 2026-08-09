@@ -124,8 +124,14 @@
     <button class="mc-btn mc-text" (click)="toggle3D()" [attr.aria-label]="is3D ? 'Ver en 2D' : 'Ver en 3D'">
       {{ is3D ? '2D' : '3D' }}
     </button>
-    <button class="mc-btn mc-locate" (click)="centerOnUser()" aria-label="Mi ubicación">
-      <ion-icon name="locate"></ion-icon>
+    <button
+      class="mc-btn mc-locate"
+      [class.searching]="locating"
+      [class.no-fix]="!!locationError && !locating"
+      (click)="centerOnUser()"
+      aria-label="Mi ubicación">
+      <ion-spinner *ngIf="locating" name="crescent"></ion-spinner>
+      <ion-icon *ngIf="!locating" [name]="locationError ? 'locate-outline' : 'locate'"></ion-icon>
     </button>
   </div>
 

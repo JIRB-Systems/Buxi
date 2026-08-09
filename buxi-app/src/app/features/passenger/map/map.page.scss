@@ -254,6 +254,26 @@
   }
 
   &.mc-locate ion-icon { color: #4da3ff; }
+
+  // Buscando señal: el botón late para que se note que está trabajando y no
+  // parezca que el toque se perdió.
+  &.mc-locate.searching {
+    border-color: rgba(77,163,255,0.5);
+    animation: locate-pulse 1.3s ease-in-out infinite;
+    ion-spinner { width: 19px; height: 19px; color: #4da3ff; }
+  }
+
+  // Sin ubicación disponible: ámbar, no rojo — es un permiso o una señal que
+  // falta, no un error de la app. Sigue siendo tocable para reintentar.
+  &.mc-locate.no-fix {
+    border-color: rgba(255,167,38,0.45);
+    ion-icon { color: #ffa726; }
+  }
+}
+
+@keyframes locate-pulse {
+  0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,0.3), 0 0 0 0 rgba(77,163,255,0.35); }
+  50% { box-shadow: 0 4px 18px rgba(0,0,0,0.3), 0 0 0 7px rgba(77,163,255,0); }
 }
 
 // La aguja gira con el bearing del mapa (se escribe desde el componente).
