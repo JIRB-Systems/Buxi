@@ -329,7 +329,18 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     private toastCtrl: ToastController,
   ) {}
 
+  // El mapa arranca en paralelo a ngOnInit, así que antes podía crear el
+  // marcador y evaluar la ubicación con `profile` todavía en null: la foto no
+  // entraba en la chapa y la provincia de referencia no existía. initMap espera
+  // esta promesa antes de tocar nada que dependa del perfil.
+  private profileReady!: Promise<void>;
+
   async ngOnInit() {
+    this.profileReady = this.loadProfile();
+    await this.profileReady;
+  }
+
+  private async loadProfile() {
     try {
       const profile = await this.supabase.getProfile();
       if (profile) {
@@ -412,6 +423,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   }
 
   private async initMap() {
+    // Sin esto, el mapa podía arrancar antes que el perfil y quedarse con el
+    // centro por defecto en vez de la provincia del usuario.
+    await this.profileReady?.catch(() => {});
+
     // MapLibre usa [lng, lat]. Arranca en la provincia del perfil; la
     // geolocalización lo afina después.
     this.map = await createMap({
@@ -866,10 +881,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       const c = await this.acquirePosition();
       this.logFix('inicio', c);
       this.updateUserPosition(c.latitude, c.longitude, c.accuracy, c.heading);
-      // Con una lectura sospechosa NO se encuadra el mapa: arrastrar al usuario
-      // al Pacífico apenas abre la app es peor que dejarlo en su provincia y
-      // que el punto quede fuera de cuadro.
-      if (!this.activeRuta && this.suspectFixDistanceKm(c.latitude, c.longitude) === null) {
+      // Con una lectura fuera del país NO se encuadra el mapa: arrastrar al
+      // usuario a Canadá apenas abre la app es peor que dejarlo en su provincia
+      // y que el punto quede fuera de cuadro.
+      if (!this.activeRuta && !this.isOutsideCostaRica(c.latitude, c.longitude)) {
         this.map.jumpTo({ center: [c.longitude, c.latitude], zoom: this.zoomForAccuracy(c.accuracy) });
       }
       await this.startWatching();
@@ -917,12 +932,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         .addTo(this.map);
     }
 
-    // La chapa se atenúa tanto si la lectura es gruesa como si es sospechosa.
-    // El segundo caso importa más: una posición inventada llega con precisión
-    // de metros y, sin esto, se vería tan rotunda como un GPS real.
-    const unreliable = (!!accuracy && accuracy > 5000)
-      || this.suspectFixDistanceKm(lat, lng) !== null;
+    // La chapa se atenúa cuando la lectura no es de fiar. El caso de la
+    // posición inventada importa más que el de la imprecisa: llega con
+    // precisión de metros y, sin esto, se vería tan rotunda como un GPS real.
+    const unreliable = this.fixProblem(lat, lng, accuracy) !== null;
     this.userMarker.getElement().classList.toggle('coarse', unreliable);
+    this.locationError = unreliable ? 'Ubicación poco fiable' : null;
 
     this.applyUserHeading();
     this.updateAccuracyCircle(lng, lat, accuracy);
@@ -1064,14 +1079,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       this.logFix('botón', coords);
       this.locationError = null;
       this.updateUserPosition(coords.latitude, coords.longitude, coords.accuracy, coords.heading);
-      this.map.flyTo({
-        center: [coords.longitude, coords.latitude],
-        zoom: this.zoomForAccuracy(coords.accuracy),
-      });
-      // Si la posición es sospechosa se avisa eso y no lo otro: decir
-      // "aproximada ± 30 m" sobre un dato inventado sería peor que callar.
-      const suspect = await this.warnIfSuspect(coords.latitude, coords.longitude);
-      if (!suspect) await this.warnIfCoarse(coords.accuracy);
+
+      const problem = this.fixProblem(coords.latitude, coords.longitude, coords.accuracy);
+      // Fuera del país no se encuadra: llevarte a Canadá no te acerca a ningún
+      // bus. Se avisa y el mapa se queda donde estabas mirando.
+      if (!this.isOutsideCostaRica(coords.latitude, coords.longitude)) {
+        this.map.flyTo({
+          center: [coords.longitude, coords.latitude],
+          zoom: this.zoomForAccuracy(coords.accuracy),
+        });
+      }
+      if (problem) await this.toast(problem, 'warning');
       // Si al abrir no había señal, el seguimiento continuo tampoco arrancó.
       if (!this.watchId) this.startWatching();
     } catch (e) {
@@ -1095,45 +1113,39 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     return 6.5;
   }
 
-  // Umbral: por encima de 5 km la ubicación ya no sirve para saber qué bus
-  // tomar, así que conviene decirlo en vez de dejar el punto donde caiga.
-  private async warnIfCoarse(accuracy?: number | null) {
-    if (!accuracy || accuracy <= 5000) return;
-    const km = Math.round(accuracy / 1000);
-    await this.toast(
-      `Ubicación aproximada (± ${km} km). Sin GPS el navegador ubica por red y puede errar mucho.`,
-      'warning',
-    );
-  }
-
-  // Una lectura puede ser PRECISA y estar MAL: hay navegadores (Brave y
-  // similares, con la protección anti-huella activa) y extensiones de privacidad
-  // que devuelven una posición inventada, con precisión de metros, a miles de
-  // kilómetros. Contra eso el radio de precisión no sirve de nada, porque el
-  // propio dato afirma ser bueno.
+  // Una lectura puede ser PRECISA y estar MAL. Con una VPN activa (Brave trae
+  // una incorporada) la IP geolocaliza en el país del servidor y el navegador
+  // devuelve esa posición con precisión de metros. Contra eso el radio de
+  // precisión no sirve: el dato afirma ser bueno.
   //
-  // Se contrasta con la provincia del perfil, que el usuario eligió a mano: si
-  // no coinciden ni de lejos, es mucho más probable que mienta el navegador a
-  // que el usuario se haya mudado de país sin actualizar su perfil.
-  private readonly SUSPECT_DISTANCE_KM = 400;
+  // El chequeo anterior comparaba contra la provincia del perfil, pero `profile`
+  // se carga en paralelo al mapa: si la ubicación llegaba primero, la
+  // comprobación se desactivaba sola y la lectura falsa pasaba como válida.
+  //
+  // Esto no depende de nada que pueda no haber cargado: Buxi opera únicamente
+  // en Costa Rica, así que una posición fuera del país es inservible para la
+  // app aunque fuera cierta — no hay ningún bus que mostrar ahí.
+  private static readonly CR_BOUNDS = { minLat: 7.9, maxLat: 11.4, minLng: -86.1, maxLng: -82.4 };
 
-  private suspectFixDistanceKm(lat: number, lng: number): number | null {
-    const center = PROVINCIA_CENTERS[(this.profile?.provincia || '').trim().toLowerCase()];
-    if (!center) return null;
-    const km = this.featuresService.distanceKm(lat, lng, center[1], center[0]);
-    return km > this.SUSPECT_DISTANCE_KM ? km : null;
+  private isOutsideCostaRica(lat: number, lng: number): boolean {
+    const b = MapPage.CR_BOUNDS;
+    return lat < b.minLat || lat > b.maxLat || lng < b.minLng || lng > b.maxLng;
   }
 
-  private async warnIfSuspect(lat: number, lng: number): Promise<boolean> {
-    const km = this.suspectFixDistanceKm(lat, lng);
-    if (km === null) return false;
-
-    await this.toast(
-      `Tu navegador reporta una ubicación a ${Math.round(km)} km de ${this.profile?.provincia}. ` +
-      `Suele pasar con la protección de privacidad activada — probá desactivarla para este sitio.`,
-      'warning',
-    );
-    return true;
+  // Devuelve el motivo por el que la lectura no es de fiar, o null si lo es.
+  private fixProblem(lat: number, lng: number, accuracy?: number | null): string | null {
+    if (this.isOutsideCostaRica(lat, lng)) {
+      const center = PROVINCIA_CENTERS[(this.profile?.provincia || '').trim().toLowerCase()];
+      const ref = center
+        ? ` (a ${Math.round(this.featuresService.distanceKm(lat, lng, center[1], center[0]))} km de ${this.profile!.provincia})`
+        : '';
+      return `Tu navegador te ubica fuera de Costa Rica${ref}. Suele ser una VPN o la protección de ` +
+        `privacidad del navegador: desactivala para este sitio y volvé a intentar.`;
+    }
+    if (accuracy && accuracy > 5000) {
+      return `Ubicación aproximada (± ${Math.round(accuracy / 1000)} km). Sin GPS el navegador ubica por red.`;
+    }
+    return null;
   }
 
   // Los números crudos quedan en la consola: si la ubicación sale mal, esto es
