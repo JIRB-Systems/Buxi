@@ -1,4 +1,19 @@
 <ion-content [fullscreen]="true" class="login-content" [scrollY]="true">
+
+  <!-- Fondo: rutas que se dibujan solas, como el mapa vivo de la app.
+       Es SVG puro, así que no depende del proveedor de mapas ni de la red. -->
+  <div class="auth-bg" aria-hidden="true">
+    <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
+      <path class="rt rt-1" d="M-20 120 C 120 180, 90 320, 220 380 S 420 520, 380 700" />
+      <path class="rt rt-2" d="M420 80 C 300 200, 340 300, 200 420 S 40 560, 90 780" />
+      <path class="rt rt-3" d="M-40 520 C 120 470, 260 600, 440 540" />
+      <circle class="stop" cx="220" cy="380" r="4" />
+      <circle class="stop" cx="200" cy="420" r="4" />
+      <circle class="stop" cx="90" cy="212" r="4" />
+    </svg>
+    <div class="auth-glow"></div>
+  </div>
+
   <div class="login-wrapper">
 
     <div class="brand">
@@ -8,6 +23,8 @@
       <div class="wordmark">BUX<span class="accent-i">I</span></div>
       <p class="tagline">— Tus buses en <span>tiempo real</span> —</p>
     </div>
+
+    <div class="auth-card">
 
     <div class="welcome">
       <h2>¡Bienvenido a <span class="accent">Buxi</span>!</h2>
@@ -54,6 +71,9 @@
     </div>
 
     <p class="bottom-text">¿No tienes una cuenta? <a routerLink="/auth/register">Regístrate</a></p>
+
+    </div><!-- /auth-card -->
+
     <a routerLink="/auth/empresa-request" class="empresa-link">¿Eres empresa de transporte? Solicita acceso</a>
 
     <p class="version-text">Versión 1.0.0</p>

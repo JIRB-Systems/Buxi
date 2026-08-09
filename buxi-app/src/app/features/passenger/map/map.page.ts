@@ -47,7 +47,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private busLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
   private userMarker: maplibregl.Marker | null = null;
-  private userHeading = 0;
+  private userConeMarker: maplibregl.Marker | null = null;
+  private gpsHeading: number | null = null;
+  private compassHeading: number | null = null;
+  private compassHandler?: (e: DeviceOrientationEvent) => void;
   private locationSub: Subscription | null = null;
   private watchId: string | null = null;
 
@@ -433,6 +436,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.startClock();
     this.startRealtimeTracking();
     this.startUserLocation();
+    this.startCompass();
     this.startStaleBusWatcher();
     this.loading = false;
   }
@@ -870,38 +874,101 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     } catch {}
   }
 
+  // Son DOS marcadores en la misma coordenada, a propósito:
+  //
+  //  · el cono se acuesta sobre el suelo y gira con el mapa, porque ilumina una
+  //    dirección del terreno;
+  //  · la chapa con la persona queda siempre derecha de cara a la cámara,
+  //    porque una figura humana acostada y girada no se lee a 30 px.
+  //
+  // Un solo marcador no puede hacer las dos cosas: la alineación es por marcador.
   private updateUserPosition(lat: number, lng: number, accuracy?: number | null, heading?: number | null) {
     this.userLat = lat;
     this.userLng = lng;
 
-    // El cono sólo se muestra si el dispositivo reporta rumbo: en escritorio
-    // no hay brújula, y dibujar un cono apuntando siempre al norte sería
-    // información inventada.
-    const hasHeading = heading !== null && heading !== undefined && !isNaN(heading);
-    if (hasHeading) this.userHeading = heading as number;
+    const gpsHeading = heading !== null && heading !== undefined && !isNaN(heading)
+      ? (heading as number)
+      : null;
+    if (gpsHeading !== null) this.gpsHeading = gpsHeading;
 
-    if (this.userMarker) {
+    if (this.userConeMarker && this.userMarker) {
+      this.userConeMarker.setLngLat([lng, lat]);
       this.userMarker.setLngLat([lng, lat]);
     } else {
-      const el = htmlMarkerEl(
-        'user-marker',
-        `<div class="user-cone"></div><div class="user-pulse"></div><div class="user-dot"></div>`,
-      );
-      this.userMarker = new maplibregl.Marker({
-        element: el,
+      const coneEl = htmlMarkerEl('user-cone-marker', `<div class="user-cone"></div>`);
+      this.userConeMarker = new maplibregl.Marker({
+        element: coneEl,
         anchor: 'center',
         rotationAlignment: 'map',
         pitchAlignment: 'map',
-      })
+      }).setLngLat([lng, lat]).addTo(this.map);
+
+      const el = htmlMarkerEl('user-marker', `<div class="user-pulse"></div>${this.userPuckHtml()}`);
+      this.userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([lng, lat])
         .addTo(this.map);
     }
 
-    this.userMarker.getElement().classList.toggle('has-heading', hasHeading);
-    if (hasHeading) this.userMarker.setRotation(this.userHeading);
-
+    this.applyUserHeading();
     this.updateAccuracyCircle(lng, lat, accuracy);
     this.updateETA();
+  }
+
+  // Foto de perfil si existe; si no, la persona saludando.
+  private userPuckHtml(): string {
+    const inner = this.profile?.foto_url
+      ? `<img src="${this.profile.foto_url}" alt="" />`
+      : `<svg viewBox="0 0 24 24" width="17" height="17" fill="none"
+              stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           <circle cx="11" cy="5.2" r="2.6" fill="#fff" stroke="none"/>
+           <path d="M11 8.4v6.2"/>
+           <path d="M11 14.6 8.6 21"/>
+           <path d="M11 14.6 13.2 21"/>
+           <path d="M11 10.4 7.6 12.6"/>
+           <path d="M11 10.2 15.4 6.6"/>
+         </svg>`;
+    return `<div class="user-puck">${inner}</div>`;
+  }
+
+  // El cono apunta a donde MIRA el teléfono cuando hay brújula. Si no la hay,
+  // cae al rumbo del GPS, que es la dirección en que te MOVÉS — parecido pero
+  // no igual. Sin ninguno de los dos el cono no se dibuja: apuntarlo al norte
+  // por defecto sería inventar información.
+  private applyUserHeading() {
+    const heading = this.compassHeading ?? this.gpsHeading;
+    const el = this.userConeMarker?.getElement();
+    if (!el) return;
+
+    el.classList.toggle('has-heading', heading !== null);
+    if (heading !== null) this.userConeMarker!.setRotation(heading);
+  }
+
+  // La brújula emite decenas de veces por segundo: se escucha fuera de la zona
+  // de Angular y se escribe directo en el marcador, sin detección de cambios.
+  private startCompass() {
+    this.zone.runOutsideAngular(() => {
+      this.compassHandler = (e: any) => {
+        // iOS expone webkitCompassHeading ya referido al norte magnético.
+        // En el resto, alpha es la rotación antihoraria desde el norte.
+        const raw = typeof e.webkitCompassHeading === 'number'
+          ? e.webkitCompassHeading
+          : (e.absolute === true && typeof e.alpha === 'number' ? 360 - e.alpha : null);
+        if (raw === null || isNaN(raw)) return;
+        this.compassHeading = (raw + 360) % 360;
+        this.applyUserHeading();
+      };
+      window.addEventListener('deviceorientationabsolute', this.compassHandler!, true);
+      window.addEventListener('deviceorientation', this.compassHandler!, true);
+    });
+  }
+
+  // iOS exige que el permiso de brújula se pida desde un gesto del usuario, así
+  // que va colgado del botón "mi ubicación" en vez de dispararse solo al abrir.
+  private async requestCompassPermission() {
+    const anyOrientation = (window as any).DeviceOrientationEvent;
+    if (anyOrientation && typeof anyOrientation.requestPermission === 'function') {
+      try { await anyOrientation.requestPermission(); } catch {}
+    }
   }
 
   // Radio de precisión como capa GeoJSON en metros reales: si el navegador
@@ -956,7 +1023,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     }
   }
 
-  centerOnUser() {
+  async centerOnUser() {
+    // Aprovecha el gesto para pedir el permiso de brújula que iOS sólo concede
+    // dentro de una interacción del usuario.
+    await this.requestCompassPermission();
     if (this.userMarker) {
       this.map.flyTo({ center: this.userMarker.getLngLat(), zoom: 16 });
     }
@@ -1031,6 +1101,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     if (this.clockInterval) clearInterval(this.clockInterval);
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
     if (this.watchId) Geolocation.clearWatch({ id: this.watchId });
+    if (this.compassHandler) {
+      window.removeEventListener('deviceorientationabsolute', this.compassHandler, true);
+      window.removeEventListener('deviceorientation', this.compassHandler, true);
+    }
     if (this.map) { try { this.map.remove(); } catch {} }
   }
 }
