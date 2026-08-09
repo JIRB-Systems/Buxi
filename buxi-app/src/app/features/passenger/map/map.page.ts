@@ -913,6 +913,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         .addTo(this.map);
     }
 
+    // Una lectura gruesa no debe verse tan rotunda como una de GPS: la chapa
+    // se atenúa para que el punto no aparente una certeza que no tiene.
+    this.userMarker.getElement().classList.toggle('coarse', !!accuracy && accuracy > 5000);
+
     this.applyUserHeading();
     this.updateAccuracyCircle(lng, lat, accuracy);
     this.updateETA();
@@ -1045,7 +1049,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       const coords = await this.acquirePosition();
       this.locationError = null;
       this.updateUserPosition(coords.latitude, coords.longitude, coords.accuracy, coords.heading);
-      this.map.flyTo({ center: [coords.longitude, coords.latitude], zoom: 16 });
+      this.map.flyTo({
+        center: [coords.longitude, coords.latitude],
+        zoom: this.zoomForAccuracy(coords.accuracy),
+      });
+      await this.warnIfCoarse(coords.accuracy);
       // Si al abrir no había señal, el seguimiento continuo tampoco arrancó.
       if (!this.watchId) this.startWatching();
     } catch (e) {
@@ -1053,6 +1061,31 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       await this.toast(this.locationError, 'warning');
     }
     this.locating = false;
+  }
+
+  // Acercarse a zoom 16 sobre una lectura con cientos de kilómetros de error
+  // es una mentira visual: el mapa afirma una precisión de calle que no existe.
+  // El zoom se elige para que el círculo de precisión ENTRE en pantalla, así
+  // el encuadre mismo comunica cuánto se sabe realmente.
+  private zoomForAccuracy(accuracy?: number | null): number {
+    if (!accuracy || accuracy <= 0) return 16;
+    if (accuracy < 50) return 16.5;
+    if (accuracy < 200) return 15.5;
+    if (accuracy < 1000) return 13.5;
+    if (accuracy < 5000) return 11.5;
+    if (accuracy < 25000) return 9;
+    return 6.5;
+  }
+
+  // Umbral: por encima de 5 km la ubicación ya no sirve para saber qué bus
+  // tomar, así que conviene decirlo en vez de dejar el punto donde caiga.
+  private async warnIfCoarse(accuracy?: number | null) {
+    if (!accuracy || accuracy <= 5000) return;
+    const km = Math.round(accuracy / 1000);
+    await this.toast(
+      `Ubicación aproximada (± ${km} km). Sin GPS el navegador ubica por red y puede errar mucho.`,
+      'warning',
+    );
   }
 
   // Seguimiento continuo. Vive aparte porque también hay que poder arrancarlo

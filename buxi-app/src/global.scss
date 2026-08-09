@@ -85,8 +85,14 @@ ion-footer.ion-no-border { --ion-toolbar-border-color: transparent; }
 // ion-alert se monta fuera del componente, así que su estilo vive acá y no en
 // la hoja del mapa. Mismo vidrio oscuro que los paneles: un cuadro blanco de
 // sistema encima del mapa rompía la escena por completo.
-.buxi-alert {
+// El selector arranca con `ion-alert` a propósito. ion-alert inyecta sus
+// propios estilos en runtime, o sea DESPUÉS de esta hoja; con la misma
+// especificidad (`.alert-wrapper.sc-ion-alert-md`) ganaba el suyo por orden de
+// aparición y el diálogo seguía saliendo blanco. Agregar el elemento sube la
+// especificidad lo justo para ganar sin recurrir a !important.
+ion-alert.buxi-alert {
   --backdrop-opacity: 0.62;
+  --background: rgba(11, 26, 46, 0.93);
 
   .alert-wrapper {
     background: rgba(11, 26, 46, 0.93);
@@ -131,13 +137,13 @@ ion-footer.ion-no-border { --ion-toolbar-border-color: transparent; }
     .alert-button-inner { justify-content: center; }
   }
 
-  .ba-cancel {
+  .alert-button.ba-cancel {
     color: #9fb2cc;
     background: rgba(255,255,255,0.06);
     border-color: rgba(255,255,255,0.1);
   }
 
-  .ba-confirm {
+  .alert-button.ba-confirm {
     color: #04140b;
     background: linear-gradient(145deg, #00e06a, #00b552);
     box-shadow: 0 4px 16px rgba(0, 200, 83, 0.32);
@@ -145,7 +151,7 @@ ion-footer.ion-no-border { --ion-toolbar-border-color: transparent; }
 
   // Destructivo: rojo contenido, no relleno sólido. Debe leerse como riesgo,
   // no competir en peso con la acción segura de al lado.
-  .ba-danger {
+  .alert-button.ba-danger {
     color: #ff8585;
     background: rgba(255, 82, 82, 0.13);
     border-color: rgba(255, 82, 82, 0.36);

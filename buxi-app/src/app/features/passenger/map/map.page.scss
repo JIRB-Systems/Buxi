@@ -619,6 +619,18 @@
     z-index: 1;
   }
 
+  // Lectura por red con kilómetros de error: se apaga y pierde el borde sólido
+  // para que no se lea como una posición confirmada.
+  .user-marker.coarse {
+    .user-puck {
+      background: linear-gradient(150deg, #7a8ea8, #56698a);
+      border-style: dashed;
+      border-color: rgba(255,255,255,0.7);
+      opacity: 0.85;
+    }
+    .user-pulse { animation: none; background: rgba(122,142,168,0.18); }
+  }
+
   // Haz de luz sobre el suelo. El degradado se apaga hacia afuera y los bordes
   // se suavizan, para que parezca luz y no un triángulo pegado.
   .user-cone-marker { position: relative; width: 0; height: 0; }
