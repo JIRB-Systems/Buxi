@@ -244,13 +244,15 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
       header: 'Cerrar sesión',
       message: '¿Estás seguro?',
       buttons: [
-        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Cancelar', role: 'cancel', cssClass: 'ba-cancel' },
         {
           text: 'Cerrar sesión',
           role: 'confirm',
+          cssClass: 'ba-confirm',
           handler: async () => {
             await this.supabase.signOut();
             this.router.navigate(['/auth/login'], { replaceUrl: true });

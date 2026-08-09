@@ -81,6 +81,77 @@ ion-refresher { --ion-color-primary: #00c853; }
 
 ion-footer.ion-no-border { --ion-toolbar-border-color: transparent; }
 
+// ====== Diálogos de confirmación (cssClass: 'buxi-alert') ======
+// ion-alert se monta fuera del componente, así que su estilo vive acá y no en
+// la hoja del mapa. Mismo vidrio oscuro que los paneles: un cuadro blanco de
+// sistema encima del mapa rompía la escena por completo.
+.buxi-alert {
+  --backdrop-opacity: 0.62;
+
+  .alert-wrapper {
+    background: rgba(11, 26, 46, 0.93);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 24px;
+    box-shadow: 0 20px 56px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.09);
+    min-width: 290px;
+    padding: 4px 2px 2px;
+  }
+
+  .alert-head { padding: 22px 22px 6px; text-align: left; }
+
+  .alert-title {
+    color: #fff;
+    font-size: 17px; font-weight: 800; letter-spacing: -0.3px;
+  }
+
+  .alert-message {
+    padding: 0 22px 20px;
+    color: #9fb2cc;
+    font-size: 13.5px; line-height: 1.5;
+    text-align: left;
+  }
+
+  .alert-button-group {
+    padding: 0 14px 14px;
+    display: flex; gap: 8px;
+  }
+
+  .alert-button {
+    flex: 1;
+    margin: 0;
+    height: 46px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    // Ionic pone mayúsculas en modo Material; acá desentonan.
+    text-transform: none;
+    font-size: 13.5px; font-weight: 700; letter-spacing: -0.1px;
+
+    .alert-button-inner { justify-content: center; }
+  }
+
+  .ba-cancel {
+    color: #9fb2cc;
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.1);
+  }
+
+  .ba-confirm {
+    color: #04140b;
+    background: linear-gradient(145deg, #00e06a, #00b552);
+    box-shadow: 0 4px 16px rgba(0, 200, 83, 0.32);
+  }
+
+  // Destructivo: rojo contenido, no relleno sólido. Debe leerse como riesgo,
+  // no competir en peso con la acción segura de al lado.
+  .ba-danger {
+    color: #ff8585;
+    background: rgba(255, 82, 82, 0.13);
+    border-color: rgba(255, 82, 82, 0.36);
+  }
+}
+
 // Dark mode
 body.dark {
   --ion-background-color: #0f1720;

@@ -595,13 +595,15 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   async confirmLogout() {
     const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
       header: 'Cerrar sesión',
       message: '¿Seguro que querés salir?',
       buttons: [
-        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Cancelar', role: 'cancel', cssClass: 'ba-cancel' },
         {
           text: 'Cerrar sesión',
           role: 'confirm',
+          cssClass: 'ba-confirm',
           handler: async () => {
             await this.supabase.signOut();
             this.router.navigate(['/auth/login'], { replaceUrl: true });
@@ -614,13 +616,15 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   async confirmDeleteAccount() {
     const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
       header: 'Eliminar cuenta',
       message: 'Esto borra tu cuenta, favoritos, calificaciones y preferencias de forma permanente. No se puede deshacer.',
       buttons: [
-        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Cancelar', role: 'cancel', cssClass: 'ba-cancel' },
         {
           text: 'Eliminar',
           role: 'destructive',
+          cssClass: 'ba-danger',
           handler: async () => {
             try {
               await this.supabase.deleteAccount();
