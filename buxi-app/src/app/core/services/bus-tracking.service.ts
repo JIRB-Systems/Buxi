@@ -76,25 +76,17 @@ export class BusTrackingService implements OnDestroy {
     return data as Bus[];
   }
 
+  // El "último punto por bus" lo resuelve Postgres (DISTINCT ON). Antes se
+  // traía el historial completo y se deduplicaba acá, lo que crecía sin techo
+  // a razón de ~17.000 filas por bus por día.
+  private readonly BUS_SELECT = '*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color), empresa:empresas(nombre))';
+
   async getLocationsByRuta(rutaId: string): Promise<BusLocation[]> {
-    const buses = await this.getBusesByRuta(rutaId);
-    const busIds = buses.map(b => b.id);
-    if (busIds.length === 0) return [];
-
     const { data, error } = await this.supabase
-      .from('bus_locations')
-      .select('*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color))')
-      .in('bus_id', busIds)
-      .order('timestamp', { ascending: false });
+      .rpc('latest_bus_locations_by_ruta', { p_ruta_id: rutaId })
+      .select(this.BUS_SELECT);
     if (error) throw error;
-
-    const latest = new Map<string, BusLocation>();
-    for (const loc of (data as BusLocation[])) {
-      if (!latest.has(loc.bus_id)) {
-        latest.set(loc.bus_id, loc);
-      }
-    }
-    return Array.from(latest.values());
+    return (data || []) as BusLocation[];
   }
 
   async getAllParadas(): Promise<Parada[]> {
@@ -109,18 +101,10 @@ export class BusTrackingService implements OnDestroy {
 
   async getLatestLocations(): Promise<BusLocation[]> {
     const { data, error } = await this.supabase
-      .from('bus_locations')
-      .select('*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color))')
-      .order('timestamp', { ascending: false });
+      .rpc('latest_bus_locations')
+      .select(this.BUS_SELECT);
     if (error) throw error;
-
-    const latest = new Map<string, BusLocation>();
-    for (const loc of (data as BusLocation[])) {
-      if (!latest.has(loc.bus_id)) {
-        latest.set(loc.bus_id, loc);
-      }
-    }
-    return Array.from(latest.values());
+    return (data || []) as BusLocation[];
   }
 
   async getEmpresas(): Promise<EmpresaListItem[]> {
