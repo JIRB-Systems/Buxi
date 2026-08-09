@@ -30,6 +30,9 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   private currentLat = 0;
   private currentLng = 0;
   private currentSpeedKmh = 0;
+  private currentHeading = 0;
+  private lastLat = 0;
+  private lastLng = 0;
   private trackingInterval: any = null;
   private rutaParadas: Parada[] = [];
   private nextParadaIndex = 1;
@@ -77,14 +80,19 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         await Geolocation.requestPermissions();
       }
       const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-      this.updatePosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed);
+      this.updatePosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed, pos.coords.heading);
       this.map.jumpTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 });
 
       this.watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true },
         (position) => {
           if (position) {
-            this.updatePosition(position.coords.latitude, position.coords.longitude, position.coords.speed);
+            this.updatePosition(
+              position.coords.latitude,
+              position.coords.longitude,
+              position.coords.speed,
+              position.coords.heading,
+            );
           }
         }
       ) as unknown as string;
@@ -92,7 +100,23 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  private updatePosition(lat: number, lng: number, speedMs?: number | null) {
+  private updatePosition(lat: number, lng: number, speedMs?: number | null, headingDeg?: number | null) {
+    // El rumbo del bus es lo que orienta su ícono en el mapa del pasajero.
+    // `coords.heading` sólo llega en dispositivos con brújula y en movimiento;
+    // cuando falta, se deduce del desplazamiento desde el punto anterior. Sin
+    // esto todos los buses apuntarían al norte para siempre.
+    if (headingDeg !== null && headingDeg !== undefined && !isNaN(headingDeg)) {
+      this.currentHeading = headingDeg;
+    } else if (this.lastLat !== 0 || this.lastLng !== 0) {
+      // Menos de ~5 m es ruido de GPS estando quieto: el rumbo calculado sería
+      // aleatorio y haría girar el bus sobre sí mismo. Se conserva el último.
+      if (this.features.distanceKm(this.lastLat, this.lastLng, lat, lng) > 0.005) {
+        this.currentHeading = this.features.bearingDeg(this.lastLat, this.lastLng, lat, lng);
+      }
+    }
+    this.lastLat = lat;
+    this.lastLng = lng;
+
     this.currentLat = lat;
     this.currentLng = lng;
     this.currentSpeedKmh = speedMs && speedMs > 0 ? speedMs * 3.6 : 0;
@@ -183,6 +207,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         this.currentLat,
         this.currentLng,
         this.currentSpeedKmh,
+        this.currentHeading,
       );
     } catch {
     }
