@@ -864,9 +864,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         if (permission.location === 'denied') return;
       }
       const c = await this.acquirePosition();
+      this.logFix('inicio', c);
       this.updateUserPosition(c.latitude, c.longitude, c.accuracy, c.heading);
-      if (!this.activeRuta) {
-        this.map.jumpTo({ center: [c.longitude, c.latitude], zoom: 15 });
+      // Con una lectura sospechosa NO se encuadra el mapa: arrastrar al usuario
+      // al Pacífico apenas abre la app es peor que dejarlo en su provincia y
+      // que el punto quede fuera de cuadro.
+      if (!this.activeRuta && this.suspectFixDistanceKm(c.latitude, c.longitude) === null) {
+        this.map.jumpTo({ center: [c.longitude, c.latitude], zoom: this.zoomForAccuracy(c.accuracy) });
       }
       await this.startWatching();
     } catch (e) {
@@ -913,9 +917,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         .addTo(this.map);
     }
 
-    // Una lectura gruesa no debe verse tan rotunda como una de GPS: la chapa
-    // se atenúa para que el punto no aparente una certeza que no tiene.
-    this.userMarker.getElement().classList.toggle('coarse', !!accuracy && accuracy > 5000);
+    // La chapa se atenúa tanto si la lectura es gruesa como si es sospechosa.
+    // El segundo caso importa más: una posición inventada llega con precisión
+    // de metros y, sin esto, se vería tan rotunda como un GPS real.
+    const unreliable = (!!accuracy && accuracy > 5000)
+      || this.suspectFixDistanceKm(lat, lng) !== null;
+    this.userMarker.getElement().classList.toggle('coarse', unreliable);
 
     this.applyUserHeading();
     this.updateAccuracyCircle(lng, lat, accuracy);
@@ -1054,13 +1061,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.locating = true;
     try {
       const coords = await this.acquirePosition();
+      this.logFix('botón', coords);
       this.locationError = null;
       this.updateUserPosition(coords.latitude, coords.longitude, coords.accuracy, coords.heading);
       this.map.flyTo({
         center: [coords.longitude, coords.latitude],
         zoom: this.zoomForAccuracy(coords.accuracy),
       });
-      await this.warnIfCoarse(coords.accuracy);
+      // Si la posición es sospechosa se avisa eso y no lo otro: decir
+      // "aproximada ± 30 m" sobre un dato inventado sería peor que callar.
+      const suspect = await this.warnIfSuspect(coords.latitude, coords.longitude);
+      if (!suspect) await this.warnIfCoarse(coords.accuracy);
       // Si al abrir no había señal, el seguimiento continuo tampoco arrancó.
       if (!this.watchId) this.startWatching();
     } catch (e) {
@@ -1092,6 +1103,46 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     await this.toast(
       `Ubicación aproximada (± ${km} km). Sin GPS el navegador ubica por red y puede errar mucho.`,
       'warning',
+    );
+  }
+
+  // Una lectura puede ser PRECISA y estar MAL: hay navegadores (Brave y
+  // similares, con la protección anti-huella activa) y extensiones de privacidad
+  // que devuelven una posición inventada, con precisión de metros, a miles de
+  // kilómetros. Contra eso el radio de precisión no sirve de nada, porque el
+  // propio dato afirma ser bueno.
+  //
+  // Se contrasta con la provincia del perfil, que el usuario eligió a mano: si
+  // no coinciden ni de lejos, es mucho más probable que mienta el navegador a
+  // que el usuario se haya mudado de país sin actualizar su perfil.
+  private readonly SUSPECT_DISTANCE_KM = 400;
+
+  private suspectFixDistanceKm(lat: number, lng: number): number | null {
+    const center = PROVINCIA_CENTERS[(this.profile?.provincia || '').trim().toLowerCase()];
+    if (!center) return null;
+    const km = this.featuresService.distanceKm(lat, lng, center[1], center[0]);
+    return km > this.SUSPECT_DISTANCE_KM ? km : null;
+  }
+
+  private async warnIfSuspect(lat: number, lng: number): Promise<boolean> {
+    const km = this.suspectFixDistanceKm(lat, lng);
+    if (km === null) return false;
+
+    await this.toast(
+      `Tu navegador reporta una ubicación a ${Math.round(km)} km de ${this.profile?.provincia}. ` +
+      `Suele pasar con la protección de privacidad activada — probá desactivarla para este sitio.`,
+      'warning',
+    );
+    return true;
+  }
+
+  // Los números crudos quedan en la consola: si la ubicación sale mal, esto es
+  // lo primero que hay que mirar y evita adivinar sobre una captura.
+  private logFix(source: string, c: { latitude: number; longitude: number; accuracy?: number | null }) {
+    // eslint-disable-next-line no-console
+    console.info(
+      `[buxi] ubicación (${source}): lat=${c.latitude} lng=${c.longitude} ` +
+      `precisión=${c.accuracy ?? 'desconocida'}m`,
     );
   }
 
