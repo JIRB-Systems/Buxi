@@ -12,7 +12,14 @@
 .desktop-topbar {
   position: absolute; top: 16px; left: 16px; right: 16px; z-index: 1001;
   display: grid;
-  grid-template-columns: 1fr minmax(0, 520px) 1fr;
+  // Columnas laterales `auto`: se dimensionan EXACTAMENTE a su contenido, así
+  // que el logo nunca queda más angosto que el texto que lleva dentro.
+  //
+  // Con `1fr` a los lados, la pista podía quedar más corta que la palabra
+  // "Buxi" —que va con nowrap— y el texto se derramaba encima del buscador,
+  // tapando el principio del placeholder. `auto` elimina ese caso por completo
+  // en vez de depender de acertar un punto de corte.
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center; gap: 18px;
   height: 56px; padding: 0 14px;
   border-radius: 20px;
@@ -25,7 +32,9 @@
   .dt-logo {
     justify-self: start;
     display: flex; align-items: center; gap: 9px;
-    min-width: 0;
+    // Segunda barrera: aunque algo lo comprimiera, el contenido se recorta
+    // dentro de su propia caja en lugar de pintarse sobre el vecino.
+    overflow: hidden;
   }
 
   // La marca vectorial ya tiene forma propia y contraste; no necesita la placa
@@ -45,6 +54,9 @@
   // dentro de una barra oscura: el único elemento claro de todo el chrome.
   .dt-search {
     grid-column: 2;
+    // La columna central ya es elástica; el ancho se acota acá y se centra
+    // dentro de lo que sobra entre logo y avatar.
+    width: 100%; max-width: 520px; margin: 0 auto;
     display: flex; align-items: center; gap: 10px;
     height: 38px; padding: 0 16px;
     background: rgba(255,255,255,0.06);
@@ -101,7 +113,6 @@
 // el texto largo del buscador, que si no se corta a media palabra.
 @media (min-width: 900px) and (max-width: 1180px) {
   .desktop-topbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
     .dt-word { display: none; }
     .dt-ph-full { display: none; }
     .dt-ph-short { display: block; }
