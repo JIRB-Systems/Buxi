@@ -208,7 +208,8 @@ export function tintLightMap(map: maplibregl.Map): void {
   // El río va más suave que el mar a propósito: con el mismo azul saturado, una
   // línea fina compite con las carreteras y satura la escena. Un tono más claro
   // lo mantiene reconocible como agua sin robarle protagonismo a las vías.
-  paint('River', 'line-color', '#6fb2dd');
+  paint('River', 'line-color', '#93c8e8');
+  paint('River', 'line-opacity', 0.85);
   // Un río de 1px a este zoom desaparece; se le da cuerpo creciente con el zoom.
   paint('River', 'line-width', [
     'interpolate', ['linear'], ['zoom'],
@@ -233,15 +234,14 @@ export function tintLightMap(map: maplibregl.Map): void {
   // pintaría de azul hasta el último callejón. Se usa el atributo `class` del
   // esquema OpenMapTiles para conservar la jerarquía: azul sólo en las vías
   // importantes, blanco en las calles de barrio, como en la referencia.
+  // Prueba en naranja. Se conserva la jerarquía por `class` para poder juzgar
+  // el resultado: un naranja plano en toda la red no diría nada.
   paint('Road network', 'line-color', [
     'match', ['get', 'class'],
-    ['motorway', 'trunk'], '#1f5fc4',
-    ['primary'], '#3f7fd8',
-    ['secondary', 'tertiary'], '#6d9ce0',
-    // Las calles de barrio NO van en blanco. Ese era el error: sobre un fondo
-    // casi blanco desaparecían. Un gris cálido OSCURO las hace legibles sin
-    // competir en color con las vías principales.
-    '#736d62',
+    ['motorway', 'trunk'], '#e2680a',
+    ['primary'], '#f2861f',
+    ['secondary', 'tertiary'], '#f7a85c',
+    '#c69766',
   ]);
 
   // Ancho explícito por jerarquía y zoom. El estilo original adelgaza mucho las
@@ -282,8 +282,10 @@ function addRoadCasing(map: maplibregl.Map): void {
           ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#14418a',
-          'line-opacity': 0.5,
+          // El contorno acompaña al naranja: en azul quedaría un halo frío
+          // alrededor de una vía cálida y se vería sucio.
+          'line-color': '#8a3d05',
+          'line-opacity': 0.45,
           'line-width': [
             'interpolate', ['linear'], ['zoom'],
             6, 4,
