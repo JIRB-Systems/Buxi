@@ -10,7 +10,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
-import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled, circlePolygon } from '../../../core/utils/maplibre';
+import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl } from '../../../core/utils/maplibre';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
@@ -50,6 +50,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private userConeMarker: maplibregl.Marker | null = null;
   private gpsHeading: number | null = null;
   private compassHeading: number | null = null;
+  private lastAccuracy: number | null = null;
   private compassHandler?: (e: DeviceOrientationEvent) => void;
   locating = false;
   locationError: string | null = null;
@@ -348,6 +349,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         this.userName = profile.nombre_completo.split(' ')[0];
         const center = PROVINCIA_CENTERS[(profile.provincia || '').trim().toLowerCase()];
         if (center) this.initialCenter = center;
+        // Las preferencias se leen ACÁ y no al abrir el panel: el estilo del
+        // mapa depende de `darkMode`, y initMap espera esta carga. Si se
+        // leyeran después, el mapa abriría en oscuro y saltaría a claro al
+        // abrir el perfil por primera vez.
+        await this.loadPreferences();
       }
     } catch {}
 
@@ -435,6 +441,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       zoom: 13,
       pitch: 50,
       threeD: true,
+      style: this.darkMode ? 'streets-v2-dark' : 'streets-v2',
     });
     // Si el usuario navegó fuera mientras el estilo cargaba, no operar sobre
     // un mapa huérfano (evita errores async que rompen la navegación).
@@ -514,7 +521,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   editPhone = '';
   editProvincia = '';
   notificationsEnabled = true;
-  darkMode = false;
+  // Por defecto oscuro: es la identidad de la app. Sólo cambia si el usuario
+  // guardó lo contrario.
+  darkMode = true;
   readonly provincias = [
     'San José', 'Alajuela', 'Cartago', 'Heredia', 'Guanacaste', 'Puntarenas', 'Limón',
   ];
@@ -594,15 +603,53 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     }
   }
 
-  // El mapa 3D y todo el chrome ya son oscuros; este interruptor controla el
-  // tema del resto de la app (páginas de auth, legales, etc.).
+  // Este interruptor cambia el ESTILO DEL MAPA, no una clase en el body.
+  //
+  // Antes alternaba `body.dark`, que servía cuando el pasajero tenía pantallas
+  // claras. Al quedar todo sobre el mapa —que ya era oscuro— no había nada que
+  // oscurecer y el botón no hacía nada visible. En una app donde el mapa es el
+  // 90% de la pantalla, "modo oscuro" sólo puede significar esto.
   async toggleDarkMode() {
     this.darkMode = !this.darkMode;
+    // Se conserva para las páginas que siguen fuera del mapa (legales, auth).
     document.body.classList.toggle('dark', this.darkMode);
+    this.applyMapTheme();
+
     if (!this.profile) return;
     try {
       await this.featuresService.savePreferences(this.profile.id, { dark_mode: this.darkMode });
     } catch {}
+  }
+
+  // setStyle descarta TODAS las fuentes y capas propias: relieve, edificios,
+  // la ruta dibujada y el círculo de precisión. Los marcadores sobreviven
+  // porque son DOM, no estilo. Por eso hay que rehacer lo demás cuando el
+  // estilo nuevo termina de cargar.
+  private applyMapTheme() {
+    if (!this.mapReady) return;
+
+    this.map.setStyle(mapStyleUrl(this.darkMode ? 'streets-v2-dark' : 'streets-v2'));
+
+    this.map.once('style.load', async () => {
+      if (this.destroyed) return;
+
+      if (this.is3D) {
+        try { enable3D(this.map); } catch {}
+      }
+
+      // El círculo se redibuja desde la última posición conocida.
+      if (this.userLat !== 0) {
+        this.updateAccuracyCircle(this.userLng, this.userLat, this.lastAccuracy);
+      }
+
+      // Y la ruta activa, si había uno dibujada.
+      if (this.activeRuta && this.activeParadas.length >= 2) {
+        this.routeLayerIds = [];
+        try {
+          await this.drawRouteLayer(this.activeParadas, this.activeRuta.color, this.activeRuta.geometria);
+        } catch {}
+      }
+    });
   }
 
   openFavoritosFromProfile() {
@@ -947,6 +994,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     const unreliable = this.fixProblem(lat, lng, accuracy) !== null;
     this.userMarker.getElement().classList.toggle('coarse', unreliable);
     this.locationError = unreliable ? 'Ubicación poco fiable' : null;
+
+    // Se recuerda para poder redibujar el círculo tras un cambio de estilo,
+    // que borra todas las capas propias.
+    this.lastAccuracy = accuracy ?? null;
 
     this.applyUserHeading();
     this.updateAccuracyCircle(lng, lat, accuracy);

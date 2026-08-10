@@ -4,7 +4,7 @@ import { environment } from '../../../environments/environment';
 // `dataviz-dark` es plano y minimal: sirve para paneles donde el mapa es sólo
 // un fondo de datos. `streets-v2-dark` trae edificios, relieve y agua, que es
 // lo que necesita el mapa del pasajero para verse 3D.
-export type MapStyleName = 'dataviz-dark' | 'streets-v2-dark';
+export type MapStyleName = 'dataviz-dark' | 'streets-v2-dark' | 'streets-v2';
 
 export function mapStyleUrl(style: MapStyleName = 'dataviz-dark'): string {
   return `https://api.maptiler.com/maps/${style}/style.json?key=${environment.maptilerKey}`;
