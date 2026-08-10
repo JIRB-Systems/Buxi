@@ -441,7 +441,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       zoom: 13,
       pitch: 50,
       threeD: true,
-      style: this.darkMode ? 'streets-v2-dark' : 'streets-v2',
+      style: this.darkMode ? 'streets-v2-dark' : 'outdoor-v2',
     });
     // Si el usuario navegó fuera mientras el estilo cargaba, no operar sobre
     // un mapa huérfano (evita errores async que rompen la navegación).
@@ -628,13 +628,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private applyMapTheme() {
     if (!this.mapReady) return;
 
-    this.map.setStyle(mapStyleUrl(this.darkMode ? 'streets-v2-dark' : 'streets-v2'));
+    this.map.setStyle(mapStyleUrl(this.darkMode ? 'streets-v2-dark' : 'outdoor-v2'));
 
     this.map.once('style.load', async () => {
       if (this.destroyed) return;
 
       if (this.is3D) {
-        try { enable3D(this.map); } catch {}
+        try { enable3D(this.map, this.darkMode); } catch {}
       }
 
       // El círculo se redibuja desde la última posición conocida.
@@ -710,7 +710,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   toggle3D() {
     this.is3D = !this.is3D;
-    set3DEnabled(this.map, this.is3D);
+    set3DEnabled(this.map, this.is3D, this.darkMode);
   }
 
   resetNorth() {

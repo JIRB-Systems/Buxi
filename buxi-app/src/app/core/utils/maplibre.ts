@@ -4,7 +4,14 @@ import { environment } from '../../../environments/environment';
 // `dataviz-dark` es plano y minimal: sirve para paneles donde el mapa es sólo
 // un fondo de datos. `streets-v2-dark` trae edificios, relieve y agua, que es
 // lo que necesita el mapa del pasajero para verse 3D.
-export type MapStyleName = 'dataviz-dark' | 'streets-v2-dark' | 'streets-v2';
+// `outdoor-v2` para el modo claro: terreno verde apagado y agua azul suave,
+// el look de mapa de seguimiento. `streets-v2` era un callejero urbano, con
+// demasiado color y detalle compitiendo con los buses.
+export type MapStyleName = 'dataviz-dark' | 'streets-v2-dark' | 'outdoor-v2';
+
+export function isDarkStyle(style: MapStyleName): boolean {
+  return style.endsWith('-dark');
+}
 
 export function mapStyleUrl(style: MapStyleName = 'dataviz-dark'): string {
   return `https://api.maptiler.com/maps/${style}/style.json?key=${environment.maptilerKey}`;
@@ -55,7 +62,7 @@ export function createMap(opts: {
 
     map.on('load', () => {
       if (opts.threeD) {
-        try { enable3D(map); } catch { /* el mapa sigue siendo usable en 2D */ }
+        try { enable3D(map, isDarkStyle(opts.style ?? "streets-v2-dark")); } catch { /* el mapa sigue siendo usable en 2D */ }
       }
       done();
     });
@@ -91,7 +98,9 @@ function firstSymbolLayerId(map: maplibregl.Map): string | undefined {
   return (map.getStyle().layers || []).find(l => l.type === 'symbol')?.id;
 }
 
-export function enable3D(map: maplibregl.Map): void {
+// El relieve y los edificios se pintan según el tema: sobre terreno claro, un
+// cielo nocturno y edificios azul marino se ven como un error de render.
+export function enable3D(map: maplibregl.Map, dark = true): void {
   // ---- Relieve ----
   if (!map.getSource('terrain-dem')) {
     map.addSource('terrain-dem', {
@@ -106,14 +115,23 @@ export function enable3D(map: maplibregl.Map): void {
 
   // ---- Cielo ----
   try {
-    map.setSky({
-      'sky-color': '#0b1a2e',
-      'horizon-color': '#1b3358',
-      'fog-color': '#0a1626',
-      'sky-horizon-blend': 0.6,
-      'horizon-fog-blend': 0.7,
-      'fog-ground-blend': 0.4,
-    });
+    map.setSky(dark
+      ? {
+          'sky-color': '#0b1a2e',
+          'horizon-color': '#1b3358',
+          'fog-color': '#0a1626',
+          'sky-horizon-blend': 0.6,
+          'horizon-fog-blend': 0.7,
+          'fog-ground-blend': 0.4,
+        }
+      : {
+          'sky-color': '#a8cdf0',
+          'horizon-color': '#dceaf6',
+          'fog-color': '#eef4f8',
+          'sky-horizon-blend': 0.7,
+          'horizon-fog-blend': 0.6,
+          'fog-ground-blend': 0.3,
+        });
   } catch { /* setSky no existe en versiones viejas de MapLibre */ }
 
   // ---- Edificios 3D ----
@@ -128,12 +146,19 @@ export function enable3D(map: maplibregl.Map): void {
         minzoom: 13,
         paint: {
           // Más altos = un poco más claros, para que se lean unos de otros.
-          'fill-extrusion-color': [
-            'interpolate', ['linear'], ['get', 'render_height'],
-            0, '#1a2434',
-            50, '#243248',
-            200, '#2e3f5c',
-          ],
+          'fill-extrusion-color': dark
+            ? [
+                'interpolate', ['linear'], ['get', 'render_height'],
+                0, '#1a2434',
+                50, '#243248',
+                200, '#2e3f5c',
+              ]
+            : [
+                'interpolate', ['linear'], ['get', 'render_height'],
+                0, '#d9d7cd',
+                50, '#cfccc0',
+                200, '#c2beb0',
+              ],
           'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
           'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
           'fill-extrusion-opacity': 0.85,
@@ -144,9 +169,9 @@ export function enable3D(map: maplibregl.Map): void {
   }
 }
 
-export function set3DEnabled(map: maplibregl.Map, enabled: boolean): void {
+export function set3DEnabled(map: maplibregl.Map, enabled: boolean, dark = true): void {
   if (enabled) {
-    enable3D(map);
+    enable3D(map, dark);
     map.easeTo({ pitch: 55, duration: 600 });
   } else {
     map.setTerrain(null);
