@@ -153,15 +153,19 @@ export function enable3D(map: maplibregl.Map, dark = true): void {
                 50, '#243248',
                 200, '#2e3f5c',
               ]
+            // Grises fríos y con salto real entre alturas. Antes eran beiges
+            // pálidos (#d9d7cd…) sobre un suelo también pálido: los edificios
+            // se fundían con el terreno y la ciudad se veía lavada y vacía.
+            // El tono frío además los despega del verde y del beige del mapa.
             : [
                 'interpolate', ['linear'], ['get', 'render_height'],
-                0, '#d9d7cd',
-                50, '#cfccc0',
-                200, '#c2beb0',
+                0, '#b6bcc4',
+                50, '#9aa2ad',
+                200, '#7d8794',
               ],
           'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
           'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-          'fill-extrusion-opacity': 0.85,
+          'fill-extrusion-opacity': dark ? 0.85 : 0.92,
         },
       },
       firstSymbolLayerId(map),

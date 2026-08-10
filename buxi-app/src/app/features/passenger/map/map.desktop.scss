@@ -295,3 +295,24 @@
     max-height: min(56vh, 460px);
   }
 }
+
+// Mismo ajuste para el chrome de escritorio sobre mapa claro.
+@media (min-width: 900px) {
+  .light-map {
+    .desktop-topbar,
+    .desktop-sidebar {
+      background: rgba(9, 20, 36, 0.9);
+      border-color: rgba(255,255,255,0.16);
+      box-shadow: 0 10px 34px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    // Los secundarios del panel eran #7d93b2 sobre vidrio translúcido: sobre
+    // mapa claro se perdían del todo.
+    .empresa-info span,
+    .ds-empty,
+    .ds-label,
+    .empresa-logo ion-icon { color: #9db2ce; }
+
+    .dt-search span { color: #b3c3d8; }
+  }
+}

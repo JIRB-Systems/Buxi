@@ -769,3 +769,28 @@
   .maplibregl-canvas:focus { outline: none; }
 }
 
+
+// ====== AJUSTES PARA MAPA CLARO ======
+// Todo el chrome es vidrio oscuro al 55-62%: pensado para posarse sobre un
+// mapa oscuro. Sobre terreno claro ese fondo deja pasar demasiada luz, el
+// panel se vuelve gris lavado y los textos secundarios quedan casi ilegibles.
+// Se sube la opacidad y se aclaran los grises secundarios; el chrome sigue
+// siendo oscuro (patrón habitual: interfaz oscura sobre mapa claro), sólo que
+// ahora con el contraste que necesita.
+.light-map {
+  .tb-logo,
+  .tb-search,
+  .tb-profile,
+  .mc-btn,
+  .dock {
+    background: rgba(9, 20, 36, 0.88);
+    border-color: rgba(255,255,255,0.16);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.34);
+  }
+
+  .tb-search span { color: #b3c3d8; }
+  .dock-item {
+    ion-icon, span { color: rgba(232,240,250,0.72); }
+    &.active ion-icon, &.active span { color: #fff; }
+  }
+}
