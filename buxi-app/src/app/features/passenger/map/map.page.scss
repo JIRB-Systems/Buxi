@@ -578,6 +578,25 @@
 
 // ---- MARKERS ----
 :host ::ng-deep {
+  // MapLibre añade su clase `.maplibregl-marker` —y con ella el
+  // `position:absolute; top:0; left:0`— SÓLO a su marcador por defecto. A un
+  // elemento propio no se la pone, así que hay que reponer ese posicionamiento
+  // a mano.
+  //
+  // Sin él, el div queda estático y ocupa TODO el ancho del mapa; entonces el
+  // `translate(-50%)` del anclaje centrado lo desplaza media pantalla en vez de
+  // medio marcador, y el marcador se va fuera de cuadro. Es exactamente por eso
+  // que el círculo de precisión (una capa GeoJSON, que no pasa por esto) caía
+  // bien mientras ningún marcador HTML aparecía.
+  .user-marker,
+  .user-cone-marker,
+  .bus-marker,
+  .stop-marker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: transform;
+  }
   // El bus se acuesta sobre el plano del mapa y gira con él, así que el
   // "3D" lo aporta la cámara inclinada + la sombra proyectada del SVG.
   .bus-marker { cursor: pointer; }
