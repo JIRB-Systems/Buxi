@@ -6,10 +6,15 @@
 
 // Barra y panel flotan sobre el mapa en vez de recortarlo: el mapa se ve de
 // punta a punta y el chrome se apoya encima, igual que el dock inferior.
+// Tres columnas en vez de una fila: así el buscador queda centrado respecto a
+// la PANTALLA y no a lo que sobra después del logo. Con flex, la barra se veía
+// vacía y desbalanceada, con todo amontonado a la izquierda.
 .desktop-topbar {
   position: absolute; top: 16px; left: 16px; right: 16px; z-index: 1001;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 520px) 1fr;
   align-items: center; gap: 18px;
-  height: 56px; padding: 0 16px;
+  height: 56px; padding: 0 14px;
   border-radius: 20px;
   background: rgba(11, 26, 46, 0.62);
   backdrop-filter: blur(26px) saturate(180%);
@@ -18,21 +23,80 @@
   box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
 
   .dt-logo {
-    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-    img { width: 28px; height: 28px; object-fit: contain; }
-    span { font-size: 16px; font-weight: 800; color: #fff; }
+    justify-self: start;
+    display: flex; align-items: center; gap: 9px;
+    min-width: 0;
+  }
+
+  // El logo va en una placa como en móvil: suelto sobre el vidrio se veía
+  // pegado al borde y sin peso propio.
+  .dt-mark {
+    width: 34px; height: 34px;
+    flex-shrink: 0;
+    border-radius: 11px;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+
+    img { width: 22px; height: 22px; object-fit: contain; }
+  }
+
+  .dt-word {
+    font-size: 16px; font-weight: 800; color: #fff;
+    letter-spacing: -0.2px; white-space: nowrap;
   }
 
   .dt-search {
-    flex: 1; max-width: 460px;
+    grid-column: 2;
     display: flex; align-items: center; gap: 10px;
+    height: 38px; padding: 0 16px;
     background: rgba(255,255,255,0.9);
     border: 1px solid rgba(255,255,255,0.5);
-    border-radius: 999px; padding: 9px 16px; cursor: pointer;
-    transition: transform 0.16s ease;
-    &:hover { transform: scale(1.01); }
-    ion-icon { font-size: 16px; color: #8a97a8; }
-    span { font-size: 13px; color: #67748a; font-weight: 500; }
+    border-radius: 999px; cursor: pointer;
+    transition: background 0.16s ease;
+    &:hover { background: #fff; }
+    ion-icon { font-size: 16px; color: #8a97a8; flex-shrink: 0; }
+    span {
+      flex: 1; min-width: 0;
+      font-size: 13px; color: #67748a; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+  }
+
+  .dt-actions {
+    justify-self: end;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  // En escritorio no había forma de abrir el perfil desde la barra: sólo
+  // existía el avatar en móvil.
+  .dt-profile {
+    position: relative;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    cursor: pointer;
+    transition: border-color 0.16s ease, transform 0.16s ease;
+
+    &:hover { border-color: rgba(0,224,106,0.5); }
+    &:active { transform: scale(0.94); }
+
+    ion-icon { font-size: 17px; color: #cfdcec; }
+    .av-photo {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
+    }
+  }
+}
+
+// Pantallas angostas de escritorio: el nombre estorba antes que nada.
+@media (min-width: 900px) and (max-width: 1080px) {
+  .desktop-topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    .dt-word { display: none; }
   }
 }
 
@@ -173,7 +237,10 @@
 // Placed last so these win the cascade against the mobile rules above
 // (same specificity, later source order).
 @media (min-width: 900px) {
-  .desktop-topbar, .desktop-sidebar { display: flex; }
+  // La barra es grid (tres columnas, buscador centrado); el panel sigue siendo
+  // flex. Antes ambas se reactivaban como flex y eso le pisaba el grid.
+  .desktop-topbar { display: grid; }
+  .desktop-sidebar { display: flex; }
 
   // Mobile-only overlays hidden at this width.
   .top-overlay, .live-chip, .route-chip, .eta-card { display: none; }

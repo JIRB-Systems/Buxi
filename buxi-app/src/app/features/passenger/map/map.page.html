@@ -5,12 +5,20 @@
   <!-- ====== DESKTOP LAYOUT (tablet/desktop width) ====== -->
   <div class="desktop-topbar">
     <div class="dt-logo">
-      <img src="assets/icon/buxi-logo-mark.png" alt="Buxi" />
-      <span>Buxi</span>
+      <span class="dt-mark"><img src="assets/icon/buxi-logo-mark.png" alt="" /></span>
+      <span class="dt-word">Buxi</span>
     </div>
+
     <div class="dt-search" (click)="openSearch()">
       <ion-icon name="search-outline"></ion-icon>
-      <span>Buscar rutas, paradas o destinos...</span>
+      <span>Buscar rutas, empresas, paradas o destinos</span>
+    </div>
+
+    <div class="dt-actions">
+      <div class="dt-profile" (click)="toggleProfilePanel()" title="Tu perfil">
+        <ion-icon name="person"></ion-icon>
+        <img *ngIf="avatarUrl as url" [src]="url" alt="" class="av-photo" />
+      </div>
     </div>
   </div>
 
