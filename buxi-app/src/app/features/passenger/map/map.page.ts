@@ -953,27 +953,30 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.updateETA();
   }
 
-  // La persona va SIEMPRE dibujada como base, y la foto de perfil (si hay) se
-  // superpone encima. Así, si la foto no carga —bloqueada por CSP, caída, o el
-  // enlace vencido— queda el dibujo debajo en vez de una chapa vacía, que es
-  // justo lo que pasaba antes.
+  // Sólo la figura, sin chapa. El disco blanco no era adorno: daba el contraste
+  // que necesita cualquier cosa dibujada sobre calles y edificios. Al quitarlo,
+  // ese contraste pasa a un contorno oscuro dibujado DEBAJO del trazo verde
+  // (el grupo de abajo, con trazo más grueso) más la sombra del CSS. Sin eso
+  // la silueta se pierde sobre las zonas claras del mapa.
+  //
+  // La foto de perfil ya no va acá: sin marco circular no hay dónde recortarla.
+  // Sigue estando en la barra superior y en el panel de perfil.
   private userPuckHtml(): string {
-    const photo = this.profile?.foto_url
-      ? `<img class="up-photo" src="${this.profile.foto_url}" alt="" />`
-      : '';
+    const figura = `
+      <path d="M11 8.4v6"/>
+      <path d="M11 14.4 8.4 20.6"/>
+      <path d="M11 14.4 13.4 20.6"/>
+      <path d="M11 10.4 7.4 12.8"/>
+      <path d="M11 10.2 15.6 6.2"/>`;
+
     return `
-      <div class="user-puck">
-        <svg class="up-person" viewBox="0 0 24 24" width="20" height="20" fill="none"
-             stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="5" r="2.9" fill="#fff" stroke="none"/>
-          <path d="M11 8.4v6"/>
-          <path d="M11 14.4 8.4 20.6"/>
-          <path d="M11 14.4 13.4 20.6"/>
-          <path d="M11 10.4 7.4 12.8"/>
-          <path d="M11 10.2 15.6 6.2"/>
-        </svg>
-        ${photo}
-      </div>`;
+      <svg class="up-person" viewBox="0 0 24 24" width="34" height="34" fill="none"
+           stroke-linecap="round" stroke-linejoin="round">
+        <g stroke="rgba(3,18,10,0.9)" stroke-width="5.6">${figura}</g>
+        <circle cx="11" cy="5" r="3.1" fill="#00e06a"
+                stroke="rgba(3,18,10,0.9)" stroke-width="1.8"/>
+        <g stroke="#00e06a" stroke-width="2.7">${figura}</g>
+      </svg>`;
   }
 
   // El cono apunta a donde MIRA el teléfono cuando hay brújula. Si no la hay,
@@ -1036,13 +1039,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       id: 'user-accuracy-fill',
       type: 'fill',
       source: 'user-accuracy',
-      paint: { 'fill-color': '#4285f4', 'fill-opacity': 0.12 },
+      paint: { 'fill-color': '#00e06a', 'fill-opacity': 0.13 },
     });
     this.map.addLayer({
       id: 'user-accuracy-line',
       type: 'line',
       source: 'user-accuracy',
-      paint: { 'line-color': '#4285f4', 'line-width': 1, 'line-opacity': 0.35 },
+      paint: { 'line-color': '#00e06a', 'line-width': 1.2, 'line-opacity': 0.45 },
     });
   }
 

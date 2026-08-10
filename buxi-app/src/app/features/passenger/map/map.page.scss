@@ -622,57 +622,46 @@
   // quedarse pegado al terreno. El tamaño y la maquetación van en un envoltorio.
   .um-inner { position: relative; width: 34px; height: 34px; }
 
-  // Chapa circular con la persona (o la foto de perfil). De cara a la cámara,
-  // así que se lee igual con el mapa girado o inclinado.
-  .user-puck {
+  // La figura sola, sin chapa. De cara a la cámara, así que se lee igual con
+  // el mapa girado o inclinado.
+  .up-person {
     position: absolute;
     top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    display: grid; place-items: center;
-    overflow: hidden;
-    background: linear-gradient(150deg, #4f9dff, #2f6fe0);
-    border: 2.5px solid #fff;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.08);
+    // El SVG está dibujado un poco a la izquierda del centro de su viewBox.
+    transform: translate(calc(-50% + 1.5px), -50%);
+    display: block;
     z-index: 3;
-
-    // La persona es la capa de abajo; la foto la tapa sólo si carga de verdad.
-    .up-person {
-      display: block;
-      // El SVG está dibujado un pelo a la izquierda del centro del viewBox.
-      transform: translateX(1px);
-    }
-
-    .up-photo {
-      position: absolute;
-      inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-    }
+    // Segunda capa de contraste sobre el contorno oscuro del propio SVG: separa
+    // la figura del mapa sin necesidad de devolverle el disco de fondo.
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55));
   }
 
+  // Halo difuso, no anillo: un borde circular volvería a leerse como la chapa
+  // que se quitó. Sólo marca presencia detrás de la figura.
   .user-pulse {
     position: absolute;
     top: 50%; left: 50%;
-    width: 32px; height: 32px;
-    margin: -16px 0 0 -16px;
+    width: 34px; height: 34px;
+    margin: -17px 0 0 -17px;
     border-radius: 50%;
-    background: rgba(79,157,255,0.22);
+    background: radial-gradient(circle, rgba(0,224,106,0.3) 0%, rgba(0,224,106,0) 70%);
     animation: pulsate 2s ease-out infinite;
     z-index: 1;
   }
 
   // Lectura por red con kilómetros de error: se apaga y pierde el borde sólido
   // para que no se lea como una posición confirmada.
+  // Lectura poco fiable: la figura pierde el color de marca y queda gris, para
+  // que no se lea como una posición confirmada.
   .user-marker.coarse {
-    .user-puck {
-      background: linear-gradient(150deg, #7a8ea8, #56698a);
-      border-style: dashed;
-      border-color: rgba(255,255,255,0.7);
-      opacity: 0.85;
+    .up-person {
+      opacity: 0.75;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55)) grayscale(1) brightness(1.3);
     }
-    .user-pulse { animation: none; background: rgba(122,142,168,0.18); }
+    .user-pulse {
+      animation: none;
+      background: radial-gradient(circle, rgba(150,165,185,0.22) 0%, rgba(150,165,185,0) 70%);
+    }
   }
 
   // Haz de luz sobre el suelo. El degradado se apaga hacia afuera y los bordes
@@ -686,10 +675,10 @@
     margin-left: -46px;
     background: radial-gradient(
       ellipse 62% 100% at 50% 100%,
-      rgba(79,157,255,0.62) 0%,
-      rgba(79,157,255,0.30) 42%,
-      rgba(79,157,255,0.06) 78%,
-      rgba(79,157,255,0) 100%
+      rgba(0,224,106,0.6) 0%,
+      rgba(0,224,106,0.28) 42%,
+      rgba(0,224,106,0.06) 78%,
+      rgba(0,224,106,0) 100%
     );
     clip-path: polygon(50% 100%, 14% 0%, 86% 0%);
     filter: blur(1.5px);
