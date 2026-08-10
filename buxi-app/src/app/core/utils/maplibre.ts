@@ -234,14 +234,18 @@ export function tintLightMap(map: maplibregl.Map): void {
   // pintaría de azul hasta el último callejón. Se usa el atributo `class` del
   // esquema OpenMapTiles para conservar la jerarquía: azul sólo en las vías
   // importantes, blanco en las calles de barrio, como en la referencia.
-  // Prueba en naranja. Se conserva la jerarquía por `class` para poder juzgar
-  // el resultado: un naranja plano en toda la red no diría nada.
+  // Prueba en gris. Se conserva la jerarquía por `class` para poder juzgar el
+  // resultado: un gris plano en toda la red no diría nada.
+  //
+  // Los valores arrancan oscuros a propósito. En gris no hay tono que ayude a
+  // separar la vía del terreno —como sí hacían el azul o el naranja—, así que
+  // todo el contraste tiene que salir de la luminosidad.
   paint('Road network', 'line-color', [
     'match', ['get', 'class'],
-    ['motorway', 'trunk'], '#e2680a',
-    ['primary'], '#f2861f',
-    ['secondary', 'tertiary'], '#f7a85c',
-    '#c69766',
+    ['motorway', 'trunk'], '#4a4f57',
+    ['primary'], '#666c75',
+    ['secondary', 'tertiary'], '#868d97',
+    '#a5abb3',
   ]);
 
   // Ancho explícito por jerarquía y zoom. El estilo original adelgaza mucho las
@@ -282,9 +286,9 @@ function addRoadCasing(map: maplibregl.Map): void {
           ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false],
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          // El contorno acompaña al naranja: en azul quedaría un halo frío
-          // alrededor de una vía cálida y se vería sucio.
-          'line-color': '#8a3d05',
+          // El contorno acompaña al color de la vía; con otro tono se vería como
+          // un halo sucio alrededor de la línea.
+          'line-color': '#23262b',
           'line-opacity': 0.45,
           'line-width': [
             'interpolate', ['linear'], ['zoom'],
