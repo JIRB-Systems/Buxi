@@ -41,22 +41,31 @@
     letter-spacing: -0.2px; white-space: nowrap;
   }
 
+  // Mismo vidrio oscuro que el buscador móvil. Era una píldora blanca sólida
+  // dentro de una barra oscura: el único elemento claro de todo el chrome.
   .dt-search {
     grid-column: 2;
     display: flex; align-items: center; gap: 10px;
     height: 38px; padding: 0 16px;
-    background: rgba(255,255,255,0.9);
-    border: 1px solid rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.13);
     border-radius: 999px; cursor: pointer;
-    transition: background 0.16s ease;
-    &:hover { background: #fff; }
-    ion-icon { font-size: 16px; color: #8a97a8; flex-shrink: 0; }
+    transition: background 0.16s ease, border-color 0.16s ease;
+
+    &:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(0,224,106,0.45);
+    }
+
+    ion-icon { font-size: 16px; color: #8ea4c2; flex-shrink: 0; }
     span {
       flex: 1; min-width: 0;
-      font-size: 13px; color: #67748a; font-weight: 500;
+      font-size: 13px; color: #93a7c2; font-weight: 500;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
   }
+
+  .dt-ph-short { display: none; }
 
   .dt-actions {
     justify-self: end;
@@ -87,11 +96,15 @@
   }
 }
 
-// Pantallas angostas de escritorio: el nombre estorba antes que nada.
-@media (min-width: 900px) and (max-width: 1080px) {
+// Pantallas angostas de escritorio. Se sueltan cosas en orden de importancia:
+// primero el nombre junto al logo (la marca ya se identifica sola), y después
+// el texto largo del buscador, que si no se corta a media palabra.
+@media (min-width: 900px) and (max-width: 1180px) {
   .desktop-topbar {
     grid-template-columns: auto minmax(0, 1fr) auto;
     .dt-word { display: none; }
+    .dt-ph-full { display: none; }
+    .dt-ph-short { display: block; }
   }
 }
 
