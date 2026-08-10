@@ -43,7 +43,9 @@
   border: 1px solid rgba(255,255,255,0.14);
   box-shadow: 0 4px 20px rgba(0,0,0,0.28);
 
-  img { width: 24px; height: 24px; object-fit: contain; }
+  // Acá la placa sí se conserva: en móvil la marca va sola sobre el mapa y
+  // necesita ese fondo para separarse de un terreno claro.
+  svg { width: 26px; height: 26px; display: block; }
 }
 
 .tb-search {

@@ -28,17 +28,12 @@
     min-width: 0;
   }
 
-  // El logo va en una placa como en móvil: suelto sobre el vidrio se veía
-  // pegado al borde y sin peso propio.
+  // La marca vectorial ya tiene forma propia y contraste; no necesita la placa
+  // de fondo que sí hacía falta para tapar el rectángulo negro del PNG.
   .dt-mark {
-    width: 34px; height: 34px;
+    width: 32px; height: 32px;
     flex-shrink: 0;
-    border-radius: 11px;
-    display: grid; place-items: center;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.1);
-
-    img { width: 22px; height: 22px; object-fit: contain; }
+    display: block;
   }
 
   .dt-word {
