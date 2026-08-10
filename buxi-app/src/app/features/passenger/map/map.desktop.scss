@@ -11,7 +11,12 @@
 // vacía y desbalanceada, con todo amontonado a la izquierda.
 .desktop-topbar {
   position: absolute; top: 16px; left: 16px; right: 16px; z-index: 1001;
-  display: grid;
+  // Acá NO va `display`. Este bloque viene DESPUÉS del `display: none` de
+  // arriba y con la misma especificidad, así que declarar `display: grid` acá
+  // lo pisaba y la barra quedaba visible SIEMPRE — también en móvil, dibujada
+  // por debajo de la barra móvil. El `display: grid` vive únicamente dentro
+  // del @media de escritorio, al final del archivo.
+  //
   // Columnas laterales `auto`: se dimensionan EXACTAMENTE a su contenido, así
   // que el logo nunca queda más angosto que el texto que lleva dentro.
   //
