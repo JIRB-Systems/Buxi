@@ -215,8 +215,15 @@ export function tintLightMap(map: maplibregl.Map): void {
   ]);
 
   // ---- Suelo ----
-  paint('Sand', 'fill-color', '#f0e6cd');
-  paint('Residential', 'fill-color', '#f3f3f1');
+  // Un punto más oscuro y cálido que el original. El fondo casi blanco era la
+  // razón de fondo por la que las calles no se veían: no hay color de vía que
+  // resalte contra un lienzo del mismo valor.
+  paint('Sand', 'fill-color', '#ece0c4');
+  paint('Residential', 'fill-color', '#e9e7e0');
+  try {
+    const bg = (map.getStyle().layers || []).find(l => l.type === 'background');
+    if (bg) map.setPaintProperty(bg.id, 'background-color', '#eef0e6');
+  } catch {}
 
   // ---- Carreteras ----
   // `Road network` es UNA sola capa para toda la red, así que un color plano
@@ -225,12 +232,67 @@ export function tintLightMap(map: maplibregl.Map): void {
   // importantes, blanco en las calles de barrio, como en la referencia.
   paint('Road network', 'line-color', [
     'match', ['get', 'class'],
-    ['motorway', 'trunk'], '#6f8fc9',
-    ['primary'], '#8aa5d8',
-    ['secondary', 'tertiary'], '#adc0e2',
-    '#ffffff',
+    ['motorway', 'trunk'], '#1f5fc4',
+    ['primary'], '#3f7fd8',
+    ['secondary', 'tertiary'], '#6d9ce0',
+    // Las calles de barrio NO van en blanco. Ese era el error: sobre un fondo
+    // casi blanco desaparecían. Un gris cálido OSCURO las hace legibles sin
+    // competir en color con las vías principales.
+    '#8d877c',
   ]);
-  paint('Bridge', 'fill-color', '#c9d4e8');
+
+  // Ancho explícito por jerarquía y zoom. El estilo original adelgaza mucho las
+  // vías a zoom medio, que es justo donde se mira una ciudad entera.
+  paint('Road network', 'line-width', [
+    'interpolate', ['linear'], ['zoom'],
+    6, ['match', ['get', 'class'], ['motorway', 'trunk'], 1.8, ['primary'], 1.2, 0.6],
+    10, ['match', ['get', 'class'], ['motorway', 'trunk'], 4, ['primary'], 2.8, ['secondary', 'tertiary'], 1.9, 1.1],
+    14, ['match', ['get', 'class'], ['motorway', 'trunk'], 7, ['primary'], 5.2, ['secondary', 'tertiary'], 3.6, 2.2],
+    18, ['match', ['get', 'class'], ['motorway', 'trunk'], 16, ['primary'], 12, ['secondary', 'tertiary'], 9, 5.5],
+  ]);
+
+  paint('Bridge', 'fill-color', '#cfd8e6');
+
+  // Contorno bajo las vías principales. Es lo que en cartografía les da
+  // presencia: sin él, una línea de color plano sobre terreno claro se lee
+  // como un trazo suelto y no como una carretera.
+  addRoadCasing(map);
+}
+
+function addRoadCasing(map: maplibregl.Map): void {
+  const CASING_ID = 'buxi-road-casing';
+  if (map.getLayer(CASING_ID)) return;
+
+  const road = (map.getStyle().layers || []).find(l => l.id === 'Road network') as any;
+  if (!road?.source) return;
+
+  try {
+    map.addLayer(
+      {
+        id: CASING_ID,
+        type: 'line',
+        source: road.source,
+        'source-layer': road['source-layer'],
+        // Incluye también secundarias y terciarias: son las que estructuran una
+        // ciudad como Liberia, y sin contorno se perdían junto a las de barrio.
+        filter: ['match', ['get', 'class'],
+          ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#14418a',
+          'line-opacity': 0.45,
+          'line-width': [
+            'interpolate', ['linear'], ['zoom'],
+            6, 3,
+            10, 6,
+            14, 10,
+            18, 21,
+          ],
+        },
+      },
+      'Road network',
+    );
+  } catch { /* si el estilo cambia de estructura, el mapa sigue sin el contorno */ }
 }
 
 export function set3DEnabled(map: maplibregl.Map, enabled: boolean, dark = true): void {
