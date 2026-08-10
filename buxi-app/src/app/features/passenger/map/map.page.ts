@@ -10,7 +10,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
-import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl } from '../../../core/utils/maplibre';
+import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
@@ -635,6 +635,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
       if (this.is3D) {
         try { enable3D(this.map, this.darkMode); } catch {}
+        // El repintado va DESPUÉS del 3D: enable3D inserta la capa de edificios
+        // y este paso ajusta el resto de la paleta del estilo claro.
+        if (!this.darkMode) { try { tintLightMap(this.map); } catch {} }
       }
 
       // El círculo se redibuja desde la última posición conocida.

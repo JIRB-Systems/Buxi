@@ -62,7 +62,9 @@ export function createMap(opts: {
 
     map.on('load', () => {
       if (opts.threeD) {
-        try { enable3D(map, isDarkStyle(opts.style ?? "streets-v2-dark")); } catch { /* el mapa sigue siendo usable en 2D */ }
+        const dark = isDarkStyle(opts.style ?? "streets-v2-dark");
+        try { enable3D(map, dark); } catch { /* el mapa sigue siendo usable en 2D */ }
+        if (!dark) { try { tintLightMap(map); } catch {} }
       }
       done();
     });
@@ -171,6 +173,64 @@ export function enable3D(map: maplibregl.Map, dark = true): void {
       firstSymbolLayerId(map),
     );
   }
+}
+
+// Repinta el estilo claro con una paleta propia, al estilo Google Maps: verdes
+// más vivos, agua celeste y carreteras azules. MapTiler no ofrece un estilo así,
+// pero sus capas se pueden repintar en caliente una vez cargado el estilo.
+//
+// Cada asignación va protegida: si MapTiler renombra o quita una capa, esa
+// línea se ignora y el mapa sigue funcionando con su color original en vez de
+// romperse entero.
+export function tintLightMap(map: maplibregl.Map): void {
+  const paint = (id: string, prop: string, value: any) => {
+    try {
+      if (map.getLayer(id)) map.setPaintProperty(id, prop as any, value);
+    } catch { /* capa ausente o propiedad no aplicable a este tipo */ }
+  };
+
+  // ---- Vegetación ----
+  paint('Forest', 'fill-color', '#a9d6a0');
+  paint('Wood', 'fill-color', '#a9d6a0');
+  paint('Park', 'fill-color', '#c3e6b4');
+  paint('Grass', 'fill-color', '#c8e8b8');
+  paint('Scrub', 'fill-color', '#cfe6bb');
+  for (const id of ['Forest', 'Wood', 'Park', 'Grass', 'Scrub']) {
+    paint(id, 'fill-opacity', 0.9);
+  }
+
+  // ---- Agua ----
+  // Azul saturado, no el celeste pálido del estilo original: el agua es el
+  // rasgo geográfico que más orienta de un vistazo (costa, golfo, ríos), y
+  // desvaída se perdía contra el terreno claro. `Water` cubre mar y lagos.
+  paint('Water', 'fill-color', '#2e90e0');
+  paint('Water', 'fill-opacity', 1);
+  paint('River', 'line-color', '#1f86d8');
+  // Un río de 1px a este zoom desaparece; se le da cuerpo creciente con el zoom.
+  paint('River', 'line-width', [
+    'interpolate', ['linear'], ['zoom'],
+    8, 1.2,
+    12, 2.4,
+    16, 4,
+  ]);
+
+  // ---- Suelo ----
+  paint('Sand', 'fill-color', '#f0e6cd');
+  paint('Residential', 'fill-color', '#f3f3f1');
+
+  // ---- Carreteras ----
+  // `Road network` es UNA sola capa para toda la red, así que un color plano
+  // pintaría de azul hasta el último callejón. Se usa el atributo `class` del
+  // esquema OpenMapTiles para conservar la jerarquía: azul sólo en las vías
+  // importantes, blanco en las calles de barrio, como en la referencia.
+  paint('Road network', 'line-color', [
+    'match', ['get', 'class'],
+    ['motorway', 'trunk'], '#6f8fc9',
+    ['primary'], '#8aa5d8',
+    ['secondary', 'tertiary'], '#adc0e2',
+    '#ffffff',
+  ]);
+  paint('Bridge', 'fill-color', '#c9d4e8');
 }
 
 export function set3DEnabled(map: maplibregl.Map, enabled: boolean, dark = true): void {
