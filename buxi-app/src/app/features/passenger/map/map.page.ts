@@ -1027,9 +1027,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       <svg class="up-person" viewBox="0 0 24 24" width="34" height="34" fill="none"
            stroke-linecap="round" stroke-linejoin="round">
         <g stroke="rgba(3,18,10,0.9)" stroke-width="5.6">${figura}</g>
-        <circle cx="11" cy="5" r="3.1" fill="#00e06a"
+        <circle cx="11" cy="5" r="3.1" fill="#00ff88"
                 stroke="rgba(3,18,10,0.9)" stroke-width="1.8"/>
-        <g stroke="#00e06a" stroke-width="2.7">${figura}</g>
+        <g stroke="#00ff88" stroke-width="2.7">${figura}</g>
       </svg>`;
   }
 
