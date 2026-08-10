@@ -117,9 +117,12 @@
           <path d="M31.8 17.2a9.8 9.8 0 0 0 0-12.4" stroke="#00e06a" stroke-width="2.7" stroke-linecap="round"/>
         </svg>
       </div>
+      <!-- Dos textos en vez de uno recortado: en pantallas angostas el completo
+           se cortaba a media palabra ("...para..."), que se lee como un error. -->
       <div class="tb-search" (click)="openSearch()">
         <ion-icon name="search-outline"></ion-icon>
-        <span>Buscar rutas, empresas, paradas o destinos</span>
+        <span class="tb-ph-full">Buscar rutas, empresas, paradas o destinos</span>
+        <span class="tb-ph-short">Buscar rutas o destinos</span>
       </div>
       <!-- El ícono va siempre debajo y la foto encima: si la foto no carga,
            queda el ícono en vez de un círculo vacío. -->
