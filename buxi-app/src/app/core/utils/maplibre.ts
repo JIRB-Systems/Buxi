@@ -205,7 +205,10 @@ export function tintLightMap(map: maplibregl.Map): void {
   // desvaída se perdía contra el terreno claro. `Water` cubre mar y lagos.
   paint('Water', 'fill-color', '#2e90e0');
   paint('Water', 'fill-opacity', 1);
-  paint('River', 'line-color', '#1f86d8');
+  // El río va más suave que el mar a propósito: con el mismo azul saturado, una
+  // línea fina compite con las carreteras y satura la escena. Un tono más claro
+  // lo mantiene reconocible como agua sin robarle protagonismo a las vías.
+  paint('River', 'line-color', '#6fb2dd');
   // Un río de 1px a este zoom desaparece; se le da cuerpo creciente con el zoom.
   paint('River', 'line-width', [
     'interpolate', ['linear'], ['zoom'],
@@ -238,17 +241,17 @@ export function tintLightMap(map: maplibregl.Map): void {
     // Las calles de barrio NO van en blanco. Ese era el error: sobre un fondo
     // casi blanco desaparecían. Un gris cálido OSCURO las hace legibles sin
     // competir en color con las vías principales.
-    '#8d877c',
+    '#736d62',
   ]);
 
   // Ancho explícito por jerarquía y zoom. El estilo original adelgaza mucho las
   // vías a zoom medio, que es justo donde se mira una ciudad entera.
   paint('Road network', 'line-width', [
     'interpolate', ['linear'], ['zoom'],
-    6, ['match', ['get', 'class'], ['motorway', 'trunk'], 1.8, ['primary'], 1.2, 0.6],
-    10, ['match', ['get', 'class'], ['motorway', 'trunk'], 4, ['primary'], 2.8, ['secondary', 'tertiary'], 1.9, 1.1],
-    14, ['match', ['get', 'class'], ['motorway', 'trunk'], 7, ['primary'], 5.2, ['secondary', 'tertiary'], 3.6, 2.2],
-    18, ['match', ['get', 'class'], ['motorway', 'trunk'], 16, ['primary'], 12, ['secondary', 'tertiary'], 9, 5.5],
+    6, ['match', ['get', 'class'], ['motorway', 'trunk'], 2.4, ['primary'], 1.7, 0.9],
+    10, ['match', ['get', 'class'], ['motorway', 'trunk'], 5.4, ['primary'], 4, ['secondary', 'tertiary'], 2.8, 1.8],
+    14, ['match', ['get', 'class'], ['motorway', 'trunk'], 9.5, ['primary'], 7.2, ['secondary', 'tertiary'], 5.2, 3.4],
+    18, ['match', ['get', 'class'], ['motorway', 'trunk'], 21, ['primary'], 16, ['secondary', 'tertiary'], 12, 7.5],
   ]);
 
   paint('Bridge', 'fill-color', '#cfd8e6');
@@ -280,13 +283,13 @@ function addRoadCasing(map: maplibregl.Map): void {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': '#14418a',
-          'line-opacity': 0.45,
+          'line-opacity': 0.5,
           'line-width': [
             'interpolate', ['linear'], ['zoom'],
-            6, 3,
-            10, 6,
-            14, 10,
-            18, 21,
+            6, 4,
+            10, 8,
+            14, 13.5,
+            18, 28,
           ],
         },
       },
