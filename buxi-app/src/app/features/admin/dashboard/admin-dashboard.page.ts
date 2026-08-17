@@ -272,18 +272,13 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
     // Mismo estilo "rico" (edificios 3D, relieve, cielo, POIs) que el mapa
     // de pasajero y el dashboard de empresa, en vez del dataviz-dark plano.
-    // Sin embargo, pitch inclinado NO sirve acá: este mapa arranca a nivel
-    // de todo el país (zoom 10), y con la cámara inclinada sobre el relieve
-    // montañoso de Costa Rica, se ve la Zona Norte al fondo del cuadro en
-    // vez de la vista general — parecía que el mapa apuntaba a cualquier
-    // lado. Vista plana: mismo estilo, sin la distorsión de perspectiva.
     const map = await createMap({
       container: elementId,
       center: [-84.0907, 9.9281],
       zoom: 10,
       style: 'streets-v2-dark',
       threeD: true,
-      pitch: 0,
+      pitch: 50,
       // El mapa vive dentro de una página con scroll: sin gestos
       // cooperativos la rueda hace zoom en vez de bajar la página.
       cooperativeGestures: true,
@@ -291,14 +286,6 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     if (this.adminMap !== null) { try { map.remove(); } catch {} return; }
     this.adminMap = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-
-    // DEBUG TEMPORAL: instrumentación para encontrar qué mueve la cámara.
-    const t0 = Date.now();
-    map.on('move', () => {
-      const c = map.getCenter();
-      // eslint-disable-next-line no-console
-      console.log(`[DEBUG-MAP t+${Date.now() - t0}ms] center=${c.lng.toFixed(4)},${c.lat.toFixed(4)} zoom=${map.getZoom().toFixed(2)} pitch=${map.getPitch().toFixed(1)}`);
-    });
 
     // El contenedor de la pestaña "Mapa en vivo" recién aparece por el
     // *ngIf al cambiar de tab: MapLibre mide su tamaño en el momento de
