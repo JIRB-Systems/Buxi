@@ -109,7 +109,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   async addReporte() {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Reportar un problema',
       inputs: [
         { name: 'titulo', placeholder: 'Título breve', type: 'text' },
@@ -350,7 +350,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     if (!last) return;
 
     if (!last.id.startsWith('temp-')) {
-      const alert = await this.alertCtrl.create({
+      const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
         header: 'Quitar parada',
         message: `¿Eliminar "${last.nombre}" del trazado? Esto la borra permanentemente.`,
         buttons: [
@@ -485,7 +485,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   async deleteRuta(r: Ruta) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Eliminar ruta', message: `¿Eliminar "${r.nombre}"?`,
       buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Eliminar', role: 'destructive', handler: async () => {
         await this.admin.deleteRuta(r.id); await this.loadData(); this.showToast('Eliminada');
@@ -496,7 +496,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   // ---- BUSES ----
   async addBus() {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Nuevo bus',
       inputs: [
         { name: 'placa', placeholder: 'Placa', type: 'text' },
@@ -516,25 +516,25 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async assignBusRoute(bus: Bus) {
     const inputs = this.rutas.map(r => ({ type: 'radio' as const, label: r.nombre, value: r.id, checked: bus.ruta_id === r.id }));
     inputs.unshift({ type: 'radio' as const, label: 'Sin ruta', value: '', checked: !bus.ruta_id });
-    const alert = await this.alertCtrl.create({ header: `Ruta de ${bus.placa}`, inputs, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Asignar', handler: async (v) => { await this.admin.updateBus(bus.id, { ruta_id: v || null }); await this.loadData(); } }] });
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert', header: `Ruta de ${bus.placa}`, inputs, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Asignar', handler: async (v) => { await this.admin.updateBus(bus.id, { ruta_id: v || null }); await this.loadData(); } }] });
     await alert.present();
   }
 
   async assignBusChofer(bus: Bus) {
     const inputs = this.choferes.map(c => ({ type: 'radio' as const, label: c.nombre_completo, value: c.id, checked: bus.chofer_id === c.id }));
     inputs.unshift({ type: 'radio' as const, label: 'Sin chofer', value: '', checked: !bus.chofer_id });
-    const alert = await this.alertCtrl.create({ header: `Chofer de ${bus.placa}`, inputs, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Asignar', handler: async (v) => { await this.admin.updateBus(bus.id, { chofer_id: v || null }); await this.loadData(); } }] });
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert', header: `Chofer de ${bus.placa}`, inputs, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Asignar', handler: async (v) => { await this.admin.updateBus(bus.id, { chofer_id: v || null }); await this.loadData(); } }] });
     await alert.present();
   }
 
   async deleteBus(bus: Bus) {
-    const alert = await this.alertCtrl.create({ header: 'Eliminar bus', message: `¿Eliminar ${bus.placa}?`, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Eliminar', role: 'destructive', handler: async () => { await this.admin.deleteBus(bus.id); await this.loadData(); } }] });
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert', header: 'Eliminar bus', message: `¿Eliminar ${bus.placa}?`, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Eliminar', role: 'destructive', handler: async () => { await this.admin.deleteBus(bus.id); await this.loadData(); } }] });
     await alert.present();
   }
 
   // ---- CHOFERES ----
   async addChofer() {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Nuevo chofer',
       inputs: [
         { name: 'nombre', placeholder: 'Nombre completo', type: 'text' },
@@ -552,7 +552,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   async editChofer(c: UserProfile) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Editar chofer',
       inputs: [
         { name: 'nombre', placeholder: 'Nombre completo', type: 'text', value: c.nombre_completo },
@@ -581,7 +581,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   async resetChoferPassword(c: UserProfile) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: `Nueva contraseña para ${c.nombre_completo}`,
       inputs: [{ name: 'password', placeholder: 'Contraseña nueva (mín. 6 caracteres)', type: 'password' }],
       buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
@@ -597,7 +597,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   async deleteChofer(c: UserProfile) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Eliminar chofer',
       message: `¿Eliminar a "${c.nombre_completo}"? Esto borra su cuenta por completo y no se puede deshacer.`,
       buttons: [

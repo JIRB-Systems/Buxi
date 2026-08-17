@@ -156,6 +156,53 @@ ion-alert.buxi-alert {
     background: rgba(255, 82, 82, 0.13);
     border-color: rgba(255, 82, 82, 0.36);
   }
+
+  // ---- Inputs de texto/textarea ----
+  // Sin esto se ve el input default del navegador: fondo blanco sólido
+  // dentro de un diálogo de vidrio oscuro.
+  .alert-input-group { padding: 0 22px 8px; }
+  .alert-input,
+  .alert-textarea {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    color: #fff;
+    padding: 10px 12px;
+    font-size: 14px;
+    margin-bottom: 8px;
+
+    &::placeholder { color: #6b7d99; }
+    &:focus { border-color: #00c853; }
+  }
+
+  // ---- Radios y checkboxes ----
+  // El label de un ion-radio/ion-checkbox en un alert hereda el color de
+  // texto del sistema (oscuro), invisible sobre este fondo oscuro: por eso
+  // los radios se veían "vacíos", sin ninguna opción legible al lado.
+  .alert-radio-group,
+  .alert-checkbox-group {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    border-bottom: none;
+  }
+
+  .alert-radio-label,
+  .alert-checkbox-label {
+    color: #e4e8ed !important;
+    font-size: 14px;
+  }
+
+  .alert-radio-icon,
+  .alert-checkbox-icon {
+    border-color: rgba(255,255,255,0.3) !important;
+  }
+
+  .alert-radio-inner { background-color: #00c853 !important; }
+  .alert-checkbox-icon.alert-checkbox-icon-checked {
+    background-color: #00c853 !important;
+    border-color: #00c853 !important;
+  }
+
+  .alert-tappable:hover { background: rgba(255,255,255,0.04); }
 }
 
 // Dark mode

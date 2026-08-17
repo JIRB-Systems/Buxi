@@ -464,7 +464,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
   // ---- EMPRESAS ----
   async addEmpresa() {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Nueva empresa',
       inputs: [
         { name: 'nombre', placeholder: 'Nombre de la empresa', type: 'text' },
@@ -499,7 +499,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async deleteEmpresa(empresa: Empresa) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Eliminar empresa',
       message: `¿Eliminar "${empresa.nombre}"? Se borrarán todas sus rutas, buses y datos asociados.`,
       buttons: [
@@ -519,7 +519,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       type: 'radio' as const, label: e.nombre, value: e.id,
     }));
 
-    const step1 = await this.alertCtrl.create({
+    const step1 = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Seleccionar empresa',
       inputs: empresaInputs,
       buttons: [
@@ -535,7 +535,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   private async addRutaStep2(empresaId: string) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Nueva ruta',
       inputs: [
         { name: 'nombre', placeholder: 'Nombre de la ruta', type: 'text' },
@@ -568,7 +568,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async deleteRuta(ruta: Ruta) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Eliminar ruta',
       message: `¿Eliminar "${ruta.nombre}"?`,
       buttons: [
@@ -584,7 +584,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
   // ---- BUSES ----
   async deleteBus(bus: Bus) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Eliminar bus', message: `¿Eliminar ${bus.placa}?`,
       buttons: [
         { text: 'Cancelar', role: 'cancel' },
@@ -638,7 +638,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       { type: 'radio' as const, label: 'Admin JIRB', value: 'admin_jirb', checked: user.rol === 'admin_jirb' },
     ];
 
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: `Rol de ${user.nombre_completo}`,
       inputs,
       buttons: [
@@ -661,7 +661,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       type: 'radio' as const, label: e.nombre, value: e.id,
     }));
 
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Asignar a empresa',
       inputs,
       buttons: [
@@ -718,7 +718,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async approveSolicitud(sol: any) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Aprobar solicitud',
       message: `Se creará la empresa "${sol.nombre_empresa}" y una cuenta admin_empresa para ${sol.email}`,
       inputs: [
@@ -772,7 +772,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async responderReporte(r: ReporteBug) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: `Responder: ${r.titulo}`,
       inputs: [
         { name: 'estado', type: 'radio', label: 'Pendiente', value: 'pendiente', checked: r.estado === 'pendiente' },
@@ -780,7 +780,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         { name: 'estado', type: 'radio', label: 'Resuelto', value: 'resuelto', checked: r.estado === 'resuelto' },
       ],
       buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Siguiente', handler: async (estado) => {
-        const alert2 = await this.alertCtrl.create({
+        const alert2 = await this.alertCtrl.create({ cssClass: 'buxi-alert',
           header: 'Respuesta para la empresa',
           inputs: [{ name: 'respuesta', type: 'textarea', placeholder: 'Explicá qué se hizo o qué falta', value: r.respuesta_jirb || '' }],
           buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
@@ -804,24 +804,37 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   getReporteEstadoColor(e: string) { return { pendiente: '#ff9800', en_revision: '#2196f3', resuelto: '#00c853' }[e] || '#9aa5b4'; }
 
   // ---- AVISOS DEL SISTEMA ----
+  // Ionic AlertController no soporta mezclar inputs de texto con inputs de
+  // radio en el mismo diálogo (el radio termina renderizando un <input
+  // type="radio"> suelto, sin ninguna etiqueta al lado). Por eso va
+  // encadenado: primero título/mensaje (texto), después el tipo (radio solo).
   async addAviso() {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Nuevo aviso',
       inputs: [
         { name: 'titulo', placeholder: 'Título', type: 'text' },
         { name: 'mensaje', placeholder: 'Mensaje para todas las empresas', type: 'textarea' },
-        { name: 'tipo', type: 'radio', label: 'Info', value: 'info', checked: true },
-        { name: 'tipo', type: 'radio', label: 'Advertencia', value: 'advertencia' },
-        { name: 'tipo', type: 'radio', label: 'Urgente', value: 'urgente' },
       ],
-      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Publicar', handler: async (d) => {
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Siguiente', handler: async (d) => {
         if (!d.titulo || !d.mensaje) return false;
-        try {
-          await this.admin.createAviso(this.profile!.id, d.titulo, d.mensaje, d.tipo || 'info');
-          await this.logAction('Crear aviso', d.titulo, 'aviso_sistema');
-          await this.loadData();
-          this.showToast('Aviso publicado');
-        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        const alert2 = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+          header: 'Tipo de aviso',
+          inputs: [
+            { name: 'tipo', type: 'radio', label: 'Info', value: 'info', checked: true },
+            { name: 'tipo', type: 'radio', label: 'Advertencia', value: 'advertencia' },
+            { name: 'tipo', type: 'radio', label: 'Urgente', value: 'urgente' },
+          ],
+          buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Publicar', handler: async (tipo) => {
+            try {
+              await this.admin.createAviso(this.profile!.id, d.titulo, d.mensaje, tipo || 'info');
+              await this.logAction('Crear aviso', d.titulo, 'aviso_sistema');
+              await this.loadData();
+              this.showToast('Aviso publicado');
+            } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+            return true;
+          }}],
+        });
+        await alert2.present();
         return true;
       }}],
     });
@@ -837,7 +850,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async deleteAviso(a: AvisoSistema) {
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Eliminar aviso', message: `¿Eliminar "${a.titulo}"?`,
       buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Eliminar', role: 'destructive', handler: async () => {
         await this.admin.deleteAviso(a.id); await this.loadData(); this.showToast('Aviso eliminado');
@@ -870,7 +883,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       checked: this.getEmpresaPlan(empresa.id) === p.nombre,
     }));
 
-    const alert = await this.alertCtrl.create({
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: `Plan de ${empresa.nombre}`,
       inputs,
       buttons: [
