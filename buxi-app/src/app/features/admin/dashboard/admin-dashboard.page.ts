@@ -330,11 +330,11 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       const { latitude, longitude, accuracy } = position.coords;
       this.renderUserPosition(latitude, longitude, accuracy);
 
-      // Si no hay buses transmitiendo para encuadrar, abre centrado en el
-      // usuario en vez del centro fijo de Costa Rica.
-      if (this.liveLocations.length === 0) {
-        this.adminMap.jumpTo({ center: [longitude, latitude], zoom: 14 });
-      }
+      // A propósito NO se recentra el mapa acá. Este dashboard es para
+      // vigilar la flota de todo el país, no la posición del admin que lo
+      // mira: saltar a su ubicación (a menudo por WiFi/IP, fácil que erre
+      // varios km o directo el país) dejaba el mapa mostrando una región
+      // random en vez de la vista general de Costa Rica.
 
       // La primera lectura suele venir de WiFi/IP y puede errar kilómetros; el
       // navegador la refina en los segundos siguientes. Sin este watch el mapa
