@@ -124,6 +124,30 @@ export class AdminEmpresaService {
     }
   }
 
+  async updateChofer(id: string, updates: Partial<UserProfile>): Promise<void> {
+    const { error } = await this.supabase.from('profiles').update(updates).eq('id', id);
+    if (error) throw error;
+  }
+
+  // El borrado real y el reseteo de contraseña tocan auth.users, que
+  // requiere la service_role key — no puede hacerse desde el navegador con
+  // la anon key, por eso pasa por la edge function manage-chofer.
+  async deleteChofer(id: string): Promise<void> {
+    const { data, error } = await this.supabase.functions.invoke('manage-chofer', {
+      body: { choferId: id, action: 'delete' },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+  }
+
+  async resetChoferPassword(id: string, newPassword: string): Promise<void> {
+    const { data, error } = await this.supabase.functions.invoke('manage-chofer', {
+      body: { choferId: id, action: 'reset_password', newPassword },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+  }
+
   // ---- HORARIOS ----
   async getHorarios(rutaId: string): Promise<Horario[]> {
     const { data, error } = await this.supabase.from('horarios').select('*').eq('ruta_id', rutaId);

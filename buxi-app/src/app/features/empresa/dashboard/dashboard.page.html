@@ -194,6 +194,12 @@
                 <span class="muted">{{ c.correo }}</span>
               </div>
               <span class="badge" [style.color]="c.estado==='activo'?'#00c853':'#aaa'">{{ c.estado }}</span>
+              <div class="act-group">
+                <ion-icon name="create-outline" class="act-icon" (click)="editChofer(c)"></ion-icon>
+                <ion-icon [name]="c.estado==='activo' ? 'pause-circle-outline' : 'play-circle-outline'" class="act-icon" (click)="toggleChoferEstado(c)"></ion-icon>
+                <ion-icon name="key-outline" class="act-icon" (click)="resetChoferPassword(c)"></ion-icon>
+                <ion-icon name="trash-outline" class="act-icon danger" (click)="deleteChofer(c)"></ion-icon>
+              </div>
             </div>
             <div class="empty" *ngIf="choferes.length===0">No hay choferes</div>
           </div>

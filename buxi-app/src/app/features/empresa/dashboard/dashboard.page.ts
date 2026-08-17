@@ -507,6 +507,69 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     await alert.present();
   }
 
+  async editChofer(c: UserProfile) {
+    const alert = await this.alertCtrl.create({
+      header: 'Editar chofer',
+      inputs: [
+        { name: 'nombre', placeholder: 'Nombre completo', type: 'text', value: c.nombre_completo },
+        { name: 'telefono', placeholder: 'Teléfono', type: 'tel', value: c.telefono || '' },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
+        if (!d.nombre) return false;
+        try {
+          await this.admin.updateChofer(c.id, { nombre_completo: d.nombre, telefono: d.telefono || null });
+          await this.loadData();
+          this.showToast('Chofer actualizado');
+        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  async toggleChoferEstado(c: UserProfile) {
+    const nuevo = c.estado === 'activo' ? 'inactivo' : 'activo';
+    try {
+      await this.admin.updateChofer(c.id, { estado: nuevo });
+      await this.loadData();
+      this.showToast(nuevo === 'activo' ? 'Chofer activado' : 'Chofer desactivado');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+  }
+
+  async resetChoferPassword(c: UserProfile) {
+    const alert = await this.alertCtrl.create({
+      header: `Nueva contraseña para ${c.nombre_completo}`,
+      inputs: [{ name: 'password', placeholder: 'Contraseña nueva (mín. 6 caracteres)', type: 'password' }],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
+        if (!d.password || d.password.length < 6) return false;
+        try {
+          await this.admin.resetChoferPassword(c.id, d.password);
+          this.showToast('Contraseña actualizada');
+        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  async deleteChofer(c: UserProfile) {
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar chofer',
+      message: `¿Eliminar a "${c.nombre_completo}"? Esto borra su cuenta por completo y no se puede deshacer.`,
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Eliminar', role: 'destructive', handler: async () => {
+          try {
+            await this.admin.deleteChofer(c.id);
+            await this.loadData();
+            this.showToast('Chofer eliminado');
+          } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        }},
+      ],
+    });
+    await alert.present();
+  }
+
   getBusStatus(e: string) { return { activo: 'Activo', inactivo: 'Inactivo', en_ruta: 'En ruta', mantenimiento: 'Mant.' }[e] || e; }
   getBusColor(e: string) { return { activo: '#00c853', inactivo: '#9aa5b4', en_ruta: '#2196f3', mantenimiento: '#ff9800' }[e] || '#9aa5b4'; }
 
