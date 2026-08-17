@@ -38,6 +38,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   rutas: Ruta[] = [];
   buses: Bus[] = [];
   choferes: UserProfile[] = [];
+  anomalias: BusLocation[] = [];
 
   private liveMap: maplibregl.Map | null = null;
   private liveMarkers = new Map<string, maplibregl.Marker>();
@@ -84,16 +85,25 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
       this.admin.getChoferes(eid),
+      this.admin.getAnomalousLocations(eid),
     ]);
     this.stats = stats;
     this.rutas = rutas;
     this.buses = buses;
     this.choferes = choferes;
+    this.anomalias = anomalias;
+  }
+
+  async dismissAnomalia(loc: BusLocation) {
+    try {
+      await this.admin.dismissAnomaly(loc.id);
+      this.anomalias = this.anomalias.filter(a => a.id !== loc.id);
+    } catch { this.showToast('Error al descartar la alerta', 'danger'); }
   }
 
   switchTab(tab: string) {

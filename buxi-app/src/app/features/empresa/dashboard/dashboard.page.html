@@ -82,6 +82,20 @@
             </div>
           </div>
 
+          <!-- Alertas GPS -->
+          <div class="card alert-card" *ngIf="anomalias.length > 0">
+            <div class="card-header">
+              <h3><ion-icon name="warning-outline"></ion-icon> Alertas GPS ({{ anomalias.length }})</h3>
+            </div>
+            <div class="mini-list">
+              <div class="mini-item" *ngFor="let a of anomalias">
+                <div class="status-dot" style="background:#ffc107"></div>
+                <span class="flex1">{{ $any(a.bus)?.placa || 'Bus' }} <span class="muted">· {{ a.timestamp | date:'short' }}</span></span>
+                <ion-icon name="close-circle-outline" class="act-icon" (click)="dismissAnomalia(a)"></ion-icon>
+              </div>
+            </div>
+          </div>
+
           <!-- Map + Info row -->
           <div class="grid-2">
             <div class="card map-card">

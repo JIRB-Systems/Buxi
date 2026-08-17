@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Bus, Ruta, Parada } from '../models/transport.model';
+import { Bus, Ruta, Parada, BusLocation } from '../models/transport.model';
 import { Horario } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
@@ -146,6 +146,24 @@ export class AdminEmpresaService {
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
+  }
+
+  // ---- ALERTAS GPS ----
+  async getAnomalousLocations(empresaId: string): Promise<BusLocation[]> {
+    const { data, error } = await this.supabase
+      .from('bus_locations')
+      .select('*, bus:buses!inner(placa, numero_unidad, ruta:rutas(nombre, color), empresa_id)')
+      .eq('anomalo', true)
+      .eq('bus.empresa_id', empresaId)
+      .order('timestamp', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data as BusLocation[];
+  }
+
+  async dismissAnomaly(id: string): Promise<void> {
+    const { error } = await this.supabase.from('bus_locations').update({ anomalo: false }).eq('id', id);
+    if (error) throw error;
   }
 
   // ---- HORARIOS ----
