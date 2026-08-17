@@ -110,7 +110,11 @@ export class AdminEmpresaService {
     const isolated = this.newIsolatedClient();
     const { data, error } = await isolated.auth.signUp({
       email, password,
-      options: { data: { nombre_completo: nombre } },
+      // `created_by_admin` le dice a un trigger en auth.users que confirme el
+      // email solo: esta cuenta la crea la empresa para su chofer, no es un
+      // self-signup público, así que no tiene sentido bloquearla esperando
+      // que alguien confirme un correo que nadie va a mandar.
+      options: { data: { nombre_completo: nombre, created_by_admin: true } },
     });
     if (error) throw error;
     if (data.user) {
