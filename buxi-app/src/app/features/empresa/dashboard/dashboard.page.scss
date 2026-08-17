@@ -84,39 +84,62 @@
 // ====== GRID ======
 .grid-2 { display: flex; gap: 14px; margin-bottom: 16px; }
 
+// MapLibre inyecta los markers fuera de las vistas de Angular: hace falta
+// ::ng-deep para que estas reglas los alcancen.
 :host ::ng-deep {
-  .ruta-stop-tooltip {
-    background: var(--dash-surface);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  .ruta-stop-marker,
+  .ruta-point-marker,
+  .emp-bus-marker {
+    position: absolute; top: 0; left: 0; will-change: transform;
+    display: grid; place-items: center;
   }
 
-  .bus-tooltip {
-    background: var(--dash-surface);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  // ---- Paradas de ruta (vista de sólo lectura) ----
+  .ruta-stop-dot {
+    width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff;
+  }
+  .ruta-stop-terminal {
+    width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .ruta-stop-label {
+    position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+    white-space: nowrap; background: var(--dash-surface); color: #fff;
+    border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); pointer-events: none;
   }
 
-  .bus-tooltip-stale {
-    background: #4a3418;
-    color: #ffc107;
-    border: none;
-    border-radius: 8px;
-    padding: 4px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  // ---- Paradas en modo edición (numeradas, tooltip al pasar el mouse) ----
+  .ruta-point-dot {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff;
+    display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 700;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
   }
+  .ruta-point-label {
+    position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+    white-space: nowrap; background: var(--dash-surface); color: #fff;
+    border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); pointer-events: none;
+    opacity: 0; visibility: hidden; transition: opacity 0.12s ease;
+  }
+  .ruta-point-marker:hover .ruta-point-label { opacity: 1; visibility: visible; }
+
+  // ---- Buses en vivo ----
+  .emp-bus-icon {
+    width: 26px; height: 26px; background: #00c853; border-radius: 50%;
+    border: 2px solid #fff; display: grid; place-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .emp-bus-label {
+    position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+    white-space: nowrap; background: var(--dash-surface); color: #fff;
+    border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15); pointer-events: none;
+    opacity: 0; visibility: hidden; transition: opacity 0.12s ease;
+
+    &.stale { background: #4a3418; color: #ffc107; }
+  }
+  .emp-bus-marker:hover .emp-bus-label { opacity: 1; visibility: visible; }
 }
 
 .edit-ruta-banner {

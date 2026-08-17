@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
-import * as L from 'leaflet';
+import * as maplibregl from 'maplibre-gl';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { SupabaseService } from '../../../core/services/supabase.service';
@@ -11,7 +11,7 @@ import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
 import { RutaFormComponent } from './ruta-form.component';
-import { animateMarkerTo } from '../../../core/utils/leaflet-marker-animation';
+import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/maplibre';
 
 @Component({
   selector: 'app-empresa-dashboard',
@@ -39,13 +39,18 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   buses: Bus[] = [];
   choferes: UserProfile[] = [];
 
-  private liveMap: L.Map | null = null;
-  private liveMarkers = new Map<string, L.Marker>();
+  private liveMap: maplibregl.Map | null = null;
+  private liveMarkers = new Map<string, maplibregl.Marker>();
   private liveMarkersLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
   private realtimeChannel: RealtimeChannel | null = null;
-  private rutaPathLayers: L.Layer[] = [];
-  private mapClickHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
+  // Fuentes/capas de las líneas de ruta y markers de paradas dibujados sobre
+  // el mapa: se limpian a mano en cada redibujo porque MapLibre no tiene un
+  // grupo tipo L.LayerGroup que los saque a todos de una.
+  private rutaSourceIds: string[] = [];
+  private rutaLayerIds: string[] = [];
+  private rutaMarkers: maplibregl.Marker[] = [];
+  private mapClickHandler: ((e: maplibregl.MapMouseEvent) => void) | null = null;
 
   private readonly STALE_MS = 45000;
   private readonly REMOVE_MS = 5 * 60 * 1000;
@@ -104,23 +109,30 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
   // ---- LIVE MAP ----
-  private initLiveMap() {
+  private async initLiveMap() {
     const elId = this.activeTab === 'mapa' ? 'emp-map-full' : 'emp-map-mini';
     const el = document.getElementById(elId);
     if (!el) return;
     if (this.liveMap) { this.liveMap.remove(); this.liveMap = null; }
 
-    this.liveMap = L.map(elId, {
-      center: [9.9281, -84.0907], zoom: 11,
-      zoomControl: this.activeTab === 'mapa', attributionControl: false,
+    const isFull = this.activeTab === 'mapa';
+    const map = await createMap({
+      container: elId,
+      center: [-84.0907, 9.9281],
+      zoom: 11,
+      // La vista mini vive dentro de una página con scroll: sin gestos
+      // cooperativos la rueda hace zoom en vez de bajar la página.
+      cooperativeGestures: !isFull,
     });
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 20 }).addTo(this.liveMap);
+    this.liveMap = map;
+    if (isFull) {
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    }
 
     this.liveMarkers.forEach(m => m.remove());
     this.liveMarkers.clear();
     this.liveMarkersLastSeen.clear();
-    this.rutaPathLayers = [];
+    this.clearRutaLayers();
 
     // Subscribe to realtime
     if (!this.realtimeChannel) {
@@ -143,7 +155,17 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.drawAllRutaPaths();
     }
 
-    setTimeout(() => this.liveMap?.invalidateSize(), 200);
+    setTimeout(() => this.liveMap?.resize(), 200);
+  }
+
+  private clearRutaLayers() {
+    if (!this.liveMap) return;
+    this.rutaLayerIds.forEach(id => { if (this.liveMap!.getLayer(id)) this.liveMap!.removeLayer(id); });
+    this.rutaSourceIds.forEach(id => { if (this.liveMap!.getSource(id)) this.liveMap!.removeSource(id); });
+    this.rutaLayerIds = [];
+    this.rutaSourceIds = [];
+    this.rutaMarkers.forEach(m => m.remove());
+    this.rutaMarkers = [];
   }
 
   // ---- TRAZADO DE RUTAS ----
@@ -160,32 +182,62 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       const color = ruta.color || '#00c853';
 
       if (paradas.length >= 2) {
-        let coords: [number, number][] = ruta.geometria as [number, number][] | null || [];
-        if (coords.length === 0) {
-          coords = await this.features.fetchRoadRouteCoords(paradas);
-          this.admin.updateRuta(ruta.id, { geometria: coords }).catch(() => {});
+        let latlng: [number, number][] = ruta.geometria as [number, number][] | null || [];
+        if (latlng.length === 0) {
+          latlng = await this.features.fetchRoadRouteCoords(paradas);
+          this.admin.updateRuta(ruta.id, { geometria: latlng }).catch(() => {});
         }
-        const bg = L.polyline(coords, { color, weight: 8, opacity: 0.15, lineCap: 'round', lineJoin: 'round' }).addTo(this.liveMap);
-        const main = L.polyline(coords, { color, weight: 4, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }).addTo(this.liveMap);
-        this.rutaPathLayers.push(bg, main);
+        this.drawRouteLine(`ruta-${ruta.id}`, latlng, color);
       }
 
       paradas.forEach((p, i) => {
         const isTerminal = i === 0 || i === paradas.length - 1;
-        const icon = L.divIcon({
-          className: 'ruta-stop-marker',
-          html: isTerminal
-            ? `<div style="width:16px;height:16px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`
-            : `<div style="width:9px;height:9px;border-radius:50%;background:${color};border:1.5px solid #fff"></div>`,
-          iconSize: isTerminal ? [16, 16] : [9, 9],
-          iconAnchor: isTerminal ? [8, 8] : [4, 4],
-        });
-        const m = L.marker([p.latitud, p.longitud], { icon })
-          .addTo(this.liveMap!)
-          .bindTooltip(p.nombre, { permanent: isTerminal, direction: 'top', offset: [0, -8], className: 'ruta-stop-tooltip' });
-        this.rutaPathLayers.push(m);
+        const html = isTerminal
+          ? `<div class="ruta-stop-terminal" style="background:${color}"></div><div class="ruta-stop-label">${p.nombre}</div>`
+          : `<div class="ruta-stop-dot" style="background:${color}"></div>`;
+        const el = htmlMarkerEl('ruta-stop-marker', html);
+        const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([p.longitud, p.latitud])
+          .addTo(this.liveMap!);
+        this.rutaMarkers.push(m);
       });
     }
+  }
+
+  // Dibuja la línea de una ruta como halo grueso translúcido + línea
+  // principal encima, igual que el mapa de pasajero (mismo lenguaje visual
+  // en toda la app). `latlng` viene en formato [lat, lng] (el que se guarda
+  // en `ruta.geometria`); GeoJSON/MapLibre lo quiere invertido.
+  private drawRouteLine(idBase: string, latlng: [number, number][], color: string) {
+    // Si el estilo de MapTiler no cargó (caída del proveedor, cuota, sin red),
+    // addSource/addLayer tiran una excepción síncrona ("Style is not done
+    // loading"). Sin esta guarda, esa excepción interrumpe el for-loop de
+    // drawAllRutaPaths antes de llegar a las paradas: una ruta se queda sin
+    // línea Y sin markers, en vez de sólo sin línea.
+    if (!this.liveMap || !this.liveMap.isStyleLoaded()) return;
+    const coords = latlng.map(([lat, lng]) => [lng, lat]);
+    const srcId = `${idBase}-src`;
+    const bgId = `${idBase}-bg`;
+    const mainId = `${idBase}-main`;
+
+    try {
+      this.liveMap.addSource(srcId, {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
+      });
+      this.liveMap.addLayer({
+        id: bgId, type: 'line', source: srcId,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': color, 'line-width': 12, 'line-opacity': 0.15 },
+      });
+      this.liveMap.addLayer({
+        id: mainId, type: 'line', source: srcId,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': color, 'line-width': 5, 'line-opacity': 0.85 },
+      });
+      this.rutaSourceIds.push(srcId);
+      this.rutaLayerIds.push(bgId, mainId);
+    } catch { /* el mapa sigue usable sin esta línea */ }
   }
 
   async startEditRuta(r: Ruta) {
@@ -209,15 +261,15 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     setTimeout(() => this.initLiveMap(), 150);
   }
 
-  private async onMapClickAddParada(e: L.LeafletMouseEvent) {
+  private async onMapClickAddParada(e: maplibregl.MapMouseEvent) {
     if (!this.editingRuta) return;
     const orden = this.editingParadas.length;
     const optimistic: Parada = {
       id: `temp-${Date.now()}`,
       ruta_id: this.editingRuta.id,
       nombre: `Parada ${orden + 1}`,
-      latitud: e.latlng.lat,
-      longitud: e.latlng.lng,
+      latitud: e.lngLat.lat,
+      longitud: e.lngLat.lng,
       orden,
     };
 
@@ -269,26 +321,21 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   private async drawEditingRutaPath() {
     if (!this.liveMap) return;
-    this.rutaPathLayers.forEach(l => this.liveMap!.removeLayer(l));
-    this.rutaPathLayers = [];
+    this.clearRutaLayers();
 
     const color = this.editingRuta?.color || '#00c853';
     this.editingParadas.forEach((p, i) => {
-      const icon = L.divIcon({
-        className: 'ruta-point-marker',
-        html: `<div style="width:22px;height:22px;background:${color};border-radius:50%;border:2px solid #fff;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,0.35)">${i + 1}</div>`,
-        iconSize: [22, 22], iconAnchor: [11, 11],
-      });
-      const m = L.marker([p.latitud, p.longitud], { icon })
-        .addTo(this.liveMap!)
-        .bindTooltip(p.nombre, { direction: 'top', offset: [0, -12], className: 'ruta-stop-tooltip' });
-      this.rutaPathLayers.push(m);
+      const html = `<div class="ruta-point-dot" style="background:${color}">${i + 1}</div><div class="ruta-point-label">${p.nombre}</div>`;
+      const el = htmlMarkerEl('ruta-point-marker', html);
+      const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([p.longitud, p.latitud])
+        .addTo(this.liveMap!);
+      this.rutaMarkers.push(m);
     });
 
     if (this.editingParadas.length >= 2) {
       const coords = await this.features.fetchRoadRouteCoords(this.editingParadas);
-      const line = L.polyline(coords, { color, weight: 5, opacity: 0.9 }).addTo(this.liveMap);
-      this.rutaPathLayers.push(line);
+      this.drawRouteLine('ruta-editing', coords, color);
 
       if (this.editingRuta) {
         this.editingRuta.geometria = coords;
@@ -304,31 +351,33 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private updateMapMarker(busId: string, lat: number, lng: number, timestamp?: string) {
     if (!this.liveMap) return;
     this.liveMarkersLastSeen.set(busId, timestamp ? (Date.parse(timestamp) || Date.now()) : Date.now());
+    const lngLat: [number, number] = [lng, lat];
 
     if (this.liveMarkers.has(busId)) {
       const marker = this.liveMarkers.get(busId)!;
-      animateMarkerTo(marker, [lat, lng]);
-      marker.setOpacity(1);
+      animateMarkerTo(marker, lngLat);
+      marker.getElement().style.opacity = '1';
       this.refreshMarkerTooltip(busId, marker, false);
     } else {
-      const icon = L.divIcon({
-        className: 'emp-bus-marker',
-        html: `<div style="width:26px;height:26px;background:#00c853;border-radius:50%;border:2px solid #fff;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`,
-        iconSize: [26, 26], iconAnchor: [13, 13],
-      });
-      const m = L.marker([lat, lng], { icon }).addTo(this.liveMap);
+      const el = htmlMarkerEl('emp-bus-marker', this.busMarkerHtml());
+      const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat(lngLat)
+        .addTo(this.liveMap);
       this.liveMarkers.set(busId, m);
       this.refreshMarkerTooltip(busId, m, false);
     }
   }
 
-  private refreshMarkerTooltip(busId: string, marker: L.Marker, stale: boolean) {
+  private busMarkerHtml(): string {
+    return `<div class="emp-bus-icon"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div><div class="emp-bus-label"></div>`;
+  }
+
+  private refreshMarkerTooltip(busId: string, marker: maplibregl.Marker, stale: boolean) {
     const placa = this.buses.find(b => b.id === busId)?.placa || 'Bus';
-    marker.unbindTooltip();
-    marker.bindTooltip(stale ? `${placa} · sin señal` : placa, {
-      direction: 'top', offset: [0, -14],
-      className: stale ? 'bus-tooltip-stale' : 'bus-tooltip',
-    });
+    const label = marker.getElement().querySelector('.emp-bus-label');
+    if (!label) return;
+    label.textContent = stale ? `${placa} · sin señal` : placa;
+    label.className = `emp-bus-label${stale ? ' stale' : ''}`;
   }
 
   private startStaleBusWatcher() {
@@ -340,11 +389,11 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         if (!marker) return;
         const age = now - lastSeen;
         if (age > this.REMOVE_MS) {
-          this.liveMap!.removeLayer(marker);
+          marker.remove();
           this.liveMarkers.delete(busId);
           this.liveMarkersLastSeen.delete(busId);
         } else if (age > this.STALE_MS) {
-          marker.setOpacity(0.35);
+          marker.getElement().style.opacity = '0.35';
           this.refreshMarkerTooltip(busId, marker, true);
         }
       });
