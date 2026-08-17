@@ -1,4 +1,5 @@
 import * as maplibregl from 'maplibre-gl';
+import type { Feature, Polygon } from 'geojson';
 import { environment } from '../../../environments/environment';
 
 // `dataviz-dark` es plano y minimal: sirve para paneles donde el mapa es sólo
@@ -368,7 +369,7 @@ export function circlePolygon(
   lat: number,
   radiusMeters: number,
   steps = 64,
-): GeoJSON.Feature<GeoJSON.Polygon> {
+): Feature<Polygon> {
   const coords: [number, number][] = [];
   const latRad = (lat * Math.PI) / 180;
   // Grados de longitud por metro varían con la latitud; los de latitud no.

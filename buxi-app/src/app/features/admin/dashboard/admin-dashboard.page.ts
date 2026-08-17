@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
 import { Router } from '@angular/router';
-import * as L from 'leaflet';
+import * as maplibregl from 'maplibre-gl';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -13,7 +13,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
 import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
-import { enableCooperativeGestures } from '../../../core/utils/leaflet-cooperative-gestures';
+import { createMap, htmlMarkerEl, circlePolygon } from '../../../core/utils/maplibre';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -22,10 +22,10 @@ import { enableCooperativeGestures } from '../../../core/utils/leaflet-cooperati
   standalone: false,
 })
 export class AdminDashboardPage implements OnInit, OnDestroy {
-  private adminMap: L.Map | null = null;
-  private adminBusMarkers = new Map<string, L.Marker>();
-  private adminUserMarker: L.Marker | null = null;
-  private adminAccuracyCircle: L.Circle | null = null;
+  private adminMap: maplibregl.Map | null = null;
+  private adminBusMarkers = new Map<string, maplibregl.Marker>();
+  private adminUserMarker: maplibregl.Marker | null = null;
+  private adminAccuracyDrawn = false;
   private adminUserWatchId: string | null = null;
   private realtimeChannel: RealtimeChannel | null = null;
   profile: UserProfile | null = null;
@@ -259,31 +259,33 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     return '#9aa5b4';
   }
 
-  private initAdminMap(elementId: string) {
+  private async initAdminMap(elementId: string) {
     if (this.adminMap) { this.adminMap.remove(); this.adminMap = null; }
     // El mapa se reconstruye al cambiar de pestaña: soltar el watch anterior,
     // si no queda uno colgado por cada visita alimentando un mapa muerto.
     this.stopWatchingUserLocation();
     this.adminUserMarker = null;
-    this.adminAccuracyCircle = null;
+    this.adminAccuracyDrawn = false;
 
     const el = document.getElementById(elementId);
     if (!el) return;
 
-    this.adminMap = L.map(elementId, {
-      center: [9.9281, -84.0907], zoom: 10,
-      zoomControl: true, attributionControl: false,
-      // El mapa vive dentro de una página con scroll: sin esto la rueda hace
-      // zoom en vez de bajar y el usuario no puede pasar de largo.
-      scrollWheelZoom: false,
+    // Mismo estilo "rico" (edificios 3D, relieve, cielo, POIs) que el mapa
+    // de pasajero y el dashboard de empresa, en vez del dataviz-dark plano.
+    const map = await createMap({
+      container: elementId,
+      center: [-84.0907, 9.9281],
+      zoom: 10,
+      style: 'streets-v2-dark',
+      threeD: true,
+      pitch: 50,
+      // El mapa vive dentro de una página con scroll: sin gestos
+      // cooperativos la rueda hace zoom en vez de bajar la página.
+      cooperativeGestures: true,
     });
-    enableCooperativeGestures(this.adminMap);
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      maxZoom: 20,
-    }).addTo(this.adminMap);
+    if (this.adminMap !== null) { try { map.remove(); } catch {} return; }
+    this.adminMap = map;
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     this.adminBusMarkers.forEach(m => m.remove());
     this.adminBusMarkers.clear();
@@ -293,14 +295,24 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     }
 
     if (this.liveLocations.length > 0) {
-      const bounds = L.latLngBounds(this.liveLocations.map(l => [l.latitud, l.longitud] as L.LatLngTuple));
-      this.adminMap.fitBounds(bounds, { padding: [40, 40] });
+      const bounds = this.liveLocations.reduce(
+        (b, l) => b.extend([l.longitud, l.latitud]),
+        new maplibregl.LngLatBounds([this.liveLocations[0].longitud, this.liveLocations[0].latitud], [this.liveLocations[0].longitud, this.liveLocations[0].latitud]),
+      );
+      this.adminMap.fitBounds(bounds, { padding: 40, duration: 0 });
     }
 
+    // El mapa se reconstruye al cambiar de pestaña; sin soltar el canal
+    // anterior, sb.channel('admin-live-map') devuelve el mismo canal ya
+    // suscripto y el nuevo .on() tira "cannot add callbacks after
+    // subscribe()" — las actualizaciones en vivo dejaban de llegar desde la
+    // segunda vez que se visitaba una pestaña con mapa.
+    if (this.realtimeChannel) {
+      supabaseClient().removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
+    }
     this.startMapRealtime();
     this.centerOnUserLocation();
-    setTimeout(() => this.adminMap?.invalidateSize(), 200);
-    setTimeout(() => this.adminMap?.invalidateSize(), 600);
   }
 
   private async centerOnUserLocation() {
@@ -321,7 +333,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       // Si no hay buses transmitiendo para encuadrar, abre centrado en el
       // usuario en vez del centro fijo de Costa Rica.
       if (this.liveLocations.length === 0) {
-        this.adminMap.setView([latitude, longitude], 14);
+        this.adminMap.jumpTo({ center: [longitude, latitude], zoom: 14 });
       }
 
       // La primera lectura suele venir de WiFi/IP y puede errar kilómetros; el
@@ -345,35 +357,44 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   // igual de confiable que uno de ±10 m.
   private renderUserPosition(lat: number, lng: number, accuracy?: number | null) {
     if (!this.adminMap) return;
-    const latLng: L.LatLngTuple = [lat, lng];
-
-    if (this.adminUserMarker) {
-      this.adminUserMarker.setLatLng(latLng);
-    } else {
-      const icon = L.divIcon({
-        className: 'admin-user-marker',
-        html: `<div class="admin-user-dot"></div><div class="admin-user-pulse"></div>`,
-        iconSize: [22, 22], iconAnchor: [11, 11],
-      });
-      this.adminUserMarker = L.marker(latLng, { icon, zIndexOffset: 500 }).addTo(this.adminMap);
-    }
+    const lngLat: [number, number] = [lng, lat];
 
     const precision = accuracy && accuracy > 0
       ? (accuracy >= 1000 ? `± ${(accuracy / 1000).toFixed(1)} km` : `± ${Math.round(accuracy)} m`)
       : 'precisión desconocida';
-    this.adminUserMarker.bindPopup(`Tu ubicación<br><small>${precision}</small>`);
+
+    if (this.adminUserMarker) {
+      this.adminUserMarker.setLngLat(lngLat);
+      this.adminUserMarker.getPopup()?.setHTML(`Tu ubicación<br><small>${precision}</small>`);
+    } else {
+      const el = htmlMarkerEl('admin-user-marker', `<div class="admin-user-dot"></div><div class="admin-user-pulse"></div>`);
+      const popup = new maplibregl.Popup({ offset: 12, closeButton: false })
+        .setHTML(`Tu ubicación<br><small>${precision}</small>`);
+      this.adminUserMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat(lngLat)
+        .setPopup(popup)
+        .addTo(this.adminMap);
+    }
 
     if (accuracy && accuracy > 0) {
-      if (this.adminAccuracyCircle) {
-        this.adminAccuracyCircle.setLatLng(latLng).setRadius(accuracy);
-      } else {
-        this.adminAccuracyCircle = L.circle(latLng, {
-          radius: accuracy,
-          color: '#4285f4', weight: 1, opacity: 0.4,
-          fillColor: '#4285f4', fillOpacity: 0.1,
-          interactive: false,
-        }).addTo(this.adminMap);
-      }
+      try {
+        const data = circlePolygon(lng, lat, accuracy);
+        const existing = this.adminMap.getSource('admin-accuracy') as maplibregl.GeoJSONSource | undefined;
+        if (existing) {
+          existing.setData(data);
+        } else if (!this.adminAccuracyDrawn) {
+          this.adminAccuracyDrawn = true;
+          this.adminMap.addSource('admin-accuracy', { type: 'geojson', data });
+          this.adminMap.addLayer({
+            id: 'admin-accuracy-fill', type: 'fill', source: 'admin-accuracy',
+            paint: { 'fill-color': '#4285f4', 'fill-opacity': 0.1 },
+          });
+          this.adminMap.addLayer({
+            id: 'admin-accuracy-line', type: 'line', source: 'admin-accuracy',
+            paint: { 'line-color': '#4285f4', 'line-width': 1, 'line-opacity': 0.4 },
+          });
+        }
+      } catch { /* estilo sin cargar todavia: el punto de usuario sigue visible sin el circulo */ }
     }
   }
 
@@ -390,19 +411,17 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     const color = busInfo?.ruta?.color || '#00c853';
 
     if (this.adminBusMarkers.has(loc.bus_id)) {
-      this.adminBusMarkers.get(loc.bus_id)!.setLatLng([loc.latitud, loc.longitud]);
+      this.adminBusMarkers.get(loc.bus_id)!.setLngLat([loc.longitud, loc.latitud]);
       return;
     }
 
-    const icon = L.divIcon({
-      className: 'admin-bus-marker',
-      html: `<div style="width:28px;height:28px;background:${color};border-radius:50%;border:2px solid #fff;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`,
-      iconSize: [28, 28], iconAnchor: [14, 14],
-    });
-
-    const marker = L.marker([loc.latitud, loc.longitud], { icon })
-      .addTo(this.adminMap)
-      .bindPopup(`<b>${busInfo?.placa || 'Bus'}</b><br>${busInfo?.ruta?.nombre || 'Sin ruta'}<br>${loc.velocidad} km/h`);
+    const el = htmlMarkerEl('admin-bus-marker', `<div class="admin-bus-icon" style="background:${color}"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`);
+    const popup = new maplibregl.Popup({ offset: 16, closeButton: false })
+      .setHTML(`<b>${busInfo?.placa || 'Bus'}</b><br>${busInfo?.ruta?.nombre || 'Sin ruta'}<br>${loc.velocidad} km/h`);
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([loc.longitud, loc.latitud])
+      .setPopup(popup)
+      .addTo(this.adminMap);
 
     this.adminBusMarkers.set(loc.bus_id, marker);
   }
