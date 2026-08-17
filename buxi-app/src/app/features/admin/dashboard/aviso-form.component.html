@@ -1,0 +1,37 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Nuevo aviso</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">Cerrar</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="form-content">
+  <div class="field">
+    <label>Título</label>
+    <ion-input [(ngModel)]="titulo" placeholder="Ej. Mantenimiento programado" fill="outline"></ion-input>
+  </div>
+
+  <div class="field">
+    <label>Mensaje para todas las empresas</label>
+    <ion-textarea [(ngModel)]="mensaje" placeholder="Explicá qué va a pasar y cuándo" fill="outline" [autoGrow]="true" rows="5"></ion-textarea>
+  </div>
+
+  <div class="field">
+    <label>Tipo</label>
+    <div class="tipo-group">
+      <button type="button" class="tipo-btn info" [class.active]="tipo==='info'" (click)="tipo='info'">
+        <ion-icon name="information-circle-outline"></ion-icon> Info
+      </button>
+      <button type="button" class="tipo-btn advertencia" [class.active]="tipo==='advertencia'" (click)="tipo='advertencia'">
+        <ion-icon name="warning-outline"></ion-icon> Advertencia
+      </button>
+      <button type="button" class="tipo-btn urgente" [class.active]="tipo==='urgente'" (click)="tipo='urgente'">
+        <ion-icon name="alert-circle-outline"></ion-icon> Urgente
+      </button>
+    </div>
+  </div>
+
+  <ion-button expand="block" [disabled]="!canPublish" (click)="publish()">Publicar aviso</ion-button>
+</ion-content>

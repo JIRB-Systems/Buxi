@@ -12,6 +12,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
 import { ReporteBug, AvisoSistema } from '../../../core/models/features.model';
 import { RutaFormComponent } from './ruta-form.component';
+import { ReporteFormComponent } from './reporte-form.component';
 import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/maplibre';
 
 @Component({
@@ -109,23 +110,16 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   async addReporte() {
-    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
-      header: 'Reportar un problema',
-      inputs: [
-        { name: 'titulo', placeholder: 'Título breve', type: 'text' },
-        { name: 'descripcion', placeholder: 'Describe el problema con el mayor detalle posible', type: 'textarea' },
-      ],
-      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Enviar', handler: async (d) => {
-        if (!d.titulo || !d.descripcion) return false;
-        try {
-          await this.admin.createReporte(this.profile!.empresa_id!, this.profile!.id, d.titulo, d.descripcion);
-          await this.loadData();
-          this.showToast('Reporte enviado');
-        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
-        return true;
-      }}],
-    });
-    await alert.present();
+    const modal = await this.modalCtrl.create({ component: ReporteFormComponent });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      await this.admin.createReporte(this.profile!.empresa_id!, this.profile!.id, data.titulo, data.descripcion);
+      await this.loadData();
+      this.showToast('Reporte enviado');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
   }
 
   getReporteEstadoLabel(e: string) { return { pendiente: 'Pendiente', en_revision: 'En revisión', resuelto: 'Resuelto' }[e] || e; }

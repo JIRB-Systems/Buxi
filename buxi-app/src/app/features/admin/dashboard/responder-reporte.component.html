@@ -1,0 +1,32 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Responder reporte</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">Cerrar</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="form-content">
+  <div class="original">
+    <strong>{{ reporte.titulo }}</strong>
+    <span class="muted">{{ $any(reporte.empresa)?.nombre || '-' }} · {{ reporte.created_at | date:'medium' }}</span>
+    <p>{{ reporte.descripcion }}</p>
+  </div>
+
+  <div class="field">
+    <label>Estado</label>
+    <div class="tipo-group">
+      <button type="button" class="tipo-btn pendiente" [class.active]="estado==='pendiente'" (click)="estado='pendiente'">Pendiente</button>
+      <button type="button" class="tipo-btn en_revision" [class.active]="estado==='en_revision'" (click)="estado='en_revision'">En revisión</button>
+      <button type="button" class="tipo-btn resuelto" [class.active]="estado==='resuelto'" (click)="estado='resuelto'">Resuelto</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Respuesta para la empresa</label>
+    <ion-textarea [(ngModel)]="respuesta" placeholder="Explicá qué se hizo o qué falta" fill="outline" [autoGrow]="true" rows="5"></ion-textarea>
+  </div>
+
+  <ion-button expand="block" (click)="save()">Guardar</ion-button>
+</ion-content>

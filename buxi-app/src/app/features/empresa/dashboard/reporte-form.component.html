@@ -1,0 +1,22 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Reportar un problema</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">Cerrar</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="form-content">
+  <div class="field">
+    <label>Título</label>
+    <ion-input [(ngModel)]="titulo" placeholder="Ej. El mapa no carga en mi celular" fill="outline"></ion-input>
+  </div>
+
+  <div class="field">
+    <label>Descripción</label>
+    <ion-textarea [(ngModel)]="descripcion" placeholder="Contanos qué pasó, cuándo, y en qué dispositivo — mientras más detalle, más rápido lo resolvemos" fill="outline" [autoGrow]="true" rows="5"></ion-textarea>
+  </div>
+
+  <ion-button expand="block" [disabled]="!canSend" (click)="send()">Enviar reporte</ion-button>
+</ion-content>

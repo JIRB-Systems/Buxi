@@ -6,7 +6,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
-import { AlertController, LoadingController, ToastController } from '@ionic/angular';
+import { AlertController, LoadingController, ToastController, ModalController } from '@ionic/angular';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminJirbService } from '../../../core/services/admin-jirb.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
@@ -14,6 +14,8 @@ import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
 import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
 import { createMap, htmlMarkerEl, circlePolygon } from '../../../core/utils/maplibre';
+import { AvisoFormComponent } from './aviso-form.component';
+import { ResponderReporteComponent } from './responder-reporte.component';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -103,6 +105,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
+    private modalCtrl: ModalController,
   ) {}
 
   async ngOnInit() {
@@ -772,73 +775,35 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async responderReporte(r: ReporteBug) {
-    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
-      header: `Responder: ${r.titulo}`,
-      inputs: [
-        { name: 'estado', type: 'radio', label: 'Pendiente', value: 'pendiente', checked: r.estado === 'pendiente' },
-        { name: 'estado', type: 'radio', label: 'En revisión', value: 'en_revision', checked: r.estado === 'en_revision' },
-        { name: 'estado', type: 'radio', label: 'Resuelto', value: 'resuelto', checked: r.estado === 'resuelto' },
-      ],
-      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Siguiente', handler: async (estado) => {
-        const alert2 = await this.alertCtrl.create({ cssClass: 'buxi-alert',
-          header: 'Respuesta para la empresa',
-          inputs: [{ name: 'respuesta', type: 'textarea', placeholder: 'Explicá qué se hizo o qué falta', value: r.respuesta_jirb || '' }],
-          buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
-            try {
-              await this.admin.responderReporte(r.id, estado, d.respuesta || '', this.profile!.id);
-              await this.logAction('Responder reporte', r.titulo, 'reporte_bug', r.id);
-              await this.loadData();
-              this.showToast('Respuesta guardada');
-            } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
-            return true;
-          }}],
-        });
-        await alert2.present();
-        return true;
-      }}],
-    });
-    await alert.present();
+    const modal = await this.modalCtrl.create({ component: ResponderReporteComponent, componentProps: { reporte: r } });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      await this.admin.responderReporte(r.id, data.estado, data.respuesta, this.profile!.id);
+      await this.logAction('Responder reporte', r.titulo, 'reporte_bug', r.id);
+      await this.loadData();
+      this.showToast('Respuesta guardada');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
   }
 
   getReporteEstadoLabel(e: string) { return { pendiente: 'Pendiente', en_revision: 'En revisión', resuelto: 'Resuelto' }[e] || e; }
   getReporteEstadoColor(e: string) { return { pendiente: '#ff9800', en_revision: '#2196f3', resuelto: '#00c853' }[e] || '#9aa5b4'; }
 
   // ---- AVISOS DEL SISTEMA ----
-  // Ionic AlertController no soporta mezclar inputs de texto con inputs de
-  // radio en el mismo diálogo (el radio termina renderizando un <input
-  // type="radio"> suelto, sin ninguna etiqueta al lado). Por eso va
-  // encadenado: primero título/mensaje (texto), después el tipo (radio solo).
   async addAviso() {
-    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
-      header: 'Nuevo aviso',
-      inputs: [
-        { name: 'titulo', placeholder: 'Título', type: 'text' },
-        { name: 'mensaje', placeholder: 'Mensaje para todas las empresas', type: 'textarea' },
-      ],
-      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Siguiente', handler: async (d) => {
-        if (!d.titulo || !d.mensaje) return false;
-        const alert2 = await this.alertCtrl.create({ cssClass: 'buxi-alert',
-          header: 'Tipo de aviso',
-          inputs: [
-            { name: 'tipo', type: 'radio', label: 'Info', value: 'info', checked: true },
-            { name: 'tipo', type: 'radio', label: 'Advertencia', value: 'advertencia' },
-            { name: 'tipo', type: 'radio', label: 'Urgente', value: 'urgente' },
-          ],
-          buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Publicar', handler: async (tipo) => {
-            try {
-              await this.admin.createAviso(this.profile!.id, d.titulo, d.mensaje, tipo || 'info');
-              await this.logAction('Crear aviso', d.titulo, 'aviso_sistema');
-              await this.loadData();
-              this.showToast('Aviso publicado');
-            } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
-            return true;
-          }}],
-        });
-        await alert2.present();
-        return true;
-      }}],
-    });
-    await alert.present();
+    const modal = await this.modalCtrl.create({ component: AvisoFormComponent });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      await this.admin.createAviso(this.profile!.id, data.titulo, data.mensaje, data.tipo);
+      await this.logAction('Crear aviso', data.titulo, 'aviso_sistema');
+      await this.loadData();
+      this.showToast('Aviso publicado');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
   }
 
   async toggleAviso(a: AvisoSistema) {
