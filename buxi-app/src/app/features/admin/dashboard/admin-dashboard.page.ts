@@ -272,13 +272,18 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
     // Mismo estilo "rico" (edificios 3D, relieve, cielo, POIs) que el mapa
     // de pasajero y el dashboard de empresa, en vez del dataviz-dark plano.
+    // Sin embargo, pitch inclinado NO sirve acá: este mapa arranca a nivel
+    // de todo el país (zoom 10), y con la cámara inclinada sobre el relieve
+    // montañoso de Costa Rica, se ve la Zona Norte al fondo del cuadro en
+    // vez de la vista general — parecía que el mapa apuntaba a cualquier
+    // lado. Vista plana: mismo estilo, sin la distorsión de perspectiva.
     const map = await createMap({
       container: elementId,
       center: [-84.0907, 9.9281],
       zoom: 10,
       style: 'streets-v2-dark',
       threeD: true,
-      pitch: 50,
+      pitch: 0,
       // El mapa vive dentro de una página con scroll: sin gestos
       // cooperativos la rueda hace zoom en vez de bajar la página.
       cooperativeGestures: true,

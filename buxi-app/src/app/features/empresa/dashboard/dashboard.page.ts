@@ -133,9 +133,12 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       // Mismo estilo "rico" que el mapa de pasajero (edificios 3D, relieve,
       // cielo, íconos de POI) en vez del `dataviz-dark` plano: la empresa
       // quiere reconocer el mismo mapa, no una versión "pelada" de panel.
+      // Pitch en 0 a propósito: a nivel de flota completa (zoom bajo), una
+      // cámara inclinada sobre el relieve montañoso de Costa Rica termina
+      // mostrando terreno lejano en vez de la vista general de la operación.
       style: 'streets-v2-dark',
       threeD: true,
-      pitch: 50,
+      pitch: 0,
       // La vista mini vive dentro de una página con scroll: sin gestos
       // cooperativos la rueda hace zoom en vez de bajar la página.
       cooperativeGestures: !isFull,
