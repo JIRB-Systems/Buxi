@@ -292,6 +292,14 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.adminMap = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
+    // DEBUG TEMPORAL: instrumentación para encontrar qué mueve la cámara.
+    const t0 = Date.now();
+    map.on('move', () => {
+      const c = map.getCenter();
+      // eslint-disable-next-line no-console
+      console.log(`[DEBUG-MAP t+${Date.now() - t0}ms] center=${c.lng.toFixed(4)},${c.lat.toFixed(4)} zoom=${map.getZoom().toFixed(2)} pitch=${map.getPitch().toFixed(1)}`);
+    });
+
     // El contenedor de la pestaña "Mapa en vivo" recién aparece por el
     // *ngIf al cambiar de tab: MapLibre mide su tamaño en el momento de
     // crearse, y si el layout todavía no asentó, se queda con una
