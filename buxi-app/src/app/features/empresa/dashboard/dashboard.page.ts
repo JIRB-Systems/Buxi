@@ -120,6 +120,12 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       container: elId,
       center: [-84.0907, 9.9281],
       zoom: 11,
+      // Mismo estilo "rico" que el mapa de pasajero (edificios 3D, relieve,
+      // cielo, íconos de POI) en vez del `dataviz-dark` plano: la empresa
+      // quiere reconocer el mismo mapa, no una versión "pelada" de panel.
+      style: 'streets-v2-dark',
+      threeD: true,
+      pitch: 50,
       // La vista mini vive dentro de una página con scroll: sin gestos
       // cooperativos la rueda hace zoom en vez de bajar la página.
       cooperativeGestures: !isFull,
