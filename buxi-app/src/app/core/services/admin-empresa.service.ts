@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Ruta, Parada, BusLocation } from '../models/transport.model';
-import { Horario } from '../models/features.model';
+import { Horario, ReporteBug, AvisoSistema } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
 @Injectable({ providedIn: 'root' })
@@ -164,6 +164,35 @@ export class AdminEmpresaService {
   async dismissAnomaly(id: string): Promise<void> {
     const { error } = await this.supabase.from('bus_locations').update({ anomalo: false }).eq('id', id);
     if (error) throw error;
+  }
+
+  // ---- REPORTES DE BUGS ----
+  async getReportes(empresaId: string): Promise<ReporteBug[]> {
+    const { data, error } = await this.supabase
+      .from('reportes_bugs')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as ReporteBug[];
+  }
+
+  async createReporte(empresaId: string, autorId: string, titulo: string, descripcion: string): Promise<void> {
+    const { error } = await this.supabase.from('reportes_bugs').insert({
+      empresa_id: empresaId, autor_id: autorId, titulo, descripcion,
+    });
+    if (error) throw error;
+  }
+
+  // ---- AVISOS DEL SISTEMA ----
+  async getAvisosActivos(): Promise<AvisoSistema[]> {
+    const { data, error } = await this.supabase
+      .from('avisos_sistema')
+      .select('*')
+      .eq('activo', true)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as AvisoSistema[];
   }
 
   // ---- HORARIOS ----

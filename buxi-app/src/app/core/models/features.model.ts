@@ -83,3 +83,28 @@ export interface Suscripcion {
   auto_renovar: boolean;
   plan?: Plan;
 }
+
+export interface ReporteBug {
+  id: string;
+  empresa_id: string;
+  autor_id: string | null;
+  titulo: string;
+  descripcion: string;
+  estado: 'pendiente' | 'en_revision' | 'resuelto';
+  respuesta_jirb: string | null;
+  respondido_por: string | null;
+  respondido_at: string | null;
+  created_at: string;
+  empresa?: { nombre: string };
+  autor?: { nombre_completo: string };
+}
+
+export interface AvisoSistema {
+  id: string;
+  autor_id: string | null;
+  titulo: string;
+  mensaje: string;
+  tipo: 'info' | 'advertencia' | 'urgente';
+  activo: boolean;
+  created_at: string;
+}

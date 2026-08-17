@@ -4,7 +4,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Empresa, Bus, Ruta, Parada } from '../models/transport.model';
 import { UserProfile } from '../models/user-profile.model';
-import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion } from '../models/features.model';
+import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema } from '../models/features.model';
 import { BusLocation } from '../models/transport.model';
 
 @Injectable({ providedIn: 'root' })
@@ -316,6 +316,50 @@ export class AdminJirbService {
         rol: 'admin_empresa', empresa_id: empresaId,
       }).eq('id', data.user.id);
     }
+  }
+
+  // ---- REPORTES DE BUGS ----
+  async getReportes(): Promise<ReporteBug[]> {
+    const { data, error } = await this.supabase
+      .from('reportes_bugs')
+      .select('*, empresa:empresas(nombre)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as ReporteBug[];
+  }
+
+  async responderReporte(id: string, estado: string, respuesta: string, respondidoPor: string): Promise<void> {
+    const { error } = await this.supabase.from('reportes_bugs').update({
+      estado, respuesta_jirb: respuesta, respondido_por: respondidoPor, respondido_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async updateReporteEstado(id: string, estado: string): Promise<void> {
+    const { error } = await this.supabase.from('reportes_bugs').update({ estado }).eq('id', id);
+    if (error) throw error;
+  }
+
+  // ---- AVISOS DEL SISTEMA ----
+  async getAvisos(): Promise<AvisoSistema[]> {
+    const { data, error } = await this.supabase.from('avisos_sistema').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as AvisoSistema[];
+  }
+
+  async createAviso(autorId: string, titulo: string, mensaje: string, tipo: string): Promise<void> {
+    const { error } = await this.supabase.from('avisos_sistema').insert({ autor_id: autorId, titulo, mensaje, tipo });
+    if (error) throw error;
+  }
+
+  async toggleAviso(id: string, activo: boolean): Promise<void> {
+    const { error } = await this.supabase.from('avisos_sistema').update({ activo }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async deleteAviso(id: string): Promise<void> {
+    const { error } = await this.supabase.from('avisos_sistema').delete().eq('id', id);
+    if (error) throw error;
   }
 
   // ---- SOLICITUDES ----

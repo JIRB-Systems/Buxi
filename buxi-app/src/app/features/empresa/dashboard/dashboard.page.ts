@@ -10,6 +10,7 @@ import { AdminEmpresaService } from '../../../core/services/admin-empresa.servic
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
+import { ReporteBug, AvisoSistema } from '../../../core/models/features.model';
 import { RutaFormComponent } from './ruta-form.component';
 import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/maplibre';
 
@@ -32,6 +33,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { id: 'buses', icon: 'bus-outline', label: 'Buses' },
     { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
     { id: 'mapa', icon: 'location-outline', label: 'Seguimiento en vivo' },
+    { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
+    { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
   ];
 
   stats = { buses: 0, rutas: 0, choferes: 0, busesEnRuta: 0 };
@@ -39,6 +42,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   buses: Bus[] = [];
   choferes: UserProfile[] = [];
   anomalias: BusLocation[] = [];
+  reportes: ReporteBug[] = [];
+  avisos: AvisoSistema[] = [];
 
   private liveMap: maplibregl.Map | null = null;
   private liveMarkers = new Map<string, maplibregl.Marker>();
@@ -85,19 +90,48 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes, anomalias] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias, reportes, avisos] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
       this.admin.getChoferes(eid),
       this.admin.getAnomalousLocations(eid),
+      this.admin.getReportes(eid),
+      this.admin.getAvisosActivos(),
     ]);
     this.stats = stats;
     this.rutas = rutas;
     this.buses = buses;
     this.choferes = choferes;
     this.anomalias = anomalias;
+    this.reportes = reportes;
+    this.avisos = avisos;
   }
+
+  async addReporte() {
+    const alert = await this.alertCtrl.create({
+      header: 'Reportar un problema',
+      inputs: [
+        { name: 'titulo', placeholder: 'Título breve', type: 'text' },
+        { name: 'descripcion', placeholder: 'Describe el problema con el mayor detalle posible', type: 'textarea' },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Enviar', handler: async (d) => {
+        if (!d.titulo || !d.descripcion) return false;
+        try {
+          await this.admin.createReporte(this.profile!.empresa_id!, this.profile!.id, d.titulo, d.descripcion);
+          await this.loadData();
+          this.showToast('Reporte enviado');
+        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  getReporteEstadoLabel(e: string) { return { pendiente: 'Pendiente', en_revision: 'En revisión', resuelto: 'Resuelto' }[e] || e; }
+  getReporteEstadoColor(e: string) { return { pendiente: '#ff9800', en_revision: '#2196f3', resuelto: '#00c853' }[e] || '#9aa5b4'; }
+  getAvisoColor(t: string) { return { info: '#2196f3', advertencia: '#ff9800', urgente: '#f44336' }[t] || '#2196f3'; }
+  getAvisoIcon(t: string) { return { info: 'information-circle-outline', advertencia: 'warning-outline', urgente: 'alert-circle-outline' }[t] || 'information-circle-outline'; }
 
   async dismissAnomalia(loc: BusLocation) {
     try {

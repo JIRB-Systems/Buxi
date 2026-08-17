@@ -229,6 +229,17 @@
 .act-group { display: flex; gap: 6px; }
 .empty { text-align: center; padding: 24px; color: var(--dash-text-muted); font-size: 13px; }
 
+// ====== AVISOS Y REPORTES ======
+.aviso-row { align-items: flex-start; }
+.aviso-icon { font-size: 22px; margin-top: 1px; flex-shrink: 0; }
+.reporte-row .row-main .muted.small { font-size: 10px; opacity: 0.7; }
+.reporte-respuesta {
+  display: flex; align-items: flex-start; gap: 6px; margin-top: 8px;
+  background: rgba(0,200,83,0.08); border-left: 2px solid #00c853;
+  border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #c0cfe0;
+  ion-icon { color: #00c853; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+}
+
 .btn-action {
   --background: #00c853; --border-radius: 12px; --box-shadow: none;
   font-weight: 600; font-size: 13px; height: 40px; text-transform: none; margin-bottom: 14px;

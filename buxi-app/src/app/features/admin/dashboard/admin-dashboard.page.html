@@ -373,6 +373,29 @@
             </div>
           </div>
 
+          <!-- ========== REPORTES DE BUGS ========== -->
+          <div *ngIf="activeTab==='reportes'" class="section">
+            <div class="panel">
+              <div class="panel-header"><h3>Reportes de empresas ({{ pendingReportes }} pendientes)</h3></div>
+              <div class="table-row reporte-row" *ngFor="let r of reportes">
+                <div class="reporte-info">
+                  <strong>{{ r.titulo }}</strong>
+                  <span class="muted">{{ $any(r.empresa)?.nombre || '-' }} · {{ r.created_at | date:'medium' }}</span>
+                  <span>{{ r.descripcion }}</span>
+                  <div class="reporte-respuesta" *ngIf="r.respuesta_jirb">
+                    <ion-icon name="chatbox-ellipses-outline"></ion-icon>
+                    <span>{{ r.respuesta_jirb }}</span>
+                  </div>
+                </div>
+                <span class="badge" [style.color]="getReporteEstadoColor(r.estado)">{{ getReporteEstadoLabel(r.estado) }}</span>
+                <span class="col-sm actions">
+                  <ion-icon name="chatbox-outline" (click)="responderReporte(r)" title="Responder"></ion-icon>
+                </span>
+              </div>
+              <div class="empty" *ngIf="reportes.length===0">No hay reportes de empresas</div>
+            </div>
+          </div>
+
           <!-- ========== VIAJES ========== -->
           <div *ngIf="activeTab==='viajes'" class="section">
             <div class="panel">
@@ -446,6 +469,26 @@
                 <span class="col-md muted">{{ s.created_at | date:'shortDate' }}</span>
               </div>
               <div class="empty" *ngIf="solicitudes.length===0">No hay solicitudes</div>
+            </div>
+          </div>
+
+          <!-- ========== AVISOS DEL SISTEMA ========== -->
+          <div *ngIf="activeTab==='avisos'" class="section">
+            <ion-button class="btn-primary" (click)="addAviso()"><ion-icon name="add" slot="start"></ion-icon>Nuevo aviso</ion-button>
+            <div class="panel">
+              <div class="table-row aviso-row" *ngFor="let a of avisos" [class.resolved]="!a.activo">
+                <ion-icon [name]="getAvisoIcon(a.tipo)" [style.color]="getAvisoColor(a.tipo)" class="aviso-icon"></ion-icon>
+                <div class="reporte-info">
+                  <strong>{{ a.titulo }}</strong>
+                  <span class="muted">{{ a.created_at | date:'medium' }} · {{ a.activo ? 'Activo' : 'Inactivo' }}</span>
+                  <span>{{ a.mensaje }}</span>
+                </div>
+                <span class="actions">
+                  <ion-icon [name]="a.activo ? 'pause-circle-outline' : 'play-circle-outline'" (click)="toggleAviso(a)"></ion-icon>
+                  <ion-icon name="trash-outline" class="danger" (click)="deleteAviso(a)"></ion-icon>
+                </span>
+              </div>
+              <div class="empty" *ngIf="avisos.length===0">No hay avisos creados</div>
             </div>
           </div>
 

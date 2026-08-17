@@ -38,6 +38,8 @@
           <h1 *ngIf="activeTab==='buses'">Buses</h1>
           <h1 *ngIf="activeTab==='choferes'">Choferes</h1>
           <h1 *ngIf="activeTab==='mapa'">Seguimiento en vivo</h1>
+          <h1 *ngIf="activeTab==='avisos'">Avisos</h1>
+          <h1 *ngIf="activeTab==='reportes'">Reportes</h1>
           <p *ngIf="activeTab==='inicio'">Resumen general de tu operación en tiempo real</p>
         </div>
         <div class="topbar-user" *ngIf="profile">
@@ -216,6 +218,41 @@
               </div>
             </div>
             <div class="empty" *ngIf="choferes.length===0">No hay choferes</div>
+          </div>
+        </div>
+
+        <!-- ===== AVISOS ===== -->
+        <div *ngIf="activeTab==='avisos'" class="page">
+          <div class="card">
+            <div class="table-row aviso-row" *ngFor="let a of avisos">
+              <ion-icon [name]="getAvisoIcon(a.tipo)" [style.color]="getAvisoColor(a.tipo)" class="aviso-icon"></ion-icon>
+              <div class="row-main">
+                <strong>{{ a.titulo }}</strong>
+                <span class="muted">{{ a.mensaje }}</span>
+                <span class="muted small">{{ a.created_at | date:'medium' }}</span>
+              </div>
+            </div>
+            <div class="empty" *ngIf="avisos.length===0">No hay avisos activos</div>
+          </div>
+        </div>
+
+        <!-- ===== REPORTES ===== -->
+        <div *ngIf="activeTab==='reportes'" class="page">
+          <ion-button class="btn-action" (click)="addReporte()"><ion-icon name="add" slot="start"></ion-icon>Reportar problema</ion-button>
+          <div class="card">
+            <div class="table-row reporte-row" *ngFor="let r of reportes">
+              <div class="row-main">
+                <strong>{{ r.titulo }}</strong>
+                <span class="muted">{{ r.descripcion }}</span>
+                <span class="muted small">{{ r.created_at | date:'medium' }}</span>
+                <div class="reporte-respuesta" *ngIf="r.respuesta_jirb">
+                  <ion-icon name="chatbox-ellipses-outline"></ion-icon>
+                  <span>{{ r.respuesta_jirb }}</span>
+                </div>
+              </div>
+              <span class="status-tag" [style.background]="getReporteEstadoColor(r.estado)">{{ getReporteEstadoLabel(r.estado) }}</span>
+            </div>
+            <div class="empty" *ngIf="reportes.length===0">No has enviado reportes</div>
           </div>
         </div>
 

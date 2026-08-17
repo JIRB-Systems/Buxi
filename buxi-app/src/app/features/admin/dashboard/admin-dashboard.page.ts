@@ -11,7 +11,7 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminJirbService } from '../../../core/services/admin-jirb.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
-import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion } from '../../../core/models/features.model';
+import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
 import { createMap, htmlMarkerEl, circlePolygon } from '../../../core/utils/maplibre';
 
@@ -54,6 +54,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
         { id: 'alertas', icon: 'warning-outline', label: 'Alertas GPS' },
         { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
+        { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
       ],
     },
     {
@@ -61,6 +62,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       items: [
         { id: 'planes', icon: 'card-outline', label: 'Planes' },
         { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
+        { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
         { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
         { id: 'config', icon: 'settings-outline', label: 'Configuración' },
       ],
@@ -87,6 +89,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   suscripciones: Suscripcion[] = [];
   suscripcionMap = new Map<string, Suscripcion>();
   solicitudes: any[] = [];
+  reportes: ReporteBug[] = [];
+  avisos: AvisoSistema[] = [];
 
   filteredUsers: UserProfile[] = [];
   userRoleFilter = 'todos';
@@ -114,7 +118,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async loadData() {
-    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes] = await Promise.all([
+    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos] = await Promise.all([
       this.admin.getGlobalStats(),
       this.admin.getEmpresas(),
       this.admin.getAllRutas(),
@@ -129,6 +133,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getPlanes(),
       this.admin.getSuscripciones(),
       this.admin.getSolicitudes(),
+      this.admin.getReportes(),
+      this.admin.getAvisos(),
     ]);
     this.stats = stats;
     this.empresas = empresas;
@@ -144,6 +150,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.planes = planes;
     this.suscripciones = suscripciones;
     this.solicitudes = solicitudes;
+    this.reportes = reportes;
+    this.avisos = avisos;
     this.suscripcionMap.clear();
     for (const s of suscripciones) {
       this.suscripcionMap.set(s.empresa_id, s);
@@ -758,6 +766,89 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.showToast('Solicitud rechazada');
   }
 
+  // ---- REPORTES DE BUGS ----
+  get pendingReportes(): number {
+    return this.reportes.filter(r => r.estado === 'pendiente').length;
+  }
+
+  async responderReporte(r: ReporteBug) {
+    const alert = await this.alertCtrl.create({
+      header: `Responder: ${r.titulo}`,
+      inputs: [
+        { name: 'estado', type: 'radio', label: 'Pendiente', value: 'pendiente', checked: r.estado === 'pendiente' },
+        { name: 'estado', type: 'radio', label: 'En revisión', value: 'en_revision', checked: r.estado === 'en_revision' },
+        { name: 'estado', type: 'radio', label: 'Resuelto', value: 'resuelto', checked: r.estado === 'resuelto' },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Siguiente', handler: async (estado) => {
+        const alert2 = await this.alertCtrl.create({
+          header: 'Respuesta para la empresa',
+          inputs: [{ name: 'respuesta', type: 'textarea', placeholder: 'Explicá qué se hizo o qué falta', value: r.respuesta_jirb || '' }],
+          buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
+            try {
+              await this.admin.responderReporte(r.id, estado, d.respuesta || '', this.profile!.id);
+              await this.logAction('Responder reporte', r.titulo, 'reporte_bug', r.id);
+              await this.loadData();
+              this.showToast('Respuesta guardada');
+            } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+            return true;
+          }}],
+        });
+        await alert2.present();
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  getReporteEstadoLabel(e: string) { return { pendiente: 'Pendiente', en_revision: 'En revisión', resuelto: 'Resuelto' }[e] || e; }
+  getReporteEstadoColor(e: string) { return { pendiente: '#ff9800', en_revision: '#2196f3', resuelto: '#00c853' }[e] || '#9aa5b4'; }
+
+  // ---- AVISOS DEL SISTEMA ----
+  async addAviso() {
+    const alert = await this.alertCtrl.create({
+      header: 'Nuevo aviso',
+      inputs: [
+        { name: 'titulo', placeholder: 'Título', type: 'text' },
+        { name: 'mensaje', placeholder: 'Mensaje para todas las empresas', type: 'textarea' },
+        { name: 'tipo', type: 'radio', label: 'Info', value: 'info', checked: true },
+        { name: 'tipo', type: 'radio', label: 'Advertencia', value: 'advertencia' },
+        { name: 'tipo', type: 'radio', label: 'Urgente', value: 'urgente' },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Publicar', handler: async (d) => {
+        if (!d.titulo || !d.mensaje) return false;
+        try {
+          await this.admin.createAviso(this.profile!.id, d.titulo, d.mensaje, d.tipo || 'info');
+          await this.logAction('Crear aviso', d.titulo, 'aviso_sistema');
+          await this.loadData();
+          this.showToast('Aviso publicado');
+        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  async toggleAviso(a: AvisoSistema) {
+    try {
+      await this.admin.toggleAviso(a.id, !a.activo);
+      await this.loadData();
+      this.showToast(a.activo ? 'Aviso desactivado' : 'Aviso activado');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+  }
+
+  async deleteAviso(a: AvisoSistema) {
+    const alert = await this.alertCtrl.create({
+      header: 'Eliminar aviso', message: `¿Eliminar "${a.titulo}"?`,
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Eliminar', role: 'destructive', handler: async () => {
+        await this.admin.deleteAviso(a.id); await this.loadData(); this.showToast('Aviso eliminado');
+      }}],
+    });
+    await alert.present();
+  }
+
+  getAvisoColor(t: string) { return { info: '#2196f3', advertencia: '#ff9800', urgente: '#f44336' }[t] || '#2196f3'; }
+  getAvisoIcon(t: string) { return { info: 'information-circle-outline', advertencia: 'warning-outline', urgente: 'alert-circle-outline' }[t] || 'information-circle-outline'; }
+
   getEmpresaPlan(empresaId: string): string {
     const sub = this.suscripcionMap.get(empresaId);
     return (sub?.plan as any)?.nombre || 'Sin plan';
@@ -811,8 +902,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       empresas: 'Gestión de empresas', rutas: 'Gestión de rutas',
       buses: 'Gestión de buses', usuarios: 'Gestión de usuarios',
       viajes: 'Historial de viajes', calificaciones: 'Reseñas y calificaciones',
-      alertas: 'Alertas de GPS sospechoso',
-      solicitudes: 'Solicitudes de empresas', logs: 'Registro de actividad', planes: 'Planes y suscripciones',
+      alertas: 'Alertas de GPS sospechoso', reportes: 'Reportes de empresas',
+      solicitudes: 'Solicitudes de empresas', avisos: 'Avisos del sistema',
+      logs: 'Registro de actividad', planes: 'Planes y suscripciones',
       config: 'Configuración del sistema',
     };
     return titles[this.activeTab] || '';
