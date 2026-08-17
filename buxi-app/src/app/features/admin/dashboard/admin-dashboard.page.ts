@@ -287,6 +287,15 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.adminMap = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
+    // El contenedor de la pestaña "Mapa en vivo" recién aparece por el
+    // *ngIf al cambiar de tab: MapLibre mide su tamaño en el momento de
+    // crearse, y si el layout todavía no asentó, se queda con una
+    // proyección calculada sobre un tamaño chico o transitorio. El canvas
+    // se estira por CSS igual, pero centro/zoom quedan mal — por eso el
+    // mapa terminaba mostrando una región random en vez de Costa Rica.
+    setTimeout(() => this.adminMap?.resize(), 100);
+    setTimeout(() => this.adminMap?.resize(), 400);
+
     this.adminBusMarkers.forEach(m => m.remove());
     this.adminBusMarkers.clear();
 
