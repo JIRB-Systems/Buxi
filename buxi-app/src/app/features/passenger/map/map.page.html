@@ -22,8 +22,8 @@
 
     <div class="dt-search" (click)="openSearch()">
       <ion-icon name="search-outline"></ion-icon>
-      <span class="dt-ph-full">Buscar rutas, empresas, paradas o destinos</span>
-      <span class="dt-ph-short">Buscar rutas o destinos</span>
+      <span class="dt-ph-full">Buscar un lugar o destino</span>
+      <span class="dt-ph-short">Buscar un lugar</span>
     </div>
 
     <div class="dt-actions">
@@ -122,8 +122,8 @@
            se cortaba a media palabra ("...para..."), que se lee como un error. -->
       <div class="tb-search" (click)="openSearch()">
         <ion-icon name="search-outline"></ion-icon>
-        <span class="tb-ph-full">Buscar rutas, empresas, paradas o destinos</span>
-        <span class="tb-ph-short">Buscar rutas o destinos</span>
+        <span class="tb-ph-full">Buscar un lugar o destino</span>
+        <span class="tb-ph-short">Buscar un lugar</span>
       </div>
       <!-- El ícono va siempre debajo y la foto encima: si la foto no carga,
            queda el ícono en vez de un círculo vacío. -->
@@ -297,14 +297,26 @@
       <ion-icon name="close" (click)="closePanel()"></ion-icon>
     </div>
 
-    <div class="lp-search" *ngIf="activePanel !== 'alertas'">
+    <!-- Un campo, dos buscadores distintos segun el panel abierto: lugares
+         (geocodificador) o rutas y empresas (datos propios). -->
+    <div class="lp-search" *ngIf="activePanel === 'lugares'">
       <ion-icon name="search-outline"></ion-icon>
       <input
         type="text"
-        placeholder="Buscar ruta, empresa o destino"
-        [value]="panelSearch"
-        (input)="onPanelSearch($event)"
+        placeholder="Terminal, parque, playa, direccion..."
+        [value]="placeQuery"
+        (input)="onPlaceSearch($event)"
         #panelSearchInput />
+      <ion-spinner *ngIf="placeSearching" name="crescent" class="lp-spin"></ion-spinner>
+    </div>
+
+    <div class="lp-search" *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
+      <ion-icon name="search-outline"></ion-icon>
+      <input
+        type="text"
+        placeholder="Buscar ruta o empresa"
+        [value]="panelSearch"
+        (input)="onPanelSearch($event)" />
     </div>
 
     <div class="lp-body">
@@ -348,6 +360,30 @@
           <strong *ngIf="activePanel === 'rutas'">Sin resultados</strong>
           <span *ngIf="activePanel === 'favoritos'">Tocá la estrella de una ruta para guardarla acá.</span>
           <span *ngIf="activePanel === 'rutas'">Probá con otro nombre, empresa o destino.</span>
+        </div>
+      </ng-container>
+
+      <!-- Lugares: geocodificador + los lugares propios de la base -->
+      <ng-container *ngIf="activePanel === 'lugares'">
+        <div class="lp-row" *ngFor="let p of placeResults" (click)="selectPlace(p)">
+          <div class="lp-place-icon"><ion-icon name="location"></ion-icon></div>
+          <div class="lp-info">
+            <strong>{{ p.label.split(',')[0] }}</strong>
+            <span class="lp-trip">{{ p.label }}</span>
+          </div>
+          <ion-icon name="chevron-forward" class="lp-sp-chevron"></ion-icon>
+        </div>
+
+        <div class="lp-empty" *ngIf="!placeSearching && placeQuery.length > 1 && placeResults.length === 0">
+          <ion-icon name="search-outline"></ion-icon>
+          <strong>Sin resultados</strong>
+          <span>Proba con una terminal, un parque o una direccion.</span>
+        </div>
+
+        <div class="lp-empty" *ngIf="placeQuery.length <= 1">
+          <ion-icon name="location-outline"></ion-icon>
+          <strong>A donde vas?</strong>
+          <span>Escribi un lugar y te llevo el mapa hasta ahi.</span>
         </div>
       </ng-container>
 

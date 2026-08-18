@@ -83,7 +83,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   // ---- Paneles flotantes (Rutas / Favoritos / Alertas) ----
   // Son hojas sobre el mapa en vez de pantallas aparte: el mapa nunca se
   // pierde de vista y, de paso, no hay chunk lazy que pueda fallar al navegar.
-  activePanel: 'rutas' | 'favoritos' | 'alertas' | null = null;
+  activePanel: 'rutas' | 'favoritos' | 'alertas' | 'lugares' | null = null;
   panelSearch = '';
   favoritoRutaIds = new Set<string>();
   favoritosLoading = false;
@@ -98,6 +98,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       case 'rutas': return 'Rutas y empresas';
       case 'favoritos': return 'Tus favoritos';
       case 'alertas': return 'Alertas';
+      case 'lugares': return 'Buscar un lugar';
       default: return '';
     }
   }
@@ -123,15 +124,61 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   // de rutas, que arrastraba consigo la barra inferior y el diseño anteriores.
   @ViewChild('panelSearchInput') panelSearchInput?: ElementRef<HTMLInputElement>;
 
+  // El buscador de la barra superior busca LUGARES; el boton verde del dock
+  // lleva a rutas y empresas. Antes ambos abrian el mismo panel —que ademas
+  // traia su propio buscador—, asi que habia tres entradas a lo mismo.
   async openSearch(prefill = '') {
-    await this.openPanel('rutas');
-    this.activePanel = 'rutas';
-    this.panelSearch = prefill;
-    // El input recién existe tras el ciclo de render que abre el panel.
+    await this.openPanel('lugares');
+    this.activePanel = 'lugares';
+    this.placeQuery = prefill;
+    this.placeResults = [];
+    if (prefill) this.runPlaceSearch(prefill);
     setTimeout(() => this.panelSearchInput?.nativeElement.focus(), 120);
   }
 
-  async openPanel(panel: 'rutas' | 'favoritos' | 'alertas') {
+  // ---- BUSQUEDA DE LUGARES ----
+  placeQuery = '';
+  placeResults: { label: string; lat: number; lng: number }[] = [];
+  placeSearching = false;
+  private placeDebounce: any = null;
+  private placeMarker: maplibregl.Marker | null = null;
+
+  onPlaceSearch(ev: Event) {
+    const q = (ev.target as HTMLInputElement)?.value ?? '';
+    this.placeQuery = q;
+    clearTimeout(this.placeDebounce);
+    // El geocodificador es un servicio externo con limite de uso: se espera a
+    // que el usuario deje de escribir en vez de consultar en cada tecla.
+    this.placeDebounce = setTimeout(() => this.runPlaceSearch(q), 350);
+  }
+
+  private async runPlaceSearch(q: string) {
+    if (q.trim().length < 2) { this.placeResults = []; this.placeSearching = false; return; }
+    this.placeSearching = true;
+    try {
+      this.placeResults = await this.featuresService.searchPlaces(q);
+    } catch {
+      this.placeResults = [];
+    }
+    this.placeSearching = false;
+  }
+
+  // Un lugar no es una ruta: no hay trazo que dibujar, asi que la accion es
+  // llevar el mapa hasta ahi y dejar una marca para no perderlo de vista.
+  selectPlace(p: { label: string; lat: number; lng: number }) {
+    this.closePanel();
+    if (!this.mapReady) return;
+
+    this.placeMarker?.remove();
+    const el = htmlMarkerEl('place-marker', '<div class="place-pin"></div>');
+    this.placeMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat([p.lng, p.lat])
+      .addTo(this.map);
+
+    this.map.flyTo({ center: [p.lng, p.lat], zoom: 15.5, duration: 1200 });
+  }
+
+  async openPanel(panel: 'rutas' | 'favoritos' | 'alertas' | 'lugares') {
     this.activePanel = this.activePanel === panel ? null : panel;
     this.panelSearch = '';
     if (this.activePanel) {
