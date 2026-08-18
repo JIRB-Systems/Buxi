@@ -68,6 +68,15 @@
             <span>{{ activeRuta.origen }} → {{ activeRuta.destino }}</span>
           </div>
         </div>
+        <div class="ds-route-extra" *ngIf="activeRuta.precio || todayHorario">
+          <span class="ds-extra-item" *ngIf="activeRuta.precio">
+            <ion-icon name="cash-outline"></ion-icon> ₡{{ activeRuta.precio | number:'1.0-0' }}
+          </span>
+          <span class="ds-extra-item" *ngIf="todayHorario">
+            <ion-icon name="time-outline"></ion-icon>
+            {{ todayHorario.primera_salida.slice(0,5) }}–{{ todayHorario.ultima_salida.slice(0,5) }} · cada {{ todayHorario.frecuencia_minutos }} min
+          </span>
+        </div>
       </div>
 
       <div class="ds-card" *ngIf="nearestStop">
@@ -178,6 +187,13 @@
     {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en esta ruta
     <span class="chip-sep">·</span>
     {{ activeParadas.length }} paradas
+  </div>
+
+  <!-- Precio + horario de hoy -->
+  <div class="route-info-chip" *ngIf="activeRuta && (activeRuta.precio || todayHorario)">
+    <span *ngIf="activeRuta.precio">₡{{ activeRuta.precio | number:'1.0-0' }}</span>
+    <span class="chip-sep" *ngIf="activeRuta.precio && todayHorario">·</span>
+    <span *ngIf="todayHorario">{{ todayHorario.primera_salida.slice(0,5) }}–{{ todayHorario.ultima_salida.slice(0,5) }} · cada {{ todayHorario.frecuencia_minutos }} min</span>
   </div>
 
   <!-- ETA + nearest stop -->

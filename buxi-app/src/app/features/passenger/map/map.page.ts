@@ -7,7 +7,7 @@ import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { UserProfile } from '../../../core/models/user-profile.model';
-import { Anuncio } from '../../../core/models/features.model';
+import { Anuncio, Horario } from '../../../core/models/features.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -209,6 +209,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         this.activeRuta = ruta;
         this.activeParadas = paradas;
         await this.drawRoute(paradas, ruta.color, ruta.geometria);
+        this.loadHorariosFor(ruta.id);
       }
       const locations = await this.tracking.getLocationsByRuta(ruta.id);
       this.activeBusCount = locations.length;
@@ -219,7 +220,25 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   activeRuta: Ruta | null = null;
   activeParadas: Parada[] = [];
+  activeHorarios: Horario[] = [];
   nearestStop: { parada: Parada; distanceKm: number } | null = null;
+
+  // El horario de hoy según el día de la semana real, no el primero de la
+  // lista — así el pasajero ve la franja que de verdad le sirve ahora.
+  get todayHorario(): Horario | null {
+    if (!this.activeHorarios.length) return null;
+    const day = new Date().getDay(); // 0 domingo, 6 sábado
+    const dia = day === 0 ? 'domingo' : day === 6 ? 'sabado' : 'lunes_viernes';
+    return this.activeHorarios.find(h => h.dia === dia) || null;
+  }
+
+  private async loadHorariosFor(rutaId: string) {
+    try {
+      this.activeHorarios = await this.tracking.getHorarios(rutaId);
+    } catch {
+      this.activeHorarios = [];
+    }
+  }
   etaMinutes: number | null = null;
   private userLat = 0;
   private userLng = 0;
@@ -770,6 +789,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       this.activeRuta = ruta;
       this.activeParadas = paradas;
       await this.drawRoute(paradas, ruta.color, ruta.geometria);
+      this.loadHorariosFor(rutaId);
 
       const locations = await this.tracking.getLocationsByRuta(rutaId);
       this.activeBusCount = locations.length;
@@ -861,6 +881,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.followBusId = null;
     this.activeRuta = null;
     this.activeParadas = [];
+    this.activeHorarios = [];
     this.selectedEmpresaId = null;
 
     if (navigate) {

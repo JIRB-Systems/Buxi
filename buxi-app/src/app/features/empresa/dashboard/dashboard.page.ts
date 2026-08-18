@@ -12,6 +12,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
 import { ReporteBug, AvisoSistema } from '../../../core/models/features.model';
 import { RutaFormComponent } from './ruta-form.component';
+import { HorariosFormComponent } from './horarios-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
 import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/maplibre';
 
@@ -461,6 +462,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         origen: data.origen.label,
         destino: data.destino.label,
         color: data.color || '#00c853',
+        precio: data.precio ?? null,
         estado: 'activa',
       });
 
@@ -476,6 +478,26 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     } catch {
       this.showToast('Error creando la ruta', 'danger');
     }
+  }
+
+  async editRutaDetails(r: Ruta) {
+    const modal = await this.modalCtrl.create({ component: RutaFormComponent, componentProps: { ruta: r } });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      await this.admin.updateRuta(r.id, { nombre: data.nombre, color: data.color, precio: data.precio ?? null });
+      await this.loadData();
+      this.showToast('Ruta actualizada');
+    } catch {
+      this.showToast('Error actualizando la ruta', 'danger');
+    }
+  }
+
+  async manageHorarios(r: Ruta) {
+    const modal = await this.modalCtrl.create({ component: HorariosFormComponent, componentProps: { ruta: r } });
+    await modal.present();
   }
 
   async deleteRuta(r: Ruta) {

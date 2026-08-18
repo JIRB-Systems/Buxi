@@ -4,6 +4,7 @@ import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BusLocation, Ruta, Parada, Bus } from '../models/transport.model';
+import { Horario } from '../models/features.model';
 
 export interface EmpresaListItem {
   id: string;
@@ -88,6 +89,15 @@ export class BusTrackingService implements OnDestroy {
       .select(this.BUS_SELECT);
     if (error) throw error;
     return (data || []) as BusLocation[];
+  }
+
+  async getHorarios(rutaId: string): Promise<Horario[]> {
+    const { data, error } = await this.supabase
+      .from('horarios')
+      .select('*')
+      .eq('ruta_id', rutaId);
+    if (error) throw error;
+    return data as Horario[];
   }
 
   async getAllParadas(): Promise<Parada[]> {

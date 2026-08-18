@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { FeaturesService } from '../../../core/services/features.service';
+import { Ruta } from '../../../core/models/transport.model';
 
 interface PlaceSuggestion { label: string; lat: number; lng: number; }
 
@@ -10,9 +11,15 @@ interface PlaceSuggestion { label: string; lat: number; lng: number; }
   styleUrls: ['./ruta-form.component.scss'],
   standalone: false,
 })
-export class RutaFormComponent {
+export class RutaFormComponent implements OnInit {
+  // Si viene una ruta, es edición: nombre/color/precio se pueden tocar,
+  // pero origen y destino no — cambiarlos significaría recalcular todo
+  // el recorrido, y para eso ya existe el editor de trazado en el mapa.
+  @Input() ruta?: Ruta;
+
   nombre = '';
   color = '#00c853';
+  precio: number | null = null;
 
   origenQuery = '';
   origenSuggestions: PlaceSuggestion[] = [];
@@ -32,6 +39,18 @@ export class RutaFormComponent {
   private destinoTimeout: any;
 
   constructor(private modalCtrl: ModalController, private features: FeaturesService) {}
+
+  get isEdit(): boolean {
+    return !!this.ruta;
+  }
+
+  ngOnInit() {
+    if (this.ruta) {
+      this.nombre = this.ruta.nombre;
+      this.color = this.ruta.color;
+      this.precio = this.ruta.precio;
+    }
+  }
 
   onOrigenInput() {
     this.origenSelected = null;
@@ -116,6 +135,7 @@ export class RutaFormComponent {
   }
 
   get canCreate(): boolean {
+    if (this.isEdit) return !!this.nombre.trim();
     return !!this.nombre.trim() && !!this.origenSelected && !!this.destinoSelected;
   }
 
@@ -128,6 +148,7 @@ export class RutaFormComponent {
     this.modalCtrl.dismiss({
       nombre: this.nombre.trim(),
       color: this.color,
+      precio: this.precio,
       origen: this.origenSelected,
       destino: this.destinoSelected,
     }, 'confirm');

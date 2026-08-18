@@ -6,9 +6,10 @@ import { RouterModule } from '@angular/router';
 import { EmpresaDashboardPage } from './dashboard.page';
 import { RutaFormComponent } from './ruta-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
+import { HorariosFormComponent } from './horarios-form.component';
 
 @NgModule({
-  declarations: [EmpresaDashboardPage, RutaFormComponent, ReporteFormComponent],
+  declarations: [EmpresaDashboardPage, RutaFormComponent, ReporteFormComponent, HorariosFormComponent],
   imports: [
     CommonModule,
     FormsModule,

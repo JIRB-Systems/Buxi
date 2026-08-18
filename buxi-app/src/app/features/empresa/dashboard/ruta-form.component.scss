@@ -39,7 +39,19 @@
     margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+
+    .opt { text-transform: none; letter-spacing: 0; opacity: 0.7; }
   }
+}
+
+.currency-prefix {
+  padding-left: 12px;
+  color: var(--dash-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  height: 100%;
 }
 
 .autocomplete {

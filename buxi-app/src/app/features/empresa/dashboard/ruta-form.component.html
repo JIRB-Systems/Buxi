@@ -1,6 +1,6 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>Nueva ruta</ion-title>
+    <ion-title>{{ isEdit ? 'Editar ruta' : 'Nueva ruta' }}</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="cancel()">Cerrar</ion-button>
     </ion-buttons>
@@ -13,7 +13,14 @@
     <ion-input [(ngModel)]="nombre" placeholder="Ej. San José - Cartago" fill="outline"></ion-input>
   </div>
 
-  <div class="field autocomplete">
+  <div class="field">
+    <label>Precio del pasaje <span class="opt">(opcional)</span></label>
+    <ion-input [(ngModel)]="precio" type="number" min="0" placeholder="Ej. 500" fill="outline">
+      <div slot="start" class="currency-prefix">₡</div>
+    </ion-input>
+  </div>
+
+  <div class="field autocomplete" *ngIf="!isEdit">
     <label>Origen</label>
     <ion-input
       [(ngModel)]="origenQuery"
@@ -35,7 +42,7 @@
     </div>
   </div>
 
-  <div class="field autocomplete">
+  <div class="field autocomplete" *ngIf="!isEdit">
     <label>Destino</label>
     <ion-input
       [(ngModel)]="destinoQuery"
@@ -62,5 +69,5 @@
     <input type="color" [(ngModel)]="color" class="color-picker" />
   </div>
 
-  <ion-button expand="block" [disabled]="!canCreate" (click)="create()">Crear ruta</ion-button>
+  <ion-button expand="block" [disabled]="!canCreate" (click)="create()">{{ isEdit ? 'Guardar cambios' : 'Crear ruta' }}</ion-button>
 </ion-content>
