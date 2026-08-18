@@ -131,8 +131,8 @@
 // Tarjeta patrocinada: mismo alto y tipografía que una fila de ruta, para
 // que se sienta parte de la lista y no un banner ajeno pegado encima.
 .lp-sponsored {
-  display: flex; align-items: center; gap: 11px;
-  padding: 9px 10px;
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 10px 10px;
   border-radius: 15px;
   margin-bottom: 4px;
   text-decoration: none;
@@ -161,9 +161,13 @@
   // Independiente de .lp-row .lp-info: acá el <a> es el que envuelve,
   // así que sin estas reglas propias el texto cae al azul de link nativo
   // y título+descripción quedan pegados en una sola línea sin corte.
+  // El título va en una línea (como el nombre de una ruta); la descripción
+  // puede ocupar hasta 2 líneas para no cortar frases cortas típicas de
+  // un anuncio ("10% de descuento mostrando la app").
   .lp-info {
     flex: 1; min-width: 0;
-    display: flex; flex-direction: column; gap: 1px;
+    display: flex; flex-direction: column; gap: 2px;
+    padding-top: 1px;
 
     strong {
       display: block;
@@ -171,13 +175,15 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .lp-trip {
-      display: block;
-      font-size: 11.5px; color: #e0c48f;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      font-size: 11.5px; line-height: 1.3; color: #e0c48f;
     }
   }
 
-  .lp-sp-chevron { font-size: 16px; color: #ffb020; flex-shrink: 0; }
+  .lp-sp-chevron { font-size: 16px; color: #ffb020; flex-shrink: 0; margin-top: 3px; }
 
   &.anim-fade { animation: lpFade 0.5s ease both; }
   &.anim-slide { animation: lpSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
