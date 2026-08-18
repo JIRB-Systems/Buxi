@@ -13,7 +13,8 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
 import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
-import { createMap, htmlMarkerEl, circlePolygon } from '../../../core/utils/maplibre';
+import { createMap, htmlMarkerEl, circlePolygon, distanceToPolylineMeters } from '../../../core/utils/maplibre';
+import type { Feature, LineString } from 'geojson';
 import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
 
@@ -33,6 +34,36 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   profile: UserProfile | null = null;
   activeTab = 'overview';
   loading = true;
+
+  // ---- Buscador de bus ----
+  busSearchQuery = '';
+
+  // ---- Capa de calor de anomalías ----
+  showAnomalyHeatmap = false;
+
+  // ---- Estela de recorrido ----
+  trailBusPlaca: string | null = null;
+  private trailLoading = false;
+
+  // ---- Desvío de ruta ----
+  private readonly ROUTE_DEVIATION_METERS = 300;
+
+  // ---- Clustering ----
+  private adminClusterMarkers: maplibregl.Marker[] = [];
+  private readonly CLUSTER_PIXEL_RADIUS = 46;
+  private clusterMoveHandler: (() => void) | null = null;
+  private clusterDebounce: any = null;
+
+  // ---- Time-lapse histórico ----
+  historicalMode = false;
+  historicalDate = new Date().toISOString().slice(0, 10);
+  readonly todayStr = new Date().toISOString().slice(0, 10);
+  historicalMinute = 480;
+  isPlaying = false;
+  historicalLoading = false;
+  private historicalByBus = new Map<string, { lat: number; lng: number; t: number; placa: string; color: string }[]>();
+  private historicalMarkers = new Map<string, maplibregl.Marker>();
+  private playbackInterval: any = null;
   sidebarOpen = true;
 
   topNavItems = [
@@ -277,6 +308,11 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.stopWatchingUserLocation();
     this.adminUserMarker = null;
     this.adminAccuracyDrawn = false;
+    this.trailBusPlaca = null;
+    this.exitHistoricalMode(false);
+    this.adminClusterMarkers.forEach(m => m.remove());
+    this.adminClusterMarkers = [];
+    this.clusterMoveHandler = null;
 
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -321,6 +357,19 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       );
       this.adminMap.fitBounds(bounds, { padding: 40, duration: 0 });
     }
+
+    if (this.showAnomalyHeatmap) this.renderAnomalyHeatmap();
+
+    // Re-agrupar buses cercanos en un solo marker con contador cada vez que
+    // cambia el zoom: a nivel país, varios buses de una misma terminal caen
+    // literalmente unos sobre otros y se hacen imposibles de tocar.
+    this.clusterMoveHandler = () => {
+      clearTimeout(this.clusterDebounce);
+      this.clusterDebounce = setTimeout(() => this.recomputeClusters(), 120);
+    };
+    this.adminMap.on('zoomend', this.clusterMoveHandler);
+    this.adminMap.on('moveend', this.clusterMoveHandler);
+    setTimeout(() => this.recomputeClusters(), 500);
 
     // El mapa se reconstruye al cambiar de pestaña; sin soltar el canal
     // anterior, sb.channel('admin-live-map') devuelve el mismo canal ya
@@ -429,15 +478,24 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     if (!this.adminMap) return;
     const busInfo = loc.bus as any;
     const color = busInfo?.ruta?.color || '#00c853';
+    const deviated = this.isBusDeviated(loc);
 
     if (this.adminBusMarkers.has(loc.bus_id)) {
-      this.adminBusMarkers.get(loc.bus_id)!.setLngLat([loc.longitud, loc.latitud]);
+      const marker = this.adminBusMarkers.get(loc.bus_id)!;
+      marker.setLngLat([loc.longitud, loc.latitud]);
+      marker.getElement().classList.toggle('deviated', deviated);
+      marker.getPopup()?.setHTML(this.busPopupHtml(busInfo, loc, deviated));
       return;
     }
 
     const el = htmlMarkerEl('admin-bus-marker', `<div class="admin-bus-icon" style="background:${color}"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`);
+    if (deviated) el.classList.add('deviated');
+    // Clic en el bus dibuja su estela de las últimas horas — independiente
+    // del popup, que Marker.setPopup ya engancha a este mismo click.
+    el.addEventListener('click', () => this.showBusTrail(loc.bus_id, busInfo?.placa || 'Bus'));
+
     const popup = new maplibregl.Popup({ offset: 16, closeButton: false })
-      .setHTML(`<b>${busInfo?.placa || 'Bus'}</b><br>${busInfo?.ruta?.nombre || 'Sin ruta'}<br>${loc.velocidad} km/h`);
+      .setHTML(this.busPopupHtml(busInfo, loc, deviated));
     const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat([loc.longitud, loc.latitud])
       .setPopup(popup)
@@ -446,18 +504,333 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.adminBusMarkers.set(loc.bus_id, marker);
   }
 
+  private busPopupHtml(busInfo: any, loc: BusLocation, deviated: boolean): string {
+    const warn = deviated ? `<br><span style="color:#f44336;font-weight:700">⚠ Fuera de ruta trazada</span>` : '';
+    return `<b>${busInfo?.placa || 'Bus'}</b><br>${busInfo?.ruta?.nombre || 'Sin ruta'}<br>${loc.velocidad} km/h${warn}`;
+  }
+
+  // `ruta.geometria` se guarda en formato Leaflet [lat, lng]; la función de
+  // distancia trabaja en [lng, lat] como el resto de MapLibre.
+  private isBusDeviated(loc: BusLocation): boolean {
+    const geometria = (loc.bus as any)?.ruta?.geometria as [number, number][] | null;
+    if (!geometria || geometria.length < 2) return false;
+    const routeLngLat = geometria.map(([la, ln]) => [ln, la] as [number, number]);
+    return distanceToPolylineMeters(loc.longitud, loc.latitud, routeLngLat) > this.ROUTE_DEVIATION_METERS;
+  }
+
   private startMapRealtime() {
     const sb = supabaseClient();
     this.realtimeChannel = sb.channel('admin-live-map')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bus_locations' }, (payload) => {
+        // En modo histórico los markers en pantalla son de otro día; una
+        // llegada en vivo no debe pisarlos.
+        if (this.historicalMode) return;
         const loc = payload.new as BusLocation;
         this.addAdminBusMarker(loc);
       })
       .subscribe();
   }
 
+  // ---- BUSCADOR DE BUS POR PLACA ----
+  searchBus() {
+    const q = this.busSearchQuery.trim().toLowerCase();
+    if (!q || !this.adminMap) return;
+    const match = this.liveLocations.find(l => ((l.bus as any)?.placa || '').toLowerCase().includes(q));
+    if (!match) {
+      this.showToast('Ningún bus con esa placa está transmitiendo ahora', 'warning');
+      return;
+    }
+    this.adminMap.flyTo({ center: [match.longitud, match.latitud], zoom: 15, duration: 1200 });
+    setTimeout(() => this.adminBusMarkers.get(match.bus_id)?.togglePopup(), 1300);
+  }
+
+  clearBusSearch() { this.busSearchQuery = ''; }
+
+  // ---- CAPA DE CALOR DE ANOMALÍAS ----
+  toggleAnomalyHeatmap() {
+    this.showAnomalyHeatmap = !this.showAnomalyHeatmap;
+    if (this.showAnomalyHeatmap) this.renderAnomalyHeatmap();
+    else this.removeAnomalyHeatmap();
+  }
+
+  private renderAnomalyHeatmap() {
+    if (!this.adminMap || !this.adminMap.isStyleLoaded() || this.anomalias.length === 0) return;
+    const data = {
+      type: 'FeatureCollection' as const,
+      features: this.anomalias.map(a => ({
+        type: 'Feature' as const, properties: {},
+        geometry: { type: 'Point' as const, coordinates: [a.longitud, a.latitud] },
+      })),
+    };
+    try {
+      const source = this.adminMap.getSource('anomaly-heat') as maplibregl.GeoJSONSource | undefined;
+      if (source) {
+        source.setData(data as any);
+        return;
+      }
+      this.adminMap.addSource('anomaly-heat', { type: 'geojson', data: data as any });
+      this.adminMap.addLayer({
+        id: 'anomaly-heat-layer', type: 'heatmap', source: 'anomaly-heat',
+        paint: {
+          'heatmap-weight': 1,
+          'heatmap-intensity': 1.2,
+          'heatmap-color': [
+            'interpolate', ['linear'], ['heatmap-density'],
+            0, 'rgba(0,0,0,0)',
+            0.2, 'rgba(33,150,243,0.5)',
+            0.4, 'rgba(0,200,83,0.6)',
+            0.6, 'rgba(255,193,7,0.7)',
+            1, 'rgba(244,67,54,0.9)',
+          ],
+          'heatmap-radius': 35,
+          'heatmap-opacity': 0.75,
+        },
+      });
+    } catch { /* estilo sin cargar todavía: se reintenta en el próximo initAdminMap */ }
+  }
+
+  private removeAnomalyHeatmap() {
+    if (!this.adminMap) return;
+    try {
+      if (this.adminMap.getLayer('anomaly-heat-layer')) this.adminMap.removeLayer('anomaly-heat-layer');
+      if (this.adminMap.getSource('anomaly-heat')) this.adminMap.removeSource('anomaly-heat');
+    } catch {}
+  }
+
+  // ---- ESTELA DE RECORRIDO ----
+  async showBusTrail(busId: string, placa: string) {
+    if (!this.adminMap || this.trailLoading || this.historicalMode) return;
+    this.trailLoading = true;
+    try {
+      const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const points = await this.admin.getBusTrail(busId, since);
+      if (points.length < 2) {
+        this.showToast(`${placa} no tiene suficiente recorrido reciente para trazar`, 'warning');
+        return;
+      }
+      const coords = points.map(p => [p.longitud, p.latitud]);
+      const data: Feature<LineString> = {
+        type: 'Feature', properties: {},
+        geometry: { type: 'LineString', coordinates: coords },
+      };
+      if (this.adminMap.getSource('bus-trail')) {
+        (this.adminMap.getSource('bus-trail') as maplibregl.GeoJSONSource).setData(data as any);
+      } else if (this.adminMap.isStyleLoaded()) {
+        this.adminMap.addSource('bus-trail', { type: 'geojson', data: data as any });
+        this.adminMap.addLayer({
+          id: 'bus-trail-glow', type: 'line', source: 'bus-trail',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#00e5ff', 'line-width': 10, 'line-opacity': 0.15 },
+        });
+        this.adminMap.addLayer({
+          id: 'bus-trail-line', type: 'line', source: 'bus-trail',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#00e5ff', 'line-width': 3, 'line-opacity': 0.9 },
+        });
+      }
+      this.trailBusPlaca = placa;
+    } catch {
+      this.showToast('No se pudo cargar el recorrido', 'danger');
+    } finally {
+      this.trailLoading = false;
+    }
+  }
+
+  clearTrail() {
+    if (this.adminMap) {
+      try {
+        if (this.adminMap.getLayer('bus-trail-glow')) this.adminMap.removeLayer('bus-trail-glow');
+        if (this.adminMap.getLayer('bus-trail-line')) this.adminMap.removeLayer('bus-trail-line');
+        if (this.adminMap.getSource('bus-trail')) this.adminMap.removeSource('bus-trail');
+      } catch {}
+    }
+    this.trailBusPlaca = null;
+  }
+
+  // ---- CLUSTERING ----
+  // Agrupamiento manual en espacio de pantalla: los markers de bus son HTML
+  // custom (para el ícono/color/popup), no una capa de datos de MapLibre, así
+  // que el clustering nativo (`cluster: true` en una fuente GeoJSON) no
+  // aplica sin perder ese estilo. En su lugar, cada vez que cambia el
+  // encuadre se proyectan los markers a píxeles y se agrupan a mano los que
+  // caen a menos de CLUSTER_PIXEL_RADIUS entre sí.
+  private recomputeClusters() {
+    if (!this.adminMap) return;
+    const map = this.adminMap;
+
+    this.adminClusterMarkers.forEach(m => m.remove());
+    this.adminClusterMarkers = [];
+
+    const entries = Array.from(this.adminBusMarkers.entries());
+    const points = entries.map(([busId, marker]) => ({
+      busId, marker, px: map.project(marker.getLngLat()),
+    }));
+
+    const used = new Set<string>();
+    const groups: { busId: string; marker: maplibregl.Marker; px: maplibregl.Point }[][] = [];
+
+    for (const p of points) {
+      if (used.has(p.busId)) continue;
+      const group = [p];
+      used.add(p.busId);
+      for (const q of points) {
+        if (used.has(q.busId)) continue;
+        if (Math.hypot(p.px.x - q.px.x, p.px.y - q.px.y) <= this.CLUSTER_PIXEL_RADIUS) {
+          group.push(q);
+          used.add(q.busId);
+        }
+      }
+      groups.push(group);
+    }
+
+    for (const group of groups) {
+      if (group.length === 1) {
+        group[0].marker.getElement().style.display = '';
+        continue;
+      }
+      group.forEach(g => { g.marker.getElement().style.display = 'none'; });
+
+      const avgLng = group.reduce((s, g) => s + g.marker.getLngLat().lng, 0) / group.length;
+      const avgLat = group.reduce((s, g) => s + g.marker.getLngLat().lat, 0) / group.length;
+
+      const el = htmlMarkerEl('admin-cluster-marker', `<div class="admin-cluster-badge">${group.length}</div>`);
+      el.addEventListener('click', () => {
+        map.easeTo({ center: [avgLng, avgLat], zoom: Math.min(map.getZoom() + 2.5, 18), duration: 500 });
+      });
+      const clusterMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([avgLng, avgLat])
+        .addTo(map);
+      this.adminClusterMarkers.push(clusterMarker);
+    }
+  }
+
+  // ---- TIME-LAPSE HISTÓRICO ----
+  toggleHistoricalMode() {
+    if (this.historicalMode) {
+      this.exitHistoricalMode(true);
+    } else {
+      this.historicalMode = true;
+      this.clearTrail();
+      this.loadHistoricalDay();
+    }
+  }
+
+  exitHistoricalMode(rebuildLive: boolean) {
+    this.stopPlayback();
+    this.historicalMode = false;
+    this.historicalByBus.clear();
+    this.historicalMarkers.forEach(m => m.remove());
+    this.historicalMarkers.clear();
+    if (rebuildLive && this.adminMap) {
+      this.adminBusMarkers.forEach(m => { m.getElement().style.display = ''; });
+      this.recomputeClusters();
+    }
+  }
+
+  async loadHistoricalDay() {
+    if (!this.adminMap) return;
+    this.historicalLoading = true;
+    this.stopPlayback();
+    this.historicalByBus.clear();
+    this.historicalMarkers.forEach(m => m.remove());
+    this.historicalMarkers.clear();
+    this.adminBusMarkers.forEach(m => { m.getElement().style.display = 'none'; });
+    this.adminClusterMarkers.forEach(m => m.remove());
+    this.adminClusterMarkers = [];
+
+    try {
+      const dayStart = new Date(`${this.historicalDate}T00:00:00`);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const rows = await this.admin.getBusLocationsForDay(dayStart.toISOString(), dayEnd.toISOString());
+
+      for (const row of rows) {
+        const busInfo = row.bus as any;
+        const list = this.historicalByBus.get(row.bus_id) || [];
+        list.push({
+          lat: row.latitud, lng: row.longitud,
+          t: new Date(row.timestamp).getTime(),
+          placa: busInfo?.placa || 'Bus',
+          color: busInfo?.ruta?.color || '#9c27b0',
+        });
+        this.historicalByBus.set(row.bus_id, list);
+      }
+
+      if (this.historicalByBus.size === 0) {
+        this.showToast('Ese día no tiene datos de GPS registrados', 'warning');
+      }
+
+      this.historicalMinute = 480;
+      this.renderHistoricalAtMinute();
+    } catch {
+      this.showToast('No se pudo cargar el histórico de ese día', 'danger');
+    } finally {
+      this.historicalLoading = false;
+    }
+  }
+
+  onScrub() {
+    this.renderHistoricalAtMinute();
+  }
+
+  togglePlayback() {
+    if (this.isPlaying) { this.stopPlayback(); return; }
+    this.isPlaying = true;
+    this.playbackInterval = setInterval(() => {
+      this.historicalMinute += 1;
+      if (this.historicalMinute > 1439) { this.historicalMinute = 1439; this.stopPlayback(); }
+      this.renderHistoricalAtMinute();
+    }, 120);
+  }
+
+  private stopPlayback() {
+    this.isPlaying = false;
+    if (this.playbackInterval) { clearInterval(this.playbackInterval); this.playbackInterval = null; }
+  }
+
+  private renderHistoricalAtMinute() {
+    if (!this.adminMap) return;
+    const targetT = new Date(`${this.historicalDate}T00:00:00`).getTime() + this.historicalMinute * 60000;
+    const seenBusIds = new Set<string>();
+
+    this.historicalByBus.forEach((points, busId) => {
+      // Último punto conocido en o antes del instante elegido.
+      let latest: typeof points[number] | null = null;
+      for (const p of points) {
+        if (p.t <= targetT) latest = p;
+        else break;
+      }
+      if (!latest) return;
+      seenBusIds.add(busId);
+
+      const existing = this.historicalMarkers.get(busId);
+      if (existing) {
+        existing.setLngLat([latest.lng, latest.lat]);
+      } else {
+        const el = htmlMarkerEl('admin-bus-marker', `<div class="admin-bus-icon" style="background:${latest.color}"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`);
+        const popup = new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(`<b>${latest.placa}</b>`);
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([latest.lng, latest.lat])
+          .setPopup(popup)
+          .addTo(this.adminMap!);
+        this.historicalMarkers.set(busId, marker);
+      }
+    });
+
+    // Buses que todavía no tenían señal a esta hora del día: sacarlos.
+    this.historicalMarkers.forEach((marker, busId) => {
+      if (!seenBusIds.has(busId)) { marker.remove(); this.historicalMarkers.delete(busId); }
+    });
+  }
+
+  formatHistoricalTime(minute: number): string {
+    const h = Math.floor(minute / 60).toString().padStart(2, '0');
+    const m = (minute % 60).toString().padStart(2, '0');
+    return `${h}:${m}`;
+  }
+
   ngOnDestroy() {
     this.stopWatchingUserLocation();
+    this.stopPlayback();
     if (this.adminMap) this.adminMap.remove();
     if (this.realtimeChannel) {
       const sb = supabaseClient();

@@ -335,6 +335,28 @@
 
           <!-- ========== MAPA EN VIVO ========== -->
           <div *ngIf="activeTab==='mapa'" class="section">
+            <div class="map-toolbar">
+              <div class="map-search">
+                <ion-icon name="search-outline"></ion-icon>
+                <input type="text" placeholder="Buscar bus por placa..." [(ngModel)]="busSearchQuery" (keyup.enter)="searchBus()" />
+                <ion-icon name="close-circle" *ngIf="busSearchQuery" (click)="clearBusSearch()"></ion-icon>
+              </div>
+              <button class="map-toggle-btn" [class.active]="showAnomalyHeatmap" (click)="toggleAnomalyHeatmap()">
+                <ion-icon name="flame-outline"></ion-icon> Anomalías
+              </button>
+              <button class="map-toggle-btn" [class.active]="historicalMode" (click)="toggleHistoricalMode()">
+                <ion-icon name="time-outline"></ion-icon> {{ historicalMode ? 'Volver a en vivo' : 'Histórico' }}
+              </button>
+            </div>
+
+            <div class="historical-controls" *ngIf="historicalMode">
+              <input type="date" [(ngModel)]="historicalDate" [max]="todayStr" (change)="loadHistoricalDay()" />
+              <ion-icon [name]="isPlaying ? 'pause-circle' : 'play-circle'" class="play-btn" (click)="togglePlayback()"></ion-icon>
+              <input type="range" min="0" max="1439" [(ngModel)]="historicalMinute" (input)="onScrub()" class="scrub" />
+              <span class="time-label">{{ formatHistoricalTime(historicalMinute) }}</span>
+              <ion-spinner name="crescent" *ngIf="historicalLoading"></ion-spinner>
+            </div>
+
             <div class="live-map-container">
               <div id="admin-map"></div>
               <div class="map-legend">
@@ -342,8 +364,13 @@
                 <div class="legend-item"><div class="legend-dot blue"></div> Activo</div>
                 <div class="legend-item"><div class="legend-dot gray"></div> Inactivo</div>
               </div>
+              <div class="trail-panel" *ngIf="trailBusPlaca">
+                <ion-icon name="navigate-outline"></ion-icon>
+                <span>Recorrido de {{ trailBusPlaca }} (últimas 2h)</span>
+                <ion-icon name="close" (click)="clearTrail()"></ion-icon>
+              </div>
             </div>
-            <div class="panel" style="margin-top:12px">
+            <div class="panel" style="margin-top:12px" *ngIf="!historicalMode">
               <div class="panel-header"><h3>Buses transmitiendo ({{ liveLocations.length }})</h3></div>
               <div class="table-row" *ngFor="let loc of liveLocations">
                 <div class="dot" style="background:#00c853"></div>

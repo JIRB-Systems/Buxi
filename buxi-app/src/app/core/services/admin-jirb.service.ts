@@ -231,7 +231,7 @@ export class AdminJirbService {
   async getAllLiveLocations(): Promise<BusLocation[]> {
     const { data, error } = await this.supabase
       .from('bus_locations')
-      .select('*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color), empresa:empresas(nombre))')
+      .select('*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color, geometria), empresa:empresas(nombre))')
       .order('timestamp', { ascending: false });
     if (error) throw error;
 
@@ -240,6 +240,34 @@ export class AdminJirbService {
       if (!latest.has(loc.bus_id)) latest.set(loc.bus_id, loc);
     }
     return Array.from(latest.values());
+  }
+
+  // ---- ESTELA DE RECORRIDO ----
+  async getBusTrail(busId: string, sinceISO: string): Promise<{ latitud: number; longitud: number; timestamp: string }[]> {
+    const { data, error } = await this.supabase
+      .from('bus_locations')
+      .select('latitud, longitud, timestamp')
+      .eq('bus_id', busId)
+      .gte('timestamp', sinceISO)
+      .order('timestamp', { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+
+  // ---- TIME-LAPSE HISTÓRICO ----
+  // Sin límite de fila explícito más allá del propio de PostgREST: para un
+  // día con mucho tráfico esto puede ser una consulta pesada, pero a la
+  // escala actual de la flota es perfectamente manejable.
+  async getBusLocationsForDay(dayStartISO: string, dayEndISO: string): Promise<BusLocation[]> {
+    const { data, error } = await this.supabase
+      .from('bus_locations')
+      .select('bus_id, latitud, longitud, timestamp, bus:buses(placa, ruta:rutas(color))')
+      .gte('timestamp', dayStartISO)
+      .lt('timestamp', dayEndISO)
+      .order('timestamp', { ascending: true })
+      .limit(20000);
+    if (error) throw error;
+    return data as unknown as BusLocation[];
   }
 
   // ---- ALERTAS DE GPS SOSPECHOSO ----

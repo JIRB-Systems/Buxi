@@ -388,6 +388,33 @@ export function circlePolygon(
   };
 }
 
+// Distancia mínima (en metros) de un punto a una polilínea, proyectando sobre
+// cada segmento en un plano métrico local (suficiente para tramos de unos
+// pocos km, que es la escala de una ruta de bus). Se usa para detectar si un
+// bus se alejó de su ruta trazada. `line` y el punto van en [lng, lat].
+export function distanceToPolylineMeters(lng: number, lat: number, line: [number, number][]): number {
+  if (line.length < 2) return Infinity;
+  const latRad = (lat * Math.PI) / 180;
+  const mPerDegLat = 111320;
+  const mPerDegLng = 111320 * Math.cos(latRad);
+  const px = lng * mPerDegLng;
+  const py = lat * mPerDegLat;
+
+  let minDist = Infinity;
+  for (let i = 0; i < line.length - 1; i++) {
+    const x1 = line[i][0] * mPerDegLng, y1 = line[i][1] * mPerDegLat;
+    const x2 = line[i + 1][0] * mPerDegLng, y2 = line[i + 1][1] * mPerDegLat;
+    const dx = x2 - x1, dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+    let t = lenSq === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    const cx = x1 + t * dx, cy = y1 + t * dy;
+    const dist = Math.hypot(px - cx, py - cy);
+    if (dist < minDist) minDist = dist;
+  }
+  return minDist;
+}
+
 // Crea un elemento HTML para usar como marcador custom (MapLibre no tiene
 // divIcon como Leaflet; se le pasa un HTMLElement directo).
 export function htmlMarkerEl(className: string, innerHtml: string): HTMLDivElement {
