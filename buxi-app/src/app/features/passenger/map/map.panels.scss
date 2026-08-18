@@ -82,7 +82,10 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 10px 8px;
+  // padding-top deja espacio para la etiqueta "PATROCINADO", que se
+  // posiciona -7px arriba de la tarjeta; sin esto, al ser siempre el
+  // primer elemento de la lista, el borde superior del scroll la recorta.
+  padding: 9px 10px 8px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.18) transparent;
   &::-webkit-scrollbar { width: 6px; }
