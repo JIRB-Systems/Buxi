@@ -280,9 +280,9 @@
       <span>Alertas</span>
     </div>
 
-    <div class="dock-item" [class.active]="profilePanelOpen" (click)="toggleProfilePanel()">
-      <ion-icon name="person-outline"></ion-icon>
-      <span>Perfil</span>
+    <div class="dock-item" [class.active]="settingsPanelOpen" (click)="toggleSettingsPanel()">
+      <ion-icon name="settings-outline"></ion-icon>
+      <span>Ajustes</span>
     </div>
   </nav>
 
@@ -397,7 +397,7 @@
   </section>
 
   <!-- ====== PANEL LATERAL DE PERFIL ====== -->
-  <div class="panel-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>
+  <div class="panel-scrim" [class.open]="profilePanelOpen || settingsPanelOpen" (click)="showMap()"></div>
 
   <aside class="profile-panel" [class.open]="profilePanelOpen">
     <div class="pp-head">
@@ -448,7 +448,31 @@
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
-      <!-- ---- Preferencias con interruptor real ---- -->
+      <div class="pp-danger" (click)="confirmDeleteAccount()">
+        <ion-icon name="trash-outline"></ion-icon><span>Eliminar cuenta</span>
+      </div>
+    </div>
+
+    <div class="pp-logout" (click)="confirmLogout()">
+      <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
+    </div>
+  </aside>
+
+  <!-- ====== PANEL DE AJUSTES ====== -->
+  <!-- Preferencias de la app, separadas de la identidad del usuario. -->
+  <aside class="profile-panel" [class.open]="settingsPanelOpen">
+    <div class="pp-head">
+      <div class="pp-avatar settings">
+        <ion-icon name="settings-outline"></ion-icon>
+      </div>
+      <div class="pp-id">
+        <strong>Ajustes</strong>
+        <span>Preferencias de la aplicación</span>
+      </div>
+      <ion-icon name="close" class="pp-close" (click)="toggleSettingsPanel()"></ion-icon>
+    </div>
+
+    <div class="pp-links">
       <div class="pp-link" (click)="toggleNotifications()">
         <ion-icon name="notifications-outline"></ion-icon><span>Notificaciones</span>
         <div class="pp-switch" [class.on]="notificationsEnabled"><i></i></div>
@@ -459,18 +483,22 @@
         <div class="pp-switch" [class.on]="darkMode"><i></i></div>
       </div>
 
+      <div class="pp-link" (click)="toggle3D()">
+        <ion-icon name="cube-outline"></ion-icon><span>Relieve y edificios 3D</span>
+        <div class="pp-switch" [class.on]="is3D"><i></i></div>
+      </div>
+
       <div class="pp-link" routerLink="/legal/terms">
         <ion-icon name="document-text-outline"></ion-icon><span>Términos y privacidad</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
-      <div class="pp-danger" (click)="confirmDeleteAccount()">
-        <ion-icon name="trash-outline"></ion-icon><span>Eliminar cuenta</span>
+      <div class="pp-link" routerLink="/legal/privacy">
+        <ion-icon name="shield-checkmark-outline"></ion-icon><span>Política de privacidad</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
-    </div>
 
-    <div class="pp-logout" (click)="confirmLogout()">
-      <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
+      <div class="pp-version">Buxi · versión 1.0.0</div>
     </div>
   </aside>
 

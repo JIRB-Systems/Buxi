@@ -70,6 +70,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   @ViewChild('compassNeedle') compassNeedle?: ElementRef<HTMLElement>;
   navVisible = true;
   profilePanelOpen = false;
+  // Panel aparte: el avatar abre IDENTIDAD (datos, favoritos, sesion) y el
+  // dock abre AJUSTES (preferencias). Antes ambos abrian el mismo panel.
+  settingsPanelOpen = false;
   is3D = true;
   profile: UserProfile | null = null;
   private navIdleTimer: any = null;
@@ -182,8 +185,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.activePanel = this.activePanel === panel ? null : panel;
     this.panelSearch = '';
     if (this.activePanel) {
-      // Un solo panel a la vez: perfil y listas comparten la pantalla.
+      // Un solo panel a la vez: perfil, ajustes y listas comparten pantalla.
       this.profilePanelOpen = false;
+      this.settingsPanelOpen = false;
       this.navVisible = true;
     }
     if (this.activePanel === 'favoritos') await this.loadFavoritos();
@@ -196,6 +200,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   showMap() {
     this.activePanel = null;
     this.profilePanelOpen = false;
+    this.settingsPanelOpen = false;
     this.panelSearch = '';
   }
 
@@ -567,7 +572,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private setNavVisible(visible: boolean) {
     // Con un panel abierto la barra se queda: el usuario no está explorando el
     // mapa, está navegando la app.
-    if (!visible && this.profilePanelOpen) return;
+    if (!visible && (this.profilePanelOpen || this.settingsPanelOpen)) return;
     if (this.navVisible === visible) return;
     this.zone.run(() => { this.navVisible = visible; });
   }
@@ -588,9 +593,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     'San José', 'Alajuela', 'Cartago', 'Heredia', 'Guanacaste', 'Puntarenas', 'Limón',
   ];
 
+  async toggleSettingsPanel() {
+    this.settingsPanelOpen = !this.settingsPanelOpen;
+    if (this.settingsPanelOpen) {
+      this.profilePanelOpen = false;
+      this.activePanel = null;
+      this.navVisible = true;
+      await this.loadPreferences();
+    }
+  }
+
   async toggleProfilePanel() {
     this.profilePanelOpen = !this.profilePanelOpen;
     if (this.profilePanelOpen) {
+      this.settingsPanelOpen = false;
       this.activePanel = null;
       this.navVisible = true;
       this.resetProfileForm();

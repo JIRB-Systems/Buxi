@@ -480,3 +480,19 @@
 // El geocodificador tarda: el spinner vive dentro del campo para que se note
 // que sigue trabajando sin mover la lista de abajo.
 .lp-spin { width: 17px; height: 17px; color: #6f83a0; flex-shrink: 0; }
+
+// El panel de Ajustes reusa el layout de Perfil, pero su cabecera no lleva
+// foto: el icono lo distingue de un vistazo al abrirlo.
+.pp-avatar.settings {
+  background: rgba(0, 224, 106, 0.14);
+  border-color: rgba(0, 224, 106, 0.3);
+  ion-icon { color: #4dffa0; }
+}
+
+.pp-version {
+  margin-top: 14px;
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 11px;
+  color: #56698a;
+}
