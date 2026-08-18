@@ -7,13 +7,27 @@
   ion-header ion-button { --color: var(--dash-text-muted); }
 }
 
+// El botón de guardar vive en un ion-footer (fijo, fuera del área con
+// scroll) en vez de al final del formulario: en un modal así de largo,
+// dejarlo como último elemento del ion-content lo dejaba a merced de
+// cuánto scroll hiciera el usuario y de la barra del navegador móvil,
+// que a veces lo tapaba aunque hubiera espacio de sobra debajo.
+.form-footer ion-toolbar {
+  --background: var(--dash-bg);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --padding-top: 10px;
+  --padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  --padding-start: 16px;
+  --padding-end: 16px;
+}
+
 .form-content {
   --background: var(--dash-bg);
   --color: #e6edf5;
   --padding-start: 16px;
   --padding-end: 16px;
   --padding-top: 16px;
-  --padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  --padding-bottom: 20px;
 
   ion-input {
     --background: var(--dash-surface);
@@ -159,7 +173,7 @@
 }
 
 .submit-btn {
-  margin-top: 24px;
+  margin: 0;
 }
 
 .anim-preview {

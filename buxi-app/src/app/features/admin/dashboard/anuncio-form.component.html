@@ -82,9 +82,13 @@
       </div>
     </div>
   </div>
-
-  <ion-button class="submit-btn" expand="block" [disabled]="!canSave || uploading" (click)="save()">
-    <ion-spinner name="crescent" *ngIf="uploading"></ion-spinner>
-    <span *ngIf="!uploading">{{ isEdit ? 'Guardar cambios' : 'Publicar anuncio' }}</span>
-  </ion-button>
 </ion-content>
+
+<ion-footer class="form-footer">
+  <ion-toolbar>
+    <ion-button class="submit-btn" expand="block" [disabled]="!canSave || uploading" (click)="save()">
+      <ion-spinner name="crescent" *ngIf="uploading"></ion-spinner>
+      <span *ngIf="!uploading">{{ isEdit ? 'Guardar cambios' : 'Publicar anuncio' }}</span>
+    </ion-button>
+  </ion-toolbar>
+</ion-footer>
