@@ -22,8 +22,8 @@
 
     <div class="dt-search" (click)="openSearch()">
       <ion-icon name="search-outline"></ion-icon>
-      <span class="dt-ph-full">Buscar rutas, empresas, paradas o destinos</span>
-      <span class="dt-ph-short">Buscar rutas o destinos</span>
+      <span class="dt-ph-full">Buscar un lugar o destino</span>
+      <span class="dt-ph-short">Buscar un lugar</span>
     </div>
 
     <div class="dt-actions">
@@ -131,8 +131,8 @@
            se cortaba a media palabra ("...para..."), que se lee como un error. -->
       <div class="tb-search" (click)="openSearch()">
         <ion-icon name="search-outline"></ion-icon>
-        <span class="tb-ph-full">Buscar rutas, empresas, paradas o destinos</span>
-        <span class="tb-ph-short">Buscar rutas o destinos</span>
+        <span class="tb-ph-full">Buscar un lugar o destino</span>
+        <span class="tb-ph-short">Buscar un lugar</span>
       </div>
       <!-- El ícono va siempre debajo y la foto encima: si la foto no carga,
            queda el ícono en vez de un círculo vacío. -->
@@ -296,9 +296,9 @@
       <span>Alertas</span>
     </div>
 
-    <div class="dock-item" [class.active]="profilePanelOpen" (click)="toggleProfilePanel()">
-      <ion-icon name="person-outline"></ion-icon>
-      <span>Perfil</span>
+    <div class="dock-item" [class.active]="settingsPanelOpen" (click)="toggleSettingsPanel()">
+      <ion-icon name="settings-outline"></ion-icon>
+      <span>Ajustes</span>
     </div>
   </nav>
 
@@ -313,14 +313,26 @@
       <ion-icon name="close" (click)="closePanel()"></ion-icon>
     </div>
 
-    <div class="lp-search" *ngIf="activePanel !== 'alertas'">
+    <!-- Un campo, dos buscadores distintos segun el panel abierto: lugares
+         (geocodificador) o rutas y empresas (datos propios). -->
+    <div class="lp-search" *ngIf="activePanel === 'lugares'">
       <ion-icon name="search-outline"></ion-icon>
       <input
         type="text"
-        placeholder="Buscar ruta, empresa o destino"
-        [value]="panelSearch"
-        (input)="onPanelSearch($event)"
+        placeholder="Terminal, parque, playa, direccion..."
+        [value]="placeQuery"
+        (input)="onPlaceSearch($event)"
         #panelSearchInput />
+      <ion-spinner *ngIf="placeSearching" name="crescent" class="lp-spin"></ion-spinner>
+    </div>
+
+    <div class="lp-search" *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
+      <ion-icon name="search-outline"></ion-icon>
+      <input
+        type="text"
+        placeholder="Buscar ruta o empresa"
+        [value]="panelSearch"
+        (input)="onPanelSearch($event)" />
     </div>
 
     <div class="lp-body">
@@ -367,6 +379,30 @@
         </div>
       </ng-container>
 
+      <!-- Lugares: geocodificador + los lugares propios de la base -->
+      <ng-container *ngIf="activePanel === 'lugares'">
+        <div class="lp-row" *ngFor="let p of placeResults" (click)="selectPlace(p)">
+          <div class="lp-place-icon"><ion-icon name="location"></ion-icon></div>
+          <div class="lp-info">
+            <strong>{{ p.label.split(',')[0] }}</strong>
+            <span class="lp-trip">{{ p.label }}</span>
+          </div>
+          <ion-icon name="chevron-forward" class="lp-sp-chevron"></ion-icon>
+        </div>
+
+        <div class="lp-empty" *ngIf="!placeSearching && placeQuery.length > 1 && placeResults.length === 0">
+          <ion-icon name="search-outline"></ion-icon>
+          <strong>Sin resultados</strong>
+          <span>Proba con una terminal, un parque o una direccion.</span>
+        </div>
+
+        <div class="lp-empty" *ngIf="placeQuery.length <= 1">
+          <ion-icon name="location-outline"></ion-icon>
+          <strong>A donde vas?</strong>
+          <span>Escribi un lugar y te llevo el mapa hasta ahi.</span>
+        </div>
+      </ng-container>
+
       <!-- Alertas: todavía sin respaldo en la base -->
       <div class="lp-empty" *ngIf="activePanel === 'alertas'">
         <ion-icon name="notifications-off-outline"></ion-icon>
@@ -377,7 +413,7 @@
   </section>
 
   <!-- ====== PANEL LATERAL DE PERFIL ====== -->
-  <div class="panel-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>
+  <div class="panel-scrim" [class.open]="profilePanelOpen || settingsPanelOpen" (click)="showMap()"></div>
 
   <aside class="profile-panel" [class.open]="profilePanelOpen">
     <div class="pp-head">
@@ -428,7 +464,31 @@
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
-      <!-- ---- Preferencias con interruptor real ---- -->
+      <div class="pp-danger" (click)="confirmDeleteAccount()">
+        <ion-icon name="trash-outline"></ion-icon><span>Eliminar cuenta</span>
+      </div>
+    </div>
+
+    <div class="pp-logout" (click)="confirmLogout()">
+      <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
+    </div>
+  </aside>
+
+  <!-- ====== PANEL DE AJUSTES ====== -->
+  <!-- Preferencias de la app, separadas de la identidad del usuario. -->
+  <aside class="profile-panel" [class.open]="settingsPanelOpen">
+    <div class="pp-head">
+      <div class="pp-avatar settings">
+        <ion-icon name="settings-outline"></ion-icon>
+      </div>
+      <div class="pp-id">
+        <strong>Ajustes</strong>
+        <span>Preferencias de la aplicación</span>
+      </div>
+      <ion-icon name="close" class="pp-close" (click)="toggleSettingsPanel()"></ion-icon>
+    </div>
+
+    <div class="pp-links">
       <div class="pp-link" (click)="toggleNotifications()">
         <ion-icon name="notifications-outline"></ion-icon><span>Notificaciones</span>
         <div class="pp-switch" [class.on]="notificationsEnabled"><i></i></div>
@@ -439,18 +499,22 @@
         <div class="pp-switch" [class.on]="darkMode"><i></i></div>
       </div>
 
+      <div class="pp-link" (click)="toggle3D()">
+        <ion-icon name="cube-outline"></ion-icon><span>Relieve y edificios 3D</span>
+        <div class="pp-switch" [class.on]="is3D"><i></i></div>
+      </div>
+
       <div class="pp-link" routerLink="/legal/terms">
         <ion-icon name="document-text-outline"></ion-icon><span>Términos y privacidad</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
-      <div class="pp-danger" (click)="confirmDeleteAccount()">
-        <ion-icon name="trash-outline"></ion-icon><span>Eliminar cuenta</span>
+      <div class="pp-link" routerLink="/legal/privacy">
+        <ion-icon name="shield-checkmark-outline"></ion-icon><span>Política de privacidad</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
-    </div>
 
-    <div class="pp-logout" (click)="confirmLogout()">
-      <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
+      <div class="pp-version">Buxi · versión 1.0.0</div>
     </div>
   </aside>
 

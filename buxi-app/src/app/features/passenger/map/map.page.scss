@@ -820,3 +820,22 @@
     &.active ion-icon, &.active span { color: #fff; }
   }
 }
+
+// ---- Marca del lugar buscado ----
+// Un lugar no tiene ruta que dibujar, así que la única señal de "es acá" es
+// este pin. Va anclado por la punta (anchor: bottom), no por el centro.
+:host ::ng-deep .place-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+:host ::ng-deep .place-pin {
+  width: 22px; height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: linear-gradient(145deg, #4da3ff, #2f6fe0);
+  border: 2.5px solid #fff;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.45);
+}

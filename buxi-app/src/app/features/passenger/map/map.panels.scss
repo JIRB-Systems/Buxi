@@ -464,3 +464,35 @@
   span { font-size: 14px; color: #ff8585; font-weight: 600; }
 }
 
+
+// ---- Resultados de lugares ----
+.lp-place-icon {
+  width: 34px; height: 34px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  background: rgba(47, 139, 255, 0.16);
+  border: 1px solid rgba(47, 139, 255, 0.28);
+
+  ion-icon { font-size: 17px; color: #4da3ff; }
+}
+
+// El geocodificador tarda: el spinner vive dentro del campo para que se note
+// que sigue trabajando sin mover la lista de abajo.
+.lp-spin { width: 17px; height: 17px; color: #6f83a0; flex-shrink: 0; }
+
+// El panel de Ajustes reusa el layout de Perfil, pero su cabecera no lleva
+// foto: el icono lo distingue de un vistazo al abrirlo.
+.pp-avatar.settings {
+  background: rgba(0, 224, 106, 0.14);
+  border-color: rgba(0, 224, 106, 0.3);
+  ion-icon { color: #4dffa0; }
+}
+
+.pp-version {
+  margin-top: 14px;
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 11px;
+  color: #56698a;
+}
