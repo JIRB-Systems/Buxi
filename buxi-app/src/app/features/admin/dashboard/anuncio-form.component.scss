@@ -13,7 +13,7 @@
   --padding-start: 16px;
   --padding-end: 16px;
   --padding-top: 16px;
-  --padding-bottom: 24px;
+  --padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
 
   ion-input {
     --background: var(--dash-surface);
@@ -156,6 +156,10 @@
   font-size: 12.5px;
   font-weight: 700;
   color: #fff;
+}
+
+.submit-btn {
+  margin-top: 24px;
 }
 
 .anim-preview {

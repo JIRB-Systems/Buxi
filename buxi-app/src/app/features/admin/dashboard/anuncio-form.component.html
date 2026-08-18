@@ -83,7 +83,7 @@
     </div>
   </div>
 
-  <ion-button expand="block" [disabled]="!canSave || uploading" (click)="save()">
+  <ion-button class="submit-btn" expand="block" [disabled]="!canSave || uploading" (click)="save()">
     <ion-spinner name="crescent" *ngIf="uploading"></ion-spinner>
     <span *ngIf="!uploading">{{ isEdit ? 'Guardar cambios' : 'Publicar anuncio' }}</span>
   </ion-button>
