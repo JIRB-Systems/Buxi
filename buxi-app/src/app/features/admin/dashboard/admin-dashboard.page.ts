@@ -11,12 +11,13 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminJirbService } from '../../../core/services/admin-jirb.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
-import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema } from '../../../core/models/features.model';
+import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
 import { createMap, htmlMarkerEl, circlePolygon, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 import type { Feature, LineString } from 'geojson';
 import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
+import { AnuncioFormComponent } from './anuncio-form.component';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -96,6 +97,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         { id: 'planes', icon: 'card-outline', label: 'Planes' },
         { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
         { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
+        { id: 'publicidad', icon: 'film-outline', label: 'Publicidad' },
         { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
         { id: 'config', icon: 'settings-outline', label: 'Configuración' },
       ],
@@ -124,6 +126,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   solicitudes: any[] = [];
   reportes: ReporteBug[] = [];
   avisos: AvisoSistema[] = [];
+  anuncios: Anuncio[] = [];
 
   filteredUsers: UserProfile[] = [];
   userRoleFilter = 'todos';
@@ -152,7 +155,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async loadData() {
-    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos] = await Promise.all([
+    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos, anuncios] = await Promise.all([
       this.admin.getGlobalStats(),
       this.admin.getEmpresas(),
       this.admin.getAllRutas(),
@@ -169,6 +172,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getSolicitudes(),
       this.admin.getReportes(),
       this.admin.getAvisos(),
+      this.admin.getAnuncios(),
     ]);
     this.stats = stats;
     this.empresas = empresas;
@@ -186,6 +190,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.solicitudes = solicitudes;
     this.reportes = reportes;
     this.avisos = avisos;
+    this.anuncios = anuncios;
     this.suscripcionMap.clear();
     for (const s of suscripciones) {
       this.suscripcionMap.set(s.empresa_id, s);
@@ -1200,6 +1205,61 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   getAvisoColor(t: string) { return { info: '#2196f3', advertencia: '#ff9800', urgente: '#f44336' }[t] || '#2196f3'; }
   getAvisoIcon(t: string) { return { info: 'information-circle-outline', advertencia: 'warning-outline', urgente: 'alert-circle-outline' }[t] || 'information-circle-outline'; }
 
+  // ---- PUBLICIDAD ----
+  async addAnuncio() {
+    const modal = await this.modalCtrl.create({ component: AnuncioFormComponent });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      await this.admin.createAnuncio({ ...data, autor_id: this.profile!.id });
+      await this.logAction('Crear anuncio', data.titulo, 'anuncio');
+      await this.loadData();
+      this.showToast('Anuncio publicado');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+  }
+
+  async editAnuncio(a: Anuncio) {
+    const modal = await this.modalCtrl.create({ component: AnuncioFormComponent, componentProps: { anuncio: a } });
+    await modal.present();
+    const { data, role } = await modal.onDidDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      await this.admin.updateAnuncio(a.id, data);
+      await this.logAction('Editar anuncio', a.titulo, 'anuncio', a.id);
+      await this.loadData();
+      this.showToast('Anuncio actualizado');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+  }
+
+  async toggleAnuncio(a: Anuncio) {
+    try {
+      await this.admin.updateAnuncio(a.id, { activo: !a.activo });
+      await this.loadData();
+      this.showToast(a.activo ? 'Anuncio desactivado' : 'Anuncio activado');
+    } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+  }
+
+  async deleteAnuncio(a: Anuncio) {
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Eliminar anuncio', message: `¿Eliminar "${a.titulo}"? Esto no borra el archivo subido, solo el anuncio.`,
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Eliminar', role: 'destructive', handler: async () => {
+        await this.admin.deleteAnuncio(a.id); await this.loadData(); this.showToast('Anuncio eliminado');
+      }}],
+    });
+    await alert.present();
+  }
+
+  getEspacioLabel(e: string) { return { apertura: 'Apertura (splash)', lista: 'Lista de rutas' }[e] || e; }
+  isAnuncioVigente(a: Anuncio): boolean {
+    const now = Date.now();
+    const inicio = new Date(a.fecha_inicio).getTime();
+    const fin = a.fecha_fin ? new Date(a.fecha_fin).getTime() : Infinity;
+    return a.activo && now >= inicio && now <= fin;
+  }
+
   getEmpresaPlan(empresaId: string): string {
     const sub = this.suscripcionMap.get(empresaId);
     return (sub?.plan as any)?.nombre || 'Sin plan';
@@ -1255,7 +1315,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       viajes: 'Historial de viajes', calificaciones: 'Reseñas y calificaciones',
       alertas: 'Alertas de GPS sospechoso', reportes: 'Reportes de empresas',
       solicitudes: 'Solicitudes de empresas', avisos: 'Avisos del sistema',
-      logs: 'Registro de actividad', planes: 'Planes y suscripciones',
+      publicidad: 'Publicidad', logs: 'Registro de actividad', planes: 'Planes y suscripciones',
       config: 'Configuración del sistema',
     };
     return titles[this.activeTab] || '';

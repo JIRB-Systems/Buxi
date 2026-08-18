@@ -108,3 +108,21 @@ export interface AvisoSistema {
   activo: boolean;
   created_at: string;
 }
+
+export interface Anuncio {
+  id: string;
+  autor_id: string | null;
+  titulo: string;
+  descripcion: string | null;
+  tipo_espacio: 'apertura' | 'lista';
+  media_tipo: 'imagen' | 'video';
+  media_url: string;
+  logo_url: string | null;
+  link_url: string | null;
+  animacion: 'ninguna' | 'fade' | 'slide' | 'zoom' | 'pulso';
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  activo: boolean;
+  orden: number;
+  created_at: string;
+}

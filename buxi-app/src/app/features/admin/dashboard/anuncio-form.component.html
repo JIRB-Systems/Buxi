@@ -1,0 +1,90 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ isEdit ? 'Editar anuncio' : 'Nuevo anuncio' }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">Cerrar</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="form-content">
+  <div class="field">
+    <label>Dónde aparece</label>
+    <div class="tipo-group">
+      <button type="button" class="tipo-btn" [class.active]="tipoEspacio==='apertura'" (click)="tipoEspacio='apertura'">
+        <ion-icon name="flash-outline"></ion-icon>
+        <span>Apertura</span>
+        <small>Splash, 1 vez por sesión</small>
+      </button>
+      <button type="button" class="tipo-btn" [class.active]="tipoEspacio==='lista'" (click)="tipoEspacio='lista'">
+        <ion-icon name="list-outline"></ion-icon>
+        <span>Lista de rutas</span>
+        <small>Tarjeta patrocinada</small>
+      </button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Imagen o video</label>
+    <div class="media-upload" *ngIf="!mediaPreviewUrl">
+      <label class="upload-btn">
+        <ion-icon name="cloud-upload-outline"></ion-icon>
+        <span>Subir archivo</span>
+        <small>JPG, PNG, WEBP o MP4</small>
+        <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" (change)="onFileSelected($event)" hidden />
+      </label>
+    </div>
+    <div class="media-preview" *ngIf="mediaPreviewUrl">
+      <video *ngIf="mediaTipo==='video'" [src]="mediaPreviewUrl" muted autoplay loop playsinline></video>
+      <img *ngIf="mediaTipo==='imagen'" [src]="mediaPreviewUrl" alt="Vista previa" />
+      <div class="media-remove" (click)="removeMedia()"><ion-icon name="close"></ion-icon></div>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Nombre del anunciante</label>
+    <ion-input [(ngModel)]="titulo" placeholder="Ej. Soda La Parada" fill="outline"></ion-input>
+  </div>
+
+  <div class="field">
+    <label>Descripción corta <span class="opt">(opcional)</span></label>
+    <ion-input [(ngModel)]="descripcion" placeholder="Ej. Casado ₡2.500 · a 200m de tu ruta" fill="outline"></ion-input>
+  </div>
+
+  <div class="field">
+    <label>Link de destino <span class="opt">(opcional)</span></label>
+    <ion-input [(ngModel)]="linkUrl" placeholder="https:// o wa.me/..." fill="outline"></ion-input>
+  </div>
+
+  <div class="field two-col">
+    <div>
+      <label>Empieza</label>
+      <input type="date" class="date-input" [(ngModel)]="fechaInicio" />
+    </div>
+    <div>
+      <label>Termina <span class="opt">(opcional)</span></label>
+      <input type="date" class="date-input" [(ngModel)]="fechaFin" [min]="fechaInicio" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Animación de entrada</label>
+    <div class="anim-group">
+      <button type="button" class="anim-btn" [class.active]="animacion==='ninguna'" (click)="animacion='ninguna'">Ninguna</button>
+      <button type="button" class="anim-btn" [class.active]="animacion==='fade'" (click)="animacion='fade'">Aparecer</button>
+      <button type="button" class="anim-btn" [class.active]="animacion==='slide'" (click)="animacion='slide'">Deslizar</button>
+      <button type="button" class="anim-btn" [class.active]="animacion==='zoom'" (click)="animacion='zoom'">Acercar</button>
+      <button type="button" class="anim-btn" [class.active]="animacion==='pulso'" (click)="animacion='pulso'">Pulso</button>
+    </div>
+    <div class="anim-preview-wrap">
+      <div class="anim-preview" [class]="'anim-' + animacion">
+        <div class="anim-chip">{{ titulo || 'Vista previa' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <ion-button expand="block" [disabled]="!canSave || uploading" (click)="save()">
+    <ion-spinner name="crescent" *ngIf="uploading"></ion-spinner>
+    <span *ngIf="!uploading">{{ isEdit ? 'Guardar cambios' : 'Publicar anuncio' }}</span>
+  </ion-button>
+</ion-content>

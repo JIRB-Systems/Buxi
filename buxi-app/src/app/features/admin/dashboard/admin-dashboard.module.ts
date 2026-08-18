@@ -6,9 +6,10 @@ import { RouterModule } from '@angular/router';
 import { AdminDashboardPage } from './admin-dashboard.page';
 import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
+import { AnuncioFormComponent } from './anuncio-form.component';
 
 @NgModule({
-  declarations: [AdminDashboardPage, AvisoFormComponent, ResponderReporteComponent],
+  declarations: [AdminDashboardPage, AvisoFormComponent, ResponderReporteComponent, AnuncioFormComponent],
   imports: [
     CommonModule,
     FormsModule,

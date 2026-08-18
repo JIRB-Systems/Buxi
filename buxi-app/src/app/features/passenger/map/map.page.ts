@@ -7,6 +7,7 @@ import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { UserProfile } from '../../../core/models/user-profile.model';
+import { Anuncio } from '../../../core/models/features.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -87,6 +88,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   favoritoRutaIds = new Set<string>();
   favoritosLoading = false;
 
+  // Tarjeta patrocinada, mezclada en el panel de rutas — nunca en
+  // favoritos (no tiene sentido publicidad entre lo que el usuario ya
+  // guardó a propósito) y nunca flotando sobre el mapa en vivo.
+  listAd: Anuncio | null = null;
+
   get panelTitle(): string {
     switch (this.activePanel) {
       case 'rutas': return 'Rutas y empresas';
@@ -134,6 +140,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       this.navVisible = true;
     }
     if (this.activePanel === 'favoritos') await this.loadFavoritos();
+    if (this.activePanel === 'rutas' && !this.listAd) {
+      this.featuresService.getAnuncio('lista').then(ad => { this.listAd = ad; }).catch(() => {});
+    }
   }
 
   // "Mapa" devuelve al mapa limpio, venga de donde venga.

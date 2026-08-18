@@ -128,6 +128,50 @@
   }
 }
 
+// Tarjeta patrocinada: mismo alto y tipografía que una fila de ruta, para
+// que se sienta parte de la lista y no un banner ajeno pegado encima.
+.lp-sponsored {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 10px;
+  border-radius: 15px;
+  margin-bottom: 4px;
+  text-decoration: none;
+  position: relative;
+  background: linear-gradient(135deg, rgba(255,176,32,0.09), rgba(255,255,255,0.03));
+  border: 1px solid rgba(255,176,32,0.28);
+  transition: background 0.16s ease;
+
+  &:active { background: rgba(255,176,32,0.14); }
+
+  .lp-sp-tag {
+    position: absolute; top: -7px; left: 12px;
+    font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #ffb020; background: var(--dash-bg, #0a1628);
+    padding: 0 6px;
+  }
+
+  .lp-sp-thumb {
+    width: 40px; height: 40px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
+    background: #000;
+    video, img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  }
+
+  .lp-sp-chevron { font-size: 16px; color: #ffb020; flex-shrink: 0; }
+
+  &.anim-fade { animation: lpFade 0.5s ease both; }
+  &.anim-slide { animation: lpSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  &.anim-zoom { animation: lpZoom 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  &.anim-pulso { animation: lpPulso 1.8s ease-in-out infinite; }
+}
+
+@keyframes lpFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lpSlide { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes lpZoom { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes lpPulso {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,176,32,0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(255,176,32,0); }
+}
+
 .lp-empty {
   display: flex; flex-direction: column; align-items: center;
   gap: 7px; padding: 34px 26px; text-align: center;

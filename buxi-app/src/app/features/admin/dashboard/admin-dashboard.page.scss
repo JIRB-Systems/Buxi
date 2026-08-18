@@ -354,9 +354,23 @@
   }
 }
 
-// ====== REPORTES DE BUGS Y AVISOS ======
-.reporte-row, .aviso-row { align-items: flex-start !important; gap: 12px; &.resolved { opacity: 0.5; } }
+// ====== REPORTES DE BUGS, AVISOS Y PUBLICIDAD ======
+.reporte-row, .aviso-row, .anuncio-row { align-items: flex-start !important; gap: 12px; &.resolved { opacity: 0.5; } }
 .aviso-icon { font-size: 24px; margin-top: 2px; flex-shrink: 0; }
+
+.anuncio-thumb {
+  position: relative;
+  width: 64px; height: 44px; border-radius: 8px; overflow: hidden;
+  background: #000; flex-shrink: 0;
+
+  video, img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .video-badge {
+    position: absolute; bottom: 3px; right: 3px;
+    font-size: 11px; color: #fff;
+    background: rgba(0,0,0,0.55); border-radius: 4px; padding: 1px 3px;
+  }
+}
 .reporte-info {
   flex: 1; display: flex; flex-direction: column; gap: 2px;
   strong { font-size: 14px; color: #fff; }

@@ -16,4 +16,30 @@
       <div class="tagline" #tagline>Tus buses en tiempo real</div>
     </div>
   </div>
+
+  <!-- ====== ANUNCIO DE APERTURA ====== -->
+  <div class="sponsor-overlay" *ngIf="sponsorAd" [class]="'anim-' + sponsorAd.animacion">
+    <div class="sponsor-top">
+      <span class="sponsor-label">Presentado por</span>
+      <span class="sponsor-skip" [class.ready]="canSkipSponsor" (click)="skipSponsor()">
+        <ng-container *ngIf="canSkipSponsor; else waiting">Continuar<ion-icon name="arrow-forward"></ion-icon></ng-container>
+        <ng-template #waiting>· · ·</ng-template>
+      </span>
+    </div>
+
+    <div class="sponsor-media" (click)="skipSponsor()">
+      <video *ngIf="sponsorAd.media_tipo==='video'" [src]="sponsorAd.media_url" muted autoplay loop playsinline></video>
+      <img *ngIf="sponsorAd.media_tipo==='imagen'" [src]="sponsorAd.media_url" alt="" />
+      <div class="sponsor-badge">
+        <img *ngIf="sponsorAd.logo_url" [src]="sponsorAd.logo_url" class="sponsor-logo" alt="" />
+        <div class="sponsor-logo sponsor-logo-fallback" *ngIf="!sponsorAd.logo_url">{{ sponsorAd.titulo.charAt(0) }}</div>
+        <div class="sponsor-name-block">
+          <b>{{ sponsorAd.titulo }}</b>
+          <span *ngIf="sponsorAd.descripcion">{{ sponsorAd.descripcion }}</span>
+        </div>
+      </div>
+    </div>
+
+    <a class="sponsor-cta" *ngIf="sponsorAd.link_url" [href]="sponsorAd.link_url" target="_blank" rel="noopener">Ver más</a>
+  </div>
 </ion-content>

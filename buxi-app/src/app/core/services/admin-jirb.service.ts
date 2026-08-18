@@ -4,7 +4,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Empresa, Bus, Ruta, Parada } from '../models/transport.model';
 import { UserProfile } from '../models/user-profile.model';
-import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema } from '../models/features.model';
+import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio } from '../models/features.model';
 import { BusLocation } from '../models/transport.model';
 
 @Injectable({ providedIn: 'root' })
@@ -387,6 +387,37 @@ export class AdminJirbService {
 
   async deleteAviso(id: string): Promise<void> {
     const { error } = await this.supabase.from('avisos_sistema').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // ---- PUBLICIDAD ----
+  async getAnuncios(): Promise<Anuncio[]> {
+    const { data, error } = await this.supabase.from('anuncios').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as Anuncio[];
+  }
+
+  async uploadAnuncioMedia(file: File): Promise<string> {
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await this.supabase.storage.from('anuncios').upload(fileName, file, { contentType: file.type });
+    if (error) throw error;
+    const { data } = this.supabase.storage.from('anuncios').getPublicUrl(fileName);
+    return data.publicUrl;
+  }
+
+  async createAnuncio(anuncio: Partial<Anuncio>): Promise<void> {
+    const { error } = await this.supabase.from('anuncios').insert(anuncio);
+    if (error) throw error;
+  }
+
+  async updateAnuncio(id: string, updates: Partial<Anuncio>): Promise<void> {
+    const { error } = await this.supabase.from('anuncios').update(updates).eq('id', id);
+    if (error) throw error;
+  }
+
+  async deleteAnuncio(id: string): Promise<void> {
+    const { error } = await this.supabase.from('anuncios').delete().eq('id', id);
     if (error) throw error;
   }
 

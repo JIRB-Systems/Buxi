@@ -519,6 +519,35 @@
             </div>
           </div>
 
+          <!-- ========== PUBLICIDAD ========== -->
+          <div *ngIf="activeTab==='publicidad'" class="section">
+            <ion-button class="btn-primary" (click)="addAnuncio()"><ion-icon name="add" slot="start"></ion-icon>Nuevo anuncio</ion-button>
+            <div class="panel">
+              <div class="table-row anuncio-row" *ngFor="let a of anuncios" [class.resolved]="!a.activo">
+                <div class="anuncio-thumb">
+                  <video *ngIf="a.media_tipo==='video'" [src]="a.media_url" muted autoplay loop playsinline></video>
+                  <img *ngIf="a.media_tipo==='imagen'" [src]="a.media_url" alt="" />
+                  <ion-icon name="videocam" *ngIf="a.media_tipo==='video'" class="video-badge"></ion-icon>
+                </div>
+                <div class="reporte-info">
+                  <strong>{{ a.titulo }}</strong>
+                  <span class="muted">
+                    {{ getEspacioLabel(a.tipo_espacio) }} · {{ a.animacion }} ·
+                    {{ a.fecha_inicio | date:'shortDate' }}{{ a.fecha_fin ? ' - ' + (a.fecha_fin | date:'shortDate') : ' (sin fin)' }}
+                  </span>
+                  <span *ngIf="a.descripcion">{{ a.descripcion }}</span>
+                </div>
+                <span class="badge" [style.color]="isAnuncioVigente(a) ? '#00c853' : '#9aa5b4'">{{ isAnuncioVigente(a) ? 'Vigente' : (a.activo ? 'Fuera de fecha' : 'Inactivo') }}</span>
+                <span class="actions">
+                  <ion-icon name="create-outline" (click)="editAnuncio(a)"></ion-icon>
+                  <ion-icon [name]="a.activo ? 'pause-circle-outline' : 'play-circle-outline'" (click)="toggleAnuncio(a)"></ion-icon>
+                  <ion-icon name="trash-outline" class="danger" (click)="deleteAnuncio(a)"></ion-icon>
+                </span>
+              </div>
+              <div class="empty" *ngIf="anuncios.length===0">No hay anuncios creados</div>
+            </div>
+          </div>
+
           <!-- ========== PLANES ========== -->
           <div *ngIf="activeTab==='planes'" class="section">
             <div class="plans-grid">

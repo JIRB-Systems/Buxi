@@ -1,9 +1,16 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../../core/services/supabase.service';
+import { FeaturesService } from '../../../core/services/features.service';
+import { Anuncio } from '../../../core/models/features.model';
 
 // Duracion total de la intro; la navegacion espera a que termine.
 const INTRO_MS = 2800;
+// Tiempo minimo antes de poder saltar el anuncio de apertura, y limite
+// maximo por si el usuario no toca nada — nunca deja atrapada la app en
+// un anuncio.
+const SPONSOR_SKIP_MS = 2000;
+const SPONSOR_MAX_MS = 6000;
 
 @Component({
   selector: 'app-splash',
@@ -20,8 +27,20 @@ export class SplashPage implements AfterViewInit, OnDestroy {
   @ViewChildren('letter') letterRefs!: QueryList<ElementRef<HTMLSpanElement>>;
 
   private raf: number | null = null;
+  private pendingTarget: string[] = ['/auth/login'];
+  private skipTimeout: any = null;
+  private autoNavTimeout: any = null;
 
-  constructor(private router: Router, private supabase: SupabaseService) {}
+  // Anuncio de apertura: solo pasajeros lo ven, y solo una vez, justo acá,
+  // antes de entrar al mapa — nunca interrumpe una sesión ya en curso.
+  sponsorAd: Anuncio | null = null;
+  canSkipSponsor = false;
+
+  constructor(
+    private router: Router,
+    private supabase: SupabaseService,
+    private features: FeaturesService,
+  ) {}
 
   ngAfterViewInit() {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -29,21 +48,59 @@ export class SplashPage implements AfterViewInit, OnDestroy {
 
     setTimeout(async () => {
       const session = await this.supabase.getSessionAsync();
+      let isPasajero = false;
+
       if (session) {
-        let target = ['/passenger/map'];
+        this.pendingTarget = ['/passenger/map'];
         try {
           const profile = await this.supabase.getProfile();
-          if (profile) target = this.supabase.homeRouteForRole(profile.rol);
+          if (profile) {
+            this.pendingTarget = this.supabase.homeRouteForRole(profile.rol);
+            isPasajero = profile.rol === 'pasajero';
+          }
         } catch {}
-        this.router.navigate(target, { replaceUrl: true });
       } else {
-        this.router.navigate(['/auth/login'], { replaceUrl: true });
+        this.pendingTarget = ['/auth/login'];
       }
+
+      if (isPasajero) {
+        try {
+          const ad = await this.features.getAnuncio('apertura');
+          if (ad) {
+            this.showSponsor(ad);
+            return;
+          }
+        } catch {}
+      }
+      this.router.navigate(this.pendingTarget, { replaceUrl: true });
     }, reduce ? 1200 : INTRO_MS);
+  }
+
+  private showSponsor(ad: Anuncio) {
+    this.sponsorAd = ad;
+    this.canSkipSponsor = false;
+    this.skipTimeout = setTimeout(() => { this.canSkipSponsor = true; }, SPONSOR_SKIP_MS);
+    this.autoNavTimeout = setTimeout(() => this.continueFromSponsor(), SPONSOR_MAX_MS);
+  }
+
+  // El botón de saltar llama acá; el timeout de seguridad de
+  // SPONSOR_MAX_MS también, directo, sin pasar por el chequeo de
+  // canSkipSponsor (ese solo bloquea el toque manual antes de tiempo).
+  skipSponsor() {
+    if (!this.canSkipSponsor) return;
+    this.continueFromSponsor();
+  }
+
+  private continueFromSponsor() {
+    clearTimeout(this.skipTimeout);
+    clearTimeout(this.autoNavTimeout);
+    this.router.navigate(this.pendingTarget, { replaceUrl: true });
   }
 
   ngOnDestroy() {
     if (this.raf !== null) cancelAnimationFrame(this.raf);
+    clearTimeout(this.skipTimeout);
+    clearTimeout(this.autoNavTimeout);
   }
 
   // El punto de luz recorre la linea trazandola (como un bus dejando su ruta

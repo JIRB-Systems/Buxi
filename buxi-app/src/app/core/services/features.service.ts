@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Favorito, Horario, Calificacion, UserPreferences } from '../models/features.model';
+import { Favorito, Horario, Calificacion, UserPreferences, Anuncio } from '../models/features.model';
 import { Parada } from '../models/transport.model';
 
 @Injectable({ providedIn: 'root' })
@@ -11,6 +11,21 @@ export class FeaturesService {
 
   constructor() {
     this.supabase = supabaseClient();
+  }
+
+  // ---- PUBLICIDAD ----
+  // Un solo anuncio por espacio (el de mayor prioridad/`orden` vigente): sin
+  // rotación por ahora, JIRB controla cuál se ve cambiando `orden` o
+  // desactivando los demás.
+  async getAnuncio(tipoEspacio: 'apertura' | 'lista'): Promise<Anuncio | null> {
+    const { data, error } = await this.supabase
+      .from('anuncios')
+      .select('*')
+      .eq('tipo_espacio', tipoEspacio)
+      .order('orden', { ascending: true })
+      .limit(1);
+    if (error) throw error;
+    return (data && data[0]) || null;
   }
 
   // ---- FAVORITOS ----

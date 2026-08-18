@@ -310,6 +310,20 @@
     <div class="lp-body">
       <!-- Rutas y favoritos comparten la misma lista -->
       <ng-container *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
+        <a class="lp-sponsored" *ngIf="activePanel === 'rutas' && listAd" [class]="'anim-' + listAd.animacion"
+           [href]="listAd.link_url || null" target="_blank" rel="noopener">
+          <span class="lp-sp-tag">Patrocinado</span>
+          <div class="lp-sp-thumb">
+            <video *ngIf="listAd.media_tipo==='video'" [src]="listAd.media_url" muted autoplay loop playsinline></video>
+            <img *ngIf="listAd.media_tipo==='imagen'" [src]="listAd.media_url" alt="" />
+          </div>
+          <div class="lp-info">
+            <strong>{{ listAd.titulo }}</strong>
+            <span class="lp-trip" *ngIf="listAd.descripcion">{{ listAd.descripcion }}</span>
+          </div>
+          <ion-icon name="chevron-forward" class="lp-sp-chevron"></ion-icon>
+        </a>
+
         <div class="lp-row" *ngFor="let r of panelRutas" (click)="selectRutaFromPanel(r)">
           <div class="lp-stripe" [style.background]="r.color"></div>
           <div class="lp-info">
