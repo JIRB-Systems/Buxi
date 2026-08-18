@@ -7,7 +7,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="form-content">
+<ion-content class="form-content" [scrollEvents]="true" (ionScroll)="onFormScroll()">
   <div class="field">
     <label>Dónde aparece</label>
     <div class="tipo-group">

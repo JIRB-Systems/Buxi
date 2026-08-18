@@ -71,6 +71,18 @@ export class AnuncioFormComponent implements OnInit {
     this.mediaPreviewUrl = null;
   }
 
+  // La app fuerza --keyboard-offset: 0px en toda la ion-content (ver
+  // global.scss), así que Ionic no achica el contenido cuando se abre el
+  // teclado: el botón fijo del footer queda tapado detrás y no hay scroll
+  // que lo revele. Cerramos el teclado apenas el usuario empieza a
+  // scrollear para liberar esa parte de la pantalla.
+  onFormScroll() {
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active.tagName !== 'BODY' && typeof active.blur === 'function') {
+      active.blur();
+    }
+  }
+
   cancel() {
     this.modalCtrl.dismiss(null, 'cancel');
   }
