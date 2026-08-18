@@ -157,8 +157,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.panelSearch = '';
   }
 
-  onPanelSearch(ev: any) {
-    this.panelSearch = ev?.detail?.value ?? '';
+  onPanelSearch(ev: Event) {
+    // El input es NATIVO: el valor vive en target.value. Antes leía
+    // `ev.detail.value`, que es la convención de ion-input; sobre un InputEvent
+    // nativo `detail` es un número, así que daba undefined y el `?? ''` dejaba el
+    // término SIEMPRE vacío. El filtro corría, pero sobre una cadena vacía.
+    this.panelSearch = (ev.target as HTMLInputElement)?.value ?? '';
   }
 
   private async loadFavoritos() {
