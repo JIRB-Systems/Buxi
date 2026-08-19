@@ -650,6 +650,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
         this.map.on(ev as any, scheduleShow);
       }
 
+      // Las etiquetas de parada solo se muestran con zoom suficiente. Se
+      // resuelve con una clase en el contenedor del mapa en vez de tocar cada
+      // marcador: son decenas, y esto es un unico cambio de clase.
+      const LABEL_MIN_ZOOM = 12.5;
+      const syncLabels = () => {
+        this.map.getContainer().classList.toggle('map-zoomed-in', this.map.getZoom() >= LABEL_MIN_ZOOM);
+      };
+      syncLabels();
+      this.map.on('zoom', syncLabels);
+
       // La aguja de la brújula se escribe directo en el DOM por el mismo
       // motivo: gira en cada frame.
       this.map.on('rotate', () => {
@@ -996,8 +1006,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
     paradas.forEach((parada, i) => {
       const isTerminal = i === 0 || i === paradas.length - 1;
+      const nombreCorto = this.nombreParadaCorto(parada.nombre);
       const html = isTerminal
-        ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div><div class="stop-label">${parada.nombre}</div>`
+        ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div><div class="stop-label" title="${parada.nombre}">${nombreCorto}</div>`
         : `<div class="stop-dot" style="border-color:${c}"></div>`;
       const el = htmlMarkerEl('stop-marker', html);
       const m = new maplibregl.Marker({ element: el, anchor: 'center' })
@@ -1007,6 +1018,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     });
 
     return coords;
+  }
+
+  // Muchas paradas quedaron guardadas con el nombre COMPLETO que devuelve el
+  // geocodificador —"...Norte, Peñas Blancas, La Cruz, Guanacaste, 51001,
+  // Costa Rica"—, asi que la etiqueta se estiraba de punta a punta del mapa.
+  //
+  // Se queda con el primer tramo, que es el nombre real del lugar; el resto
+  // (canton, provincia, codigo postal, pais) es contexto que el mapa ya da.
+  // El nombre completo sigue disponible en el title, al pasar el cursor.
+  private nombreParadaCorto(nombre: string): string {
+    const primero = (nombre || '').split(',')[0].trim();
+    if (!primero) return nombre;
+    return primero.length > 24 ? primero.slice(0, 23).trimEnd() + '…' : primero;
   }
 
   clearRoute(navigate = true) {
