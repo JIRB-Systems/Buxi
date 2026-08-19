@@ -40,7 +40,9 @@
     <div class="ds-section">
       <div class="ds-section-header">
         <h3>{{ hayEmpresasCerca ? 'Empresas en tu zona' : 'Empresas disponibles' }}</h3>
-        <ion-icon name="close" class="ds-close" (click)="toggleSidebar()"></ion-icon>
+        <button class="ds-close" (click)="toggleSidebar()" aria-label="Cerrar">
+          <ion-icon name="close"></ion-icon>
+        </button>
       </div>
 
       <div class="ds-hint-line" *ngIf="!hayEmpresasCerca">
@@ -50,7 +52,7 @@
       <div class="ds-clear-row" *ngIf="selectedEmpresaId">
         <span (click)="clearEmpresaRoutes()">Quitar del mapa</span>
       </div>
-      <div class="empresa-row" *ngFor="let x of empresasCercanas"
+      <div class="empresa-row" *ngFor="let x of empresasCercanas; trackBy: trackEmpresa"
            [class.active]="selectedEmpresaId === x.empresa.id" (click)="selectEmpresaFromSidebar(x.empresa)">
         <div class="empresa-logo">
           <img *ngIf="x.empresa.logo_url" [src]="x.empresa.logo_url" alt="" />

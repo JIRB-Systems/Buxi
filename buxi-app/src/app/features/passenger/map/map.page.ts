@@ -118,13 +118,23 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     );
   }
 
-  // Empresas ordenadas por cercania a tu ubicacion, medida contra la parada
-  // mas proxima de cada una.
-  get empresasCercanas(): { empresa: EmpresaListItem; distanceKm: number | null }[] {
-    // Sin ubicacion o sin paradas cargadas no hay nada que ordenar: se muestran
-    // todas antes que dejar la lista vacia.
+  // Se calcula UNA vez y se guarda. Antes esto era un getter llamado desde tres
+  // puntos de la plantilla: recorria todas las paradas en cada ciclo de
+  // deteccion de cambios —que con el mapa corre a cada rato— y ademas devolvia
+  // un array nuevo, obligando a *ngFor a reconstruir la lista entera cada vez.
+  // El panel quedaba pesado y los toques se perdian.
+  empresasCercanas: { empresa: EmpresaListItem; distanceKm: number | null }[] = [];
+  hayEmpresasCerca = false;
+
+  // Identidad estable para *ngFor: sin esto Angular rehace cada fila aunque
+  // los datos no hayan cambiado.
+  trackEmpresa = (_: number, x: { empresa: EmpresaListItem }) => x.empresa.id;
+
+  private recomputeEmpresasCercanas() {
     if (this.userLat === 0 || this.allParadas.length === 0) {
-      return this.empresas.map(e => ({ empresa: e, distanceKm: null }));
+      this.empresasCercanas = this.empresas.map(e => ({ empresa: e, distanceKm: null }));
+      this.hayEmpresasCerca = false;
+      return;
     }
 
     const rutaToEmpresa = new Map(this.allRutas.map(r => [r.id, r.empresa_id]));
@@ -143,15 +153,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
 
     const cercanas = conDistancia.filter(x => x.distanceKm !== null && x.distanceKm <= this.NEARBY_KM);
-    // Si no hay ninguna en el radio, se muestran todas: una lista vacia no le
-    // sirve a nadie, y en zonas rurales el bus mas cercano puede estar lejos.
-    return cercanas.length ? cercanas : conDistancia;
+    this.hayEmpresasCerca = cercanas.length > 0;
+    // Si no hay ninguna en el radio se muestran todas: una lista vacia no le
+    // sirve a nadie, y en zona rural el bus mas cercano puede estar lejos.
+    this.empresasCercanas = cercanas.length ? cercanas : conDistancia;
   }
-
-  get hayEmpresasCerca(): boolean {
-    return this.empresasCercanas.some(x => x.distanceKm !== null && x.distanceKm <= this.NEARBY_KM);
-  }
-
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
   async selectEmpresaFromSidebar(e: EmpresaListItem) {
@@ -502,6 +508,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       this.empresas = empresas;
       this.allRutas = rutas;
       this.allParadas = paradas;
+      this.recomputeEmpresasCercanas();
     } catch {}
   }
 
@@ -516,8 +523,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
     const rutas = this.allRutas.filter(r => r.empresa_id === empresa.id);
     if (rutas.length === 0) {
-      // Sin geometría que dibujar: mandamos al buscador filtrado por empresa.
-      await this.openSearch(empresa.nombre);
+      // Antes esto abria openSearch(), que buscaba rutas por nombre de empresa.
+      // Cuando openSearch paso a buscar LUGARES, este llamador quedo apuntando
+      // al buscador equivocado: mandaba el nombre de la empresa al
+      // geocodificador, que no devuelve nada, y dejaba al usuario encerrado en
+      // un panel incapaz de ayudarlo. Ahora simplemente se dice lo que pasa.
+      await this.toast(`${empresa.nombre} no tiene rutas activas todavia.`, 'warning');
       return;
     }
 
@@ -526,14 +537,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.selectedEmpresaId = empresa.id;
 
     try {
-      const allCoords: [number, number][] = [];
-      for (const ruta of rutas) {
-        const paradas = await this.tracking.getParadas(ruta.id);
-        if (paradas.length < 2) continue;
-        const coords = await this.drawRouteLayer(paradas, ruta.color, ruta.geometria);
-        allCoords.push(...coords);
+      // En paralelo, no en fila. Cada ruta hace varias llamadas de red (paradas,
+      // trazado por calles en OSRM, ubicaciones), y encadenarlas dejaba la
+      // pantalla bloqueada por el overlay durante segundos con varias rutas.
+      const porRuta = await Promise.all(rutas.map(async ruta => ({
+        ruta,
+        paradas: await this.tracking.getParadas(ruta.id),
+        locations: await this.tracking.getLocationsByRuta(ruta.id),
+      })));
 
-        const locations = await this.tracking.getLocationsByRuta(ruta.id);
+      const allCoords: [number, number][] = [];
+      for (const { ruta, paradas, locations } of porRuta) {
+        if (paradas.length >= 2) {
+          allCoords.push(...await this.drawRouteLayer(paradas, ruta.color, ruta.geometria));
+        }
         for (const loc of locations) this.addOrUpdateBusMarker(loc);
       }
       this.activeBusCount = this.busMarkers.size;
@@ -544,9 +561,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
           new maplibregl.LngLatBounds(allCoords[0], allCoords[0]),
         );
         this.map.fitBounds(bounds, { padding: 60, duration: 300 });
+      } else {
+        // Rutas registradas pero sin paradas suficientes para trazarlas.
+        await this.toast(`${empresa.nombre} aun no tiene paradas cargadas.`, 'warning');
+        this.selectedEmpresaId = null;
       }
-    } catch {}
-    this.loading = false;
+    } catch {
+      // Antes se tragaba en silencio: la empresa quedaba marcada como activa
+      // sin nada dibujado y no habia forma de saber que fallo.
+      this.selectedEmpresaId = null;
+      await this.toast('No se pudieron cargar las rutas de esa empresa.', 'danger');
+    } finally {
+      // En finally: si algo lanza, el overlay bloqueaba la pantalla para siempre.
+      this.loading = false;
+    }
   }
 
   ngAfterViewInit() {
@@ -1152,6 +1180,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     // Se recuerda para poder redibujar el círculo tras un cambio de estilo,
     // que borra todas las capas propias.
     this.lastAccuracy = accuracy ?? null;
+
+    // La distancia a cada empresa depende de donde estas: se recalcula al
+    // moverte, no en cada render.
+    this.recomputeEmpresasCercanas();
 
     this.applyUserHeading();
     this.updateAccuracyCircle(lng, lat, accuracy);

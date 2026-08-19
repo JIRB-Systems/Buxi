@@ -921,3 +921,20 @@
     width: min(330px, 82vw);
   }
 }
+
+// Botón de cerrar del panel: el glifo mide 20px, pero el área tocable es de
+// 36 — un ícono suelto de ese tamaño es difícil de acertar con el pulgar.
+.ds-close {
+  width: 36px; height: 36px;
+  margin: -8px -8px -8px 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  transition: background 0.16s ease;
+
+  &:active { background: rgba(255,255,255,0.09); }
+  ion-icon { font-size: 20px; color: #8fa3bd; pointer-events: none; }
+}
