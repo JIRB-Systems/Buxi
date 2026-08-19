@@ -528,18 +528,26 @@
 
 .boleto-detalle {
   flex: 1;
+  min-height: 0;
   display: flex; align-items: center; justify-content: center;
-  padding: 24px;
+  padding: 12px;
   overflow-y: auto;
 }
 
+// Con align-items:center + overflow:auto, si la tarjeta no cabe en la
+// pantalla el navegador la deja pegada arriba (se ve "descentrada" en
+// celulares chicos) en vez de repartir el sobrante arriba y abajo. El
+// margin:auto en el hijo es lo que realmente centra bien en ese caso; los
+// tamaños en clamp() además la achican solos para que en la mayoría de
+// celulares ni siquiera haga falta scrollear.
 .bd-card {
   width: 100%; max-width: 340px;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  margin: auto;
+  display: flex; flex-direction: column; align-items: center; gap: clamp(3px, 1vh, 6px);
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 24px;
-  padding: 28px 24px calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: clamp(16px, 3.5vh, 28px) 22px calc(clamp(16px, 3.5vh, 24px) + env(safe-area-inset-bottom, 0px));
   text-align: center;
 
   &.usado { opacity: 0.55; }
@@ -548,25 +556,25 @@
     font-size: 11px; font-weight: 800; color: #00c853;
     background: rgba(0,200,83,0.14); border: 1px solid rgba(0,200,83,0.3);
     padding: 4px 12px; border-radius: 12px; text-transform: uppercase;
-    letter-spacing: 0.4px; margin-bottom: 10px;
+    letter-spacing: 0.4px; margin-bottom: 4px;
   }
 
   .bd-qr {
-    width: 220px; height: 220px;
+    width: clamp(140px, 42vh, 220px); height: clamp(140px, 42vh, 220px);
     border-radius: 16px;
     background: #fff;
     padding: 10px;
-    margin-bottom: 14px;
+    margin-bottom: 6px;
   }
 
   .bd-ruta { font-size: 18px; color: #fff; font-weight: 800; letter-spacing: -0.2px; }
   .bd-trayecto { font-size: 13px; color: #9fb2cc; }
-  .bd-precio { font-size: 22px; color: #00c853; font-weight: 800; margin-top: 4px; }
+  .bd-precio { font-size: 22px; color: #00c853; font-weight: 800; margin-top: 2px; }
   .bd-codigo {
     font-size: 10.5px; color: #56698a; letter-spacing: 0.5px;
-    margin-top: 8px; font-family: monospace;
+    margin-top: 6px; font-family: monospace;
   }
-  .bd-hint { font-size: 12px; color: #7e93b0; margin-top: 16px; line-height: 1.4; }
+  .bd-hint { font-size: 12px; color: #7e93b0; margin-top: 10px; line-height: 1.4; }
 }
 
 .sheet-bar {
