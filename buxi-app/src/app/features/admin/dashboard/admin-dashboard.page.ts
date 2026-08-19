@@ -732,6 +732,12 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     }
   }
 
+  // Los <input type="date"> nativos, cuando tienen foco, le roban la rueda
+  // del mouse al navegador: en vez de scrollear la página cambian la fecha.
+  blurTarget(event: Event) {
+    (event.target as HTMLElement).blur();
+  }
+
   async loadHistoricalDay() {
     if (!this.adminMap) return;
     this.historicalLoading = true;

@@ -59,11 +59,11 @@
   <div class="field two-col">
     <div>
       <label>Empieza</label>
-      <input type="date" class="date-input" [(ngModel)]="fechaInicio" />
+      <input type="date" class="date-input" [(ngModel)]="fechaInicio" (wheel)="blurTarget($event)" />
     </div>
     <div>
       <label>Termina <span class="opt">(opcional)</span></label>
-      <input type="date" class="date-input" [(ngModel)]="fechaFin" [min]="fechaInicio" />
+      <input type="date" class="date-input" [(ngModel)]="fechaFin" [min]="fechaInicio" (wheel)="blurTarget($event)" />
     </div>
   </div>
 

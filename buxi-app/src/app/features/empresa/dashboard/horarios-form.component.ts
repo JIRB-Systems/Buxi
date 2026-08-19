@@ -83,4 +83,12 @@ export class HorariosFormComponent implements OnInit {
       active.blur();
     }
   }
+
+  // Los <input type="time"> nativos, cuando tienen foco, le roban la rueda
+  // del mouse al navegador: en vez de scrollear la página cambian la hora.
+  // Desenfocar apenas se detecta la rueda evita que el input se quede con
+  // el evento — el scroll de la página sigue de largo normalmente.
+  blurTarget(event: Event) {
+    (event.target as HTMLElement).blur();
+  }
 }

@@ -350,7 +350,7 @@
             </div>
 
             <div class="historical-controls" *ngIf="historicalMode">
-              <input type="date" [(ngModel)]="historicalDate" [max]="todayStr" (change)="loadHistoricalDay()" />
+              <input type="date" [(ngModel)]="historicalDate" [max]="todayStr" (change)="loadHistoricalDay()" (wheel)="blurTarget($event)" />
               <ion-icon [name]="isPlaying ? 'pause-circle' : 'play-circle'" class="play-btn" (click)="togglePlayback()"></ion-icon>
               <input type="range" min="0" max="1439" [(ngModel)]="historicalMinute" (input)="onScrub()" class="scrub" />
               <span class="time-label">{{ formatHistoricalTime(historicalMinute) }}</span>

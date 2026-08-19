@@ -83,6 +83,14 @@ export class AnuncioFormComponent implements OnInit {
     }
   }
 
+  // Los <input type="date"> nativos, cuando tienen foco, le roban la rueda
+  // del mouse al navegador: en vez de scrollear la página cambian la fecha.
+  // Desenfocar apenas se detecta la rueda evita que el input se quede con
+  // el evento — el scroll de la página sigue de largo normalmente.
+  blurTarget(event: Event) {
+    (event.target as HTMLElement).blur();
+  }
+
   cancel() {
     this.modalCtrl.dismiss(null, 'cancel');
   }

@@ -22,7 +22,7 @@
     <div class="empty-hint" *ngIf="!r.times.length && !loading">Sin horas cargadas</div>
 
     <div class="add-row">
-      <input type="time" class="time-input" [(ngModel)]="r.newTime" />
+      <input type="time" class="time-input" [(ngModel)]="r.newTime" (wheel)="blurTarget($event)" />
       <ion-button class="add-btn" [disabled]="!r.newTime || r.adding" (click)="addTime(r)">
         <ion-icon name="add" slot="icon-only"></ion-icon>
       </ion-button>
