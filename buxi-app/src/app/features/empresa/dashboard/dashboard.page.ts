@@ -31,6 +31,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   menuItems = [
     { id: 'inicio', icon: 'home-outline', label: 'Inicio' },
+    { id: 'emergencias', icon: 'alert-circle-outline', label: 'Emergencias' },
     { id: 'rutas', icon: 'git-branch-outline', label: 'Mis rutas' },
     { id: 'horarios', icon: 'time-outline', label: 'Horarios' },
     { id: 'buses', icon: 'bus-outline', label: 'Buses' },
@@ -47,10 +48,15 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   choferes: UserProfile[] = [];
   anomalias: BusLocation[] = [];
   reportes: ReporteBug[] = [];
+  emergencias: ReporteBug[] = [];
   avisos: AvisoSistema[] = [];
   planes: Plan[] = [];
   miSuscripcion: Suscripcion | null = null;
   solicitudPlanPendiente: SolicitudPlan | null = null;
+
+  get emergenciasPendientes(): number {
+    return this.emergencias.filter(e => e.estado === 'pendiente').length;
+  }
 
   private liveMap: maplibregl.Map | null = null;
   private liveMarkers = new Map<string, maplibregl.Marker>();
@@ -97,13 +103,14 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes, anomalias, reportes, avisos, planes, miSuscripcion, solicitudPlanPendiente] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
       this.admin.getChoferes(eid),
       this.admin.getAnomalousLocations(eid),
       this.admin.getReportes(eid),
+      this.admin.getEmergencias(eid),
       this.admin.getAvisosActivos(),
       this.admin.getPlanes(),
       this.admin.getMiSuscripcion(eid),
@@ -115,10 +122,26 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.choferes = choferes;
     this.anomalias = anomalias;
     this.reportes = reportes;
+    this.emergencias = emergencias;
     this.avisos = avisos;
     this.planes = planes;
     this.miSuscripcion = miSuscripcion;
     this.solicitudPlanPendiente = solicitudPlanPendiente;
+  }
+
+  // ---- EMERGENCIAS ----
+  getUbicacionUrl(r: ReporteBug): string | null {
+    return r.descripcion.match(/https:\/\/maps\.google\.com\/\?q=[\d.,-]+/)?.[0] || null;
+  }
+
+  async resolverEmergencia(r: ReporteBug) {
+    try {
+      await this.admin.resolverEmergencia(r.id);
+      r.estado = 'resuelto';
+      this.showToast('Marcada como resuelta');
+    } catch (e: any) {
+      this.showToast(e?.message || 'No se pudo actualizar', 'danger');
+    }
   }
 
   async addReporte() {

@@ -17,6 +17,7 @@
         <div class="nav-link" *ngFor="let item of menuItems" [class.active]="activeTab===item.id" (click)="switchTab(item.id)">
           <ion-icon [name]="activeTab===item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
           <span *ngIf="sidebarOpen">{{ item.label }}</span>
+          <span class="nav-badge" *ngIf="item.id==='emergencias' && emergenciasPendientes > 0">{{ emergenciasPendientes }}</span>
         </div>
       </nav>
 
@@ -34,6 +35,7 @@
         <ion-icon name="menu-outline" class="toggle" (click)="toggleSidebar()"></ion-icon>
         <div class="topbar-info">
           <h1 *ngIf="activeTab==='inicio'">¡Bienvenido, {{ profile?.nombre_completo }}!</h1>
+          <h1 *ngIf="activeTab==='emergencias'">Emergencias</h1>
           <h1 *ngIf="activeTab==='rutas'">Mis rutas</h1>
           <h1 *ngIf="activeTab==='horarios'">Horarios</h1>
           <h1 *ngIf="activeTab==='buses'">Buses</h1>
@@ -260,6 +262,29 @@
               </div>
             </div>
             <div class="empty" *ngIf="avisos.length===0">No hay avisos activos</div>
+          </div>
+        </div>
+
+        <!-- ===== EMERGENCIAS ===== -->
+        <!-- Botón de pánico del chofer: aparte de "Reportes" a propósito, no
+             se puede perder entre atrasos y buses averiados. -->
+        <div *ngIf="activeTab==='emergencias'" class="page">
+          <div class="card">
+            <div class="table-row emergencia-row" *ngFor="let e of emergencias" [class.resuelto]="e.estado==='resuelto'">
+              <ion-icon name="alert-circle" class="emergencia-icon"></ion-icon>
+              <div class="row-main">
+                <strong>{{ $any(e.autor)?.nombre_completo || 'Chofer' }}</strong>
+                <span class="muted small">{{ e.created_at | date:'medium' }}</span>
+                <a class="emergencia-ubicacion" *ngIf="getUbicacionUrl(e) as url" [href]="url" target="_blank" rel="noopener">
+                  <ion-icon name="location-outline"></ion-icon> Ver ubicación
+                </a>
+              </div>
+              <span class="status-tag" [style.background]="e.estado==='resuelto' ? '#00c853' : '#ff5449'">
+                {{ e.estado==='resuelto' ? 'Resuelta' : 'Pendiente' }}
+              </span>
+              <ion-icon name="checkmark-circle-outline" class="act-icon" *ngIf="e.estado!=='resuelto'" (click)="resolverEmergencia(e)" title="Marcar como resuelta"></ion-icon>
+            </div>
+            <div class="empty" *ngIf="emergencias.length===0">No hay emergencias registradas</div>
           </div>
         </div>
 

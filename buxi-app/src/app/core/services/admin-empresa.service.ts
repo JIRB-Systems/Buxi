@@ -195,6 +195,26 @@ export class AdminEmpresaService {
     if (error) throw error;
   }
 
+  // ---- EMERGENCIAS (botón de pánico del chofer) ----
+  // Mismo tipo de fila que un reporte normal (titulo='Emergencia'), pero
+  // separado en su propia sección: se pierde entre los "Atraso"/"Bus
+  // averiado" de la lista general y necesita verse de inmediato.
+  async getEmergencias(empresaId: string): Promise<ReporteBug[]> {
+    const { data, error } = await this.supabase
+      .from('reportes_bugs')
+      .select('*, autor:profiles(nombre_completo)')
+      .eq('empresa_id', empresaId)
+      .eq('titulo', 'Emergencia')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as ReporteBug[];
+  }
+
+  async resolverEmergencia(id: string): Promise<void> {
+    const { error } = await this.supabase.from('reportes_bugs').update({ estado: 'resuelto' }).eq('id', id);
+    if (error) throw error;
+  }
+
   // ---- AVISOS DEL SISTEMA ----
   async getAvisosActivos(): Promise<AvisoSistema[]> {
     const { data, error } = await this.supabase
