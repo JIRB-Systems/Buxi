@@ -117,6 +117,17 @@ export class AdminEmpresaService {
       options: { data: { nombre_completo: nombre, created_by_admin: true } },
     });
     if (error) throw error;
+
+    // Si el correo ya existía, Supabase devuelve un "éxito" con el usuario
+    // existente en vez de un error (protección anti-enumeración) — pero
+    // `identities` viene vacío y la contraseña nueva NUNCA se aplica. Sin
+    // este chequeo, el chofer quedaba vinculado a la empresa igual (por
+    // eso aparecía en la lista) pero no podía entrar con la contraseña que
+    // la empresa acababa de escribir, y no había ningún aviso de por qué.
+    if (data.user && data.user.identities?.length === 0) {
+      throw new Error('Ya existe una cuenta con ese correo (con otra contraseña) — usá un correo distinto');
+    }
+
     if (data.user) {
       await this.supabase.from('profiles').update({
         rol: 'chofer', empresa_id: empresaId,
