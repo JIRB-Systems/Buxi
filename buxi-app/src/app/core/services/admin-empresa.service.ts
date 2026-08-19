@@ -211,8 +211,17 @@ export class AdminEmpresaService {
   }
 
   async resolverEmergencia(id: string): Promise<void> {
-    const { error } = await this.supabase.from('reportes_bugs').update({ estado: 'resuelto' }).eq('id', id);
+    // Sin .select() acá, un UPDATE bloqueado por RLS no da error: Postgres
+    // simplemente actualiza 0 filas y Supabase lo reporta como éxito. Con
+    // .select() se puede detectar ese caso (data vacío) y avisar de verdad
+    // en vez de mostrar "resuelta" cuando en la base sigue pendiente.
+    const { data, error } = await this.supabase
+      .from('reportes_bugs')
+      .update({ estado: 'resuelto' })
+      .eq('id', id)
+      .select('id');
     if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Sin permiso para resolver este reporte');
   }
 
   // ---- FACTURAS ----

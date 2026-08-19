@@ -94,12 +94,17 @@ ion-alert.buxi-alert {
   --backdrop-opacity: 0.62;
   --background: rgba(11, 26, 46, 0.93);
 
+  // En iOS, ion-alert le gana a estas reglas con su propia hoja incluso con
+  // el selector de más especificidad de arriba (el modo ios trae su propio
+  // juego de estilos, distinto al md que motivó ese comentario) -- el
+  // diálogo salía blanco de sistema con texto blanco encima, invisible. El
+  // !important es la única forma confiable de ganarle en los dos modos.
   .alert-wrapper {
-    background: rgba(11, 26, 46, 0.93);
+    background: rgba(11, 26, 46, 0.93) !important;
     backdrop-filter: blur(30px) saturate(180%);
     -webkit-backdrop-filter: blur(30px) saturate(180%);
     border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 24px;
+    border-radius: 24px !important;
     box-shadow: 0 20px 56px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.09);
     min-width: 290px;
     padding: 4px 2px 2px;
@@ -108,13 +113,15 @@ ion-alert.buxi-alert {
   .alert-head { padding: 22px 22px 6px; text-align: left; }
 
   .alert-title {
-    color: #fff;
+    color: #fff !important;
     font-size: 17px; font-weight: 800; letter-spacing: -0.3px;
   }
 
+  .alert-sub-title { color: #9fb2cc !important; }
+
   .alert-message {
     padding: 0 22px 20px;
-    color: #9fb2cc;
+    color: #9fb2cc !important;
     font-size: 13.5px; line-height: 1.5;
     text-align: left;
   }
@@ -163,15 +170,16 @@ ion-alert.buxi-alert {
   .alert-input-group { padding: 0 22px 8px; }
   .alert-input,
   .alert-textarea {
-    background: rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.06) !important;
     border: 1px solid rgba(255,255,255,0.14);
     border-radius: 10px;
-    color: #fff;
+    color: #fff !important;
+    -webkit-text-fill-color: #fff;
     padding: 10px 12px;
     font-size: 14px;
     margin-bottom: 8px;
 
-    &::placeholder { color: #6b7d99; }
+    &::placeholder { color: #6b7d99 !important; -webkit-text-fill-color: #6b7d99; }
     &:focus { border-color: #00c853; }
   }
 
