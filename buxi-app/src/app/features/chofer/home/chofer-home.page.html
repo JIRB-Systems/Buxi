@@ -33,6 +33,9 @@
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
   <div class="map-controls">
+    <button class="mc-btn mc-text" (click)="toggle3D()" [attr.aria-label]="is3D ? 'Ver en 2D' : 'Ver en 3D'">
+      {{ is3D ? '2D' : '3D' }}
+    </button>
     <button class="mc-btn" (click)="centerOnMe()" aria-label="Mi ubicación">
       <ion-icon name="locate-outline"></ion-icon>
     </button>

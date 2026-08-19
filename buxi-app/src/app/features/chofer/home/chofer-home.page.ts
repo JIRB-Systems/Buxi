@@ -9,7 +9,7 @@ import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Parada } from '../../../core/models/transport.model';
 import { ChoferService } from '../../../core/services/chofer.service';
-import { createMap, htmlMarkerEl } from '../../../core/utils/maplibre';
+import { createMap, htmlMarkerEl, set3DEnabled } from '../../../core/utils/maplibre';
 
 @Component({
   selector: 'app-chofer-home',
@@ -23,6 +23,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   tracking = false;
   loading = true;
 
+  is3D = true;
   profilePanelOpen = false;
   editingProfile = false;
   editName = '';
@@ -245,6 +246,11 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.currentLat && this.currentLng) {
       this.map.flyTo({ center: [this.currentLng, this.currentLat], zoom: 16 });
     }
+  }
+
+  toggle3D() {
+    this.is3D = !this.is3D;
+    set3DEnabled(this.map, this.is3D, true);
   }
 
   // ---- PANEL DE PERFIL ----
