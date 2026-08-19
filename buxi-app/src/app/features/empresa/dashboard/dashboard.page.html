@@ -44,6 +44,7 @@
           <h1 *ngIf="activeTab==='avisos'">Avisos</h1>
           <h1 *ngIf="activeTab==='reportes'">Reportes</h1>
           <h1 *ngIf="activeTab==='planes'">Planes</h1>
+          <h1 *ngIf="activeTab==='facturas'">Facturas</h1>
           <p *ngIf="activeTab==='inicio'">Resumen general de tu operación en tiempo real</p>
         </div>
         <div class="topbar-user" *ngIf="profile">
@@ -332,6 +333,24 @@
               </ion-button>
             </div>
             <div class="empty" *ngIf="planes.length===0">No hay planes disponibles</div>
+          </div>
+        </div>
+
+        <!-- ===== FACTURAS ===== -->
+        <div *ngIf="activeTab==='facturas'" class="page">
+          <p class="page-hint">Comprobante de cada plan asignado por JIRB. No es una factura electrónica timbrada ante Hacienda.</p>
+          <div class="card">
+            <div class="table-row factura-row" *ngFor="let f of facturas">
+              <ion-icon name="receipt-outline" class="factura-icon"></ion-icon>
+              <div class="row-main">
+                <strong>{{ f.numero }}</strong>
+                <span class="muted">Plan {{ $any(f.plan)?.nombre }}</span>
+                <span class="muted small">{{ f.fecha | date:'mediumDate' }}</span>
+              </div>
+              <span class="factura-monto">₡{{ f.monto | number:'1.0-0' }}</span>
+              <ion-icon name="download-outline" class="act-icon" (click)="descargarFactura(f)" title="Descargar PDF"></ion-icon>
+            </div>
+            <div class="empty" *ngIf="facturas.length===0">Todavía no tenés facturas</div>
           </div>
         </div>
 

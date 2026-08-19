@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Ruta, Parada, BusLocation } from '../models/transport.model';
-import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan } from '../models/features.model';
+import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
 @Injectable({ providedIn: 'root' })
@@ -213,6 +213,17 @@ export class AdminEmpresaService {
   async resolverEmergencia(id: string): Promise<void> {
     const { error } = await this.supabase.from('reportes_bugs').update({ estado: 'resuelto' }).eq('id', id);
     if (error) throw error;
+  }
+
+  // ---- FACTURAS ----
+  async getFacturas(empresaId: string): Promise<Factura[]> {
+    const { data, error } = await this.supabase
+      .from('facturas')
+      .select('*, plan:planes(nombre), empresa:empresas(nombre, cedula_juridica)')
+      .eq('empresa_id', empresaId)
+      .order('fecha', { ascending: false });
+    if (error) throw error;
+    return data as Factura[];
   }
 
   // ---- AVISOS DEL SISTEMA ----

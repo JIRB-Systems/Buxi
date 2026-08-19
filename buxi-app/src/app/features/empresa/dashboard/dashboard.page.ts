@@ -10,11 +10,12 @@ import { AdminEmpresaService } from '../../../core/services/admin-empresa.servic
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
-import { ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan } from '../../../core/models/features.model';
+import { ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura } from '../../../core/models/features.model';
 import { RutaFormComponent } from './ruta-form.component';
 import { HorariosFormComponent } from './horarios-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
 import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/maplibre';
+import { descargarFacturaPDF } from '../../../core/utils/factura-pdf';
 
 @Component({
   selector: 'app-empresa-dashboard',
@@ -40,6 +41,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
     { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
     { id: 'planes', icon: 'card-outline', label: 'Planes' },
+    { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
   ];
 
   stats = { buses: 0, rutas: 0, choferes: 0, busesEnRuta: 0 };
@@ -53,6 +55,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   planes: Plan[] = [];
   miSuscripcion: Suscripcion | null = null;
   solicitudPlanPendiente: SolicitudPlan | null = null;
+  facturas: Factura[] = [];
 
   get emergenciasPendientes(): number {
     return this.emergencias.filter(e => e.estado === 'pendiente').length;
@@ -103,7 +106,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente, facturas] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
@@ -115,6 +118,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.admin.getPlanes(),
       this.admin.getMiSuscripcion(eid),
       this.admin.getSolicitudPlanPendiente(eid),
+      this.admin.getFacturas(eid),
     ]);
     this.stats = stats;
     this.rutas = rutas;
@@ -127,6 +131,12 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.planes = planes;
     this.miSuscripcion = miSuscripcion;
     this.solicitudPlanPendiente = solicitudPlanPendiente;
+    this.facturas = facturas;
+  }
+
+  // ---- FACTURAS ----
+  descargarFactura(f: Factura) {
+    descargarFacturaPDF(f);
   }
 
   // ---- EMERGENCIAS ----

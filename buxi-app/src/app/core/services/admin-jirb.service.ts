@@ -4,7 +4,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Empresa, Bus, Ruta, Parada } from '../models/transport.model';
 import { UserProfile } from '../models/user-profile.model';
-import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan } from '../models/features.model';
+import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan, Factura } from '../models/features.model';
 import { BusLocation } from '../models/transport.model';
 
 @Injectable({ providedIn: 'root' })
@@ -345,6 +345,20 @@ export class AdminJirbService {
       .eq('empresa_id', empresaId)
       .eq('estado', 'pendiente');
     if (error) throw error;
+  }
+
+  // ---- FACTURAS ----
+  // El comprobante queda al confirmar la venta del plan (assignPlan), no
+  // antes: no hay pasarela real, así que "vendido" es literalmente "JIRB lo
+  // asignó" y ese es el único momento en que tiene sentido emitir uno.
+  async crearFactura(empresaId: string, planId: string, monto: number): Promise<Factura> {
+    const { data, error } = await this.supabase
+      .from('facturas')
+      .insert({ empresa_id: empresaId, plan_id: planId, monto })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as Factura;
   }
 
   // ---- CREAR ADMIN EMPRESA ----

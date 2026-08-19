@@ -266,6 +266,10 @@
   &:hover { text-decoration: underline; }
 }
 
+.factura-row { align-items: flex-start; }
+.factura-icon { font-size: 20px; color: #00c853; margin-top: 1px; flex-shrink: 0; }
+.factura-monto { font-size: 13px; font-weight: 700; color: #fff; margin-right: 4px; font-variant-numeric: tabular-nums; }
+
 .btn-action {
   --background: #00c853; --border-radius: 12px; --box-shadow: none;
   font-weight: 600; font-size: 13px; height: 40px; text-transform: none; margin-bottom: 14px;

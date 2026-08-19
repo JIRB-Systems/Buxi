@@ -103,6 +103,18 @@ export interface SolicitudPlan {
   empresa?: { id: string; nombre: string };
 }
 
+export interface Factura {
+  id: string;
+  empresa_id: string;
+  plan_id: string;
+  numero: string;
+  monto: number;
+  fecha: string;
+  created_at: string;
+  plan?: { nombre: string };
+  empresa?: { nombre: string; cedula_juridica: string | null };
+}
+
 export interface ReporteBug {
   id: string;
   empresa_id: string;

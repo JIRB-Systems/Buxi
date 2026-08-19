@@ -1301,6 +1301,13 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
           // Si la empresa había solicitado un cambio, esto la resuelve
           // aunque JIRB haya asignado un plan distinto al pedido.
           await this.admin.resolverSolicitudesDeEmpresa(empresa.id);
+          // El comprobante se emite acá porque "vendido" literalmente
+          // significa esto: no hay pasarela de pago, JIRB confirmando
+          // el plan ES el momento de la venta.
+          const plan = this.planes.find(p => p.id === planId);
+          if (plan) {
+            try { await this.admin.crearFactura(empresa.id, planId, plan.precio_mensual); } catch {}
+          }
           await this.logAction('Cambiar plan', `${empresa.nombre}`, 'empresa', empresa.id);
           await this.loadData();
           this.showToast('Plan actualizado');
