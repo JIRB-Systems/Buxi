@@ -5,16 +5,14 @@
   <!-- ====== TOPBAR: chofer + bus/ruta ====== -->
   <div class="top-overlay">
     <div class="topbar">
-      <div class="tb-avatar">
+      <div class="tb-avatar" (click)="toggleProfilePanel()">
         <ion-icon name="person"></ion-icon>
+        <img *ngIf="profile?.foto_url as url" [src]="url" alt="" class="av-photo" />
       </div>
       <div class="tb-info">
         <strong>{{ profile?.nombre_completo || 'Chofer' }}</strong>
         <span *ngIf="assignedBus">{{ assignedBus.placa }} · {{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
         <span *ngIf="!assignedBus" class="no-bus">Sin bus asignado</span>
-      </div>
-      <div class="tb-logout" (click)="onLogout()">
-        <ion-icon name="log-out-outline"></ion-icon>
       </div>
     </div>
   </div>
@@ -54,5 +52,54 @@
       {{ tracking ? 'Detener transmisión' : 'Iniciar ruta' }}
     </ion-button>
   </div>
+
+  <!-- ====== PANEL LATERAL DE PERFIL ====== -->
+  <div class="panel-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>
+
+  <aside class="profile-panel" [class.open]="profilePanelOpen">
+    <div class="pp-head">
+      <div class="pp-avatar">
+        <ion-icon name="person"></ion-icon>
+        <img *ngIf="profile?.foto_url as url" [src]="url" alt="" class="av-photo" />
+      </div>
+      <div class="pp-id">
+        <strong>{{ profile?.nombre_completo || 'Chofer' }}</strong>
+        <span>{{ profile?.correo }}</span>
+      </div>
+      <ion-icon name="close" class="pp-close" (click)="toggleProfilePanel()"></ion-icon>
+    </div>
+
+    <div class="pp-links">
+      <div class="pp-link" *ngIf="!editingProfile" (click)="startEditProfile()">
+        <ion-icon name="create-outline"></ion-icon><span>Editar perfil</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+
+      <div class="pp-form" *ngIf="editingProfile">
+        <label>Nombre completo</label>
+        <input type="text" [(ngModel)]="editName" placeholder="Tu nombre" />
+
+        <label>Teléfono</label>
+        <input type="tel" [(ngModel)]="editPhone" placeholder="8888-8888" />
+
+        <div class="pp-form-actions">
+          <button class="pp-btn ghost" (click)="cancelEditProfile()">Cancelar</button>
+          <button class="pp-btn solid" [disabled]="savingProfile" (click)="saveProfile()">
+            {{ savingProfile ? 'Guardando…' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="pp-info-row">
+        <ion-icon name="bus-outline"></ion-icon>
+        <span *ngIf="assignedBus">{{ assignedBus.placa }} · {{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
+        <span *ngIf="!assignedBus" class="no-bus">Sin bus asignado</span>
+      </div>
+    </div>
+
+    <div class="pp-logout" (click)="onLogout()">
+      <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
+    </div>
+  </aside>
 
 </ion-content>

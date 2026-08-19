@@ -23,6 +23,12 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   tracking = false;
   loading = true;
 
+  profilePanelOpen = false;
+  editingProfile = false;
+  editName = '';
+  editPhone = '';
+  savingProfile = false;
+
   private map!: maplibregl.Map;
   private destroyed = false;
   private userMarker: maplibregl.Marker | null = null;
@@ -235,6 +241,41 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   centerOnMe() {
     if (this.currentLat && this.currentLng) {
       this.map.flyTo({ center: [this.currentLng, this.currentLat], zoom: 16 });
+    }
+  }
+
+  // ---- PANEL DE PERFIL ----
+  toggleProfilePanel() {
+    this.profilePanelOpen = !this.profilePanelOpen;
+    if (!this.profilePanelOpen) this.editingProfile = false;
+  }
+
+  startEditProfile() {
+    this.editName = this.profile?.nombre_completo || '';
+    this.editPhone = this.profile?.telefono || '';
+    this.editingProfile = true;
+  }
+
+  cancelEditProfile() {
+    this.editingProfile = false;
+  }
+
+  async saveProfile() {
+    if (!this.editName.trim() || this.savingProfile) return;
+    this.savingProfile = true;
+    try {
+      await this.supabase.updateProfile({
+        nombre_completo: this.editName.trim(),
+        telefono: this.editPhone.trim() || null,
+      });
+      if (this.profile) {
+        this.profile.nombre_completo = this.editName.trim();
+        this.profile.telefono = this.editPhone.trim() || null;
+      }
+      this.editingProfile = false;
+    } catch {
+    } finally {
+      this.savingProfile = false;
     }
   }
 
