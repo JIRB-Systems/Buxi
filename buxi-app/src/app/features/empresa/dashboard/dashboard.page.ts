@@ -475,6 +475,12 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       await this.loadData();
       if (this.activeTab === 'mapa' || this.activeTab === 'inicio') setTimeout(() => this.initLiveMap(), 150);
       this.showToast('Ruta creada con recorrido automático');
+
+      // Encadenado en vez de un campo más en "Nueva ruta": ese formulario ya
+      // tiene bastante (nombre, precio, origen, destino, color) y el horario
+      // es opcional por ruta — pero así la empresa no tiene que acordarse de
+      // volver, y el pasajero ve el horario desde el primer momento.
+      await this.manageHorarios(nueva);
     } catch {
       this.showToast('Error creando la ruta', 'danger');
     }
