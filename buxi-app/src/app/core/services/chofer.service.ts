@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Parada } from '../models/transport.model';
-import { Viaje, ReporteBug } from '../models/features.model';
+import { Viaje, ReporteBug, Calificacion } from '../models/features.model';
 
 @Injectable({ providedIn: 'root' })
 export class ChoferService {
@@ -105,5 +105,19 @@ export class ChoferService {
     if (error || !data) return 80;
     const n = parseFloat(data.value);
     return isNaN(n) ? 80 : n;
+  }
+
+  // ---- MIS CALIFICACIONES ----
+  // "calificaciones" ya tiene lectura pública (RLS), así que el chofer puede
+  // ver directo cómo lo califican en el bus que tiene asignado ahora.
+  async getCalificacionesDelBus(busId: string): Promise<Calificacion[]> {
+    const { data, error } = await this.supabase
+      .from('calificaciones')
+      .select('*')
+      .eq('bus_id', busId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) throw error;
+    return data as Calificacion[];
   }
 }

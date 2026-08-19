@@ -8,9 +8,9 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Parada } from '../../../core/models/transport.model';
-import { Viaje } from '../../../core/models/features.model';
+import { Viaje, Calificacion } from '../../../core/models/features.model';
 import { ChoferService } from '../../../core/services/chofer.service';
-import { createMap, htmlMarkerEl, set3DEnabled } from '../../../core/utils/maplibre';
+import { createMap, htmlMarkerEl, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 
 @Component({
   selector: 'app-chofer-home',
@@ -43,6 +43,25 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   historialOpen = false;
   loadingHistorial = false;
   viajesHistorial: Viaje[] = [];
+
+  // ---- Desvío de ruta ----
+  offRoute = false;
+  private routeCoords: [number, number][] = [];
+
+  // ---- Botón de pánico ----
+  sendingPanic = false;
+
+  // ---- Resumen de viaje ----
+  private tripStartTime = 0;
+  private tripDistanceKm = 0;
+  private lastTripLat = 0;
+  private lastTripLng = 0;
+
+  // ---- Mis calificaciones ----
+  calificacionesOpen = false;
+  loadingCalificaciones = false;
+  misCalificaciones: Calificacion[] = [];
+  calificacionPromedio: number | null = null;
 
   private map!: maplibregl.Map;
   private destroyed = false;
@@ -77,12 +96,34 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         if (this.assignedBus?.ruta_id) {
           this.paradasReady = this.loadRutaParadas(this.assignedBus.ruta_id);
         }
+        await this.checkAssignmentChanged();
       }
       this.choferService.getMaxSpeedKmh().then(v => this.maxSpeedKmh = v).catch(() => {});
     } catch {
     } finally {
       this.loading = false;
     }
+  }
+
+  // No es una notificación push real (eso necesita un backend disparando a
+  // dispositivos, fuera de alcance acá) — es un aviso al abrir la app si el
+  // bus/ruta asignado cambió desde la última vez que la abrió este chofer.
+  private async checkAssignmentChanged() {
+    if (!this.profile) return;
+    const key = `buxi-chofer-last-bus-${this.profile.id}`;
+    const firma = this.assignedBus ? `${this.assignedBus.id}:${this.assignedBus.ruta_id || ''}` : '';
+    const anterior = localStorage.getItem(key);
+
+    if (anterior !== null && anterior !== firma && this.assignedBus) {
+      const toast = await this.toastCtrl.create({
+        message: `Te asignaron: ${this.assignedBus.placa} · ${this.assignedBus.ruta?.nombre || 'Sin ruta'}`,
+        duration: 4500,
+        color: 'success',
+        position: 'top',
+      });
+      await toast.present();
+    }
+    localStorage.setItem(key, firma);
   }
 
   // Cargar las paradas apenas se conoce la ruta asignada, no solo al arrancar
@@ -129,6 +170,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     const coords: [number, number][] = geometria?.length
       ? geometria.map(([lat, lng]) => [lng, lat] as [number, number])
       : this.rutaParadas.map(p => [p.longitud, p.latitud] as [number, number]);
+    this.routeCoords = coords;
 
     this.map.addSource('chofer-route', {
       type: 'geojson',
@@ -207,6 +249,25 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     // — de otro modo alertaría yendo a arrancar el turno o en un semáforo.
     this.speedWarning = this.tracking && !this.paused && this.currentSpeedKmh > this.maxSpeedKmh;
 
+    // Desvío de ruta: misma distancia punto-a-polilínea que usa el mapa de
+    // JIRB para marcar buses fuera de su trazado, pero mostrada acá para que
+    // el propio chofer se entere en el momento, no solo JIRB después.
+    if (this.tracking && !this.paused && this.routeCoords.length >= 2) {
+      const metros = distanceToPolylineMeters(lng, lat, this.routeCoords);
+      this.offRoute = metros > 150;
+    } else {
+      this.offRoute = false;
+    }
+
+    // Distancia recorrida del viaje activo, para el resumen al terminar.
+    if (this.tracking && !this.paused) {
+      if (this.lastTripLat !== 0 || this.lastTripLng !== 0) {
+        this.tripDistanceKm += this.features.distanceKm(this.lastTripLat, this.lastTripLng, lat, lng);
+      }
+      this.lastTripLat = lat;
+      this.lastTripLng = lng;
+    }
+
     if (this.userMarker) {
       this.userMarker.setLngLat([lng, lat]);
     } else {
@@ -251,13 +312,47 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.tracking) {
       await this.stopTracking();
     } else {
-      await this.startTracking();
+      await this.showChecklistThenStart();
     }
+  }
+
+  // Checklist rápido antes de salir. Ionic sí soporta varios checkbox en un
+  // mismo alert (el bug de labels invisibles es específico de mezclar radio
+  // con texto, no de checkbox), así que esto no necesita encadenar alerts.
+  private async showChecklistThenStart() {
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: 'Antes de salir',
+      message: 'Confirmá que revisaste el bus.',
+      inputs: [
+        { name: 'items', type: 'checkbox', label: 'Frenos', value: 'frenos' },
+        { name: 'items', type: 'checkbox', label: 'Luces', value: 'luces' },
+        { name: 'items', type: 'checkbox', label: 'Espejos', value: 'espejos' },
+        { name: 'items', type: 'checkbox', label: 'Combustible', value: 'combustible' },
+      ],
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Iniciar ruta', handler: async (seleccionados: string[]) => {
+          if (!seleccionados || seleccionados.length < 4) {
+            const toast = await this.toastCtrl.create({ message: 'Marcá los 4 ítems antes de salir', duration: 2200, color: 'warning', position: 'top' });
+            await toast.present();
+            return false;
+          }
+          await this.startTracking();
+          return true;
+        }},
+      ],
+    });
+    await alert.present();
   }
 
   private async startTracking() {
     this.tracking = true;
     this.paused = false;
+    this.tripDistanceKm = 0;
+    this.tripStartTime = Date.now();
+    this.lastTripLat = this.currentLat;
+    this.lastTripLng = this.currentLng;
 
     await this.choferService.updateBusStatus(this.assignedBus!.id, 'en_ruta');
 
@@ -288,6 +383,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     this.tracking = false;
     this.paused = false;
     this.speedWarning = false;
+    this.offRoute = false;
 
     if (this.trackingInterval) {
       clearInterval(this.trackingInterval);
@@ -295,16 +391,29 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     await this.choferService.updateBusStatus(this.assignedBus!.id, 'activo');
-    await this.choferService.endViaje();
+    // Antes siempre mandaba 0 acá — la distancia real ya se venía sumando en
+    // updatePosition() pero nunca se usaba al cerrar el viaje.
+    await this.choferService.endViaje(this.tripDistanceKm);
+
+    const paradasCumplidas = this.nextParadaIndex - 1;
+    const duracionMin = this.tripStartTime ? Math.round((Date.now() - this.tripStartTime) / 60000) : 0;
     this.nextParadaIndex = 1;
 
-    const toast = await this.toastCtrl.create({
-      message: 'Viaje completado',
-      duration: 2000,
-      color: 'medium',
-      position: 'top',
+    await this.showTripSummary(duracionMin, paradasCumplidas);
+  }
+
+  private async showTripSummary(duracionMin: number, paradasCumplidas: number) {
+    const horas = Math.floor(duracionMin / 60);
+    const mins = duracionMin % 60;
+    const duracionTexto = horas > 0 ? `${horas}h ${mins}min` : `${mins} min`;
+
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: 'Viaje completado',
+      message: `Duración: ${duracionTexto}<br>Distancia: ${this.tripDistanceKm.toFixed(1)} km<br>Paradas cumplidas: ${paradasCumplidas}`,
+      buttons: ['Listo'],
     });
-    await toast.present();
+    await alert.present();
   }
 
   // Pausa sin terminar el viaje (almuerzo, descanso corto): deja de mandar
@@ -320,6 +429,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         this.trackingInterval = null;
       }
       this.speedWarning = false;
+      this.offRoute = false;
     } else {
       this.sendLocation();
       this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
@@ -419,6 +529,67 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       ],
     });
     await detalleAlert.present();
+  }
+
+  // ---- BOTÓN DE PÁNICO ----
+  // Distinto de "reportar incidente": esto es para una emergencia real, un
+  // solo paso de confirmación y manda la ubicación actual, no un formulario.
+  async panicButton() {
+    if (!this.profile?.empresa_id || this.sendingPanic) return;
+
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: '¿Enviar alerta de emergencia?',
+      message: 'Se le avisa de inmediato a tu empresa con tu ubicación actual.',
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Enviar ahora', cssClass: 'ba-confirm', handler: async () => {
+          this.sendingPanic = true;
+          try {
+            const ubicacion = this.currentLat && this.currentLng
+              ? `https://maps.google.com/?q=${this.currentLat},${this.currentLng}`
+              : 'ubicación no disponible';
+            await this.choferService.createReporte(
+              this.profile!.empresa_id!,
+              this.profile!.id,
+              'Emergencia',
+              `Botón de pánico activado. Ubicación: ${ubicacion}`,
+            );
+            const toast = await this.toastCtrl.create({ message: 'Alerta enviada a tu empresa', duration: 3000, color: 'danger', position: 'top' });
+            await toast.present();
+          } catch {
+            const toast = await this.toastCtrl.create({ message: 'No se pudo enviar la alerta', duration: 3000, color: 'danger', position: 'top' });
+            await toast.present();
+          } finally {
+            this.sendingPanic = false;
+          }
+          return true;
+        }},
+      ],
+    });
+    await alert.present();
+  }
+
+  // ---- MIS CALIFICACIONES ----
+  async openCalificaciones() {
+    if (!this.assignedBus) return;
+    this.calificacionesOpen = true;
+    this.loadingCalificaciones = true;
+    try {
+      this.misCalificaciones = await this.choferService.getCalificacionesDelBus(this.assignedBus.id);
+      this.calificacionPromedio = this.misCalificaciones.length
+        ? this.misCalificaciones.reduce((s, c) => s + c.estrellas, 0) / this.misCalificaciones.length
+        : null;
+    } catch {
+      this.misCalificaciones = [];
+      this.calificacionPromedio = null;
+    } finally {
+      this.loadingCalificaciones = false;
+    }
+  }
+
+  closeCalificaciones() {
+    this.calificacionesOpen = false;
   }
 
   // ---- HISTORIAL DE VIAJES ----

@@ -29,6 +29,12 @@
     Reducí la velocidad
   </div>
 
+  <!-- Desvío de la ruta -->
+  <div class="speed-warning off-route" *ngIf="offRoute" [class.stacked]="speedWarning">
+    <ion-icon name="git-branch-outline"></ion-icon>
+    Te alejaste de la ruta
+  </div>
+
   <!-- Próxima parada -->
   <div class="next-stop-card" *ngIf="nextParada && tracking">
     <ion-icon name="location"></ion-icon>
@@ -61,6 +67,14 @@
       <ion-icon name="locate-outline"></ion-icon>
     </button>
   </div>
+
+  <!-- ====== BOTÓN DE PÁNICO (izquierda) ====== -->
+  <!-- Aparte de los controles de la derecha a propósito: una emergencia real
+       no debería estar mezclada con zoom/ubicación, y necesita ser fácil de
+       encontrar sin pensar. -->
+  <button class="panic-btn" (click)="panicButton()" [disabled]="sendingPanic" aria-label="Botón de pánico">
+    <ion-icon name="alert-circle"></ion-icon>
+  </button>
 
   <!-- ====== CONTROL INFERIOR ====== -->
   <div class="bottom-control" [class.with-pause]="tracking">
@@ -133,6 +147,11 @@
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
+      <div class="pp-link" (click)="toggleProfilePanel(); openCalificaciones()">
+        <ion-icon name="star-outline"></ion-icon><span>Mis calificaciones</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+
       <div class="pp-link" (click)="toggleProfilePanel(); reportarIncidente()">
         <ion-icon name="warning-outline"></ion-icon><span>Reportar incidente</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
@@ -170,6 +189,43 @@
       </div>
       <div class="hs-empty" *ngIf="!loadingHistorial && viajesHistorial.length===0">
         Todavía no tenés viajes registrados
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== MIS CALIFICACIONES ====== -->
+  <div class="panel-scrim" [class.open]="calificacionesOpen" (click)="closeCalificaciones()"></div>
+
+  <section class="historial-sheet" [class.open]="calificacionesOpen">
+    <div class="sheet-bar"></div>
+    <div class="hs-head">
+      <strong>Mis calificaciones</strong>
+      <ion-icon name="close" (click)="closeCalificaciones()"></ion-icon>
+    </div>
+
+    <div class="cal-summary" *ngIf="calificacionPromedio !== null">
+      <strong>{{ calificacionPromedio | number:'1.1-1' }}</strong>
+      <div class="cal-stars">
+        <ion-icon *ngFor="let s of [1,2,3,4,5]" [name]="s <= calificacionPromedio! ? 'star' : (s - 0.5 <= calificacionPromedio! ? 'star-half' : 'star-outline')"></ion-icon>
+      </div>
+      <span>{{ misCalificaciones.length }} {{ misCalificaciones.length === 1 ? 'calificación' : 'calificaciones' }}</span>
+    </div>
+
+    <div class="hs-list">
+      <div class="hs-empty" *ngIf="loadingCalificaciones">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+      <div class="hs-row cal-row" *ngFor="let c of misCalificaciones">
+        <div class="hs-row-main">
+          <div class="cal-row-stars">
+            <ion-icon *ngFor="let s of [1,2,3,4,5]" [name]="s <= c.estrellas ? 'star' : 'star-outline'"></ion-icon>
+          </div>
+          <span *ngIf="c.comentario">{{ c.comentario }}</span>
+        </div>
+        <span class="hs-km">{{ c.created_at | date:'shortDate' }}</span>
+      </div>
+      <div class="hs-empty" *ngIf="!loadingCalificaciones && misCalificaciones.length===0">
+        Todavía no tenés calificaciones en este bus
       </div>
     </div>
   </section>
