@@ -225,13 +225,19 @@ export class AdminEmpresaService {
   }
 
   // ---- FACTURAS ----
+  // Devuelve [] en vez de lanzar si la tabla todavía no existe (migración
+  // pendiente de aplicar): esta consulta va adentro de un Promise.all en
+  // loadData() del panel de empresa, así que si tira error acá se cae TODO
+  // el resto del panel (choferes, buses, rutas...) aunque esos datos estén
+  // perfectamente bien -- eso fue lo que hizo parecer que un chofer había
+  // desaparecido cuando en realidad nunca se tocó.
   async getFacturas(empresaId: string): Promise<Factura[]> {
     const { data, error } = await this.supabase
       .from('facturas')
       .select('*, plan:planes(nombre), empresa:empresas(nombre, cedula_juridica)')
       .eq('empresa_id', empresaId)
       .order('fecha', { ascending: false });
-    if (error) throw error;
+    if (error) return [];
     return data as Factura[];
   }
 
