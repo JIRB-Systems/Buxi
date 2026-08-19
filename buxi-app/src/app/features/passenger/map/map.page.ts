@@ -88,11 +88,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   // pierde de vista y, de paso, no hay chunk lazy que pueda fallar al navegar.
   activePanel: 'rutas' | 'favoritos' | 'alertas' | 'lugares' | null = null;
   panelSearch = '';
-
-  // El listado de empresas vivia SOLO en el sidebar de escritorio, que esta
-  // oculto bajo 900px: en movil no habia forma de llegar a el. Ahora comparte
-  // el panel de Rutas mediante estas dos pestanas.
-  panelTab: 'empresas' | 'rutas' = 'empresas';
   favoritoRutaIds = new Set<string>();
   favoritosLoading = false;
 
@@ -123,18 +118,46 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     );
   }
 
-  get panelEmpresas(): EmpresaListItem[] {
-    const q = this.panelSearch.trim().toLowerCase();
-    if (!q) return this.empresas;
-    return this.empresas.filter(e =>
-      `${e.nombre} ${e.rutaResumen}`.toLowerCase().includes(q),
-    );
+  // Empresas ordenadas por cercania a tu ubicacion, medida contra la parada
+  // mas proxima de cada una.
+  get empresasCercanas(): { empresa: EmpresaListItem; distanceKm: number | null }[] {
+    // Sin ubicacion o sin paradas cargadas no hay nada que ordenar: se muestran
+    // todas antes que dejar la lista vacia.
+    if (this.userLat === 0 || this.allParadas.length === 0) {
+      return this.empresas.map(e => ({ empresa: e, distanceKm: null }));
+    }
+
+    const rutaToEmpresa = new Map(this.allRutas.map(r => [r.id, r.empresa_id]));
+    const minDist = new Map<string, number>();
+
+    for (const p of this.allParadas) {
+      const empresaId = rutaToEmpresa.get(p.ruta_id);
+      if (!empresaId) continue;
+      const d = this.featuresService.distanceKm(this.userLat, this.userLng, p.latitud, p.longitud);
+      const actual = minDist.get(empresaId);
+      if (actual === undefined || d < actual) minDist.set(empresaId, d);
+    }
+
+    const conDistancia = this.empresas
+      .map(e => ({ empresa: e, distanceKm: minDist.get(e.id) ?? null }))
+      .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+
+    const cercanas = conDistancia.filter(x => x.distanceKm !== null && x.distanceKm <= this.NEARBY_KM);
+    // Si no hay ninguna en el radio, se muestran todas: una lista vacia no le
+    // sirve a nadie, y en zonas rurales el bus mas cercano puede estar lejos.
+    return cercanas.length ? cercanas : conDistancia;
   }
 
-  // Tocar una empresa dibuja sus rutas y cierra el panel: la accion termina
-  // en el mapa, igual que al elegir una ruta.
-  async selectEmpresaFromPanel(e: EmpresaListItem) {
-    this.closePanel();
+  get hayEmpresasCerca(): boolean {
+    return this.empresasCercanas.some(x => x.distanceKm !== null && x.distanceKm <= this.NEARBY_KM);
+  }
+
+  toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
+
+  async selectEmpresaFromSidebar(e: EmpresaListItem) {
+    // En telefono el menu tapa el mapa, asi que se cierra al elegir: la accion
+    // termina en el mapa, no en la lista.
+    if (window.innerWidth < 900) this.sidebarOpen = false;
     await this.showEmpresaRoutes(e);
   }
 
@@ -320,6 +343,15 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   private userLng = 0;
 
   empresas: EmpresaListItem[] = [];
+  // Paradas de todas las rutas: son las que dicen POR DONDE pasa cada empresa,
+  // que es lo unico que permite saber cuales sirven la zona del usuario.
+  private allParadas: Parada[] = [];
+
+  // El menu lateral arranca abierto en escritorio y cerrado en telefono, donde
+  // taparia el mapa entero. Se puede alternar en ambos.
+  sidebarOpen = typeof window !== 'undefined' && window.innerWidth >= 900;
+  // Radio para considerar que una empresa sirve tu zona.
+  private readonly NEARBY_KM = 25;
   private allRutas: Ruta[] = [];
   selectedEmpresaId: string | null = null;
 
@@ -462,12 +494,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     } catch {}
 
     try {
-      const [empresas, rutas] = await Promise.all([
+      const [empresas, rutas, paradas] = await Promise.all([
         this.tracking.getEmpresas(),
         this.tracking.getRutas(),
+        this.tracking.getAllParadas(),
       ]);
       this.empresas = empresas;
       this.allRutas = rutas;
+      this.allParadas = paradas;
     } catch {}
   }
 

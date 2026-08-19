@@ -34,22 +34,38 @@
     </div>
   </div>
 
-  <aside class="desktop-sidebar">
+  <div class="sidebar-scrim" [class.open]="sidebarOpen" (click)="toggleSidebar()"></div>
+
+  <aside class="empresas-sidebar" [class.open]="sidebarOpen">
     <div class="ds-section">
       <div class="ds-section-header">
-        <h3>Empresas disponibles</h3>
-        <span class="ds-clear-empresa" *ngIf="selectedEmpresaId" (click)="clearEmpresaRoutes()">Quitar del mapa</span>
+        <h3>{{ hayEmpresasCerca ? 'Empresas en tu zona' : 'Empresas disponibles' }}</h3>
+        <ion-icon name="close" class="ds-close" (click)="toggleSidebar()"></ion-icon>
       </div>
-      <div class="empresa-row" *ngFor="let e of empresas" [class.active]="selectedEmpresaId === e.id" (click)="showEmpresaRoutes(e)">
+
+      <div class="ds-hint-line" *ngIf="!hayEmpresasCerca">
+        Ninguna pasa cerca tuyo: se muestran todas.
+      </div>
+
+      <div class="ds-clear-row" *ngIf="selectedEmpresaId">
+        <span (click)="clearEmpresaRoutes()">Quitar del mapa</span>
+      </div>
+      <div class="empresa-row" *ngFor="let x of empresasCercanas"
+           [class.active]="selectedEmpresaId === x.empresa.id" (click)="selectEmpresaFromSidebar(x.empresa)">
         <div class="empresa-logo">
-          <img *ngIf="e.logo_url" [src]="e.logo_url" alt="" />
-          <ion-icon *ngIf="!e.logo_url" name="business"></ion-icon>
+          <img *ngIf="x.empresa.logo_url" [src]="x.empresa.logo_url" alt="" />
+          <ion-icon *ngIf="!x.empresa.logo_url" name="business"></ion-icon>
         </div>
         <div class="empresa-info">
-          <strong>{{ e.nombre }}</strong>
-          <span>{{ e.rutaResumen }}</span>
+          <strong>{{ x.empresa.nombre }}</strong>
+          <span>{{ x.empresa.rutaResumen }}</span>
         </div>
-        <div class="empresa-freq" *ngIf="e.frecuencia">cada {{ e.frecuencia }} min</div>
+        <div class="empresa-meta">
+          <span class="empresa-dist" *ngIf="x.distanceKm !== null">
+            {{ x.distanceKm < 1 ? (x.distanceKm * 1000 | number:'1.0-0') + ' m' : (x.distanceKm | number:'1.1-1') + ' km' }}
+          </span>
+          <span class="empresa-freq" *ngIf="x.empresa.frecuencia">cada {{ x.empresa.frecuencia }} min</span>
+        </div>
       </div>
       <div class="ds-empty" *ngIf="empresas.length === 0">Sin empresas disponibles</div>
       <div class="ds-link" (click)="openPanel('rutas')">Ver todas las rutas <ion-icon name="chevron-forward"></ion-icon></div>
@@ -114,6 +130,12 @@
       </div>
     </div>
   </aside>
+
+  <!-- Tirador para reabrir el menu. Solo aparece cuando esta cerrado, para no
+       competir con el propio panel. -->
+  <button class="sidebar-handle" *ngIf="!sidebarOpen" (click)="toggleSidebar()" aria-label="Ver empresas">
+    <ion-icon name="business"></ion-icon>
+  </button>
 
   <!-- ====== TOPBAR: logo · buscador · perfil ====== -->
   <div class="top-overlay">
@@ -326,17 +348,6 @@
       <ion-spinner *ngIf="placeSearching" name="crescent" class="lp-spin"></ion-spinner>
     </div>
 
-    <!-- Empresas y rutas conviven acá porque el sidebar que las mostraba
-         esta oculto en movil: sin esto, en telefono no habia forma de verlas. -->
-    <div class="lp-tabs" *ngIf="activePanel === 'rutas'">
-      <button class="lp-tab" [class.on]="panelTab === 'empresas'" (click)="panelTab = 'empresas'">
-        Empresas
-      </button>
-      <button class="lp-tab" [class.on]="panelTab === 'rutas'" (click)="panelTab = 'rutas'">
-        Rutas
-      </button>
-    </div>
-
     <div class="lp-search" *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
       <ion-icon name="search-outline"></ion-icon>
       <input
@@ -347,30 +358,8 @@
     </div>
 
     <div class="lp-body">
-      <!-- Empresas: mismo contenido que el panel de escritorio -->
-      <ng-container *ngIf="activePanel === 'rutas' && panelTab === 'empresas'">
-        <div class="lp-row" *ngFor="let e of panelEmpresas"
-             [class.on]="selectedEmpresaId === e.id" (click)="selectEmpresaFromPanel(e)">
-          <div class="lp-emp-logo">
-            <img *ngIf="e.logo_url" [src]="e.logo_url" alt="" />
-            <ion-icon *ngIf="!e.logo_url" name="business"></ion-icon>
-          </div>
-          <div class="lp-info">
-            <strong>{{ e.nombre }}</strong>
-            <span class="lp-trip">{{ e.rutaResumen }}</span>
-          </div>
-          <span class="lp-freq" *ngIf="e.frecuencia">cada {{ e.frecuencia }} min</span>
-        </div>
-
-        <div class="lp-empty" *ngIf="panelEmpresas.length === 0">
-          <ion-icon name="business-outline"></ion-icon>
-          <strong>Sin empresas</strong>
-          <span>No hay empresas que coincidan con tu busqueda.</span>
-        </div>
-      </ng-container>
-
       <!-- Rutas y favoritos comparten la misma lista -->
-      <ng-container *ngIf="(activePanel === 'rutas' && panelTab === 'rutas') || activePanel === 'favoritos'">
+      <ng-container *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
         <a class="lp-sponsored" *ngIf="activePanel === 'rutas' && listAd" [class]="'anim-' + listAd.animacion"
            [href]="listAd.link_url || null" target="_blank" rel="noopener">
           <span class="lp-sp-tag">Patrocinado</span>

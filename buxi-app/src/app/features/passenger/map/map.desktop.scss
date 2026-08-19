@@ -2,7 +2,7 @@
 // Mobile keeps the floating-overlay UX above unchanged; on wider screens the
 // map stays full-bleed underneath and a fixed sidebar + topbar sit on top,
 // like a native web app shell instead of stretched phone chrome.
-.desktop-topbar, .desktop-sidebar { display: none; }
+.desktop-topbar { display: none; }
 
 // Barra y panel flotan sobre el mapa en vez de recortarlo: el mapa se ve de
 // punta a punta y el chrome se apoya encima, igual que el dock inferior.
@@ -126,10 +126,24 @@
 
 // Panel flotante, no columna pegada al borde: separado de los bordes, con
 // esquinas redondeadas y sin llegar al fondo, para que el dock respire.
-.desktop-sidebar {
+// Panel de empresas: existe en TODOS los tamanos, no solo escritorio. En
+// telefono entra desde la izquierda sobre el mapa y se cierra al elegir; en
+// escritorio queda fijo. Antes era display:none bajo 900px y en movil no habia
+// forma de llegar a el.
+.empresas-sidebar {
   position: absolute;
-  top: 88px; left: 16px; bottom: 116px; z-index: 1000;
-  width: 330px; flex-direction: column; gap: 14px;
+  top: 88px; left: 16px; bottom: 116px; z-index: 1002;
+  width: 330px;
+  display: flex; flex-direction: column; gap: 14px;
+  transform: translateX(calc(-100% - 24px));
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.32s ease,
+    visibility 0.32s;
+
+  &.open { transform: translateX(0); opacity: 1; visibility: visible; }
   padding: 16px; overflow-y: auto;
   border-radius: 22px;
   background: rgba(11, 26, 46, 0.62);
@@ -276,7 +290,7 @@
   // La barra es grid (tres columnas, buscador centrado); el panel sigue siendo
   // flex. Antes ambas se reactivaban como flex y eso le pisaba el grid.
   .desktop-topbar { display: grid; }
-  .desktop-sidebar { display: flex; }
+  .empresas-sidebar { display: flex; }
 
   // Mobile-only overlays hidden at this width.
   .top-overlay, .live-chip, .route-chip, .eta-card { display: none; }
@@ -312,7 +326,7 @@
 @media (min-width: 900px) {
   .light-map {
     .desktop-topbar,
-    .desktop-sidebar {
+    .empresas-sidebar {
       background: rgba(9, 20, 36, 0.9);
       border-color: rgba(255,255,255,0.16);
       box-shadow: 0 10px 34px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);

@@ -842,3 +842,82 @@
   border: 2.5px solid #fff;
   box-shadow: 0 3px 10px rgba(0,0,0,0.45);
 }
+
+// ====== PANEL DE EMPRESAS: velo, tirador y detalles ======
+// El velo sólo existe en teléfono: ahí el panel flota sobre el mapa y hay que
+// poder cerrarlo tocando fuera. En escritorio el panel convive con el mapa.
+.sidebar-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1001;
+  background: rgba(4, 10, 20, 0.45);
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  &.open { opacity: 1; visibility: visible; }
+}
+
+@media (min-width: 900px) {
+  .sidebar-scrim { display: none; }
+}
+
+// Tirador para reabrir. Va pegado al borde izquierdo, a la altura de la mano.
+.sidebar-handle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  width: 34px; height: 54px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-left: none;
+  border-radius: 0 16px 16px 0;
+  background: rgba(10, 22, 40, 0.72);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 4px 0 18px rgba(0,0,0,0.34);
+  display: grid; place-items: center;
+  cursor: pointer;
+  transition: transform 0.16s ease, background 0.2s ease;
+
+  &:active { transform: translateY(-50%) scale(0.94); }
+  ion-icon { font-size: 18px; color: #4dffa0; }
+}
+
+// Cabecera del panel.
+.ds-close { font-size: 20px; color: #8fa3bd; cursor: pointer; }
+
+.ds-hint-line {
+  font-size: 11px; color: #7e93b0; line-height: 1.4;
+  padding: 0 2px 2px;
+}
+
+.ds-clear-row {
+  display: flex; justify-content: flex-end;
+  span {
+    font-size: 11px; font-weight: 700; color: #ff6659; cursor: pointer;
+    &:hover { text-decoration: underline; }
+  }
+}
+
+// Distancia + frecuencia, apiladas a la derecha de cada empresa.
+.empresa-meta {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  flex-shrink: 0;
+}
+
+.empresa-dist {
+  font-size: 11px; font-weight: 700; color: #cfdcec;
+}
+
+// En teléfono el panel no puede llevar un ancho fijo: 330px sobre una pantalla
+// de 390 deja el mapa reducido a una franja. Se ajusta al viewport y arranca
+// debajo de la barra superior.
+@media (max-width: 899px) {
+  .empresas-sidebar {
+    top: calc(env(safe-area-inset-top, 20px) + 64px);
+    left: 12px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 108px);
+    width: min(330px, 82vw);
+  }
+}
