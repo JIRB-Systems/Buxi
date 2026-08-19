@@ -297,11 +297,13 @@
     </button>
   </div>
 
-  <!-- ====== FICHA DE EMPRESA ====== -->
-  <div class="empresa-detail-scrim" [class.open]="empresaDetailOpen" (click)="closeEmpresaDetail()"></div>
-  <section class="empresa-detail-sheet" [class.open]="empresaDetailOpen" *ngIf="empresaDetail">
-    <div class="sheet-bar"></div>
-    <div class="ed-header">
+  <!-- ====== PANTALLA DE EMPRESA (rutas + horarios) ====== -->
+  <!-- Pantalla completa, no una ficha flotante sobre el mapa: la empresa
+       puede tener muchos destinos (ej. La Reina del Campo) y una lista corta
+       no alcanza para mostrarlos todos con su horario. -->
+  <section class="empresa-detail-screen" [class.open]="empresaDetailOpen" *ngIf="empresaDetail">
+    <div class="ed-topbar">
+      <ion-icon name="chevron-back" class="ed-back" (click)="closeEmpresaDetail()"></ion-icon>
       <div class="ed-logo">
         <img *ngIf="empresaDetail.logo_url" [src]="empresaDetail.logo_url" alt="" />
         <ion-icon *ngIf="!empresaDetail.logo_url" name="business"></ion-icon>
@@ -310,20 +312,22 @@
         <strong>{{ empresaDetail.nombre }}</strong>
         <span>{{ empresaDetailRutas.length }} {{ empresaDetailRutas.length === 1 ? 'ruta' : 'rutas' }}</span>
       </div>
-      <ion-icon name="close" class="ed-close" (click)="closeEmpresaDetail()"></ion-icon>
     </div>
 
-    <div class="ed-rutas">
+    <div class="ed-list">
       <div class="ed-ruta-row" *ngFor="let r of empresaDetailRutas" (click)="selectRutaFromEmpresaDetail(r)">
-        <div class="route-color-dot" [style.background]="r.color"></div>
+        <div class="ed-ruta-icon" [style.background]="r.color">
+          <ion-icon name="bus"></ion-icon>
+        </div>
         <div class="ed-ruta-info">
           <strong>{{ r.nombre }}</strong>
-          <span>{{ r.origen }} → {{ r.destino }}</span>
+          <span>{{ r.origen }} → {{ r.destino }}{{ r.precio ? ' · ₡' + (r.precio | number:'1.0-0') : '' }}</span>
         </div>
         <span class="ed-ruta-salida" *ngIf="r.proximaSalidaTexto">{{ r.proximaSalidaTexto }}</span>
         <span class="ed-ruta-salida sin-horario" *ngIf="!r.proximaSalidaTexto">Sin horario</span>
-        <ion-icon name="chevron-forward"></ion-icon>
+        <ion-icon name="chevron-forward" class="ed-chevron"></ion-icon>
       </div>
+      <div class="ed-empty" *ngIf="!empresaDetailRutas.length">Sin rutas activas</div>
     </div>
 
     <button class="ed-ver-todas" (click)="verTodasEnMapa()">

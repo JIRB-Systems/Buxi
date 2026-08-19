@@ -35,6 +35,7 @@
         <div class="topbar-info">
           <h1 *ngIf="activeTab==='inicio'">¡Bienvenido, {{ profile?.nombre_completo }}!</h1>
           <h1 *ngIf="activeTab==='rutas'">Mis rutas</h1>
+          <h1 *ngIf="activeTab==='horarios'">Horarios</h1>
           <h1 *ngIf="activeTab==='buses'">Buses</h1>
           <h1 *ngIf="activeTab==='choferes'">Choferes</h1>
           <h1 *ngIf="activeTab==='mapa'">Seguimiento en vivo</h1>
@@ -175,6 +176,29 @@
               <ion-icon name="time-outline" class="act-icon" (click)="manageHorarios(r)"></ion-icon>
               <ion-icon name="map-outline" class="act-icon" (click)="startEditRuta(r)"></ion-icon>
               <ion-icon name="trash-outline" class="act-icon danger" (click)="deleteRuta(r)"></ion-icon>
+            </div>
+            <div class="empty" *ngIf="rutas.length===0">No hay rutas creadas</div>
+          </div>
+        </div>
+
+        <!-- ===== HORARIOS ===== -->
+        <!-- Un solo lugar con TODAS las rutas para cargar horarios, en vez de
+             tener que encontrar cada una en "Mis rutas" y tocar el ícono del
+             relojito. Útil sobre todo para empresas con muchos destinos, como
+             La Reina del Campo. -->
+        <div *ngIf="activeTab==='horarios'" class="page">
+          <p class="page-hint">Elegí una ruta para cargar sus horas de salida.</p>
+          <div class="card">
+            <div class="table-row clickable" *ngFor="let r of rutas" (click)="manageHorarios(r)">
+              <div class="color-dot" [style.background]="r.color"></div>
+              <div class="row-main">
+                <strong>{{ r.nombre }}</strong>
+                <span class="muted">{{ r.origen }} → {{ r.destino }}</span>
+              </div>
+              <span class="badge" [style.color]="horariosResumen[r.id] ? '#00c853' : '#aaa'">
+                {{ horariosResumen[r.id] ? horariosResumen[r.id] + ' horas cargadas' : 'Sin horarios' }}
+              </span>
+              <ion-icon name="chevron-forward" class="act-icon"></ion-icon>
             </div>
             <div class="empty" *ngIf="rutas.length===0">No hay rutas creadas</div>
           </div>

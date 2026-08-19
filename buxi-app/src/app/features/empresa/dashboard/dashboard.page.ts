@@ -32,6 +32,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   menuItems = [
     { id: 'inicio', icon: 'home-outline', label: 'Inicio' },
     { id: 'rutas', icon: 'git-branch-outline', label: 'Mis rutas' },
+    { id: 'horarios', icon: 'time-outline', label: 'Horarios' },
     { id: 'buses', icon: 'bus-outline', label: 'Buses' },
     { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
     { id: 'mapa', icon: 'location-outline', label: 'Seguimiento en vivo' },
@@ -143,6 +144,21 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     if (tab === 'mapa' || tab === 'inicio') {
       setTimeout(() => this.initLiveMap(), 150);
     }
+    if (tab === 'horarios') {
+      this.loadHorariosResumen();
+    }
+  }
+
+  // ---- HORARIOS (resumen por ruta) ----
+  horariosResumen: Record<string, number> = {};
+
+  private async loadHorariosResumen() {
+    await Promise.all(this.rutas.map(async r => {
+      try {
+        const salidas = await this.admin.getHorarioSalidas(r.id);
+        this.horariosResumen[r.id] = salidas.length;
+      } catch {}
+    }));
   }
 
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
@@ -504,6 +520,11 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async manageHorarios(r: Ruta) {
     const modal = await this.modalCtrl.create({ component: HorariosFormComponent, componentProps: { ruta: r } });
     await modal.present();
+    await modal.onDidDismiss();
+    try {
+      const salidas = await this.admin.getHorarioSalidas(r.id);
+      this.horariosResumen[r.id] = salidas.length;
+    } catch {}
   }
 
   async deleteRuta(r: Ruta) {
