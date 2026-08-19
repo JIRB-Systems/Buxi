@@ -4,7 +4,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Empresa, Bus, Ruta, Parada } from '../models/transport.model';
 import { UserProfile } from '../models/user-profile.model';
-import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio } from '../models/features.model';
+import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan } from '../models/features.model';
 import { BusLocation } from '../models/transport.model';
 
 @Injectable({ providedIn: 'root' })
@@ -324,6 +324,26 @@ export class AdminJirbService {
       fecha_inicio: new Date().toISOString().split('T')[0],
       fecha_fin: fechaFin || null, auto_renovar: true,
     }, { onConflict: 'empresa_id' });
+    if (error) throw error;
+  }
+
+  // ---- SOLICITUDES DE PLAN ----
+  async getSolicitudesPlanPendientes(): Promise<SolicitudPlan[]> {
+    const { data, error } = await this.supabase
+      .from('solicitudes_plan')
+      .select('*, empresa:empresas(id, nombre), plan:planes(nombre)')
+      .eq('estado', 'pendiente')
+      .order('created_at');
+    if (error) throw error;
+    return data as SolicitudPlan[];
+  }
+
+  async resolverSolicitudesDeEmpresa(empresaId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('solicitudes_plan')
+      .update({ estado: 'resuelta' })
+      .eq('empresa_id', empresaId)
+      .eq('estado', 'pendiente');
     if (error) throw error;
   }
 

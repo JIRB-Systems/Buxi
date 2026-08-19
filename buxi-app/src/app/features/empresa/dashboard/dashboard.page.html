@@ -41,6 +41,7 @@
           <h1 *ngIf="activeTab==='mapa'">Seguimiento en vivo</h1>
           <h1 *ngIf="activeTab==='avisos'">Avisos</h1>
           <h1 *ngIf="activeTab==='reportes'">Reportes</h1>
+          <h1 *ngIf="activeTab==='planes'">Planes</h1>
           <p *ngIf="activeTab==='inicio'">Resumen general de tu operación en tiempo real</p>
         </div>
         <div class="topbar-user" *ngIf="profile">
@@ -279,6 +280,33 @@
               <span class="status-tag" [style.background]="getReporteEstadoColor(r.estado)">{{ getReporteEstadoLabel(r.estado) }}</span>
             </div>
             <div class="empty" *ngIf="reportes.length===0">No has enviado reportes</div>
+          </div>
+        </div>
+
+        <!-- ===== PLANES ===== -->
+        <div *ngIf="activeTab==='planes'" class="page">
+          <p class="page-hint" *ngIf="solicitudPlanPendiente">
+            Ya tenés una solicitud pendiente por <strong>{{ $any(solicitudPlanPendiente.plan)?.nombre }}</strong> — JIRB la está revisando.
+          </p>
+          <div class="plans-grid-empresa">
+            <div class="plan-card-empresa" *ngFor="let p of planes" [class.current]="esMiPlanActual(p)">
+              <span class="plan-tag-actual" *ngIf="esMiPlanActual(p)">Tu plan actual</span>
+              <h3>{{ p.nombre }}</h3>
+              <p class="plan-desc">{{ p.descripcion }}</p>
+              <div class="plan-limits">
+                <div class="plan-row"><ion-icon name="bus-outline"></ion-icon><span>{{ p.max_buses >= 9999 ? 'Buses ilimitados' : p.max_buses + ' buses' }}</span></div>
+                <div class="plan-row"><ion-icon name="git-branch-outline"></ion-icon><span>{{ p.max_rutas >= 9999 ? 'Rutas ilimitadas' : p.max_rutas + ' rutas' }}</span></div>
+                <div class="plan-row"><ion-icon name="navigate-outline"></ion-icon><span>GPS cada {{ p.gps_intervalo_seg }}s</span></div>
+              </div>
+              <div class="plan-price-tag">₡{{ p.precio_mensual | number:'1.0-0' }}<span>/mes</span></div>
+              <ion-button
+                expand="block"
+                [disabled]="esMiPlanActual(p) || !!solicitudPlanPendiente"
+                (click)="solicitarPlan(p)">
+                {{ esMiPlanActual(p) ? 'Plan actual' : 'Solicitar este plan' }}
+              </ion-button>
+            </div>
+            <div class="empty" *ngIf="planes.length===0">No hay planes disponibles</div>
           </div>
         </div>
 

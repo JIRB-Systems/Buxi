@@ -10,7 +10,7 @@ import { AdminEmpresaService } from '../../../core/services/admin-empresa.servic
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
-import { ReporteBug, AvisoSistema } from '../../../core/models/features.model';
+import { ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan } from '../../../core/models/features.model';
 import { RutaFormComponent } from './ruta-form.component';
 import { HorariosFormComponent } from './horarios-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
@@ -38,6 +38,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { id: 'mapa', icon: 'location-outline', label: 'Seguimiento en vivo' },
     { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
     { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
+    { id: 'planes', icon: 'card-outline', label: 'Planes' },
   ];
 
   stats = { buses: 0, rutas: 0, choferes: 0, busesEnRuta: 0 };
@@ -47,6 +48,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   anomalias: BusLocation[] = [];
   reportes: ReporteBug[] = [];
   avisos: AvisoSistema[] = [];
+  planes: Plan[] = [];
+  miSuscripcion: Suscripcion | null = null;
+  solicitudPlanPendiente: SolicitudPlan | null = null;
 
   private liveMap: maplibregl.Map | null = null;
   private liveMarkers = new Map<string, maplibregl.Marker>();
@@ -93,7 +97,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes, anomalias, reportes, avisos] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias, reportes, avisos, planes, miSuscripcion, solicitudPlanPendiente] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
@@ -101,6 +105,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.admin.getAnomalousLocations(eid),
       this.admin.getReportes(eid),
       this.admin.getAvisosActivos(),
+      this.admin.getPlanes(),
+      this.admin.getMiSuscripcion(eid),
+      this.admin.getSolicitudPlanPendiente(eid),
     ]);
     this.stats = stats;
     this.rutas = rutas;
@@ -109,6 +116,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.anomalias = anomalias;
     this.reportes = reportes;
     this.avisos = avisos;
+    this.planes = planes;
+    this.miSuscripcion = miSuscripcion;
+    this.solicitudPlanPendiente = solicitudPlanPendiente;
   }
 
   async addReporte() {
@@ -159,6 +169,31 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         this.horariosResumen[r.id] = salidas.length;
       } catch {}
     }));
+  }
+
+  // ---- PLANES ----
+  // No hay pasarela de pago: "comprar" acá crea una solicitud pendiente que
+  // JIRB confirma manualmente. Solo una activa a la vez, por simplicidad.
+  async solicitarPlan(plan: Plan) {
+    if (this.esMiPlanActual(plan) || this.solicitudPlanPendiente) return;
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: `¿Solicitar el plan ${plan.nombre}?`,
+      message: 'JIRB va a revisar tu solicitud y confirmarte el cambio.',
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Solicitar', handler: async () => {
+        try {
+          await this.admin.solicitarPlan(this.profile!.empresa_id!, plan.id);
+          await this.loadData();
+          this.showToast('Solicitud enviada');
+        } catch (e: any) {
+          this.showToast(e?.message || 'Error enviando la solicitud', 'danger');
+        }
+      }}],
+    });
+    await alert.present();
+  }
+
+  esMiPlanActual(plan: Plan): boolean {
+    return this.miSuscripcion?.plan_id === plan.id;
   }
 
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
@@ -576,9 +611,33 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   // ---- CHOFERES ----
+  // El error real de Supabase ("Password should contain at least one
+  // character of each: ...") queda en inglés, se pierde en un toast y el
+  // diálogo se cerraba igual aunque fallara — la empresa se quedaba sin
+  // saber por qué "no dejaba" crear el chofer. Ahora se explica el
+  // requisito de entrada, se valida antes de llamar a la red, y si falla
+  // el diálogo queda abierto (con lo ya escrito) en vez de perderlo.
+  private traducirErrorAuth(msg?: string): string {
+    if (!msg) return 'Error creando el chofer';
+    if (msg.includes('Password should contain at least one character of each')) {
+      return 'La contraseña necesita mayúscula, minúscula y número';
+    }
+    if (msg.includes('Password should be at least')) {
+      return 'La contraseña es muy corta';
+    }
+    if (msg.includes('already registered') || msg.includes('already exists')) {
+      return 'Ya existe una cuenta con ese correo';
+    }
+    if (msg.includes('Unable to validate email') || msg.includes('invalid format')) {
+      return 'El correo no es válido';
+    }
+    return msg;
+  }
+
   async addChofer() {
     const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Nuevo chofer',
+      message: 'La contraseña temporal debe tener al menos 8 caracteres, con mayúscula, minúscula y número.',
       inputs: [
         { name: 'nombre', placeholder: 'Nombre completo', type: 'text' },
         { name: 'email', placeholder: 'Correo', type: 'email' },
@@ -586,9 +645,19 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       ],
       buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Crear', handler: async (d) => {
         if (!d.nombre || !d.email || !d.password) return false;
-        try { await this.admin.createChofer(d.email, d.password, d.nombre, this.profile!.empresa_id!); await this.loadData(); this.showToast('Chofer creado'); }
-        catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
-        return true;
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(d.password)) {
+          this.showToast('La contraseña necesita mayúscula, minúscula, número y al menos 8 caracteres', 'danger');
+          return false;
+        }
+        try {
+          await this.admin.createChofer(d.email, d.password, d.nombre, this.profile!.empresa_id!);
+          await this.loadData();
+          this.showToast('Chofer creado');
+          return true;
+        } catch (e: any) {
+          this.showToast(this.traducirErrorAuth(e?.message), 'danger');
+          return false;
+        }
       }}],
     });
     await alert.present();

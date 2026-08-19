@@ -251,6 +251,50 @@
   margin: 0 0 14px;
 }
 
+.plans-grid-empresa {
+  display: flex; flex-wrap: wrap; gap: 16px;
+}
+
+.plan-card-empresa {
+  position: relative;
+  width: 260px;
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--dash-surface, #101d31);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 20px;
+
+  &.current {
+    border-color: rgba(0,200,83,0.4);
+    background: rgba(0,200,83,0.06);
+  }
+
+  h3 { margin: 4px 0 0; font-size: 17px; color: #fff; }
+
+  .plan-tag-actual {
+    position: absolute; top: -10px; left: 16px;
+    background: #00c853; color: #04140b;
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 20px;
+  }
+
+  .plan-desc { margin: 0; font-size: 12.5px; color: var(--dash-text-muted); min-height: 32px; }
+
+  .plan-limits { display: flex; flex-direction: column; gap: 6px; }
+  .plan-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12.5px; color: #cfdcec;
+    ion-icon { font-size: 15px; color: #00c853; flex-shrink: 0; }
+  }
+
+  .plan-price-tag {
+    font-size: 24px; font-weight: 800; color: #fff;
+    span { font-size: 12px; font-weight: 500; color: var(--dash-text-muted); }
+  }
+
+  ion-button { --border-radius: 10px; margin: 0; font-size: 12.5px; font-weight: 600; text-transform: none; }
+}
+
 @media (max-width: 768px) {
   .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; }
   .layout.sidebar-closed .sidebar { width: 0; overflow: hidden; }

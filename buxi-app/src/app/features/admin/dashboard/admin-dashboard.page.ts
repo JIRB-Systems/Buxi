@@ -11,7 +11,7 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminJirbService } from '../../../core/services/admin-jirb.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
-import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio } from '../../../core/models/features.model';
+import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
 import { createMap, htmlMarkerEl, circlePolygon, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 import type { Feature, LineString } from 'geojson';
@@ -127,6 +127,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   reportes: ReporteBug[] = [];
   avisos: AvisoSistema[] = [];
   anuncios: Anuncio[] = [];
+  solicitudesPlan: SolicitudPlan[] = [];
 
   filteredUsers: UserProfile[] = [];
   userRoleFilter = 'todos';
@@ -155,7 +156,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async loadData() {
-    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos, anuncios] = await Promise.all([
+    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos, anuncios, solicitudesPlan] = await Promise.all([
       this.admin.getGlobalStats(),
       this.admin.getEmpresas(),
       this.admin.getAllRutas(),
@@ -173,6 +174,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getReportes(),
       this.admin.getAvisos(),
       this.admin.getAnuncios(),
+      this.admin.getSolicitudesPlanPendientes(),
     ]);
     this.stats = stats;
     this.empresas = empresas;
@@ -191,6 +193,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.reportes = reportes;
     this.avisos = avisos;
     this.anuncios = anuncios;
+    this.solicitudesPlan = solicitudesPlan;
     this.suscripcionMap.clear();
     for (const s of suscripciones) {
       this.suscripcionMap.set(s.empresa_id, s);
@@ -1295,6 +1298,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         { text: 'Asignar', handler: async (planId) => {
           if (!planId) return false;
           await this.admin.assignPlan(empresa.id, planId);
+          // Si la empresa había solicitado un cambio, esto la resuelve
+          // aunque JIRB haya asignado un plan distinto al pedido.
+          await this.admin.resolverSolicitudesDeEmpresa(empresa.id);
           await this.logAction('Cambiar plan', `${empresa.nombre}`, 'empresa', empresa.id);
           await this.loadData();
           this.showToast('Plan actualizado');

@@ -568,6 +568,16 @@
               </div>
             </div>
 
+            <div class="panel" style="margin-top:16px" *ngIf="solicitudesPlan.length">
+              <div class="panel-header"><h3>Solicitudes de plan pendientes</h3></div>
+              <div class="table-row" *ngFor="let s of solicitudesPlan">
+                <span class="col-expand">{{ $any(s.empresa)?.nombre }}</span>
+                <span class="col-md">Pide: <strong>{{ $any(s.plan)?.nombre }}</strong></span>
+                <span class="col-md muted">{{ s.created_at | date:'short' }}</span>
+                <span class="link-btn" (click)="changePlan($any(s.empresa))">Revisar</span>
+              </div>
+            </div>
+
             <div class="panel" style="margin-top:16px">
               <div class="panel-header"><h3>Suscripciones activas</h3></div>
               <div class="table-header">

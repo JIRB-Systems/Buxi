@@ -93,6 +93,16 @@ export interface Suscripcion {
   plan?: Plan;
 }
 
+export interface SolicitudPlan {
+  id: string;
+  empresa_id: string;
+  plan_id: string;
+  estado: 'pendiente' | 'resuelta';
+  created_at: string;
+  plan?: Plan;
+  empresa?: { id: string; nombre: string };
+}
+
 export interface ReporteBug {
   id: string;
   empresa_id: string;

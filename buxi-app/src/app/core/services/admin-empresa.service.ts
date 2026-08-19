@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Ruta, Parada, BusLocation } from '../models/transport.model';
-import { Horario, HorarioSalida, ReporteBug, AvisoSistema } from '../models/features.model';
+import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
 @Injectable({ providedIn: 'root' })
@@ -227,6 +227,44 @@ export class AdminEmpresaService {
 
   async deleteHorarioSalida(id: string): Promise<void> {
     const { error } = await this.supabase.from('horario_salidas').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // ---- PLANES ----
+  // No hay pasarela de pago real: "comprar" un plan crea una solicitud
+  // pendiente que JIRB confirma manualmente (misma pantalla que ya usa para
+  // asignar planes hoy).
+  async getPlanes(): Promise<Plan[]> {
+    const { data, error } = await this.supabase.from('planes').select('*').eq('activo', true).order('precio_mensual');
+    if (error) throw error;
+    return data as Plan[];
+  }
+
+  async getMiSuscripcion(empresaId: string): Promise<Suscripcion | null> {
+    const { data, error } = await this.supabase
+      .from('suscripciones')
+      .select('*, plan:planes(*)')
+      .eq('empresa_id', empresaId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as Suscripcion | null;
+  }
+
+  async getSolicitudPlanPendiente(empresaId: string): Promise<SolicitudPlan | null> {
+    const { data, error } = await this.supabase
+      .from('solicitudes_plan')
+      .select('*, plan:planes(nombre)')
+      .eq('empresa_id', empresaId)
+      .eq('estado', 'pendiente')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data as SolicitudPlan | null;
+  }
+
+  async solicitarPlan(empresaId: string, planId: string): Promise<void> {
+    const { error } = await this.supabase.from('solicitudes_plan').insert({ empresa_id: empresaId, plan_id: planId });
     if (error) throw error;
   }
 
