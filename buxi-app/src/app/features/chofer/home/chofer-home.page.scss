@@ -21,12 +21,16 @@
   padding: calc(env(safe-area-inset-top, 20px) + 12px) 14px 0;
 }
 
+// `inline-flex`, no `flex`: el contenedor se ajusta a su contenido en vez de
+// estirarse al ancho completo de `.top-overlay` — acá no hay buscador ni
+// nada más a la derecha que justifique una barra corrida de punta a punta.
 .topbar {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
+  max-width: calc(100% - 4px);
   height: 56px;
-  padding: 0 10px 0 8px;
+  padding: 0 16px 0 8px;
   border-radius: 18px;
   background: rgba(10, 22, 40, 0.62);
   backdrop-filter: blur(20px) saturate(160%);
@@ -54,7 +58,8 @@
 }
 
 .tb-info {
-  flex: 1; min-width: 0;
+  min-width: 0;
+  max-width: 58vw;
   display: flex; flex-direction: column;
 
   strong {

@@ -74,6 +74,9 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       container: 'chofer-map',
       center: [-84.0907, 9.9281],
       zoom: 15,
+      pitch: 50,
+      threeD: true,
+      style: 'streets-v2-dark',
     });
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
