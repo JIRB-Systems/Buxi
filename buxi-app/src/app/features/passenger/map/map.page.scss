@@ -678,9 +678,12 @@
     z-index: 3;
     // Sombra para despegarla del mapa + resplandor verde: es lo que le da el
     // aspecto de neón sin engordar el trazo.
+    // Resplandor contenido. Uno amplio se derrama entre brazos y piernas y
+    // engorda la silueta; en movil ademas el drop-shadow se renderiza mas
+    // pesado, que es donde peor se notaba.
     filter:
-      drop-shadow(0 2px 4px rgba(0,0,0,0.55))
-      drop-shadow(0 0 6px rgba(0, 255, 136, 0.7));
+      drop-shadow(0 2px 3px rgba(0,0,0,0.5))
+      drop-shadow(0 0 3px rgba(0, 255, 136, 0.55));
   }
 
   // Halo difuso, no anillo: un borde circular volvería a leerse como la chapa
