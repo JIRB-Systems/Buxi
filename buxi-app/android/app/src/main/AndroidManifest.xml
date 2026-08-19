@@ -46,4 +46,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Cámara para el lector de QR de boletos del chofer (Capacitor la
+         solicita en runtime automáticamente al detectar getUserMedia). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 </manifest>

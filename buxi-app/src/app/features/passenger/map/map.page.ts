@@ -7,7 +7,7 @@ import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { UserProfile } from '../../../core/models/user-profile.model';
-import { Anuncio, HorarioSalida } from '../../../core/models/features.model';
+import { Anuncio, HorarioSalida, Boleto } from '../../../core/models/features.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -419,6 +419,84 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
       this.activeSalidas = [];
     }
   }
+
+  // ---- BOLETOS (QR) ----
+  boletoSheetOpen = false;
+  misBoletos: Boleto[] = [];
+  boletoDetalle: Boleto | null = null;
+  boletoQrUrl: string | null = null;
+  comprandoBoleto = false;
+
+  async comprarBoleto() {
+    if (!this.activeRuta || !this.profile) return;
+    const ruta = this.activeRuta;
+    const precio = ruta.precio || 0;
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: 'Comprar boleto',
+      message: `Ruta ${ruta.nombre}: ₡${precio.toLocaleString('es-CR')}. El cobro todavía es simulado — no se te va a cobrar de verdad hasta que Buxi tenga un método de pago conectado.`,
+      buttons: [
+        { text: 'Cancelar', role: 'cancel', cssClass: 'ba-cancel' },
+        {
+          text: 'Comprar', role: 'confirm', cssClass: 'ba-confirm',
+          handler: async () => {
+            if (!this.profile) return;
+            this.comprandoBoleto = true;
+            try {
+              const boleto = await this.featuresService.comprarBoleto(this.profile.id, ruta);
+              await this.verBoletoDetalle(boleto);
+              this.boletoSheetOpen = true;
+              await this.toast('Boleto generado');
+            } catch (e: any) {
+              await this.toast(e?.message || 'No se pudo generar el boleto', 'danger');
+            } finally {
+              this.comprandoBoleto = false;
+            }
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  async openMisBoletos() {
+    if (!this.profile) return;
+    this.boletoDetalle = null;
+    this.boletoQrUrl = null;
+    this.boletoSheetOpen = true;
+    this.profilePanelOpen = false;
+    try {
+      this.misBoletos = await this.featuresService.getMisBoletos(this.profile.id);
+    } catch {
+      this.misBoletos = [];
+    }
+  }
+
+  async verBoletoDetalle(boleto: Boleto) {
+    this.boletoDetalle = boleto;
+    this.boletoQrUrl = await this.featuresService.generarQR(boleto.codigo);
+  }
+
+  volverAMisBoletos() {
+    this.boletoDetalle = null;
+    this.boletoQrUrl = null;
+  }
+
+  closeBoletoSheet() {
+    this.boletoSheetOpen = false;
+    this.boletoDetalle = null;
+    this.boletoQrUrl = null;
+  }
+
+  // Un boleto queda 'pagado' hasta que lo escanean o se vence solo — el
+  // estado en la fila no refleja el vencimiento, así que se calcula acá.
+  boletoEstadoLabel(b: Boleto): string {
+    if (b.estado === 'usado') return 'Usado';
+    if (b.estado === 'cancelado') return 'Cancelado';
+    if (b.estado === 'pagado' && new Date(b.expira_at) < new Date()) return 'Expirado';
+    return 'Vigente';
+  }
+
   etaMinutes: number | null = null;
   private userLat = 0;
   private userLng = 0;

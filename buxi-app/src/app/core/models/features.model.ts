@@ -115,6 +115,23 @@ export interface Factura {
   empresa?: { nombre: string; cedula_juridica: string | null };
 }
 
+export interface Boleto {
+  id: string;
+  pasajero_id: string;
+  ruta_id: string;
+  empresa_id: string;
+  codigo: string;
+  precio: number;
+  estado: 'pagado' | 'usado' | 'expirado' | 'cancelado';
+  creado_at: string;
+  expira_at: string;
+  usado_at: string | null;
+  usado_por: string | null;
+  ruta?: { nombre: string; origen: string; destino: string; color: string };
+  empresa?: { nombre: string };
+  pasajero?: { nombre_completo: string };
+}
+
 export interface ReporteBug {
   id: string;
   empresa_id: string;

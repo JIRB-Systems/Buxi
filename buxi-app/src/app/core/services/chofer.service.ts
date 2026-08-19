@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Parada } from '../models/transport.model';
-import { Viaje, ReporteBug, Calificacion } from '../models/features.model';
+import { Viaje, ReporteBug, Calificacion, Boleto } from '../models/features.model';
 
 @Injectable({ providedIn: 'root' })
 export class ChoferService {
@@ -119,5 +119,31 @@ export class ChoferService {
       .limit(30);
     if (error) throw error;
     return data as Calificacion[];
+  }
+
+  // ---- VALIDAR BOLETO (QR) ----
+  // El RLS ya limita lo que este chofer puede ver/actualizar a boletos de su
+  // propia empresa (ver 20260819190000_boletos_qr.sql), así que un código de
+  // otra empresa simplemente no aparece — no hace falta chequearlo acá.
+  async validarBoleto(codigo: string, choferId: string, rutaIdEsperada?: string | null): Promise<{ ok: boolean; motivo?: string; boleto?: Boleto }> {
+    const { data: boleto, error } = await this.supabase
+      .from('boletos')
+      .select('*, pasajero:profiles!boletos_pasajero_id_fkey(nombre_completo), ruta:rutas(nombre,origen,destino)')
+      .eq('codigo', codigo)
+      .maybeSingle();
+    if (error || !boleto) return { ok: false, motivo: 'Código no encontrado' };
+    if (boleto.estado === 'usado') return { ok: false, motivo: 'Este boleto ya fue usado', boleto: boleto as Boleto };
+    if (boleto.estado !== 'pagado') return { ok: false, motivo: 'Este boleto no es válido', boleto: boleto as Boleto };
+    if (new Date(boleto.expira_at) < new Date()) return { ok: false, motivo: 'Este boleto expiró', boleto: boleto as Boleto };
+    if (rutaIdEsperada && boleto.ruta_id !== rutaIdEsperada) return { ok: false, motivo: 'Este boleto es de otra ruta', boleto: boleto as Boleto };
+
+    const { error: updError } = await this.supabase
+      .from('boletos')
+      .update({ estado: 'usado', usado_at: new Date().toISOString(), usado_por: choferId })
+      .eq('id', boleto.id)
+      .eq('estado', 'pagado');
+    if (updError) return { ok: false, motivo: 'No se pudo validar el boleto' };
+
+    return { ok: true, boleto: boleto as Boleto };
   }
 }

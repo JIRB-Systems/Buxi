@@ -63,6 +63,12 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   misCalificaciones: Calificacion[] = [];
   calificacionPromedio: number | null = null;
 
+  // ---- Escáner de boletos (QR) ----
+  scannerOpen = false;
+  scanResult: { ok: boolean; motivo?: string; nombre?: string; ruta?: string } | null = null;
+  validandoBoleto = false;
+  private qrScanner: any = null;
+
   private map!: maplibregl.Map;
   private destroyed = false;
   private userMarker: maplibregl.Marker | null = null;
@@ -592,6 +598,69 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     this.calificacionesOpen = false;
   }
 
+  // ---- ESCÁNER DE BOLETOS (QR) ----
+  async openScanner() {
+    this.scanResult = null;
+    this.scannerOpen = true;
+    // El <div id="qr-reader"> recién existe después de este render.
+    setTimeout(() => this.startScanner(), 60);
+  }
+
+  private async startScanner() {
+    try {
+      const { Html5Qrcode } = await import('html5-qrcode');
+      this.qrScanner = new Html5Qrcode('qr-reader');
+      await this.qrScanner.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: 240 },
+        (decodedText: string) => this.onScanSuccess(decodedText),
+        () => {},
+      );
+    } catch {
+      const toast = await this.toastCtrl.create({ message: 'No se pudo acceder a la cámara', duration: 2500, color: 'danger', position: 'top' });
+      await toast.present();
+      this.scannerOpen = false;
+    }
+  }
+
+  private async onScanSuccess(codigo: string) {
+    if (this.validandoBoleto || !this.profile) return;
+    this.validandoBoleto = true;
+    await this.stopScanner();
+    try {
+      const rutaId = this.assignedBus?.ruta_id || null;
+      const res = await this.choferService.validarBoleto(codigo, this.profile.id, rutaId);
+      this.scanResult = {
+        ok: res.ok,
+        motivo: res.motivo,
+        nombre: (res.boleto as any)?.pasajero?.nombre_completo,
+        ruta: (res.boleto as any)?.ruta?.nombre,
+      };
+    } catch {
+      this.scanResult = { ok: false, motivo: 'Error al validar el boleto' };
+    } finally {
+      this.validandoBoleto = false;
+    }
+  }
+
+  async escanearOtro() {
+    this.scanResult = null;
+    await this.startScanner();
+  }
+
+  async closeScanner() {
+    this.scannerOpen = false;
+    this.scanResult = null;
+    await this.stopScanner();
+  }
+
+  private async stopScanner() {
+    if (this.qrScanner) {
+      try { await this.qrScanner.stop(); this.qrScanner.clear(); } catch {}
+      this.qrScanner = null;
+    }
+  }
+
   // ---- HISTORIAL DE VIAJES ----
   async openHistorial() {
     if (!this.profile) return;
@@ -680,6 +749,9 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
     if (this.map) {
       try { this.map.remove(); } catch {}
+    }
+    if (this.qrScanner) {
+      try { this.qrScanner.stop(); this.qrScanner.clear(); } catch {}
     }
   }
 }

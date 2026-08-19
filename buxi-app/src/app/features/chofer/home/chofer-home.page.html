@@ -57,6 +57,9 @@
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
   <div class="map-controls">
+    <button class="mc-btn mc-scan" (click)="openScanner()" aria-label="Escanear boleto">
+      <ion-icon name="qr-code-outline"></ion-icon>
+    </button>
     <button class="mc-btn mc-warn" (click)="reportarIncidente()" aria-label="Reportar incidente">
       <ion-icon name="warning-outline"></ion-icon>
     </button>
@@ -227,6 +230,33 @@
       <div class="hs-empty" *ngIf="!loadingCalificaciones && misCalificaciones.length===0">
         Todavía no tenés calificaciones en este bus
       </div>
+    </div>
+  </section>
+
+  <!-- ====== ESCÁNER DE BOLETOS (QR) ====== -->
+  <section class="scanner-screen" [class.open]="scannerOpen">
+    <div class="sc-topbar">
+      <ion-icon name="close" class="sc-close" (click)="closeScanner()"></ion-icon>
+      <strong>Escanear boleto</strong>
+    </div>
+
+    <div class="sc-camera" *ngIf="!scanResult">
+      <div id="qr-reader"></div>
+      <div class="sc-frame"></div>
+      <p class="sc-hint">Apuntá la cámara al código QR del boleto del pasajero</p>
+      <ion-spinner name="crescent" class="sc-loading" *ngIf="validandoBoleto"></ion-spinner>
+    </div>
+
+    <div class="sc-result" *ngIf="scanResult">
+      <div class="sr-card" [class.ok]="scanResult.ok" [class.fail]="!scanResult.ok">
+        <ion-icon [name]="scanResult.ok ? 'checkmark-circle' : 'close-circle'"></ion-icon>
+        <strong>{{ scanResult.ok ? 'Boleto válido' : 'Boleto no válido' }}</strong>
+        <span *ngIf="scanResult.ok">{{ scanResult.nombre || 'Pasajero' }} · {{ scanResult.ruta }}</span>
+        <span *ngIf="!scanResult.ok">{{ scanResult.motivo }}</span>
+      </div>
+      <button class="sc-again" (click)="escanearOtro()">
+        <ion-icon name="qr-code-outline"></ion-icon> Escanear otro
+      </button>
     </div>
   </section>
 

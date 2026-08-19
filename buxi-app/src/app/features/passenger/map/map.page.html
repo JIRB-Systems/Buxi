@@ -222,6 +222,12 @@
     <span *ngIf="nextSalida">Próxima salida: {{ nextSalida.hora.slice(0,5) }}</span>
   </div>
 
+  <!-- Comprar boleto -->
+  <button class="buy-ticket-btn" *ngIf="activeRuta && activeRuta.precio" [disabled]="comprandoBoleto" (click)="comprarBoleto()">
+    <ion-icon name="qr-code-outline"></ion-icon>
+    {{ comprandoBoleto ? 'Generando…' : 'Comprar boleto' }}
+  </button>
+
   <!-- ETA + nearest stop -->
   <div class="eta-card" *ngIf="nearestStop && activeRuta">
     <ion-icon name="location"></ion-icon>
@@ -333,6 +339,48 @@
     <button class="ed-ver-todas" (click)="verTodasEnMapa()">
       <ion-icon name="map-outline"></ion-icon> Ver todas en el mapa
     </button>
+  </section>
+
+  <!-- ====== MIS BOLETOS / QR ====== -->
+  <section class="empresa-detail-screen boleto-screen" [class.open]="boletoSheetOpen">
+    <div class="ed-topbar">
+      <ion-icon
+        [name]="boletoDetalle ? 'chevron-back' : 'close'"
+        class="ed-back"
+        (click)="boletoDetalle ? volverAMisBoletos() : closeBoletoSheet()"></ion-icon>
+      <div class="ed-info">
+        <strong>{{ boletoDetalle ? 'Tu boleto' : 'Mis boletos' }}</strong>
+      </div>
+    </div>
+
+    <!-- Detalle: el QR grande que escanea el chofer -->
+    <div class="boleto-detalle" *ngIf="boletoDetalle">
+      <div class="bd-card" [class.usado]="boletoDetalle.estado !== 'pagado'">
+        <span class="bd-estado">{{ boletoEstadoLabel(boletoDetalle) }}</span>
+        <img *ngIf="boletoQrUrl" [src]="boletoQrUrl" alt="Código QR del boleto" class="bd-qr" />
+        <strong class="bd-ruta">{{ $any(boletoDetalle.ruta)?.nombre }}</strong>
+        <span class="bd-trayecto" *ngIf="$any(boletoDetalle.ruta)?.origen">{{ $any(boletoDetalle.ruta)?.origen }} → {{ $any(boletoDetalle.ruta)?.destino }}</span>
+        <span class="bd-precio">₡{{ boletoDetalle.precio | number:'1.0-0' }}</span>
+        <span class="bd-codigo">{{ boletoDetalle.codigo }}</span>
+        <p class="bd-hint">Mostrale esta pantalla al chofer para que la escanee al subir.</p>
+      </div>
+    </div>
+
+    <!-- Lista de boletos comprados -->
+    <div class="ed-list" *ngIf="!boletoDetalle">
+      <div class="ed-ruta-row boleto-row" *ngFor="let b of misBoletos" (click)="verBoletoDetalle(b)">
+        <div class="ed-ruta-icon" [style.background]="$any(b.ruta)?.color || '#00c853'">
+          <ion-icon name="qr-code-outline"></ion-icon>
+        </div>
+        <div class="ed-ruta-info">
+          <strong>{{ $any(b.ruta)?.nombre }}</strong>
+          <span>{{ b.creado_at | date:'d MMM, h:mm a' }} · ₡{{ b.precio | number:'1.0-0' }}</span>
+        </div>
+        <span class="boleto-estado-tag" [class.usado]="b.estado !== 'pagado'">{{ boletoEstadoLabel(b) }}</span>
+        <ion-icon name="chevron-forward" class="ed-chevron"></ion-icon>
+      </div>
+      <div class="ed-empty" *ngIf="!misBoletos.length">Todavía no comprás boletos</div>
+    </div>
   </section>
 
   <!-- ====== DOCK FLOTANTE ====== -->
@@ -525,6 +573,11 @@
 
       <div class="pp-link" (click)="openFavoritosFromProfile()">
         <ion-icon name="star-outline"></ion-icon><span>Favoritos</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+
+      <div class="pp-link" (click)="openMisBoletos()">
+        <ion-icon name="qr-code-outline"></ion-icon><span>Mis boletos</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 

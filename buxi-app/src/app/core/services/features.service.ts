@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Favorito, Horario, Calificacion, UserPreferences, Anuncio } from '../models/features.model';
-import { Parada } from '../models/transport.model';
+import { Favorito, Horario, Calificacion, UserPreferences, Anuncio, Boleto } from '../models/features.model';
+import { Parada, Ruta } from '../models/transport.model';
 
 @Injectable({ providedIn: 'root' })
 export class FeaturesService {
@@ -266,6 +266,41 @@ export class FeaturesService {
 
   distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
     return this.haversine(lat1, lon1, lat2, lon2);
+  }
+
+  // ---- BOLETOS (QR) ----
+  // Todavía no hay pasarela de pago real: el boleto se crea directo en
+  // estado 'pagado'. El día que se conecte un método de pago, este método
+  // es el único lugar que cambia — insertar en 'pendiente_pago' primero y
+  // recién pasar a 'pagado' cuando el proveedor confirme el cobro.
+  async comprarBoleto(pasajeroId: string, ruta: Ruta): Promise<Boleto> {
+    const { data, error } = await this.supabase
+      .from('boletos')
+      .insert({
+        pasajero_id: pasajeroId,
+        ruta_id: ruta.id,
+        empresa_id: ruta.empresa_id,
+        precio: ruta.precio || 0,
+      })
+      .select('*, ruta:rutas(nombre,origen,destino,color)')
+      .single();
+    if (error) throw error;
+    return data as Boleto;
+  }
+
+  async getMisBoletos(pasajeroId: string): Promise<Boleto[]> {
+    const { data, error } = await this.supabase
+      .from('boletos')
+      .select('*, ruta:rutas(nombre,origen,destino,color), empresa:empresas(nombre)')
+      .eq('pasajero_id', pasajeroId)
+      .order('creado_at', { ascending: false });
+    if (error) throw error;
+    return data as Boleto[];
+  }
+
+  async generarQR(texto: string): Promise<string> {
+    const QRCode = await import('qrcode');
+    return QRCode.toDataURL(texto, { margin: 1, width: 260, color: { dark: '#0c1a2b', light: '#ffffff' } });
   }
 
   // Rumbo en grados (0 = norte, 90 = este) del punto 1 al 2. Se usa para

@@ -212,6 +212,31 @@
   .chip-sep { opacity: 0.5; }
 }
 
+// ---- COMPRAR BOLETO ----
+.buy-ticket-btn {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 20px) + 166px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex; align-items: center; gap: 7px;
+  background: #00c853;
+  border: none;
+  color: #05170c;
+  padding: 9px 18px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: -0.1px;
+  box-shadow: 0 6px 20px rgba(0,200,83,0.35);
+  cursor: pointer;
+  transition: transform 0.14s ease, opacity 0.2s ease;
+  &:active { transform: translateX(-50%) scale(0.95); }
+  &:disabled { opacity: 0.6; }
+
+  ion-icon { font-size: 15px; }
+}
+
 // ---- LIVE CHIP ----
 .live-chip {
   position: absolute;
@@ -488,6 +513,60 @@
   &:active { background: rgba(255,255,255,0.1); }
 
   ion-icon { font-size: 16px; color: #00c853; }
+}
+
+// ---- MIS BOLETOS / DETALLE QR ----
+.boleto-row {
+  .boleto-estado-tag {
+    font-size: 10px; font-weight: 700; color: #00c853;
+    background: rgba(0,200,83,0.14); border: 1px solid rgba(0,200,83,0.3);
+    padding: 3px 9px; border-radius: 10px; text-transform: uppercase;
+    letter-spacing: 0.3px; flex-shrink: 0; margin-right: 4px;
+    &.usado { color: #7e93b0; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+  }
+}
+
+.boleto-detalle {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.bd-card {
+  width: 100%; max-width: 340px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 28px 24px calc(24px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+
+  &.usado { opacity: 0.55; }
+
+  .bd-estado {
+    font-size: 11px; font-weight: 800; color: #00c853;
+    background: rgba(0,200,83,0.14); border: 1px solid rgba(0,200,83,0.3);
+    padding: 4px 12px; border-radius: 12px; text-transform: uppercase;
+    letter-spacing: 0.4px; margin-bottom: 10px;
+  }
+
+  .bd-qr {
+    width: 220px; height: 220px;
+    border-radius: 16px;
+    background: #fff;
+    padding: 10px;
+    margin-bottom: 14px;
+  }
+
+  .bd-ruta { font-size: 18px; color: #fff; font-weight: 800; letter-spacing: -0.2px; }
+  .bd-trayecto { font-size: 13px; color: #9fb2cc; }
+  .bd-precio { font-size: 22px; color: #00c853; font-weight: 800; margin-top: 4px; }
+  .bd-codigo {
+    font-size: 10.5px; color: #56698a; letter-spacing: 0.5px;
+    margin-top: 8px; font-family: monospace;
+  }
+  .bd-hint { font-size: 12px; color: #7e93b0; margin-top: 16px; line-height: 1.4; }
 }
 
 .sheet-bar {
