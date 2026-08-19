@@ -496,3 +496,57 @@
   font-size: 11px;
   color: #56698a;
 }
+
+// ---- Pestañas del panel (Empresas / Rutas) ----
+.lp-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 14px 10px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.lp-tab {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #8ea4c2;
+  font-size: 12.5px; font-weight: 700; font-family: inherit;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+
+  &.on {
+    color: #04140b;
+    background: linear-gradient(145deg, #00e06a, #00b552);
+  }
+}
+
+// Logo de la empresa dentro de la fila.
+.lp-emp-logo {
+  width: 34px; height: 34px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  overflow: hidden;
+  display: grid; place-items: center;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.09);
+
+  img { width: 100%; height: 100%; object-fit: cover; }
+  ion-icon { font-size: 16px; color: #7e93b0; }
+}
+
+.lp-freq {
+  font-size: 10.5px; font-weight: 700; color: #4dffa0;
+  white-space: nowrap; flex-shrink: 0;
+}
+
+// Empresa cuyas rutas ya estan dibujadas en el mapa.
+.lp-row.on {
+  background: rgba(0, 224, 106, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(0, 224, 106, 0.28);
+}

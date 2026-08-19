@@ -326,6 +326,17 @@
       <ion-spinner *ngIf="placeSearching" name="crescent" class="lp-spin"></ion-spinner>
     </div>
 
+    <!-- Empresas y rutas conviven acá porque el sidebar que las mostraba
+         esta oculto en movil: sin esto, en telefono no habia forma de verlas. -->
+    <div class="lp-tabs" *ngIf="activePanel === 'rutas'">
+      <button class="lp-tab" [class.on]="panelTab === 'empresas'" (click)="panelTab = 'empresas'">
+        Empresas
+      </button>
+      <button class="lp-tab" [class.on]="panelTab === 'rutas'" (click)="panelTab = 'rutas'">
+        Rutas
+      </button>
+    </div>
+
     <div class="lp-search" *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
       <ion-icon name="search-outline"></ion-icon>
       <input
@@ -336,8 +347,30 @@
     </div>
 
     <div class="lp-body">
+      <!-- Empresas: mismo contenido que el panel de escritorio -->
+      <ng-container *ngIf="activePanel === 'rutas' && panelTab === 'empresas'">
+        <div class="lp-row" *ngFor="let e of panelEmpresas"
+             [class.on]="selectedEmpresaId === e.id" (click)="selectEmpresaFromPanel(e)">
+          <div class="lp-emp-logo">
+            <img *ngIf="e.logo_url" [src]="e.logo_url" alt="" />
+            <ion-icon *ngIf="!e.logo_url" name="business"></ion-icon>
+          </div>
+          <div class="lp-info">
+            <strong>{{ e.nombre }}</strong>
+            <span class="lp-trip">{{ e.rutaResumen }}</span>
+          </div>
+          <span class="lp-freq" *ngIf="e.frecuencia">cada {{ e.frecuencia }} min</span>
+        </div>
+
+        <div class="lp-empty" *ngIf="panelEmpresas.length === 0">
+          <ion-icon name="business-outline"></ion-icon>
+          <strong>Sin empresas</strong>
+          <span>No hay empresas que coincidan con tu busqueda.</span>
+        </div>
+      </ng-container>
+
       <!-- Rutas y favoritos comparten la misma lista -->
-      <ng-container *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
+      <ng-container *ngIf="(activePanel === 'rutas' && panelTab === 'rutas') || activePanel === 'favoritos'">
         <a class="lp-sponsored" *ngIf="activePanel === 'rutas' && listAd" [class]="'anim-' + listAd.animacion"
            [href]="listAd.link_url || null" target="_blank" rel="noopener">
           <span class="lp-sp-tag">Patrocinado</span>

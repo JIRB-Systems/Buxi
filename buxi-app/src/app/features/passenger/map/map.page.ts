@@ -88,6 +88,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   // pierde de vista y, de paso, no hay chunk lazy que pueda fallar al navegar.
   activePanel: 'rutas' | 'favoritos' | 'alertas' | 'lugares' | null = null;
   panelSearch = '';
+
+  // El listado de empresas vivia SOLO en el sidebar de escritorio, que esta
+  // oculto bajo 900px: en movil no habia forma de llegar a el. Ahora comparte
+  // el panel de Rutas mediante estas dos pestanas.
+  panelTab: 'empresas' | 'rutas' = 'empresas';
   favoritoRutaIds = new Set<string>();
   favoritosLoading = false;
 
@@ -116,6 +121,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     return base.filter(r =>
       `${r.nombre} ${r.origen} ${r.destino} ${r.empresa?.nombre || ''}`.toLowerCase().includes(q),
     );
+  }
+
+  get panelEmpresas(): EmpresaListItem[] {
+    const q = this.panelSearch.trim().toLowerCase();
+    if (!q) return this.empresas;
+    return this.empresas.filter(e =>
+      `${e.nombre} ${e.rutaResumen}`.toLowerCase().includes(q),
+    );
+  }
+
+  // Tocar una empresa dibuja sus rutas y cierra el panel: la accion termina
+  // en el mapa, igual que al elegir una ruta.
+  async selectEmpresaFromPanel(e: EmpresaListItem) {
+    this.closePanel();
+    await this.showEmpresaRoutes(e);
   }
 
   empresaNombre(ruta: Ruta): string {
