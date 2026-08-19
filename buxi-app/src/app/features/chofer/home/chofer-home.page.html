@@ -18,9 +18,27 @@
   </div>
 
   <!-- Estado de transmisión -->
-  <div class="status-chip" [class.active]="tracking">
+  <div class="status-chip" [class.active]="tracking && !paused" [class.paused]="paused">
     <span class="live-dot"></span>
-    {{ tracking ? 'Transmitiendo en vivo' : 'Sin transmitir' }}
+    {{ paused ? 'En pausa' : (tracking ? 'Transmitiendo en vivo' : 'Sin transmitir') }}
+  </div>
+
+  <!-- Exceso de velocidad -->
+  <div class="speed-warning" *ngIf="speedWarning">
+    <ion-icon name="warning"></ion-icon>
+    Reducí la velocidad
+  </div>
+
+  <!-- Próxima parada -->
+  <div class="next-stop-card" *ngIf="nextParada && tracking">
+    <ion-icon name="location"></ion-icon>
+    <div class="ns-info">
+      <strong>{{ nextParada.nombre }}</strong>
+      <span>Próxima parada</span>
+    </div>
+    <div class="ns-dist" *ngIf="nextParadaDistanceKm !== null">
+      {{ nextParadaDistanceKm! < 1 ? (nextParadaDistanceKm! * 1000 | number:'1.0-0') + ' m' : (nextParadaDistanceKm! | number:'1.1-1') + ' km' }}
+    </div>
   </div>
 
   <!-- Loading -->
@@ -33,6 +51,9 @@
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
   <div class="map-controls">
+    <button class="mc-btn mc-warn" (click)="reportarIncidente()" aria-label="Reportar incidente">
+      <ion-icon name="warning-outline"></ion-icon>
+    </button>
     <button class="mc-btn mc-text" (click)="toggle3D()" [attr.aria-label]="is3D ? 'Ver en 2D' : 'Ver en 3D'">
       {{ is3D ? '2D' : '3D' }}
     </button>
@@ -42,7 +63,15 @@
   </div>
 
   <!-- ====== CONTROL INFERIOR ====== -->
-  <div class="bottom-control">
+  <div class="bottom-control" [class.with-pause]="tracking">
+    <ion-button
+      class="pause-btn"
+      *ngIf="tracking"
+      [class.on]="paused"
+      (click)="togglePause()"
+    >
+      <ion-icon [name]="paused ? 'play-outline' : 'pause-outline'" slot="icon-only"></ion-icon>
+    </ion-button>
     <ion-button
       expand="block"
       class="track-btn"
@@ -98,11 +127,51 @@
         <span *ngIf="assignedBus">{{ assignedBus.placa }} · {{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
         <span *ngIf="!assignedBus" class="no-bus">Sin bus asignado</span>
       </div>
+
+      <div class="pp-link" (click)="toggleProfilePanel(); openHistorial()">
+        <ion-icon name="time-outline"></ion-icon><span>Mis viajes</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+
+      <div class="pp-link" (click)="toggleProfilePanel(); reportarIncidente()">
+        <ion-icon name="warning-outline"></ion-icon><span>Reportar incidente</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
     </div>
 
     <div class="pp-logout" (click)="onLogout()">
       <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
     </div>
   </aside>
+
+  <!-- ====== HISTORIAL DE VIAJES ====== -->
+  <div class="panel-scrim" [class.open]="historialOpen" (click)="closeHistorial()"></div>
+
+  <section class="historial-sheet" [class.open]="historialOpen">
+    <div class="sheet-bar"></div>
+    <div class="hs-head">
+      <strong>Mis viajes</strong>
+      <ion-icon name="close" (click)="closeHistorial()"></ion-icon>
+    </div>
+
+    <div class="hs-list">
+      <div class="hs-empty" *ngIf="loadingHistorial">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+      <div class="hs-row" *ngFor="let v of viajesHistorial">
+        <div class="hs-row-main">
+          <strong>{{ $any(v.ruta)?.nombre || 'Sin ruta' }}</strong>
+          <span>{{ $any(v.bus)?.placa }} · {{ v.inicio | date:'medium' }}</span>
+        </div>
+        <div class="hs-row-meta">
+          <span class="hs-badge" [class.done]="v.estado==='completado'">{{ v.estado }}</span>
+          <span class="hs-km" *ngIf="v.distancia_km">{{ v.distancia_km | number:'1.1-1' }} km</span>
+        </div>
+      </div>
+      <div class="hs-empty" *ngIf="!loadingHistorial && viajesHistorial.length===0">
+        Todavía no tenés viajes registrados
+      </div>
+    </div>
+  </section>
 
 </ion-content>

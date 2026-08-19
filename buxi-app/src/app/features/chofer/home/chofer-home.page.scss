@@ -111,11 +111,69 @@
       animation: pulse 1.4s infinite;
     }
   }
+
+  &.paused {
+    color: #ffd166;
+    background: rgba(255, 209, 102, 0.16);
+    border-color: rgba(255, 209, 102, 0.35);
+    .live-dot { background: #ffd166; }
+  }
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(1.3); }
+}
+
+// ---- ALERTA DE VELOCIDAD ----
+.speed-warning {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 20px) + 114px);
+  left: 14px;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 84, 73, 0.9);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(255, 84, 73, 0.4);
+  animation: pulse 1s infinite;
+
+  ion-icon { font-size: 15px; }
+}
+
+// ---- PRÓXIMA PARADA ----
+.next-stop-card {
+  position: absolute;
+  left: 14px; right: 14px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 190px);
+  z-index: 1000;
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(10, 22, 40, 0.78);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+
+  > ion-icon { font-size: 20px; color: #00c853; flex-shrink: 0; }
+
+  .ns-info {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    strong { font-size: 13.5px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    span { font-size: 11px; color: #8fa3bd; }
+  }
+
+  .ns-dist {
+    flex-shrink: 0;
+    font-size: 13px; font-weight: 700; color: #00e676;
+  }
 }
 
 // ---- LOADING ----
@@ -171,6 +229,8 @@
     font-size: 13px; font-weight: 800; color: #e6edf7;
     letter-spacing: 0.3px;
   }
+
+  &.mc-warn ion-icon { color: #ffb020; }
 }
 
 // ---- CONTROL INFERIOR ----
@@ -181,6 +241,12 @@
   right: 0;
   z-index: 1000;
   padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+
+  &.with-pause {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+  }
 }
 
 .track-btn {
@@ -190,6 +256,7 @@
   height: 56px;
   text-transform: none;
   margin: 0;
+  flex: 1;
 
   &.btn-start {
     --background: #00c853;
@@ -201,6 +268,26 @@
     --background: #ff5449;
     --color: #240604;
     --box-shadow: 0 8px 24px rgba(255, 84, 73, 0.35);
+  }
+}
+
+.pause-btn {
+  --border-radius: 14px;
+  --background: rgba(10, 22, 40, 0.7);
+  --color: #e6edf7;
+  --box-shadow: none;
+  width: 56px; height: 56px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 14px;
+
+  ion-icon { font-size: 22px; }
+
+  &.on {
+    --background: rgba(255, 209, 102, 0.22);
+    --color: #ffd166;
+    border-color: rgba(255, 209, 102, 0.4);
   }
 }
 
@@ -412,4 +499,112 @@
       color: #00e676;
     }
   }
+
+  // Paradas de la ruta trazada — mismo lenguaje visual que el mapa del
+  // pasajero (punto blanco con borde del color de la ruta).
+  .stop-marker { display: grid; place-items: center; }
+
+  .stop-dot {
+    width: 10px; height: 10px;
+    background: #fff;
+    border: 2.5px solid #00c853;
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+
+  .stop-terminal {
+    width: 16px; height: 16px;
+    background: #fff;
+    border: 2.5px solid #00c853;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.35);
+
+    .stop-inner {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+  }
+}
+
+// ---- HISTORIAL DE VIAJES ----
+.historial-sheet {
+  position: absolute;
+  left: 12px; right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  z-index: 1800;
+  max-height: min(64vh, 520px);
+  display: flex; flex-direction: column;
+  padding: 8px 0 16px;
+  border-radius: 26px;
+  background: rgba(9, 20, 36, 0.92);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 14px 44px rgba(0,0,0,0.5);
+
+  opacity: 0; visibility: hidden;
+  transform: translateY(24px) scale(0.98);
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s;
+
+  &.open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+
+  .sheet-bar {
+    width: 36px; height: 4px;
+    background: rgba(255,255,255,0.22);
+    border-radius: 2px;
+    margin: 0 auto 12px;
+    flex-shrink: 0;
+  }
+}
+
+.hs-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 6px;
+
+  strong { font-size: 15px; color: #fff; }
+  ion-icon { font-size: 22px; color: #8fa3bd; cursor: pointer; }
+}
+
+.hs-list {
+  overflow-y: auto;
+  padding: 4px 14px;
+}
+
+.hs-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  padding: 11px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  &:last-child { border-bottom: none; }
+}
+
+.hs-row-main {
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  strong { font-size: 13.5px; color: #fff; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  span { font-size: 11.5px; color: #8fa3bd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+.hs-row-meta {
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+}
+
+.hs-badge {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  color: #ffd166;
+  &.done { color: #00e676; }
+}
+
+.hs-km { font-size: 11.5px; color: #9fb2cc; }
+
+.hs-empty {
+  padding: 30px 20px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #8fa3bd;
 }

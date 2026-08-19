@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Parada } from '../models/transport.model';
-import { Viaje } from '../models/features.model';
+import { Viaje, ReporteBug } from '../models/features.model';
 
 @Injectable({ providedIn: 'root' })
 export class ChoferService {
@@ -17,7 +17,7 @@ export class ChoferService {
   async getAssignedBus(choferId: string): Promise<Bus | null> {
     const { data, error } = await this.supabase
       .from('buses')
-      .select('*, ruta:rutas(nombre, origen, destino, color), empresa:empresas(nombre)')
+      .select('*, ruta:rutas(nombre, origen, destino, color, geometria), empresa:empresas(nombre)')
       .eq('chofer_id', choferId)
       .maybeSingle();
     if (error) throw error;
@@ -85,5 +85,25 @@ export class ChoferService {
       .limit(20);
     if (error) throw error;
     return data as Viaje[];
+  }
+
+  // ---- REPORTAR INCIDENTE ----
+  async createReporte(empresaId: string, autorId: string, titulo: string, descripcion: string): Promise<void> {
+    const { error } = await this.supabase.from('reportes_bugs').insert({
+      empresa_id: empresaId, autor_id: autorId, titulo, descripcion,
+    });
+    if (error) throw error;
+  }
+
+  // ---- LÍMITE DE VELOCIDAD ----
+  async getMaxSpeedKmh(): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('system_config')
+      .select('value')
+      .eq('key', 'max_speed_kmh')
+      .maybeSingle();
+    if (error || !data) return 80;
+    const n = parseFloat(data.value);
+    return isNaN(n) ? 80 : n;
   }
 }

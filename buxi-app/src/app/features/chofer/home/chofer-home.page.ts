@@ -8,6 +8,7 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Parada } from '../../../core/models/transport.model';
+import { Viaje } from '../../../core/models/features.model';
 import { ChoferService } from '../../../core/services/chofer.service';
 import { createMap, htmlMarkerEl, set3DEnabled } from '../../../core/utils/maplibre';
 
@@ -30,6 +31,19 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   editPhone = '';
   savingProfile = false;
 
+  // ---- Próxima parada, pausa, alerta de velocidad ----
+  nextParada: Parada | null = null;
+  nextParadaDistanceKm: number | null = null;
+  paused = false;
+  speedWarning = false;
+  private maxSpeedKmh = 80;
+  private displayParadaIndex = 1;
+
+  // ---- Historial de viajes ----
+  historialOpen = false;
+  loadingHistorial = false;
+  viajesHistorial: Viaje[] = [];
+
   private map!: maplibregl.Map;
   private destroyed = false;
   private userMarker: maplibregl.Marker | null = null;
@@ -42,6 +56,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   private lastLng = 0;
   private trackingInterval: any = null;
   private rutaParadas: Parada[] = [];
+  private paradasReady: Promise<void> = Promise.resolve();
   private nextParadaIndex = 1;
   private segmentStartTime = 0;
 
@@ -59,10 +74,26 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       this.profile = await this.supabase.getProfile();
       if (this.profile) {
         this.assignedBus = await this.choferService.getAssignedBus(this.profile.id);
+        if (this.assignedBus?.ruta_id) {
+          this.paradasReady = this.loadRutaParadas(this.assignedBus.ruta_id);
+        }
       }
+      this.choferService.getMaxSpeedKmh().then(v => this.maxSpeedKmh = v).catch(() => {});
     } catch {
     } finally {
       this.loading = false;
+    }
+  }
+
+  // Cargar las paradas apenas se conoce la ruta asignada, no solo al arrancar
+  // a transmitir: así "próxima parada" y el trazado en el mapa funcionan
+  // incluso antes de que el chofer toque "Iniciar ruta".
+  private async loadRutaParadas(rutaId: string) {
+    try {
+      this.rutaParadas = await this.choferService.getParadasOrdenadas(rutaId);
+      this.displayParadaIndex = 1;
+    } catch {
+      this.rutaParadas = [];
     }
   }
 
@@ -82,6 +113,48 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
     await this.startWatchingPosition();
+
+    await this.paradasReady;
+    if (!this.destroyed && this.rutaParadas.length >= 2) {
+      this.drawAssignedRoute();
+    }
+  }
+
+  // Traza la ruta asignada (línea + paradas) apenas se conoce, igual que ve
+  // el pasajero — antes el chofer solo veía su propio punto sin contexto de
+  // por dónde va el recorrido.
+  private drawAssignedRoute() {
+    const color = this.assignedBus?.ruta?.color || '#00c853';
+    const geometria = this.assignedBus?.ruta?.geometria as [number, number][] | null | undefined;
+    const coords: [number, number][] = geometria?.length
+      ? geometria.map(([lat, lng]) => [lng, lat] as [number, number])
+      : this.rutaParadas.map(p => [p.longitud, p.latitud] as [number, number]);
+
+    this.map.addSource('chofer-route', {
+      type: 'geojson',
+      data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
+    });
+    this.map.addLayer({
+      id: 'chofer-route-bg', type: 'line', source: 'chofer-route',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': color, 'line-width': 12, 'line-opacity': 0.12 },
+    });
+    this.map.addLayer({
+      id: 'chofer-route-main', type: 'line', source: 'chofer-route',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': color, 'line-width': 5, 'line-opacity': 0.9 },
+    });
+
+    this.rutaParadas.forEach((parada, i) => {
+      const isTerminal = i === 0 || i === this.rutaParadas.length - 1;
+      const html = isTerminal
+        ? `<div class="stop-terminal" style="border-color:${color}"><div class="stop-inner" style="background:${color}"></div></div>`
+        : `<div class="stop-dot" style="border-color:${color}"></div>`;
+      const el = htmlMarkerEl('stop-marker', html);
+      new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([parada.longitud, parada.latitud])
+        .addTo(this.map);
+    });
   }
 
   private async startWatchingPosition() {
@@ -130,6 +203,9 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     this.currentLat = lat;
     this.currentLng = lng;
     this.currentSpeedKmh = speedMs && speedMs > 0 ? speedMs * 3.6 : 0;
+    // Solo molesta mientras el chofer está de verdad en ruta y no en pausa
+    // — de otro modo alertaría yendo a arrancar el turno o en un semáforo.
+    this.speedWarning = this.tracking && !this.paused && this.currentSpeedKmh > this.maxSpeedKmh;
 
     if (this.userMarker) {
       this.userMarker.setLngLat([lng, lat]);
@@ -139,6 +215,25 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         .setLngLat([lng, lat])
         .addTo(this.map);
     }
+
+    this.updateNextParadaProgress();
+  }
+
+  // "Próxima parada" siempre activo (no solo mientras transmite): recorre
+  // las paradas en orden y avanza el índice cuando ya se pasó por la
+  // siguiente, igual idea que checkSegmentProgress pero para mostrar en
+  // pantalla en vez de para el historial de tramos.
+  private updateNextParadaProgress() {
+    if (this.rutaParadas.length < 2 || this.displayParadaIndex >= this.rutaParadas.length) {
+      this.nextParada = null;
+      this.nextParadaDistanceKm = null;
+      return;
+    }
+    const target = this.rutaParadas[this.displayParadaIndex];
+    const distKm = this.features.distanceKm(this.currentLat, this.currentLng, target.latitud, target.longitud);
+    this.nextParada = target;
+    this.nextParadaDistanceKm = distKm;
+    if (distKm < 0.06) this.displayParadaIndex++;
   }
 
   async toggleTracking() {
@@ -162,14 +257,17 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
 
   private async startTracking() {
     this.tracking = true;
+    this.paused = false;
 
     await this.choferService.updateBusStatus(this.assignedBus!.id, 'en_ruta');
 
     if (this.profile && this.assignedBus!.ruta_id) {
       await this.choferService.startViaje(this.assignedBus!.id, this.profile.id, this.assignedBus!.ruta_id);
-      try {
-        this.rutaParadas = await this.choferService.getParadasOrdenadas(this.assignedBus!.ruta_id);
-      } catch { this.rutaParadas = []; }
+      // Las paradas ya se cargaron en ngOnInit para el trazado y "próxima
+      // parada"; si por lo que sea no llegaron a tiempo, se reintenta acá.
+      if (this.rutaParadas.length === 0) {
+        try { this.rutaParadas = await this.choferService.getParadasOrdenadas(this.assignedBus!.ruta_id); } catch {}
+      }
     }
     this.nextParadaIndex = 1;
     this.segmentStartTime = Date.now();
@@ -188,6 +286,8 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
 
   private async stopTracking() {
     this.tracking = false;
+    this.paused = false;
+    this.speedWarning = false;
 
     if (this.trackingInterval) {
       clearInterval(this.trackingInterval);
@@ -196,7 +296,6 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
 
     await this.choferService.updateBusStatus(this.assignedBus!.id, 'activo');
     await this.choferService.endViaje();
-    this.rutaParadas = [];
     this.nextParadaIndex = 1;
 
     const toast = await this.toastCtrl.create({
@@ -206,6 +305,25 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       position: 'top',
     });
     await toast.present();
+  }
+
+  // Pausa sin terminar el viaje (almuerzo, descanso corto): deja de mandar
+  // ubicación pero no cierra el viaje ni cambia el estado del bus, así el
+  // historial de tramos y el viaje activo siguen intactos al retomar.
+  togglePause() {
+    if (!this.tracking) return;
+    this.paused = !this.paused;
+
+    if (this.paused) {
+      if (this.trackingInterval) {
+        clearInterval(this.trackingInterval);
+        this.trackingInterval = null;
+      }
+      this.speedWarning = false;
+    } else {
+      this.sendLocation();
+      this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
+    }
   }
 
   private async sendLocation() {
@@ -251,6 +369,74 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   toggle3D() {
     this.is3D = !this.is3D;
     set3DEnabled(this.map, this.is3D, true);
+  }
+
+  // ---- REPORTAR INCIDENTE ----
+  // Dos alertas encadenadas, no una sola con radio + texto mezclados: Ionic
+  // no le pone label al radio cuando conviven con un input de texto en el
+  // mismo alert (bug ya visto en otras partes de esta app).
+  async reportarIncidente() {
+    if (!this.profile?.empresa_id) return;
+
+    const tipoAlert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: 'Reportar incidente',
+      inputs: [
+        { name: 'tipo', type: 'radio', label: 'Atraso', value: 'Atraso', checked: true },
+        { name: 'tipo', type: 'radio', label: 'Bus averiado', value: 'Bus averiado' },
+        { name: 'tipo', type: 'radio', label: 'Accidente', value: 'Accidente' },
+        { name: 'tipo', type: 'radio', label: 'Otro', value: 'Otro' },
+      ],
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Siguiente', role: 'confirm' },
+      ],
+    });
+    await tipoAlert.present();
+    const { data, role } = await tipoAlert.onDidDismiss();
+    if (role !== 'confirm') return;
+    const tipo = data?.values as string;
+
+    const detalleAlert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: tipo,
+      message: 'Contale a tu empresa qué está pasando.',
+      inputs: [{ name: 'descripcion', type: 'textarea', placeholder: 'Detalles...' }],
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Enviar', handler: async (d) => {
+          if (!d.descripcion?.trim()) return false;
+          try {
+            await this.choferService.createReporte(this.profile!.empresa_id!, this.profile!.id, tipo, d.descripcion.trim());
+            const toast = await this.toastCtrl.create({ message: 'Reporte enviado a tu empresa', duration: 2500, color: 'success', position: 'top' });
+            await toast.present();
+          } catch {
+            const toast = await this.toastCtrl.create({ message: 'No se pudo enviar el reporte', duration: 2500, color: 'danger', position: 'top' });
+            await toast.present();
+          }
+          return true;
+        }},
+      ],
+    });
+    await detalleAlert.present();
+  }
+
+  // ---- HISTORIAL DE VIAJES ----
+  async openHistorial() {
+    if (!this.profile) return;
+    this.historialOpen = true;
+    this.loadingHistorial = true;
+    try {
+      this.viajesHistorial = await this.choferService.getMyViajes(this.profile.id);
+    } catch {
+      this.viajesHistorial = [];
+    } finally {
+      this.loadingHistorial = false;
+    }
+  }
+
+  closeHistorial() {
+    this.historialOpen = false;
   }
 
   // ---- PANEL DE PERFIL ----
