@@ -74,13 +74,14 @@
 }
 
 // ---- ESTADO DE TRANSMISIÓN ----
+// Debajo del perfil, no centrada — la ficha de arriba ya no ocupa todo el
+// ancho, así que centrarla la dejaba flotando sola, lejos de con quién va.
 .status-chip {
   position: absolute;
   top: calc(env(safe-area-inset-top, 20px) + 78px);
-  left: 50%;
-  transform: translateX(-50%);
+  left: 14px;
   z-index: 1000;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 7px;
   background: rgba(10, 22, 40, 0.62);
