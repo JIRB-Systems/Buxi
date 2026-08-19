@@ -15,6 +15,15 @@ export interface Horario {
   notas: string | null;
 }
 
+// Reemplaza a Horario: una hora exacta de salida en vez de un rango con
+// frecuencia pareja, que no representa cómo salen los buses en la realidad.
+export interface HorarioSalida {
+  id: string;
+  ruta_id: string;
+  dia: 'lunes_viernes' | 'sabado' | 'domingo';
+  hora: string;
+}
+
 export interface Calificacion {
   id: string;
   user_id: string;

@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Ruta, Parada, BusLocation } from '../models/transport.model';
-import { Horario, ReporteBug, AvisoSistema } from '../models/features.model';
+import { Horario, HorarioSalida, ReporteBug, AvisoSistema } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
 @Injectable({ providedIn: 'root' })
@@ -209,6 +209,24 @@ export class AdminEmpresaService {
 
   async deleteHorario(id: string): Promise<void> {
     const { error } = await this.supabase.from('horarios').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // ---- HORARIO_SALIDAS (reemplaza a HORARIOS: horas exactas, no rango) ----
+  async getHorarioSalidas(rutaId: string): Promise<HorarioSalida[]> {
+    const { data, error } = await this.supabase.from('horario_salidas').select('*').eq('ruta_id', rutaId).order('hora');
+    if (error) throw error;
+    return data as HorarioSalida[];
+  }
+
+  async addHorarioSalida(rutaId: string, dia: string, hora: string): Promise<HorarioSalida> {
+    const { data, error } = await this.supabase.from('horario_salidas').insert({ ruta_id: rutaId, dia, hora }).select().single();
+    if (error) throw error;
+    return data as HorarioSalida;
+  }
+
+  async deleteHorarioSalida(id: string): Promise<void> {
+    const { error } = await this.supabase.from('horario_salidas').delete().eq('id', id);
     if (error) throw error;
   }
 

@@ -8,39 +8,30 @@
 </ion-header>
 
 <ion-content class="form-content" [scrollEvents]="true" (ionScroll)="onFormScroll()">
-  <div class="hint-top">Dejá vacía una franja si esa ruta no opera ese día.</div>
+  <div class="hint-top">Agregá cada hora de salida tal cual sale el bus — no hace falta que sean parejas.</div>
 
   <div class="dia-card" *ngFor="let r of rows">
     <div class="dia-title">{{ r.label }}</div>
 
-    <div class="field two-col">
-      <div>
-        <label>Primera salida</label>
-        <input type="time" class="time-input" [(ngModel)]="r.primera_salida" />
-      </div>
-      <div>
-        <label>Última salida</label>
-        <input type="time" class="time-input" [(ngModel)]="r.ultima_salida" />
-      </div>
+    <div class="chips" *ngIf="r.times.length">
+      <span class="chip" *ngFor="let h of r.times">
+        {{ formatHora(h.hora) }}
+        <ion-icon name="close" (click)="removeTime(r, h)"></ion-icon>
+      </span>
     </div>
+    <div class="empty-hint" *ngIf="!r.times.length && !loading">Sin horas cargadas</div>
 
-    <div class="field">
-      <label>Frecuencia (minutos)</label>
-      <ion-input [(ngModel)]="r.frecuencia_minutos" type="number" min="1" placeholder="Ej. 15" fill="outline"></ion-input>
-    </div>
-
-    <div class="field">
-      <label>Notas <span class="opt">(opcional)</span></label>
-      <ion-input [(ngModel)]="r.notas" placeholder="Ej. Sin servicio en feriados" fill="outline"></ion-input>
+    <div class="add-row">
+      <input type="time" class="time-input" [(ngModel)]="r.newTime" />
+      <ion-button class="add-btn" [disabled]="!r.newTime || r.adding" (click)="addTime(r)">
+        <ion-icon name="add" slot="icon-only"></ion-icon>
+      </ion-button>
     </div>
   </div>
 </ion-content>
 
 <ion-footer class="form-footer">
   <ion-toolbar>
-    <ion-button class="submit-btn" expand="block" [disabled]="loading || saving" (click)="save()">
-      <ion-spinner name="crescent" *ngIf="saving"></ion-spinner>
-      <span *ngIf="!saving">Guardar horarios</span>
-    </ion-button>
+    <ion-button class="submit-btn" expand="block" (click)="close()">Listo</ion-button>
   </ion-toolbar>
 </ion-footer>

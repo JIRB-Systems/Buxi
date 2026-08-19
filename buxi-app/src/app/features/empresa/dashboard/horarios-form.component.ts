@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { AdminEmpresaService } from '../../../core/services/admin-empresa.service';
-import { Horario } from '../../../core/models/features.model';
+import { HorarioSalida } from '../../../core/models/features.model';
 import { Ruta } from '../../../core/models/transport.model';
 
 type Dia = 'lunes_viernes' | 'sabado' | 'domingo';
@@ -9,11 +9,9 @@ type Dia = 'lunes_viernes' | 'sabado' | 'domingo';
 interface DiaRow {
   dia: Dia;
   label: string;
-  id: string | null;
-  primera_salida: string;
-  ultima_salida: string;
-  frecuencia_minutos: number | null;
-  notas: string;
+  times: HorarioSalida[];
+  newTime: string;
+  adding: boolean;
 }
 
 const DIAS: { dia: Dia; label: string }[] = [
@@ -33,71 +31,56 @@ export class HorariosFormComponent implements OnInit {
 
   rows: DiaRow[] = [];
   loading = true;
-  saving = false;
 
   constructor(private modalCtrl: ModalController, private admin: AdminEmpresaService) {}
 
   async ngOnInit() {
-    this.rows = DIAS.map(d => ({ ...d, id: null, primera_salida: '', ultima_salida: '', frecuencia_minutos: null, notas: '' }));
+    this.rows = DIAS.map(d => ({ ...d, times: [], newTime: '', adding: false }));
     try {
-      const existentes = await this.admin.getHorarios(this.ruta.id);
-      for (const h of existentes) {
-        const row = this.rows.find(r => r.dia === h.dia);
-        if (row) {
-          row.id = h.id;
-          row.primera_salida = h.primera_salida.slice(0, 5);
-          row.ultima_salida = h.ultima_salida.slice(0, 5);
-          row.frecuencia_minutos = h.frecuencia_minutos;
-          row.notas = h.notas || '';
-        }
+      const salidas = await this.admin.getHorarioSalidas(this.ruta.id);
+      for (const s of salidas) {
+        const row = this.rows.find(r => r.dia === s.dia);
+        if (row) row.times.push(s);
       }
     } catch {}
     this.loading = false;
   }
 
-  // Un día se guarda si tiene ambas horas; si el usuario las borra y ya
-  // existía, se elimina en vez de mandar un horario a medio llenar.
-  private isRowFilled(r: DiaRow): boolean {
-    return !!r.primera_salida && !!r.ultima_salida;
+  // Cada hora se guarda al toque, como agregar un tag: nada de "Guardar" al
+  // final que deje sin persistir lo que ya escribiste si cerrás sin querer.
+  async addTime(row: DiaRow) {
+    if (!row.newTime || row.adding) return;
+    row.adding = true;
+    try {
+      const hora = row.newTime.length === 5 ? `${row.newTime}:00` : row.newTime;
+      const creada = await this.admin.addHorarioSalida(this.ruta.id, row.dia, hora);
+      row.times.push(creada);
+      row.times.sort((a, b) => a.hora.localeCompare(b.hora));
+      row.newTime = '';
+    } catch {} finally {
+      row.adding = false;
+    }
+  }
+
+  async removeTime(row: DiaRow, h: HorarioSalida) {
+    try {
+      await this.admin.deleteHorarioSalida(h.id);
+      row.times = row.times.filter(t => t.id !== h.id);
+    } catch {}
+  }
+
+  formatHora(hora: string): string {
+    return hora.slice(0, 5);
   }
 
   close() {
-    this.modalCtrl.dismiss();
+    this.modalCtrl.dismiss(null, 'confirm');
   }
 
-  // Mismo motivo que en anuncio-form.component.ts: global.scss fuerza
-  // --keyboard-offset: 0px, así que el teclado puede tapar el footer
-  // fijo. Lo cerramos apenas se empieza a scrollear.
   onFormScroll() {
     const active = document.activeElement as HTMLElement | null;
     if (active && active.tagName !== 'BODY' && typeof active.blur === 'function') {
       active.blur();
-    }
-  }
-
-  async save() {
-    if (this.saving) return;
-    this.saving = true;
-    try {
-      for (const r of this.rows) {
-        if (this.isRowFilled(r)) {
-          const horario: Partial<Horario> = {
-            ruta_id: this.ruta.id,
-            dia: r.dia,
-            primera_salida: r.primera_salida,
-            ultima_salida: r.ultima_salida,
-            frecuencia_minutos: r.frecuencia_minutos || 15,
-            notas: r.notas.trim() || null,
-          };
-          if (r.id) horario.id = r.id;
-          await this.admin.saveHorario(horario);
-        } else if (r.id) {
-          await this.admin.deleteHorario(r.id);
-        }
-      }
-      this.modalCtrl.dismiss(null, 'confirm');
-    } finally {
-      this.saving = false;
     }
   }
 }

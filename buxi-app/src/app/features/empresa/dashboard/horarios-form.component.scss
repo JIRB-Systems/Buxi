@@ -23,17 +23,6 @@
   --padding-end: 16px;
   --padding-top: 16px;
   --padding-bottom: 20px;
-
-  ion-input {
-    --background: var(--dash-surface);
-    --color: #fff;
-    --placeholder-color: var(--dash-text-muted);
-    --placeholder-opacity: 1;
-    --padding-start: 12px;
-    --padding-end: 12px;
-    --border-color: rgba(255, 255, 255, 0.12);
-    border-radius: 10px;
-  }
 }
 
 .hint-top {
@@ -54,33 +43,45 @@
   font-size: 14px;
   font-weight: 700;
   color: #fff;
+  margin-bottom: 10px;
+}
+
+.chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
   margin-bottom: 12px;
 }
 
-.field {
-  margin-bottom: 14px;
-  &:last-child { margin-bottom: 0; }
+.chip {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0, 200, 83, 0.12);
+  border: 1px solid rgba(0, 200, 83, 0.3);
+  color: #d7f7e3;
+  font-size: 12.5px; font-weight: 700;
+  padding: 6px 8px 6px 12px;
+  border-radius: 20px;
 
-  label {
-    display: block;
-    font-size: 12px;
-    color: var(--dash-text-muted);
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-
-    .opt { text-transform: none; letter-spacing: 0; opacity: 0.7; }
-  }
-
-  &.two-col {
-    display: flex;
-    gap: 12px;
-    > div { flex: 1; }
+  ion-icon {
+    font-size: 15px;
+    color: #9fdcb5;
+    cursor: pointer;
+    &:hover { color: #fff; }
   }
 }
 
+.empty-hint {
+  font-size: 12px;
+  color: var(--dash-text-muted);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+.add-row {
+  display: flex;
+  gap: 8px;
+}
+
 .time-input {
-  width: 100%;
+  flex: 1;
   background: var(--dash-bg);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
@@ -89,4 +90,11 @@
   font-size: 13px;
   font-family: inherit;
   color-scheme: dark;
+}
+
+.add-btn {
+  --border-radius: 10px;
+  margin: 0;
+  flex-shrink: 0;
+  width: 44px;
 }

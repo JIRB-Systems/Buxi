@@ -7,7 +7,7 @@ import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { UserProfile } from '../../../core/models/user-profile.model';
-import { Anuncio, Horario } from '../../../core/models/features.model';
+import { Anuncio, HorarioSalida } from '../../../core/models/features.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -164,7 +164,63 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     // En telefono el menu tapa el mapa, asi que se cierra al elegir: la accion
     // termina en el mapa, no en la lista.
     if (window.innerWidth < 900) this.sidebarOpen = false;
-    await this.showEmpresaRoutes(e);
+    await this.openEmpresaDetail(e);
+  }
+
+  // ---- FICHA DE EMPRESA ----
+  // Antes tocar una empresa dibujaba todas sus rutas de una en el mapa, sin
+  // mostrar nada de horarios. Ahora abre una ficha con sus rutas y la próxima
+  // salida de cada una; desde ahí se elige la ruta puntual a dibujar. Siempre
+  // tiene un botón de cerrar a mano — la razón por la que el flujo anterior
+  // "atrapaba" al usuario era un caso roto (ver commit de Felipe), no que
+  // mostrar una ficha esté mal en sí.
+  empresaDetailOpen = false;
+  empresaDetail: EmpresaListItem | null = null;
+  empresaDetailRutas: (Ruta & { proximaSalidaTexto: string | null })[] = [];
+
+  async openEmpresaDetail(empresa: EmpresaListItem) {
+    const rutas = this.allRutas.filter(r => r.empresa_id === empresa.id);
+    if (rutas.length === 0) {
+      await this.toast(`${empresa.nombre} no tiene rutas activas todavía.`, 'warning');
+      return;
+    }
+
+    this.empresaDetail = empresa;
+    this.empresaDetailRutas = rutas.map(r => ({ ...r, proximaSalidaTexto: null }));
+    this.empresaDetailOpen = true;
+
+    // Se resuelve en paralelo y aparte del render inicial: la ficha ya es
+    // útil (nombre, origen/destino) sin esperar a que lleguen los horarios.
+    await Promise.all(this.empresaDetailRutas.map(async r => {
+      try {
+        const salidas = await this.tracking.getHorarioSalidas(r.id);
+        const proxima = this.proximaSalida(this.salidasDeHoy(salidas));
+        r.proximaSalidaTexto = proxima ? proxima.hora.slice(0, 5) : null;
+      } catch {}
+    }));
+  }
+
+  closeEmpresaDetail() {
+    this.empresaDetailOpen = false;
+    this.empresaDetail = null;
+    this.empresaDetailRutas = [];
+  }
+
+  async selectRutaFromEmpresaDetail(r: Ruta) {
+    this.closeEmpresaDetail();
+    this.sidebarOpen = false;
+    await this.selectRutaFromPanel(r);
+  }
+
+  // Dibujar TODAS las rutas de la empresa a la vez sigue siendo útil (ver
+  // cobertura completa); queda como acción secundaria dentro de la ficha en
+  // vez de ser lo primero que pasa al tocar la empresa.
+  async verTodasEnMapa() {
+    if (!this.empresaDetail) return;
+    const empresa = this.empresaDetail;
+    this.closeEmpresaDetail();
+    this.sidebarOpen = false;
+    await this.showEmpresaRoutes(empresa);
   }
 
   empresaNombre(ruta: Ruta): string {
@@ -325,23 +381,42 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
 
   activeRuta: Ruta | null = null;
   activeParadas: Parada[] = [];
-  activeHorarios: Horario[] = [];
+  activeSalidas: HorarioSalida[] = [];
   nearestStop: { parada: Parada; distanceKm: number } | null = null;
 
-  // El horario de hoy según el día de la semana real, no el primero de la
-  // lista — así el pasajero ve la franja que de verdad le sirve ahora.
-  get todayHorario(): Horario | null {
-    if (!this.activeHorarios.length) return null;
+  // Las salidas de hoy según el día de la semana real, ordenadas por hora —
+  // los buses reales no salen a intervalos parejos (ver cartel físico de
+  // Liberia-Puntarenas: 5:00, 7:45, 8:30, 9:30... huecos irregulares), así que
+  // se muestra la lista completa en vez de un rango con frecuencia inventada.
+  get todaySalidas(): HorarioSalida[] {
+    return this.salidasDeHoy(this.activeSalidas);
+  }
+
+  get nextSalida(): HorarioSalida | null {
+    return this.proximaSalida(this.todaySalidas);
+  }
+
+  private salidasDeHoy(salidas: HorarioSalida[]): HorarioSalida[] {
+    if (!salidas.length) return [];
     const day = new Date().getDay(); // 0 domingo, 6 sábado
     const dia = day === 0 ? 'domingo' : day === 6 ? 'sabado' : 'lunes_viernes';
-    return this.activeHorarios.find(h => h.dia === dia) || null;
+    return salidas.filter(h => h.dia === dia).sort((a, b) => a.hora.localeCompare(b.hora));
+  }
+
+  // Si ya pasaron todas las de hoy, se muestra la primera como referencia en
+  // vez de "no hay más" — sirve para planificar el día siguiente.
+  private proximaSalida(deHoy: HorarioSalida[]): HorarioSalida | null {
+    if (!deHoy.length) return null;
+    const now = new Date();
+    const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
+    return deHoy.find(h => h.hora >= nowStr) || deHoy[0];
   }
 
   private async loadHorariosFor(rutaId: string) {
     try {
-      this.activeHorarios = await this.tracking.getHorarios(rutaId);
+      this.activeSalidas = await this.tracking.getHorarioSalidas(rutaId);
     } catch {
-      this.activeHorarios = [];
+      this.activeSalidas = [];
     }
   }
   etaMinutes: number | null = null;
@@ -1054,7 +1129,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     this.followBusId = null;
     this.activeRuta = null;
     this.activeParadas = [];
-    this.activeHorarios = [];
+    this.activeSalidas = [];
     this.selectedEmpresaId = null;
 
     if (navigate) {

@@ -86,14 +86,16 @@
             <span>{{ activeRuta.origen }} → {{ activeRuta.destino }}</span>
           </div>
         </div>
-        <div class="ds-route-extra" *ngIf="activeRuta.precio || todayHorario">
+        <div class="ds-route-extra" *ngIf="activeRuta.precio || todaySalidas.length">
           <span class="ds-extra-item" *ngIf="activeRuta.precio">
             <ion-icon name="cash-outline"></ion-icon> ₡{{ activeRuta.precio | number:'1.0-0' }}
           </span>
-          <span class="ds-extra-item" *ngIf="todayHorario">
-            <ion-icon name="time-outline"></ion-icon>
-            {{ todayHorario.primera_salida.slice(0,5) }}–{{ todayHorario.ultima_salida.slice(0,5) }} · cada {{ todayHorario.frecuencia_minutos }} min
-          </span>
+        </div>
+        <div class="ds-salidas" *ngIf="todaySalidas.length">
+          <span class="ds-label">Salidas de hoy</span>
+          <div class="ds-salidas-chips">
+            <span class="ds-salida-chip" *ngFor="let h of todaySalidas" [class.next]="h === nextSalida">{{ h.hora.slice(0,5) }}</span>
+          </div>
         </div>
       </div>
 
@@ -213,11 +215,11 @@
     {{ activeParadas.length }} paradas
   </div>
 
-  <!-- Precio + horario de hoy -->
-  <div class="route-info-chip" *ngIf="activeRuta && (activeRuta.precio || todayHorario)">
+  <!-- Precio + próxima salida -->
+  <div class="route-info-chip" *ngIf="activeRuta && (activeRuta.precio || nextSalida)">
     <span *ngIf="activeRuta.precio">₡{{ activeRuta.precio | number:'1.0-0' }}</span>
-    <span class="chip-sep" *ngIf="activeRuta.precio && todayHorario">·</span>
-    <span *ngIf="todayHorario">{{ todayHorario.primera_salida.slice(0,5) }}–{{ todayHorario.ultima_salida.slice(0,5) }} · cada {{ todayHorario.frecuencia_minutos }} min</span>
+    <span class="chip-sep" *ngIf="activeRuta.precio && nextSalida">·</span>
+    <span *ngIf="nextSalida">Próxima salida: {{ nextSalida.hora.slice(0,5) }}</span>
   </div>
 
   <!-- ETA + nearest stop -->
@@ -294,6 +296,40 @@
       {{ followingBus ? 'Dejar de seguir' : 'Seguir recorrido' }}
     </button>
   </div>
+
+  <!-- ====== FICHA DE EMPRESA ====== -->
+  <div class="empresa-detail-scrim" [class.open]="empresaDetailOpen" (click)="closeEmpresaDetail()"></div>
+  <section class="empresa-detail-sheet" [class.open]="empresaDetailOpen" *ngIf="empresaDetail">
+    <div class="sheet-bar"></div>
+    <div class="ed-header">
+      <div class="ed-logo">
+        <img *ngIf="empresaDetail.logo_url" [src]="empresaDetail.logo_url" alt="" />
+        <ion-icon *ngIf="!empresaDetail.logo_url" name="business"></ion-icon>
+      </div>
+      <div class="ed-info">
+        <strong>{{ empresaDetail.nombre }}</strong>
+        <span>{{ empresaDetailRutas.length }} {{ empresaDetailRutas.length === 1 ? 'ruta' : 'rutas' }}</span>
+      </div>
+      <ion-icon name="close" class="ed-close" (click)="closeEmpresaDetail()"></ion-icon>
+    </div>
+
+    <div class="ed-rutas">
+      <div class="ed-ruta-row" *ngFor="let r of empresaDetailRutas" (click)="selectRutaFromEmpresaDetail(r)">
+        <div class="route-color-dot" [style.background]="r.color"></div>
+        <div class="ed-ruta-info">
+          <strong>{{ r.nombre }}</strong>
+          <span>{{ r.origen }} → {{ r.destino }}</span>
+        </div>
+        <span class="ed-ruta-salida" *ngIf="r.proximaSalidaTexto">{{ r.proximaSalidaTexto }}</span>
+        <span class="ed-ruta-salida sin-horario" *ngIf="!r.proximaSalidaTexto">Sin horario</span>
+        <ion-icon name="chevron-forward"></ion-icon>
+      </div>
+    </div>
+
+    <button class="ed-ver-todas" (click)="verTodasEnMapa()">
+      <ion-icon name="map-outline"></ion-icon> Ver todas en el mapa
+    </button>
+  </section>
 
   <!-- ====== DOCK FLOTANTE ====== -->
   <nav class="dock" [class.hidden]="!navVisible || selectedBus">

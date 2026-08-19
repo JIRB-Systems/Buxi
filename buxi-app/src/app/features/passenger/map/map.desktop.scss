@@ -252,6 +252,30 @@
   }
 }
 
+.ds-salidas {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-top: 8px; margin-top: 2px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+.ds-salidas-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+
+.ds-salida-chip {
+  font-size: 11px; font-weight: 700; color: #b7c4d9;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 3px 8px;
+
+  &.next {
+    color: #d7f7e3;
+    background: rgba(0,200,83,0.16);
+    border-color: rgba(0,200,83,0.35);
+  }
+}
+
 .ds-eta-row {
   display: flex; align-items: center; gap: 10px;
   > ion-icon { font-size: 20px; color: #00c853; }
