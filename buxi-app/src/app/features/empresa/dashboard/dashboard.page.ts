@@ -695,9 +695,25 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       .filter((c): c is [number, number] => !!c);
     if (coordsList.length === 0) return;
 
-    const bounds = new maplibregl.LngLatBounds();
-    coordsList.forEach(([lat, lng]) => bounds.extend([lng, lat]));
-    this.liveMap.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 0 });
+    // fitBounds() no calcula bien el encuadre con el mapa inclinado en 3D
+    // (pitch 50): la cámara se quedaba en el centro por defecto sin moverse
+    // nunca. En vez de pelear con eso, se arma la cámara a mano: centro =
+    // punto medio de las emergencias, zoom aproximado según qué tan
+    // separadas están entre sí.
+    const lats = coordsList.map(c => c[0]);
+    const lngs = coordsList.map(c => c[1]);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    const center: [number, number] = [(minLng + maxLng) / 2, (minLat + maxLat) / 2];
+
+    const spread = Math.max(maxLat - minLat, (maxLng - minLng) * 1.2);
+    let zoom = 14;
+    if (spread > 0.5) zoom = 8;
+    else if (spread > 0.2) zoom = 10;
+    else if (spread > 0.08) zoom = 11.5;
+    else if (spread > 0.03) zoom = 13;
+
+    this.liveMap.jumpTo({ center, zoom });
   }
 
   private emergencyMarkerHtml(nombre: string): string {
