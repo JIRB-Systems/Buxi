@@ -430,7 +430,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.liveMap.on('click', this.mapClickHandler);
       this.drawEditingRutaPath();
     } else {
-      this.drawAllRutaPaths();
+      this.drawAllRutaPaths(map);
     }
 
     // El fitBounds de las emergencias tiene que calcularse DESPUÉS del
@@ -466,7 +466,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   // ---- TRAZADO DE RUTAS ----
-  private async drawAllRutaPaths() {
+  private async drawAllRutaPaths(map: maplibregl.Map) {
     const activas = this.rutas.filter(r => r.estado === 'activa');
     const results = await Promise.all(activas.map(async r => {
       const paradas = await this.admin.getParadas(r.id);
@@ -474,6 +474,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     }));
 
     if (!this.liveMap) return;
+    const features: any[] = [];
     for (const { ruta, paradas } of results) {
       if (paradas.length === 0) continue;
       const color = ruta.color || '#00c853';
@@ -489,15 +490,66 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
       paradas.forEach((p, i) => {
         const isTerminal = i === 0 || i === paradas.length - 1;
-        const html = isTerminal
-          ? `<div class="ruta-stop-terminal" style="background:${color}"></div><div class="ruta-stop-label">${p.nombre}</div>`
-          : `<div class="ruta-stop-dot" style="background:${color}"></div>`;
-        const el = htmlMarkerEl('ruta-stop-marker', html);
-        const m = new maplibregl.Marker({ element: el, anchor: 'center' })
-          .setLngLat([p.longitud, p.latitud])
-          .addTo(this.liveMap!);
-        this.rutaMarkers.push(m);
+        features.push({
+          type: 'Feature' as const,
+          properties: { color, isTerminal, nombre: p.nombre },
+          geometry: { type: 'Point' as const, coordinates: [p.longitud, p.latitud] },
+        });
       });
+    }
+    this.drawParadaMarkers(map, features);
+  }
+
+  // Paradas dibujadas como capa nativa (circle + symbol), no maplibregl.Marker
+  // -- mismo bug de MapLibre que las emergencias (ver drawEmergencyMarkers):
+  // Marker consulta la elevación del terreno 3D para ubicarse, y esa
+  // consulta devuelve valores erróneos, así que la parada terminal
+  // ("Terminal de Buses...") aparecía flotando cientos de píxeles fuera del
+  // mapa y se corría al mover la cámara.
+  private readonly PARADAS_SRC = 'ruta-paradas';
+  private readonly PARADAS_CIRCLE_LAYER = 'ruta-paradas-circle';
+  private readonly PARADAS_LABEL_LAYER = 'ruta-paradas-label';
+
+  private drawParadaMarkers(map: maplibregl.Map, features: any[]) {
+    const geojson = { type: 'FeatureCollection' as const, features };
+
+    const existingSrc = map.getSource(this.PARADAS_SRC) as maplibregl.GeoJSONSource | undefined;
+    if (existingSrc) {
+      existingSrc.setData(geojson as any);
+      return;
+    }
+
+    try {
+      map.addSource(this.PARADAS_SRC, { type: 'geojson', data: geojson as any });
+      map.addLayer({
+        id: this.PARADAS_CIRCLE_LAYER, type: 'circle', source: this.PARADAS_SRC,
+        paint: {
+          'circle-radius': ['case', ['get', 'isTerminal'], 8, 4.5],
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': ['case', ['get', 'isTerminal'], 2, 1.5],
+          'circle-stroke-color': '#ffffff',
+          'circle-pitch-alignment': 'viewport',
+        },
+      });
+      map.addLayer({
+        id: this.PARADAS_LABEL_LAYER, type: 'symbol', source: this.PARADAS_SRC,
+        filter: ['==', ['get', 'isTerminal'], true],
+        layout: {
+          'text-field': ['get', 'nombre'],
+          'text-size': 11,
+          'text-offset': [0, 1.6],
+          'text-anchor': 'top',
+          'text-allow-overlap': false,
+          'text-pitch-alignment': 'viewport',
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(10, 22, 40, 0.95)',
+          'text-halo-width': 1.5,
+        },
+      });
+    } catch (err) {
+      console.error('No se pudieron dibujar las paradas en el mapa:', err);
     }
   }
 

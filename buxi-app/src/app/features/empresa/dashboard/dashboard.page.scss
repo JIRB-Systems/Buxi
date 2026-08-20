@@ -103,27 +103,15 @@
 
 // MapLibre inyecta los markers fuera de las vistas de Angular: hace falta
 // ::ng-deep para que estas reglas los alcancen.
+// Las paradas de solo lectura ya no son maplibregl.Marker sino una capa
+// nativa circle/symbol -- ver drawParadaMarkers en dashboard.page.ts (mismo
+// bug de MapLibre con Marker + terreno 3D que las emergencias).
+
 :host ::ng-deep {
-  .ruta-stop-marker,
   .ruta-point-marker,
   .emp-bus-marker {
     position: absolute; top: 0; left: 0; will-change: transform;
     display: grid; place-items: center;
-  }
-
-  // ---- Paradas de ruta (vista de sólo lectura) ----
-  .ruta-stop-dot {
-    width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff;
-  }
-  .ruta-stop-terminal {
-    width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-  }
-  .ruta-stop-label {
-    position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%);
-    white-space: nowrap; background: var(--dash-surface); color: #fff;
-    border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15); pointer-events: none;
   }
 
   // ---- Paradas en modo edición (numeradas, tooltip al pasar el mouse) ----
