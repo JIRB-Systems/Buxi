@@ -31,8 +31,17 @@ export class ChoferService {
     if (error) throw error;
   }
 
+  // No se puede hacer `update buses set estado` directo: en buses solo hay
+  // policies para admin_empresa y admin_jirb, así que para un chofer el UPDATE
+  // no fallaba — RLS no encontraba la fila, afectaba 0 filas y Supabase lo
+  // reportaba como éxito. El bus nunca pasaba a 'en_ruta'. La RPC (SECURITY
+  // DEFINER, acotada a la columna estado y a buses propios) sí devuelve error
+  // cuando el bus no es de este chofer. Ver 20260821000000.
   async updateBusStatus(busId: string, estado: string) {
-    const { error } = await this.supabase.from('buses').update({ estado }).eq('id', busId);
+    const { error } = await this.supabase.rpc('chofer_set_bus_estado', {
+      p_bus_id: busId,
+      p_estado: estado,
+    });
     if (error) throw error;
   }
 
