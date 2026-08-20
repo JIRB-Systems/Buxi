@@ -345,9 +345,9 @@
               <div class="row-main">
                 <strong>{{ $any(e.autor)?.nombre_completo || 'Chofer' }}</strong>
                 <span class="muted small">{{ e.created_at | date:'medium' }}</span>
-                <a class="emergencia-ubicacion" *ngIf="getUbicacionUrl(e) as url" [href]="url" target="_blank" rel="noopener">
-                  <ion-icon name="location-outline"></ion-icon> Ver ubicación
-                </a>
+                <span class="emergencia-ubicacion" *ngIf="getEmergenciaCoords(e)" (click)="verEmergenciaEnMapa(e)">
+                  <ion-icon name="map-outline"></ion-icon> Ver en el mapa
+                </span>
               </div>
               <span class="status-tag" [style.background]="e.estado==='resuelto' ? '#00c853' : '#ff5449'">
                 {{ e.estado==='resuelto' ? 'Resuelta' : 'Pendiente' }}

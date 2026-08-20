@@ -150,6 +150,39 @@
     &.stale { background: #4a3418; color: #ffc107; }
   }
   .emp-bus-marker:hover .emp-bus-label { opacity: 1; visibility: visible; }
+
+  // ---- Emergencias (botón de pánico) ----
+  .emp-emergency-marker {
+    position: absolute; top: 0; left: 0; will-change: transform;
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .emp-emergency-icon {
+    position: relative; z-index: 1;
+    width: 28px; height: 28px; background: #ff5449; border-radius: 50%;
+    border: 2px solid #fff; display: grid; place-items: center;
+    box-shadow: 0 2px 8px rgba(255,84,73,0.5);
+    color: #fff; font-size: 15px; font-weight: 800; line-height: 1;
+  }
+  .emp-emergency-pulse {
+    position: absolute; top: 50%; left: 50%;
+    width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%;
+    background: rgba(255, 84, 73, 0.45);
+    animation: emergency-pulse 1.6s ease-out infinite;
+  }
+  .emp-emergency-label {
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    white-space: nowrap; background: #2a0e0c; color: #ffb3ad;
+    border: 1px solid rgba(255,84,73,0.4);
+    border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); pointer-events: none;
+    opacity: 0; visibility: hidden; transition: opacity 0.12s ease;
+  }
+  .emp-emergency-marker:hover .emp-emergency-label { opacity: 1; visibility: visible; }
+}
+
+@keyframes emergency-pulse {
+  0% { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
 
 .edit-ruta-banner {
@@ -261,7 +294,7 @@
 .emergencia-ubicacion {
   display: inline-flex; align-items: center; gap: 4px;
   margin-top: 6px; font-size: 12px; font-weight: 600;
-  color: #4da3ff; text-decoration: none;
+  color: #4da3ff; text-decoration: none; cursor: pointer;
   ion-icon { font-size: 14px; }
   &:hover { text-decoration: underline; }
 }

@@ -131,6 +131,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private rutaSourceIds: string[] = [];
   private rutaLayerIds: string[] = [];
   private rutaMarkers: maplibregl.Marker[] = [];
+  private emergencyMarkers: maplibregl.Marker[] = [];
   private mapClickHandler: ((e: maplibregl.MapMouseEvent) => void) | null = null;
 
   private readonly STALE_MS = 45000;
@@ -263,6 +264,23 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     return r.descripcion.match(/https:\/\/maps\.google\.com\/\?q=[\d.,-]+/)?.[0] || null;
   }
 
+  // El botón de pánico guarda "...q=lat,lng" dentro de la descripción; en vez
+  // de mandar a la empresa a Google Maps, se saca lat/lng de ahí para
+  // ubicarla directo en nuestro propio mapa, junto a los buses.
+  getEmergenciaCoords(r: ReporteBug): [number, number] | null {
+    const m = r.descripcion.match(/q=(-?[\d.]+),(-?[\d.]+)/);
+    if (!m) return null;
+    return [parseFloat(m[1]), parseFloat(m[2])];
+  }
+
+  async verEmergenciaEnMapa(r: ReporteBug) {
+    const coords = this.getEmergenciaCoords(r);
+    if (!coords) return;
+    this.focusTarget = coords;
+    this.activeTab = 'mapa';
+    setTimeout(() => this.initLiveMap(), 150);
+  }
+
   async resolverEmergencia(r: ReporteBug) {
     try {
       await this.admin.resolverEmergencia(r.id);
@@ -351,6 +369,10 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
   // ---- LIVE MAP ----
+  // Coordenadas [lat, lng] pendientes de centrar la próxima vez que se abra
+  // el mapa (ver verEmergenciaEnMapa): se consume una sola vez.
+  private focusTarget: [number, number] | null = null;
+
   private async initLiveMap() {
     const elId = this.activeTab === 'mapa' ? 'emp-map-full' : 'emp-map-mini';
     const el = document.getElementById(elId);
@@ -358,10 +380,12 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     if (this.liveMap) { this.liveMap.remove(); this.liveMap = null; }
 
     const isFull = this.activeTab === 'mapa';
+    const focus = this.focusTarget;
+    this.focusTarget = null;
     const map = await createMap({
       container: elId,
-      center: [-84.0907, 9.9281],
-      zoom: 11,
+      center: focus ? [focus[1], focus[0]] : [-84.0907, 9.9281],
+      zoom: focus ? 15 : 11,
       // Mismo estilo "rico" que el mapa de pasajero (edificios 3D, relieve,
       // cielo, íconos de POI) en vez del `dataviz-dark` plano: la empresa
       // quiere reconocer el mismo mapa, no una versión "pelada" de panel.
@@ -381,6 +405,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.liveMarkers.clear();
     this.liveMarkersLastSeen.clear();
     this.clearRutaLayers();
+    this.drawEmergencyMarkers();
 
     // Subscribe to realtime
     if (!this.realtimeChannel) {
@@ -618,6 +643,33 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   private busMarkerHtml(): string {
     return `<div class="emp-bus-icon"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div><div class="emp-bus-label"></div>`;
+  }
+
+  // ---- MARCADORES DE EMERGENCIA EN EL MAPA ----
+  // El botón de pánico del chofer ya manda la ubicación; en vez de que la
+  // empresa tenga que abrir Google Maps aparte, las emergencias pendientes
+  // se dibujan directo sobre el mismo mapa donde ya ve los buses.
+  private drawEmergencyMarkers() {
+    if (!this.liveMap) return;
+    this.emergencyMarkers.forEach(m => m.remove());
+    this.emergencyMarkers = [];
+
+    const pendientes = this.emergencias.filter(e => e.estado === 'pendiente');
+    for (const em of pendientes) {
+      const coords = this.getEmergenciaCoords(em);
+      if (!coords) continue;
+      const nombre = em.autor?.nombre_completo || 'Chofer';
+      const el = htmlMarkerEl('emp-emergency-marker', this.emergencyMarkerHtml(nombre));
+      el.addEventListener('click', () => this.switchTab('emergencias'));
+      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([coords[1], coords[0]])
+        .addTo(this.liveMap);
+      this.emergencyMarkers.push(marker);
+    }
+  }
+
+  private emergencyMarkerHtml(nombre: string): string {
+    return `<div class="emp-emergency-pulse"></div><div class="emp-emergency-icon">!</div><div class="emp-emergency-label">${nombre} · Emergencia</div>`;
   }
 
   private refreshMarkerTooltip(busId: string, marker: maplibregl.Marker, stale: boolean) {
