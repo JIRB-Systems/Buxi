@@ -405,7 +405,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.liveMarkers.clear();
     this.liveMarkersLastSeen.clear();
     this.clearRutaLayers();
-    this.drawEmergencyMarkers(!!focus);
+    this.drawEmergencyMarkers();
 
     // Subscribe to realtime
     if (!this.realtimeChannel) {
@@ -428,7 +428,16 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.drawAllRutaPaths();
     }
 
-    setTimeout(() => this.liveMap?.resize(), 200);
+    // El fitBounds de las emergencias tiene que calcularse DESPUÉS del
+    // resize(), no antes: el mapa recién se creó y su contenedor puede no
+    // tener todavía el tamaño final (la pestaña/layout se está acomodando),
+    // así que un fitBounds inmediato calcula la cámara contra un tamaño
+    // equivocado -- por eso una emergencia terminaba mostrándose fuera del
+    // mapa, montada sobre la barra superior en vez de encuadrada adentro.
+    setTimeout(() => {
+      this.liveMap?.resize();
+      if (!focus) this.fitEmergencyBounds();
+    }, 200);
   }
 
   private clearRutaLayers() {
@@ -649,17 +658,15 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   // El botón de pánico del chofer ya manda la ubicación; en vez de que la
   // empresa tenga que abrir Google Maps aparte, las emergencias pendientes
   // se dibujan directo sobre el mismo mapa donde ya ve los buses.
-  private drawEmergencyMarkers(skipAutoFit = false) {
+  private drawEmergencyMarkers() {
     if (!this.liveMap) return;
     this.emergencyMarkers.forEach(m => m.remove());
     this.emergencyMarkers = [];
 
     const pendientes = this.emergencias.filter(e => e.estado === 'pendiente');
-    const coordsList: [number, number][] = [];
     for (const em of pendientes) {
       const coords = this.getEmergenciaCoords(em);
       if (!coords) continue;
-      coordsList.push(coords);
       const nombre = em.autor?.nombre_completo || 'Chofer';
       const el = htmlMarkerEl('emp-emergency-marker', this.emergencyMarkerHtml(nombre));
       el.addEventListener('click', () => this.switchTab('emergencias'));
@@ -672,16 +679,25 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         .addTo(this.liveMap);
       this.emergencyMarkers.push(marker);
     }
+  }
 
-    // Si hay emergencias pendientes y no se pidió centrar en una puntual
-    // (verEmergenciaEnMapa), encuadra el mapa para que todas queden a la
-    // vista -- si no, el centro por defecto (San José) las deja fuera de la
-    // pantalla sin ningún aviso de que existen.
-    if (coordsList.length > 0 && !skipAutoFit) {
-      const bounds = new maplibregl.LngLatBounds();
-      coordsList.forEach(([lat, lng]) => bounds.extend([lng, lat]));
-      this.liveMap.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 0 });
-    }
+  // Separado de drawEmergencyMarkers a propósito: tiene que correr DESPUÉS
+  // de liveMap.resize() (ver initLiveMap), cuando el contenedor ya tiene su
+  // tamaño real. Llamado antes, fitBounds calculaba la cámara contra un
+  // contenedor angosto/alto equivocado y una emergencia terminaba
+  // renderizada fuera del recuadro del mapa, montada sobre la barra
+  // superior de la página.
+  private fitEmergencyBounds() {
+    if (!this.liveMap) return;
+    const coordsList = this.emergencias
+      .filter(e => e.estado === 'pendiente')
+      .map(e => this.getEmergenciaCoords(e))
+      .filter((c): c is [number, number] => !!c);
+    if (coordsList.length === 0) return;
+
+    const bounds = new maplibregl.LngLatBounds();
+    coordsList.forEach(([lat, lng]) => bounds.extend([lng, lat]));
+    this.liveMap.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 0 });
   }
 
   private emergencyMarkerHtml(nombre: string): string {
