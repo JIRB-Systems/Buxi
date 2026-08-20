@@ -434,9 +434,19 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     // así que un fitBounds inmediato calcula la cámara contra un tamaño
     // equivocado -- por eso una emergencia terminaba mostrándose fuera del
     // mapa, montada sobre la barra superior en vez de encuadrada adentro.
+    //
+    // Ojo: acá adentro hay que usar la constante local `map`, no
+    // `this.liveMap`. ngOnInit ya dispara un initLiveMap() propio para el
+    // mini-mapa de Inicio 150ms después de cargar, y si el usuario entra a
+    // "Seguimiento en vivo" rápido, ese initLiveMap() y este pueden quedar
+    // corriendo en paralelo: `this.liveMap` termina apuntando al que
+    // resolvió último (no necesariamente el que está en pantalla), y el
+    // resize()/salto de cámara de ESTE mapa se aplicaba al mapa equivocado
+    // -- por eso el mapa visible se quedaba centrado en San José sin moverse
+    // nunca, aunque los marcadores sí se hubieran dibujado bien.
     setTimeout(() => {
-      this.liveMap?.resize();
-      if (!focus) this.fitEmergencyBounds();
+      map.resize();
+      if (!focus) this.fitEmergencyBounds(map);
     }, 200);
   }
 
@@ -682,24 +692,22 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   // Separado de drawEmergencyMarkers a propósito: tiene que correr DESPUÉS
-  // de liveMap.resize() (ver initLiveMap), cuando el contenedor ya tiene su
-  // tamaño real. Llamado antes, fitBounds calculaba la cámara contra un
-  // contenedor angosto/alto equivocado y una emergencia terminaba
-  // renderizada fuera del recuadro del mapa, montada sobre la barra
-  // superior de la página.
-  private fitEmergencyBounds() {
-    if (!this.liveMap) return;
+  // de map.resize() (ver initLiveMap), cuando el contenedor ya tiene su
+  // tamaño real. Recibe el mapa como parámetro (no lee this.liveMap) por la
+  // misma razón que resize() en initLiveMap: para no terminar operando
+  // sobre una instancia de mapa vieja si mientras tanto se disparó otro
+  // initLiveMap().
+  private fitEmergencyBounds(map: maplibregl.Map) {
     const coordsList = this.emergencias
       .filter(e => e.estado === 'pendiente')
       .map(e => this.getEmergenciaCoords(e))
       .filter((c): c is [number, number] => !!c);
     if (coordsList.length === 0) return;
 
-    // fitBounds() no calcula bien el encuadre con el mapa inclinado en 3D
-    // (pitch 50): la cámara se quedaba en el centro por defecto sin moverse
-    // nunca. En vez de pelear con eso, se arma la cámara a mano: centro =
-    // punto medio de las emergencias, zoom aproximado según qué tan
-    // separadas están entre sí.
+    // Cámara armada a mano en vez de fitBounds(): centro = punto medio de
+    // las emergencias, zoom aproximado según qué tan separadas están entre
+    // sí -- más simple de razonar que pelear con fitBounds en un mapa con
+    // pitch 3D.
     const lats = coordsList.map(c => c[0]);
     const lngs = coordsList.map(c => c[1]);
     const minLat = Math.min(...lats), maxLat = Math.max(...lats);
@@ -713,7 +721,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     else if (spread > 0.08) zoom = 11.5;
     else if (spread > 0.03) zoom = 13;
 
-    this.liveMap.jumpTo({ center, zoom });
+    map.jumpTo({ center, zoom });
   }
 
   private emergencyMarkerHtml(nombre: string): string {
