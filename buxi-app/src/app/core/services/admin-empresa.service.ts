@@ -159,6 +159,76 @@ export class AdminEmpresaService {
     if (data?.error) throw new Error(data.error);
   }
 
+  // ---- MI EQUIPO (otras cuentas admin_empresa de la misma empresa) ----
+  // La misma policy que ya deja a admin_empresa crear/editar choferes de su
+  // empresa ("Empresa admin manage own staff profiles") no restringe el rol
+  // que se puede asignar, así que crear/ver/editar un teammate admin_empresa
+  // funciona con el mismo mecanismo, sin migración nueva.
+  async getEquipo(empresaId: string): Promise<UserProfile[]> {
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .select('*')
+      .eq('empresa_id', empresaId)
+      .eq('rol', 'admin_empresa')
+      .order('nombre_completo');
+    if (error) throw error;
+    return data as UserProfile[];
+  }
+
+  async createEquipoMiembro(email: string, password: string, nombre: string, empresaId: string): Promise<void> {
+    const isolated = this.newIsolatedClient();
+    const { data, error } = await isolated.auth.signUp({
+      email, password,
+      options: { data: { nombre_completo: nombre, created_by_admin: true } },
+    });
+    if (error) throw error;
+    if (data.user && data.user.identities?.length === 0) {
+      throw new Error('Ya existe una cuenta con ese correo (con otra contraseña) — usá un correo distinto');
+    }
+    if (data.user) {
+      // Con .select() se puede detectar si el UPDATE quedó bloqueado por
+      // RLS (0 filas, sin error) -- ver el mismo patrón en resolverEmergencia.
+      // Necesita la policy ampliada en 20260820000000_admin_empresa_invita_equipo.sql
+      // (la anterior solo dejaba pasar rol='chofer' como resultado).
+      const { data: updated, error: updError } = await this.supabase
+        .from('profiles')
+        .update({ rol: 'admin_empresa', empresa_id: empresaId })
+        .eq('id', data.user.id)
+        .select('id');
+      if (updError) throw updError;
+      if (!updated || updated.length === 0) {
+        throw new Error('Sin permiso para agregar administradores todavía');
+      }
+    }
+  }
+
+  async updateEquipoMiembro(id: string, updates: Partial<UserProfile>): Promise<void> {
+    const { data, error } = await this.supabase.from('profiles').update(updates).eq('id', id).select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Sin permiso para editar este administrador todavía');
+  }
+
+  // Borrar y resetear contraseña reusan la misma edge function que
+  // choferes (mismo mecanismo, service_role) -- su código fuente ya está
+  // actualizado para aceptar objetivos admin_empresa, pero falta
+  // redesplegarla (sin acceso a Supabase esta sesión), así que estas dos
+  // acciones todavía van a fallar hasta entonces.
+  async deleteEquipoMiembro(id: string): Promise<void> {
+    const { data, error } = await this.supabase.functions.invoke('manage-chofer', {
+      body: { choferId: id, action: 'delete' },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+  }
+
+  async resetEquipoPassword(id: string, newPassword: string): Promise<void> {
+    const { data, error } = await this.supabase.functions.invoke('manage-chofer', {
+      body: { choferId: id, action: 'reset_password', newPassword },
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+  }
+
   // ---- ALERTAS GPS ----
   async getAnomalousLocations(empresaId: string): Promise<BusLocation[]> {
     const { data, error } = await this.supabase

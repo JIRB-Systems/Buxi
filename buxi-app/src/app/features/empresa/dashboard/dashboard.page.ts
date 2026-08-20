@@ -42,11 +42,13 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
     { id: 'planes', icon: 'card-outline', label: 'Planes' },
     { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
+    { id: 'equipo', icon: 'people-circle-outline', label: 'Mi equipo' },
   ];
 
   stats = { buses: 0, rutas: 0, choferes: 0, busesEnRuta: 0 };
   rutas: Ruta[] = [];
   buses: Bus[] = [];
+  equipo: UserProfile[] = [];
   choferes: UserProfile[] = [];
   anomalias: BusLocation[] = [];
   reportes: ReporteBug[] = [];
@@ -165,7 +167,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente, facturas, empresa, viajesRecientes] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente, facturas, empresa, viajesRecientes, equipo] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
@@ -180,6 +182,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.admin.getFacturas(eid),
       this.admin.getEmpresa(eid).catch(() => null),
       this.admin.getViajesRecientes(eid),
+      this.admin.getEquipo(eid).catch(() => []),
     ]);
     this.stats = stats;
     this.rutas = rutas;
@@ -195,6 +198,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.facturas = facturas;
     this.empresa = empresa;
     this.viajesRecientes = viajesRecientes;
+    this.equipo = equipo;
   }
 
   // ---- FACTURAS ----
@@ -982,7 +986,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   // requisito de entrada, se valida antes de llamar a la red, y si falla
   // el diálogo queda abierto (con lo ya escrito) en vez de perderlo.
   private traducirErrorAuth(msg?: string): string {
-    if (!msg) return 'Error creando el chofer';
+    if (!msg) return 'Error creando la cuenta';
     if (msg.includes('Password should contain at least one character of each')) {
       return 'La contraseña necesita mayúscula, minúscula y número';
     }
@@ -994,6 +998,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     }
     if (msg.includes('Unable to validate email') || msg.includes('invalid format')) {
       return 'El correo no es válido';
+    }
+    if (msg.includes('row-level security policy')) {
+      return 'Sin permiso todavía para esta acción';
     }
     return msg;
   }
@@ -1083,6 +1090,94 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
             await this.admin.deleteChofer(c.id);
             await this.loadData();
             this.showToast('Chofer eliminado');
+          } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        }},
+      ],
+    });
+    await alert.present();
+  }
+
+  // ---- MI EQUIPO ----
+  esMiPropiaCuenta(c: UserProfile): boolean {
+    return c.id === this.profile?.id;
+  }
+
+  async addEquipoMiembro() {
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Agregar administrador',
+      message: 'Va a tener el mismo acceso completo al panel que vos. La contraseña temporal debe tener al menos 8 caracteres, con mayúscula, minúscula y número.',
+      inputs: [
+        { name: 'nombre', placeholder: 'Nombre completo', type: 'text' },
+        { name: 'email', placeholder: 'Correo', type: 'email' },
+        { name: 'password', placeholder: 'Contraseña temporal', type: 'password' },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Crear', handler: async (d) => {
+        if (!d.nombre || !d.email || !d.password) return false;
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(d.password)) {
+          this.showToast('La contraseña necesita mayúscula, minúscula, número y al menos 8 caracteres', 'danger');
+          return false;
+        }
+        try {
+          await this.admin.createEquipoMiembro(d.email, d.password, d.nombre, this.profile!.empresa_id!);
+          await this.loadData();
+          this.showToast('Administrador agregado');
+          return true;
+        } catch (e: any) {
+          this.showToast(this.traducirErrorAuth(e?.message), 'danger');
+          return false;
+        }
+      }}],
+    });
+    await alert.present();
+  }
+
+  async editEquipoMiembro(c: UserProfile) {
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Editar administrador',
+      inputs: [
+        { name: 'nombre', placeholder: 'Nombre completo', type: 'text', value: c.nombre_completo },
+        { name: 'telefono', placeholder: 'Teléfono', type: 'tel', value: c.telefono || '' },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
+        if (!d.nombre) return false;
+        try {
+          await this.admin.updateEquipoMiembro(c.id, { nombre_completo: d.nombre, telefono: d.telefono || null });
+          await this.loadData();
+          this.showToast('Administrador actualizado');
+        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  async resetEquipoPassword(c: UserProfile) {
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: `Nueva contraseña para ${c.nombre_completo}`,
+      inputs: [{ name: 'password', placeholder: 'Contraseña nueva (mín. 6 caracteres)', type: 'password' }],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
+        if (!d.password || d.password.length < 6) return false;
+        try {
+          await this.admin.resetEquipoPassword(c.id, d.password);
+          this.showToast('Contraseña actualizada');
+        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  async deleteEquipoMiembro(c: UserProfile) {
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Quitar administrador',
+      message: `¿Quitarle el acceso a "${c.nombre_completo}"? Esto borra su cuenta por completo y no se puede deshacer.`,
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Quitar acceso', role: 'destructive', handler: async () => {
+          try {
+            await this.admin.deleteEquipoMiembro(c.id);
+            await this.loadData();
+            this.showToast('Administrador eliminado');
           } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
         }},
       ],

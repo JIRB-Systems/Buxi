@@ -1,12 +1,16 @@
-// Elimina o resetea la contraseña de un chofer EN NOMBRE del admin de su
-// empresa (o de un admin JIRB). Igual que delete-account, el borrado real de
-// auth.users necesita la service_role key, que nunca puede vivir en el
-// navegador — por eso corre server-to-server acá.
+// Elimina o resetea la contraseña de un chofer, o de otra cuenta
+// admin_empresa de la misma empresa ("mi equipo"), EN NOMBRE del admin de
+// su empresa (o de un admin JIRB). El nombre del archivo quedó de cuando
+// solo manejaba choferes; ahora cubre ambos. Igual que delete-account, el
+// borrado real de auth.users necesita la service_role key, que nunca puede
+// vivir en el navegador — por eso corre server-to-server acá.
 //
 // El id del que llama SIEMPRE se deriva del JWT verificado, nunca del body.
-// El chofer objetivo sí viene en el body, pero se valida contra su propia
-// fila en `profiles` (rol='chofer' y misma empresa que el que llama, salvo
-// que el que llama sea admin_jirb) antes de tocar nada.
+// El objetivo sí viene en el body, pero se valida contra su propia fila en
+// `profiles` (rol='chofer' o 'admin_empresa', y misma empresa que el que
+// llama, salvo que el que llama sea admin_jirb) antes de tocar nada. Un
+// admin_empresa tampoco puede borrarse ni resetearse su propia contraseña
+// a sí mismo por acá.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -73,10 +77,18 @@ Deno.serve(async (req: Request) => {
     .select("rol, empresa_id")
     .eq("id", choferId)
     .single();
-  if (targetError || !target) return jsonError("chofer not found", 404);
-  if (target.rol !== "chofer") return jsonError("target is not a chofer", 403);
+  if (targetError || !target) return jsonError("target not found", 404);
+  if (target.rol !== "chofer" && target.rol !== "admin_empresa") {
+    return jsonError("target is not a chofer or admin_empresa", 403);
+  }
   if (callerProfile.rol === "admin_empresa" && target.empresa_id !== callerProfile.empresa_id) {
-    return jsonError("not authorized for this chofer", 403);
+    return jsonError("not authorized for this target", 403);
+  }
+  // Un admin_empresa gestionando "mi equipo" no puede usarse esto para
+  // borrarse o resetearse su propia contraseña -- ese flujo (si hace falta)
+  // es otro, con otras confirmaciones.
+  if (target.rol === "admin_empresa" && choferId === user.id) {
+    return jsonError("no podés gestionar tu propia cuenta desde acá", 400);
   }
 
   if (action === "delete") {
