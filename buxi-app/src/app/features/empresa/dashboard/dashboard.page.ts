@@ -405,7 +405,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.liveMarkers.clear();
     this.liveMarkersLastSeen.clear();
     this.clearRutaLayers();
-    this.drawEmergencyMarkers();
+    this.drawEmergencyMarkers(!!focus);
 
     // Subscribe to realtime
     if (!this.realtimeChannel) {
@@ -649,22 +649,38 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   // El botón de pánico del chofer ya manda la ubicación; en vez de que la
   // empresa tenga que abrir Google Maps aparte, las emergencias pendientes
   // se dibujan directo sobre el mismo mapa donde ya ve los buses.
-  private drawEmergencyMarkers() {
+  private drawEmergencyMarkers(skipAutoFit = false) {
     if (!this.liveMap) return;
     this.emergencyMarkers.forEach(m => m.remove());
     this.emergencyMarkers = [];
 
     const pendientes = this.emergencias.filter(e => e.estado === 'pendiente');
+    const coordsList: [number, number][] = [];
     for (const em of pendientes) {
       const coords = this.getEmergenciaCoords(em);
       if (!coords) continue;
+      coordsList.push(coords);
       const nombre = em.autor?.nombre_completo || 'Chofer';
       const el = htmlMarkerEl('emp-emergency-marker', this.emergencyMarkerHtml(nombre));
       el.addEventListener('click', () => this.switchTab('emergencias'));
-      const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+      // 'center': el marcador es un círculo sin punta, no un pin con punta
+      // hacia abajo -- con anchor 'bottom' el círculo quedaba flotando ~15px
+      // arriba de la coordenada real, como si no marcara el punto exacto.
+      // Mismo anchor que usan los buses y las paradas en este mismo mapa.
+      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([coords[1], coords[0]])
         .addTo(this.liveMap);
       this.emergencyMarkers.push(marker);
+    }
+
+    // Si hay emergencias pendientes y no se pidió centrar en una puntual
+    // (verEmergenciaEnMapa), encuadra el mapa para que todas queden a la
+    // vista -- si no, el centro por defecto (San José) las deja fuera de la
+    // pantalla sin ningún aviso de que existen.
+    if (coordsList.length > 0 && !skipAutoFit) {
+      const bounds = new maplibregl.LngLatBounds();
+      coordsList.forEach(([lat, lng]) => bounds.extend([lng, lat]));
+      this.liveMap.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 0 });
     }
   }
 
