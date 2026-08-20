@@ -16,6 +16,7 @@ import { HorariosFormComponent } from './horarios-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
 import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/maplibre';
 import { descargarFacturaPDF } from '../../../core/utils/factura-pdf';
+import { descargarReporteMensualPDF } from '../../../core/utils/reporte-mensual-pdf';
 
 @Component({
   selector: 'app-empresa-dashboard',
@@ -204,6 +205,50 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   // ---- FACTURAS ----
   descargarFactura(f: Factura) {
     descargarFacturaPDF(f);
+  }
+
+  // ---- REPORTE MENSUAL (PDF) ----
+  mesReporte = new Date().toISOString().slice(0, 7); // "YYYY-MM", arranca en el mes actual
+  generandoReporte = false;
+
+  private readonly MESES = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ];
+
+  // El input nativo type="month" se queda con la rueda del mouse y cambia
+  // el mes en vez de dejar scrollear la página; desenfocarlo apenas se
+  // detecta la rueda evita eso (mismo fix que ya se usa en Horarios).
+  blurTarget(event: Event) {
+    (event.target as HTMLElement).blur();
+  }
+
+  async descargarReporteMensual() {
+    if (!this.profile?.empresa_id || this.generandoReporte || !this.mesReporte) return;
+    this.generandoReporte = true;
+    try {
+      const [anioStr, mesStr] = this.mesReporte.split('-');
+      const anio = parseInt(anioStr, 10);
+      const mes = parseInt(mesStr, 10); // 1-12
+      const desde = new Date(anio, mes - 1, 1).toISOString();
+      const hasta = new Date(anio, mes, 1).toISOString(); // primer día del mes siguiente, exclusivo
+
+      const [viajes, reportes] = await Promise.all([
+        this.admin.getViajesDelMes(desde, hasta),
+        this.admin.getReportesDelMes(this.profile.empresa_id, desde, hasta),
+      ]);
+
+      descargarReporteMensualPDF({
+        empresa: this.empresa,
+        mesLabel: `${this.MESES[mes - 1]} ${anio}`,
+        viajes,
+        reportes,
+      });
+    } catch (e: any) {
+      this.showToast(e?.message || 'No se pudo generar el reporte', 'danger');
+    } finally {
+      this.generandoReporte = false;
+    }
   }
 
   // ---- PERFIL DE LA EMPRESA ----

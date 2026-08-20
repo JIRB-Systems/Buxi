@@ -9,7 +9,11 @@ export function descargarFacturaPDF(factura: Factura): void {
   const empresaNombre = factura.empresa?.nombre || '';
   const cedula = factura.empresa?.cedula_juridica || 'N/D';
   const planNombre = factura.plan?.nombre || '';
-  const montoTexto = `₡${Number(factura.monto).toLocaleString('es-CR')}`;
+  // "₡" no existe en la codificación estándar (WinAnsi) que usa la fuente
+  // por defecto de jsPDF -- se veía como un signo de exclamación invertido
+  // en el PDF real, no solo en teoría (confirmado abriendo el archivo
+  // generado). "CRC" es el código ISO 4217, siempre se ve bien.
+  const montoTexto = `CRC ${Number(factura.monto).toLocaleString('es-CR')}`;
 
   doc.setFontSize(20);
   doc.setTextColor(0, 200, 83);

@@ -144,6 +144,21 @@
             <div class="tc-empty" *ngIf="tripsChartTotal === 0">Sin viajes registrados esta semana</div>
           </div>
 
+          <!-- Reporte mensual -->
+          <div class="card reporte-mensual-card">
+            <div class="card-header">
+              <h3>Reporte mensual</h3>
+            </div>
+            <p class="page-hint">Viajes, kilómetros, emergencias e ingresos estimados del mes que elijas, en un PDF.</p>
+            <div class="rm-controls">
+              <input type="month" [(ngModel)]="mesReporte" (wheel)="blurTarget($event)" />
+              <ion-button [disabled]="generandoReporte" (click)="descargarReporteMensual()">
+                <ion-icon [name]="generandoReporte ? 'hourglass-outline' : 'download-outline'" slot="start"></ion-icon>
+                {{ generandoReporte ? 'Generando…' : 'Descargar PDF' }}
+              </ion-button>
+            </div>
+          </div>
+
           <!-- Map + Info row -->
           <div class="grid-2">
             <div class="card map-card">

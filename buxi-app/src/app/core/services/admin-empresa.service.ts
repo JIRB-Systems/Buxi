@@ -447,4 +447,29 @@ export class AdminEmpresaService {
     if (error) return [];
     return data as Viaje[];
   }
+
+  // ---- REPORTE MENSUAL (PDF) ----
+  // `desde`/`hasta` en formato ISO (hasta es exclusivo). El RLS de viajes ya
+  // scopea a los buses de esta empresa solo, no hace falta filtrar por
+  // empresa_id acá.
+  async getViajesDelMes(desde: string, hasta: string): Promise<(Viaje & { ruta?: { nombre: string; precio: number | null } })[]> {
+    const { data, error } = await this.supabase
+      .from('viajes')
+      .select('id, distancia_km, estado, inicio, ruta:rutas(nombre, precio)')
+      .gte('inicio', desde)
+      .lt('inicio', hasta);
+    if (error) return [];
+    return data as any;
+  }
+
+  async getReportesDelMes(empresaId: string, desde: string, hasta: string): Promise<ReporteBug[]> {
+    const { data, error } = await this.supabase
+      .from('reportes_bugs')
+      .select('id, titulo, estado, created_at')
+      .eq('empresa_id', empresaId)
+      .gte('created_at', desde)
+      .lt('created_at', hasta);
+    if (error) return [];
+    return data as ReporteBug[];
+  }
 }
