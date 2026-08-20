@@ -150,47 +150,12 @@
     &.stale { background: #4a3418; color: #ffc107; }
   }
   .emp-bus-marker:hover .emp-bus-label { opacity: 1; visibility: visible; }
-
-  // ---- Emergencias (botón de pánico) ----
-  .emp-emergency-marker {
-    position: absolute; top: 0; left: 0; will-change: transform;
-    display: grid; place-items: center; cursor: pointer;
-  }
-  .emp-emergency-icon {
-    position: relative; z-index: 1;
-    width: 28px; height: 28px; background: #ff5449; border-radius: 50%;
-    border: 2px solid #fff; display: grid; place-items: center;
-    box-shadow: 0 2px 8px rgba(255,84,73,0.5);
-    color: #fff; font-size: 15px; font-weight: 800; line-height: 1;
-  }
-  // Sin transform acá a propósito (ni scale ni translate): MapLibre ya le
-  // pone su propio transform 3D al marcador para ubicarlo en el mapa
-  // inclinado (pitch 50), y un transform animado en un hijo rompía ese
-  // cálculo -- el marcador entero terminaba centrado ~900px arriba de
-  // donde debía, aunque el mapa sí estaba centrado bien. El anillo se anima
-  // con width/height/margin (que no tocan transform) en vez de scale().
-  .emp-emergency-pulse {
-    position: absolute; top: 50%; left: 50%;
-    width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%;
-    background: rgba(255, 84, 73, 0.45);
-    animation: emergency-pulse 1.6s ease-out infinite;
-  }
-  .emp-emergency-label {
-    position: absolute; bottom: calc(100% + 6px); left: 0; right: 0; margin: 0 auto;
-    width: max-content;
-    white-space: nowrap; background: #2a0e0c; color: #ffb3ad;
-    border: 1px solid rgba(255,84,73,0.4);
-    border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3); pointer-events: none;
-    opacity: 0; visibility: hidden; transition: opacity 0.12s ease;
-  }
-  .emp-emergency-marker:hover .emp-emergency-label { opacity: 1; visibility: visible; }
 }
 
-@keyframes emergency-pulse {
-  0% { width: 28px; height: 28px; margin: -14px 0 0 -14px; opacity: 0.8; }
-  100% { width: 62px; height: 62px; margin: -31px 0 0 -31px; opacity: 0; }
-}
+// Las emergencias en el mapa ya no son maplibregl.Marker (DOM) sino una
+// capa nativa circle/symbol -- ver drawEmergencyMarkers en dashboard.page.ts
+// para el porqué (bug de MapLibre con Marker + terreno 3D). Se pintan y se
+// estilan enteramente por código (paint properties), no por CSS.
 
 .edit-ruta-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

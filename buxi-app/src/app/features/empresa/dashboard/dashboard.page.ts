@@ -131,7 +131,6 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private rutaSourceIds: string[] = [];
   private rutaLayerIds: string[] = [];
   private rutaMarkers: maplibregl.Marker[] = [];
-  private emergencyMarkers: maplibregl.Marker[] = [];
   private mapClickHandler: ((e: maplibregl.MapMouseEvent) => void) | null = null;
 
   private readonly STALE_MS = 45000;
@@ -405,7 +404,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.liveMarkers.clear();
     this.liveMarkersLastSeen.clear();
     this.clearRutaLayers();
-    this.drawEmergencyMarkers();
+    this.drawEmergencyMarkers(map);
 
     // Subscribe to realtime
     if (!this.realtimeChannel) {
@@ -668,27 +667,68 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   // El botón de pánico del chofer ya manda la ubicación; en vez de que la
   // empresa tenga que abrir Google Maps aparte, las emergencias pendientes
   // se dibujan directo sobre el mismo mapa donde ya ve los buses.
-  private drawEmergencyMarkers() {
-    if (!this.liveMap) return;
-    this.emergencyMarkers.forEach(m => m.remove());
-    this.emergencyMarkers = [];
+  //
+  // Van como capa nativa (fuente GeoJSON + circle/symbol), NO como
+  // maplibregl.Marker: confirmado con el navegador real que Marker consulta
+  // la elevación del terreno para ubicarse (el mapa tiene terreno 3D
+  // activado, ver enable3D) y esa consulta es un bug conocido de MapLibre
+  // (github.com/maplibre/maplibre-gl-js/issues/6701, valores de elevación
+  // muy alejados de la realidad) -- el marcador terminaba proyectado a
+  // cientos de píxeles de donde debía, aunque la cámara sí estaba bien
+  // centrada. Una capa de circle no pasa por ese camino de terreno.
+  private readonly EMERGENCY_SRC = 'emergency-points';
+  private readonly EMERGENCY_CIRCLE_LAYER = 'emergency-points-circle';
+  private readonly EMERGENCY_LABEL_LAYER = 'emergency-points-label';
 
-    const pendientes = this.emergencias.filter(e => e.estado === 'pendiente');
-    for (const em of pendientes) {
-      const coords = this.getEmergenciaCoords(em);
-      if (!coords) continue;
-      const nombre = em.autor?.nombre_completo || 'Chofer';
-      const el = htmlMarkerEl('emp-emergency-marker', this.emergencyMarkerHtml(nombre));
-      el.addEventListener('click', () => this.switchTab('emergencias'));
-      // 'center': el marcador es un círculo sin punta, no un pin con punta
-      // hacia abajo -- con anchor 'bottom' el círculo quedaba flotando ~15px
-      // arriba de la coordenada real, como si no marcara el punto exacto.
-      // Mismo anchor que usan los buses y las paradas en este mismo mapa.
-      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([coords[1], coords[0]])
-        .addTo(this.liveMap);
-      this.emergencyMarkers.push(marker);
+  private drawEmergencyMarkers(map: maplibregl.Map) {
+    if (!map.isStyleLoaded()) return;
+
+    const features = this.emergencias
+      .filter(e => e.estado === 'pendiente')
+      .map(em => {
+        const coords = this.getEmergenciaCoords(em);
+        if (!coords) return null;
+        return {
+          type: 'Feature' as const,
+          properties: { nombre: em.autor?.nombre_completo || 'Chofer' },
+          geometry: { type: 'Point' as const, coordinates: [coords[1], coords[0]] },
+        };
+      })
+      .filter((f): f is NonNullable<typeof f> => !!f);
+    const geojson = { type: 'FeatureCollection' as const, features };
+
+    const existingSrc = map.getSource(this.EMERGENCY_SRC) as maplibregl.GeoJSONSource | undefined;
+    if (existingSrc) {
+      existingSrc.setData(geojson as any);
+      return;
     }
+
+    try {
+      map.addSource(this.EMERGENCY_SRC, { type: 'geojson', data: geojson as any });
+      map.addLayer({
+        id: this.EMERGENCY_CIRCLE_LAYER, type: 'circle', source: this.EMERGENCY_SRC,
+        paint: {
+          'circle-radius': 12,
+          'circle-color': '#ff5449',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-pitch-alignment': 'viewport',
+        },
+      });
+      map.addLayer({
+        id: this.EMERGENCY_LABEL_LAYER, type: 'symbol', source: this.EMERGENCY_SRC,
+        layout: {
+          'text-field': '!',
+          'text-size': 14,
+          'text-allow-overlap': true,
+          'text-pitch-alignment': 'viewport',
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
+      map.on('click', this.EMERGENCY_CIRCLE_LAYER, () => this.switchTab('emergencias'));
+      map.on('mouseenter', this.EMERGENCY_CIRCLE_LAYER, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', this.EMERGENCY_CIRCLE_LAYER, () => { map.getCanvas().style.cursor = ''; });
+    } catch { /* el mapa sigue usable sin estos marcadores */ }
   }
 
   // Separado de drawEmergencyMarkers a propósito: tiene que correr DESPUÉS
@@ -722,10 +762,6 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     else if (spread > 0.03) zoom = 13;
 
     map.jumpTo({ center, zoom });
-  }
-
-  private emergencyMarkerHtml(nombre: string): string {
-    return `<div class="emp-emergency-pulse"></div><div class="emp-emergency-icon">!</div><div class="emp-emergency-label">${nombre} · Emergencia</div>`;
   }
 
   private refreshMarkerTooltip(busId: string, marker: maplibregl.Marker, stale: boolean) {
