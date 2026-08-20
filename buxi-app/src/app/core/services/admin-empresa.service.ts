@@ -200,9 +200,14 @@ export class AdminEmpresaService {
   // separado en su propia sección: se pierde entre los "Atraso"/"Bus
   // averiado" de la lista general y necesita verse de inmediato.
   async getEmergencias(empresaId: string): Promise<ReporteBug[]> {
+    // reportes_bugs tiene dos FK hacia profiles (autor_id y respondido_por),
+    // así que "profiles" solo no alcanza -- PostgREST no puede adivinar cuál
+    // de las dos usar y devuelve error (PGRST201) en vez de datos. Hay que
+    // nombrar la FK explícita. Esto tumbaba TODO el panel de empresa: esta
+    // consulta va en el mismo Promise.all que choferes/buses/rutas.
     const { data, error } = await this.supabase
       .from('reportes_bugs')
-      .select('*, autor:profiles(nombre_completo)')
+      .select('*, autor:profiles!reportes_bugs_autor_id_fkey(nombre_completo)')
       .eq('empresa_id', empresaId)
       .eq('titulo', 'Emergencia')
       .order('created_at', { ascending: false });
