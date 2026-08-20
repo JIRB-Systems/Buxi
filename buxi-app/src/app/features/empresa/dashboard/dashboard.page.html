@@ -17,9 +17,9 @@
         <div class="nav-link" *ngFor="let item of menuItems" [class.active]="activeTab===item.id" (click)="switchTab(item.id)">
           <ion-icon [name]="activeTab===item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
           <span *ngIf="sidebarOpen">{{ item.label }}</span>
-          <span class="nav-badge" *ngIf="item.id==='emergencias' && emergenciasPendientes > 0">{{ emergenciasPendientes }}</span>
-          <span class="nav-badge" *ngIf="item.id==='reportes' && reportesPendientes > 0">{{ reportesPendientes }}</span>
-          <span class="nav-badge" *ngIf="item.id==='planes' && planesBadge > 0">{{ planesBadge }}</span>
+          <span class="nav-badge" *ngIf="item.id==='emergencias' && emergenciasPendientes > 0">{{ emergenciasPendientes > 9 ? '9+' : emergenciasPendientes }}</span>
+          <span class="nav-badge warn" *ngIf="item.id==='reportes' && reportesPendientes > 0">{{ reportesPendientes > 9 ? '9+' : reportesPendientes }}</span>
+          <span class="nav-badge info" *ngIf="item.id==='planes' && planesBadge > 0">{{ planesBadge > 9 ? '9+' : planesBadge }}</span>
         </div>
       </nav>
 

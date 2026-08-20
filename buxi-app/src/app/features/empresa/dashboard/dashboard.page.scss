@@ -36,6 +36,10 @@
   &.logout { color: var(--ion-color-danger); }
 }
 
+// Rojo reservado para lo que es urgente de verdad (Emergencias). Reportes y
+// Planes son backlog/estado, no una alarma -- pintarlos igual de rojo hacía
+// que las tres pestañas se leyeran como "todo está en llamas" al mismo
+// tiempo, cuando solo una lo está.
 .nav-badge {
   margin-left: auto;
   background: #ff5449;
@@ -44,6 +48,9 @@
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 9px;
   display: flex; align-items: center; justify-content: center;
+
+  &.warn { background: #ff9800; }
+  &.info { background: #2196f3; }
 }
 
 // ====== MAIN ======
