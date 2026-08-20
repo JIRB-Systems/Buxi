@@ -5,7 +5,12 @@
   --padding-end: 0;
 }
 
+// inset:0 + scrollY=false en el ion-content, igual que #map del pasajero.
+// Sin esto el ion-content scrollea (los paneles absolutos le suman altura) y
+// el topbar -- unica entrada al perfil y a cerrar sesion -- se va de pantalla.
 #chofer-map {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   z-index: 1;
@@ -71,6 +76,24 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .no-bus { color: #ff6659; }
+}
+
+// Unica pista visible de que hay un menu detras. El avatar tambien abre el
+// panel, pero un avatar no se lee como boton: al mover cerrar sesion adentro
+// del panel, el chofer se quedaba sin forma evidente de salir.
+.tb-menu {
+  width: 36px; height: 36px;
+  flex-shrink: 0;
+  margin-left: 2px;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.11);
+  transition: background 0.16s ease;
+  &:active { background: rgba(255,255,255,0.15); }
+
+  ion-icon { font-size: 19px; color: #cfe0f5; }
 }
 
 // ---- ESTADO DE TRANSMISIÓN ----

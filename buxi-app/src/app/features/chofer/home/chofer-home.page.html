@@ -1,4 +1,4 @@
-<ion-content [fullscreen]="true" class="chofer-content">
+<ion-content [fullscreen]="true" class="chofer-content" [scrollY]="false">
 
   <div id="chofer-map"></div>
 
@@ -13,6 +13,12 @@
         <strong>{{ profile?.nombre_completo || 'Chofer' }}</strong>
         <span *ngIf="assignedBus">{{ assignedBus.placa }} · {{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
         <span *ngIf="!assignedBus" class="no-bus">Sin bus asignado</span>
+      </div>
+      <!-- El chofer no tiene dock (el pasajero llega al perfil por ahi), asi
+           que sin este boton el panel -- y con el, cerrar sesion -- solo se
+           abria tocando el avatar, que no parece tocable. -->
+      <div class="tb-menu" (click)="toggleProfilePanel()" role="button" aria-label="Menu">
+        <ion-icon name="menu"></ion-icon>
       </div>
     </div>
   </div>
