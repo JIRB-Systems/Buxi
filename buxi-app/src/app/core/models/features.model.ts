@@ -91,6 +91,7 @@ export interface Suscripcion {
   estado: 'activa' | 'vencida' | 'cancelada' | 'prueba';
   auto_renovar: boolean;
   plan?: Plan;
+  empresa?: { nombre: string };
 }
 
 export interface SolicitudPlan {

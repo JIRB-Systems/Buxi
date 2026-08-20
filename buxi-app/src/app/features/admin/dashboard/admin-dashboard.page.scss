@@ -383,6 +383,19 @@
   ion-icon { color: #00c853; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
 }
 
+.emergencia-row {
+  background: rgba(255, 84, 73, 0.06);
+  border-radius: 10px;
+  &.resuelto { background: none; opacity: 0.6; }
+}
+.emergencia-ubicacion {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 4px; font-size: 12px; font-weight: 600;
+  color: #4da3ff; text-decoration: none;
+  ion-icon { font-size: 14px; }
+  &:hover { text-decoration: underline; }
+}
+
 // ====== PLAN BADGE ======
 .plan-badge {
   display: inline-block; font-size: 10px; font-weight: 700; color: #fff;

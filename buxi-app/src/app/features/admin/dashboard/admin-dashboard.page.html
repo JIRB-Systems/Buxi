@@ -35,6 +35,7 @@
             <ion-icon [name]="activeTab === item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
             <span *ngIf="sidebarOpen">{{ item.label }}</span>
             <span class="nav-badge" *ngIf="item.id === 'solicitudes' && pendingSolicitudes > 0">{{ pendingSolicitudes }}</span>
+            <span class="nav-badge" *ngIf="item.id === 'emergencias' && pendingEmergenciasJirb > 0">{{ pendingEmergenciasJirb > 9 ? '9+' : pendingEmergenciasJirb }}</span>
           </div>
         </div>
       </nav>
@@ -400,11 +401,40 @@
             </div>
           </div>
 
+          <!-- ========== EMERGENCIAS (todas las empresas) ========== -->
+          <!-- Separado de Reportes a propósito: el botón de pánico de cualquier
+               chofer de cualquier empresa se perdía entre "Atraso"/"Bus
+               averiado" -- mismo problema que ya se resolvió en el panel de
+               empresa, acá a nivel de toda la plataforma. -->
+          <div *ngIf="activeTab==='emergencias'" class="section">
+            <div class="panel">
+              <div class="panel-header"><h3>Emergencias ({{ pendingEmergenciasJirb }} pendientes)</h3></div>
+              <div class="table-row reporte-row emergencia-row" *ngFor="let r of emergenciasJirb" [class.resuelto]="r.estado==='resuelto'">
+                <div class="reporte-info">
+                  <strong>{{ $any(r.empresa)?.nombre || '-' }}</strong>
+                  <span class="muted">{{ r.created_at | date:'medium' }}</span>
+                  <a *ngIf="getUbicacionUrl(r) as url" [href]="url" target="_blank" rel="noopener" class="emergencia-ubicacion">
+                    <ion-icon name="location-outline"></ion-icon> Ver ubicación
+                  </a>
+                  <div class="reporte-respuesta" *ngIf="r.respuesta_jirb">
+                    <ion-icon name="chatbox-ellipses-outline"></ion-icon>
+                    <span>{{ r.respuesta_jirb }}</span>
+                  </div>
+                </div>
+                <span class="badge" [style.color]="getReporteEstadoColor(r.estado)">{{ getReporteEstadoLabel(r.estado) }}</span>
+                <span class="col-sm actions">
+                  <ion-icon name="chatbox-outline" (click)="responderReporte(r)" title="Responder"></ion-icon>
+                </span>
+              </div>
+              <div class="empty" *ngIf="emergenciasJirb.length===0">No hay emergencias registradas</div>
+            </div>
+          </div>
+
           <!-- ========== REPORTES DE BUGS ========== -->
           <div *ngIf="activeTab==='reportes'" class="section">
             <div class="panel">
               <div class="panel-header"><h3>Reportes de empresas ({{ pendingReportes }} pendientes)</h3></div>
-              <div class="table-row reporte-row" *ngFor="let r of reportes">
+              <div class="table-row reporte-row" *ngFor="let r of reportesNoEmergencia">
                 <div class="reporte-info">
                   <strong>{{ r.titulo }}</strong>
                   <span class="muted">{{ $any(r.empresa)?.nombre || '-' }} · {{ r.created_at | date:'medium' }}</span>
@@ -419,7 +449,7 @@
                   <ion-icon name="chatbox-outline" (click)="responderReporte(r)" title="Responder"></ion-icon>
                 </span>
               </div>
-              <div class="empty" *ngIf="reportes.length===0">No hay reportes de empresas</div>
+              <div class="empty" *ngIf="reportesNoEmergencia.length===0">No hay reportes de empresas</div>
             </div>
           </div>
 
@@ -584,13 +614,34 @@
                 <span class="col-expand">Empresa</span><span class="col-md">Plan</span><span class="col-md">Inicio</span><span class="col-md">Vence</span><span class="col-sm">Estado</span>
               </div>
               <div class="table-row" *ngFor="let s of suscripciones">
-                <span class="col-expand muted">{{ s.empresa_id }}</span>
+                <span class="col-expand">{{ $any(s.empresa)?.nombre || s.empresa_id }}</span>
                 <span class="col-md"><span class="plan-badge" [style.background]="$any(s.plan)?.nombre==='Enterprise'?'#ff5722':$any(s.plan)?.nombre==='Pro'?'#9c27b0':'#2196f3'">{{ $any(s.plan)?.nombre }}</span></span>
                 <span class="col-md muted">{{ s.fecha_inicio | date:'shortDate' }}</span>
                 <span class="col-md muted">{{ s.fecha_fin ? (s.fecha_fin | date:'shortDate') : 'Indefinida' }}</span>
                 <span class="col-sm"><span class="badge" [style.color]="s.estado==='activa'?'#00c853':s.estado==='vencida'?'#f44336':'#ff9800'">{{ s.estado }}</span></span>
               </div>
               <div class="empty" *ngIf="suscripciones.length===0">No hay suscripciones</div>
+            </div>
+          </div>
+
+          <!-- ========== FACTURAS ========== -->
+          <div *ngIf="activeTab==='facturas'" class="section">
+            <div class="panel">
+              <div class="panel-header"><h3>Facturas emitidas</h3></div>
+              <div class="table-header">
+                <span class="col-md">N.°</span><span class="col-expand">Empresa</span><span class="col-md">Plan</span><span class="col-md">Fecha</span><span class="col-sm">Monto</span><span class="col-sm"></span>
+              </div>
+              <div class="table-row" *ngFor="let f of facturas">
+                <span class="col-md">{{ f.numero }}</span>
+                <span class="col-expand">{{ $any(f.empresa)?.nombre || '-' }}</span>
+                <span class="col-md muted">{{ $any(f.plan)?.nombre }}</span>
+                <span class="col-md muted">{{ f.fecha | date:'shortDate' }}</span>
+                <span class="col-sm">₡{{ f.monto | number:'1.0-0' }}</span>
+                <span class="col-sm actions">
+                  <ion-icon name="download-outline" (click)="descargarFacturaJirb(f)" title="Descargar PDF"></ion-icon>
+                </span>
+              </div>
+              <div class="empty" *ngIf="facturas.length===0">Todavía no se ha emitido ninguna factura</div>
             </div>
           </div>
 

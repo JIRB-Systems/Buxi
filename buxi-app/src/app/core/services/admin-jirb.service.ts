@@ -303,7 +303,7 @@ export class AdminJirbService {
   async getSuscripciones(): Promise<Suscripcion[]> {
     const { data, error } = await this.supabase
       .from('suscripciones')
-      .select('*, plan:planes(nombre, max_buses, max_rutas, precio_mensual)')
+      .select('*, plan:planes(nombre, max_buses, max_rutas, precio_mensual), empresa:empresas(nombre)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data as Suscripcion[];
@@ -359,6 +359,20 @@ export class AdminJirbService {
       .single();
     if (error) throw error;
     return data as Factura;
+  }
+
+  // getFacturas() devuelve [] si la tabla no existe todavía (migración
+  // pendiente de aplicar) en vez de tirar el error hacia arriba -- esta
+  // consulta va en el mismo Promise.all que el resto del dashboard, y ya
+  // aprendimos con el panel de empresa lo que pasa si una sola de esas
+  // consultas revienta ahí adentro.
+  async getFacturas(): Promise<Factura[]> {
+    const { data, error } = await this.supabase
+      .from('facturas')
+      .select('*, plan:planes(nombre), empresa:empresas(nombre, cedula_juridica)')
+      .order('fecha', { ascending: false });
+    if (error) return [];
+    return data as Factura[];
   }
 
   // ---- CREAR ADMIN EMPRESA ----

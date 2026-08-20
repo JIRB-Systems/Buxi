@@ -11,13 +11,14 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminJirbService } from '../../../core/services/admin-jirb.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
-import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan } from '../../../core/models/features.model';
+import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan, Factura } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
 import { createMap, htmlMarkerEl, circlePolygon, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 import type { Feature, LineString } from 'geojson';
 import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
 import { AnuncioFormComponent } from './anuncio-form.component';
+import { descargarFacturaPDF } from '../../../core/utils/factura-pdf';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -85,6 +86,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     {
       label: 'CONTROL',
       items: [
+        { id: 'emergencias', icon: 'alert-circle-outline', label: 'Emergencias' },
         { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
         { id: 'alertas', icon: 'warning-outline', label: 'Alertas GPS' },
         { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
@@ -95,6 +97,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       label: 'ADMINISTRACIÓN',
       items: [
         { id: 'planes', icon: 'card-outline', label: 'Planes' },
+        { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
         { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
         { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
         { id: 'publicidad', icon: 'film-outline', label: 'Publicidad' },
@@ -128,6 +131,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   avisos: AvisoSistema[] = [];
   anuncios: Anuncio[] = [];
   solicitudesPlan: SolicitudPlan[] = [];
+  facturas: Factura[] = [];
 
   filteredUsers: UserProfile[] = [];
   userRoleFilter = 'todos';
@@ -156,7 +160,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async loadData() {
-    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos, anuncios, solicitudesPlan] = await Promise.all([
+    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos, anuncios, solicitudesPlan, facturas] = await Promise.all([
       this.admin.getGlobalStats(),
       this.admin.getEmpresas(),
       this.admin.getAllRutas(),
@@ -175,6 +179,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getAvisos(),
       this.admin.getAnuncios(),
       this.admin.getSolicitudesPlanPendientes(),
+      this.admin.getFacturas(),
     ]);
     this.stats = stats;
     this.empresas = empresas;
@@ -194,6 +199,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.avisos = avisos;
     this.anuncios = anuncios;
     this.solicitudesPlan = solicitudesPlan;
+    this.facturas = facturas;
     this.suscripcionMap.clear();
     for (const s of suscripciones) {
       this.suscripcionMap.set(s.empresa_id, s);
@@ -1157,8 +1163,32 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   // ---- REPORTES DE BUGS ----
+  // Emergencias (botón de pánico) separadas del resto: se perdían entre
+  // "Atraso"/"Bus averiado" de TODAS las empresas -- mismo problema que ya
+  // se resolvió en el panel de empresa, acá a nivel de toda la plataforma.
+  get emergenciasJirb(): ReporteBug[] {
+    return this.reportes.filter(r => r.titulo === 'Emergencia');
+  }
+
+  get reportesNoEmergencia(): ReporteBug[] {
+    return this.reportes.filter(r => r.titulo !== 'Emergencia');
+  }
+
+  get pendingEmergenciasJirb(): number {
+    return this.emergenciasJirb.filter(r => r.estado === 'pendiente').length;
+  }
+
   get pendingReportes(): number {
-    return this.reportes.filter(r => r.estado === 'pendiente').length;
+    return this.reportesNoEmergencia.filter(r => r.estado === 'pendiente').length;
+  }
+
+  getUbicacionUrl(r: ReporteBug): string | null {
+    return r.descripcion.match(/https:\/\/maps\.google\.com\/\?q=[\d.,-]+/)?.[0] || null;
+  }
+
+  // ---- FACTURAS ----
+  descargarFacturaJirb(f: Factura) {
+    descargarFacturaPDF(f);
   }
 
   async responderReporte(r: ReporteBug) {
