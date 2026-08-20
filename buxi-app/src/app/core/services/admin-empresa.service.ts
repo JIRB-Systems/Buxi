@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Bus, Ruta, Parada, BusLocation } from '../models/transport.model';
-import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura } from '../models/features.model';
+import { Bus, Ruta, Parada, BusLocation, Empresa } from '../models/transport.model';
+import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
 @Injectable({ providedIn: 'root' })
@@ -345,5 +345,36 @@ export class AdminEmpresaService {
       choferes: (choferes.data || []).length,
       busesEnRuta: busData.filter(b => b.estado === 'en_ruta').length,
     };
+  }
+
+  // ---- PERFIL DE LA EMPRESA ----
+  async getEmpresa(id: string): Promise<Empresa> {
+    const { data, error } = await this.supabase.from('empresas').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data as Empresa;
+  }
+
+  // Requiere la policy de UPDATE para admin_empresa en la tabla empresas
+  // (migración pendiente de aplicar) -- sin ella, RLS bloquea el UPDATE en
+  // silencio (204 sin cambiar nada), por eso se pide .select() para
+  // detectar ese caso igual que en resolverEmergencia().
+  async updateEmpresa(id: string, updates: Partial<Empresa>): Promise<void> {
+    const { data, error } = await this.supabase.from('empresas').update(updates).eq('id', id).select('id');
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('Sin permiso para actualizar los datos de la empresa');
+  }
+
+  // ---- VIAJES RECIENTES (para el gráfico de Inicio) ----
+  async getViajesRecientes(empresaId: string, dias = 7): Promise<Viaje[]> {
+    const desde = new Date();
+    desde.setDate(desde.getDate() - (dias - 1));
+    desde.setHours(0, 0, 0, 0);
+    const { data, error } = await this.supabase
+      .from('viajes')
+      .select('id, inicio, fin, estado, distancia_km')
+      .gte('inicio', desde.toISOString())
+      .order('inicio', { ascending: true });
+    if (error) return [];
+    return data as Viaje[];
   }
 }

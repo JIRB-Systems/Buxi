@@ -18,6 +18,8 @@
           <ion-icon [name]="activeTab===item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
           <span *ngIf="sidebarOpen">{{ item.label }}</span>
           <span class="nav-badge" *ngIf="item.id==='emergencias' && emergenciasPendientes > 0">{{ emergenciasPendientes }}</span>
+          <span class="nav-badge" *ngIf="item.id==='reportes' && reportesPendientes > 0">{{ reportesPendientes }}</span>
+          <span class="nav-badge" *ngIf="item.id==='planes' && planesBadge > 0">{{ planesBadge }}</span>
         </div>
       </nav>
 
@@ -56,6 +58,23 @@
 
         <!-- ===== INICIO ===== -->
         <div *ngIf="activeTab==='inicio'" class="page">
+
+          <!-- Datos de la empresa -->
+          <div class="empresa-info-row" *ngIf="empresa">
+            <div class="ei-logo">
+              <img *ngIf="empresa.logo_url" [src]="empresa.logo_url" alt="" />
+              <ion-icon *ngIf="!empresa.logo_url" name="business-outline"></ion-icon>
+            </div>
+            <div class="ei-data">
+              <strong>{{ empresa.nombre }}</strong>
+              <span class="muted">
+                <span *ngIf="empresa.cedula_juridica">Cédula {{ empresa.cedula_juridica }}</span>
+                <span *ngIf="empresa.cedula_juridica && empresa.telefono"> · </span>
+                <span *ngIf="empresa.telefono">{{ empresa.telefono }}</span>
+              </span>
+            </div>
+            <ion-icon name="create-outline" class="act-icon" (click)="editarEmpresa()" title="Editar datos de la empresa"></ion-icon>
+          </div>
 
           <!-- Stats -->
           <div class="stats-row">
@@ -101,6 +120,27 @@
                 <ion-icon name="close-circle-outline" class="act-icon" (click)="dismissAnomalia(a)"></ion-icon>
               </div>
             </div>
+          </div>
+
+          <!-- Viajes por día -->
+          <div class="card trips-card">
+            <div class="card-header">
+              <h3>Viajes por día</h3>
+              <span class="muted small">Últimos 7 días · {{ tripsChartTotal }} en total</span>
+            </div>
+            <svg class="trips-chart" viewBox="0 0 280 120" preserveAspectRatio="none" *ngIf="tripsChartTotal > 0">
+              <line x1="0" y1="100" x2="280" y2="100" class="tc-baseline" />
+              <g *ngFor="let d of tripsChartData; let i = index">
+                <rect
+                  [attr.x]="i * 40 + 6" [attr.y]="100 - (d.count / tripsChartMax) * 90"
+                  width="28" [attr.height]="(d.count / tripsChartMax) * 90 || 0.001"
+                  rx="3" class="tc-bar">
+                  <title>{{ d.label }}: {{ d.count }} {{ d.count === 1 ? 'viaje' : 'viajes' }}</title>
+                </rect>
+                <text [attr.x]="i * 40 + 20" y="113" text-anchor="middle" class="tc-label">{{ d.label }}</text>
+              </g>
+            </svg>
+            <div class="tc-empty" *ngIf="tripsChartTotal === 0">Sin viajes registrados esta semana</div>
           </div>
 
           <!-- Map + Info row -->
@@ -181,7 +221,12 @@
               <ion-icon name="map-outline" class="act-icon" (click)="startEditRuta(r)"></ion-icon>
               <ion-icon name="trash-outline" class="act-icon danger" (click)="deleteRuta(r)"></ion-icon>
             </div>
-            <div class="empty" *ngIf="rutas.length===0">No hay rutas creadas</div>
+            <div class="empty-state" *ngIf="rutas.length===0">
+              <ion-icon name="git-branch-outline"></ion-icon>
+              <strong>Todavía no tenés rutas</strong>
+              <span>Creá tu primera ruta con origen, destino y precio.</span>
+              <ion-button size="small" (click)="addRuta()">Nueva ruta</ion-button>
+            </div>
           </div>
         </div>
 
@@ -210,9 +255,15 @@
 
         <!-- ===== BUSES ===== -->
         <div *ngIf="activeTab==='buses'" class="page">
-          <ion-button class="btn-action" (click)="addBus()"><ion-icon name="add" slot="start"></ion-icon>Nuevo bus</ion-button>
+          <div class="page-toolbar">
+            <ion-button class="btn-action" (click)="addBus()"><ion-icon name="add" slot="start"></ion-icon>Nuevo bus</ion-button>
+            <div class="search-bar" *ngIf="buses.length > 0">
+              <ion-icon name="search-outline"></ion-icon>
+              <input type="text" placeholder="Buscar por placa, unidad o ruta..." [(ngModel)]="busQuery" />
+            </div>
+          </div>
           <div class="card">
-            <div class="table-row" *ngFor="let b of buses">
+            <div class="table-row" *ngFor="let b of filteredBuses">
               <div class="status-dot" [style.background]="getBusColor(b.estado)"></div>
               <div class="row-main">
                 <strong>{{ b.placa }} <span class="unit-tag" *ngIf="b.numero_unidad">{{ b.numero_unidad }}</span></strong>
@@ -225,15 +276,27 @@
                 <ion-icon name="trash-outline" class="act-icon danger" (click)="deleteBus(b)"></ion-icon>
               </div>
             </div>
-            <div class="empty" *ngIf="buses.length===0">No hay buses</div>
+            <div class="empty-state" *ngIf="buses.length===0">
+              <ion-icon name="bus-outline"></ion-icon>
+              <strong>Todavía no tenés buses</strong>
+              <span>Agregá tu primer bus para empezar a armar rutas.</span>
+              <ion-button size="small" (click)="addBus()">Nuevo bus</ion-button>
+            </div>
+            <div class="empty" *ngIf="buses.length > 0 && filteredBuses.length===0">Sin resultados para "{{ busQuery }}"</div>
           </div>
         </div>
 
         <!-- ===== CHOFERES ===== -->
         <div *ngIf="activeTab==='choferes'" class="page">
-          <ion-button class="btn-action" (click)="addChofer()"><ion-icon name="add" slot="start"></ion-icon>Nuevo chofer</ion-button>
+          <div class="page-toolbar">
+            <ion-button class="btn-action" (click)="addChofer()"><ion-icon name="add" slot="start"></ion-icon>Nuevo chofer</ion-button>
+            <div class="search-bar" *ngIf="choferes.length > 0">
+              <ion-icon name="search-outline"></ion-icon>
+              <input type="text" placeholder="Buscar por nombre o correo..." [(ngModel)]="choferQuery" />
+            </div>
+          </div>
           <div class="card">
-            <div class="table-row" *ngFor="let c of choferes">
+            <div class="table-row" *ngFor="let c of filteredChoferes">
               <div class="avatar-sm"><ion-icon name="person"></ion-icon></div>
               <div class="row-main">
                 <strong>{{ c.nombre_completo }}</strong>
@@ -247,7 +310,13 @@
                 <ion-icon name="trash-outline" class="act-icon danger" (click)="deleteChofer(c)"></ion-icon>
               </div>
             </div>
-            <div class="empty" *ngIf="choferes.length===0">No hay choferes</div>
+            <div class="empty-state" *ngIf="choferes.length===0">
+              <ion-icon name="people-outline"></ion-icon>
+              <strong>Todavía no tenés choferes</strong>
+              <span>Agregá tu primer chofer para asignarlo a un bus.</span>
+              <ion-button size="small" (click)="addChofer()">Nuevo chofer</ion-button>
+            </div>
+            <div class="empty" *ngIf="choferes.length > 0 && filteredChoferes.length===0">Sin resultados para "{{ choferQuery }}"</div>
           </div>
         </div>
 
@@ -291,7 +360,10 @@
 
         <!-- ===== REPORTES ===== -->
         <div *ngIf="activeTab==='reportes'" class="page">
-          <ion-button class="btn-action" (click)="addReporte()"><ion-icon name="add" slot="start"></ion-icon>Reportar problema</ion-button>
+          <div class="page-toolbar">
+            <ion-button class="btn-action" (click)="addReporte()"><ion-icon name="add" slot="start"></ion-icon>Reportar problema</ion-button>
+            <ion-button class="btn-action ghost" *ngIf="reportes.length > 0" (click)="exportarReportesCSV()"><ion-icon name="download-outline" slot="start"></ion-icon>Exportar CSV</ion-button>
+          </div>
           <div class="card">
             <div class="table-row reporte-row" *ngFor="let r of reportes">
               <div class="row-main">
@@ -305,7 +377,12 @@
               </div>
               <span class="status-tag" [style.background]="getReporteEstadoColor(r.estado)">{{ getReporteEstadoLabel(r.estado) }}</span>
             </div>
-            <div class="empty" *ngIf="reportes.length===0">No has enviado reportes</div>
+            <div class="empty-state" *ngIf="reportes.length===0">
+              <ion-icon name="bug-outline"></ion-icon>
+              <strong>No has enviado reportes</strong>
+              <span>Contale a JIRB si algo no funciona bien.</span>
+              <ion-button size="small" (click)="addReporte()">Reportar problema</ion-button>
+            </div>
           </div>
         </div>
 
@@ -350,7 +427,11 @@
               <span class="factura-monto">₡{{ f.monto | number:'1.0-0' }}</span>
               <ion-icon name="download-outline" class="act-icon" (click)="descargarFactura(f)" title="Descargar PDF"></ion-icon>
             </div>
-            <div class="empty" *ngIf="facturas.length===0">Todavía no tenés facturas</div>
+            <div class="empty-state" *ngIf="facturas.length===0">
+              <ion-icon name="receipt-outline"></ion-icon>
+              <strong>Todavía no tenés facturas</strong>
+              <span>Aparecen acá apenas JIRB te asigne un plan.</span>
+            </div>
           </div>
         </div>
 

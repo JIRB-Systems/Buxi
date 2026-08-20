@@ -9,8 +9,8 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminEmpresaService } from '../../../core/services/admin-empresa.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
-import { Bus, Ruta, Parada, BusLocation } from '../../../core/models/transport.model';
-import { ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura } from '../../../core/models/features.model';
+import { Bus, Ruta, Parada, BusLocation, Empresa } from '../../../core/models/transport.model';
+import { ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje } from '../../../core/models/features.model';
 import { RutaFormComponent } from './ruta-form.component';
 import { HorariosFormComponent } from './horarios-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
@@ -56,9 +56,68 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   miSuscripcion: Suscripcion | null = null;
   solicitudPlanPendiente: SolicitudPlan | null = null;
   facturas: Factura[] = [];
+  empresa: Empresa | null = null;
+  viajesRecientes: Viaje[] = [];
 
   get emergenciasPendientes(): number {
     return this.emergencias.filter(e => e.estado === 'pendiente').length;
+  }
+
+  // Todo reporte que JIRB no haya resuelto todavía cuenta como "nuevo" para
+  // la empresa -- así se entera sin tener que abrir la pestaña a revisar.
+  get reportesPendientes(): number {
+    return this.reportes.filter(r => r.estado === 'pendiente').length;
+  }
+
+  get planesBadge(): number {
+    return this.solicitudPlanPendiente ? 1 : 0;
+  }
+
+  // ---- BUSCADOR (choferes/buses) ----
+  choferQuery = '';
+  busQuery = '';
+
+  get filteredChoferes(): UserProfile[] {
+    const q = this.choferQuery.trim().toLowerCase();
+    if (!q) return this.choferes;
+    return this.choferes.filter(c => c.nombre_completo.toLowerCase().includes(q) || c.correo.toLowerCase().includes(q));
+  }
+
+  get filteredBuses(): Bus[] {
+    const q = this.busQuery.trim().toLowerCase();
+    if (!q) return this.buses;
+    return this.buses.filter(b =>
+      b.placa.toLowerCase().includes(q) ||
+      (b.numero_unidad || '').toLowerCase().includes(q) ||
+      (b.ruta?.nombre || '').toLowerCase().includes(q)
+    );
+  }
+
+  // ---- GRÁFICO: VIAJES POR DÍA (últimos 7 días) ----
+  get tripsChartData(): { label: string; count: number }[] {
+    const days: { label: string; key: string; count: number }[] = [];
+    const fmt = new Intl.DateTimeFormat('es-CR', { weekday: 'short' });
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const label = fmt.format(d).replace('.', '');
+      days.push({ label: label.charAt(0).toUpperCase() + label.slice(1), key, count: 0 });
+    }
+    for (const v of this.viajesRecientes) {
+      const key = v.inicio.slice(0, 10);
+      const day = days.find(d => d.key === key);
+      if (day) day.count++;
+    }
+    return days;
+  }
+
+  get tripsChartMax(): number {
+    return Math.max(1, ...this.tripsChartData.map(d => d.count));
+  }
+
+  get tripsChartTotal(): number {
+    return this.tripsChartData.reduce((s, d) => s + d.count, 0);
   }
 
   private liveMap: maplibregl.Map | null = null;
@@ -106,7 +165,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente, facturas] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente, facturas, empresa, viajesRecientes] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
@@ -119,6 +178,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.admin.getMiSuscripcion(eid),
       this.admin.getSolicitudPlanPendiente(eid),
       this.admin.getFacturas(eid),
+      this.admin.getEmpresa(eid).catch(() => null),
+      this.admin.getViajesRecientes(eid),
     ]);
     this.stats = stats;
     this.rutas = rutas;
@@ -132,11 +193,69 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.miSuscripcion = miSuscripcion;
     this.solicitudPlanPendiente = solicitudPlanPendiente;
     this.facturas = facturas;
+    this.empresa = empresa;
+    this.viajesRecientes = viajesRecientes;
   }
 
   // ---- FACTURAS ----
   descargarFactura(f: Factura) {
     descargarFacturaPDF(f);
+  }
+
+  // ---- PERFIL DE LA EMPRESA ----
+  async editarEmpresa() {
+    if (!this.empresa) return;
+    const e = this.empresa;
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Datos de la empresa',
+      inputs: [
+        { name: 'nombre', placeholder: 'Nombre', type: 'text', value: e.nombre },
+        { name: 'cedula_juridica', placeholder: 'Cédula jurídica', type: 'text', value: e.cedula_juridica || '' },
+        { name: 'telefono', placeholder: 'Teléfono', type: 'tel', value: e.telefono || '' },
+        { name: 'email', placeholder: 'Correo', type: 'email', value: e.email || '' },
+        { name: 'logo_url', placeholder: 'URL del logo (opcional)', type: 'url', value: e.logo_url || '' },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
+        if (!d.nombre?.trim()) return false;
+        try {
+          await this.admin.updateEmpresa(e.id, {
+            nombre: d.nombre.trim(),
+            cedula_juridica: d.cedula_juridica?.trim() || null,
+            telefono: d.telefono?.trim() || null,
+            email: d.email?.trim() || null,
+            logo_url: d.logo_url?.trim() || null,
+          });
+          await this.loadData();
+          this.showToast('Datos actualizados');
+        } catch (err: any) {
+          this.showToast(err?.message || 'No se pudo actualizar', 'danger');
+          return false;
+        }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
+  // ---- EXPORTAR REPORTES A CSV ----
+  exportarReportesCSV() {
+    if (this.reportes.length === 0) { this.showToast('No hay reportes para exportar', 'warning'); return; }
+    const filas = [
+      ['Título', 'Descripción', 'Estado', 'Respuesta JIRB', 'Fecha'],
+      ...this.reportes.map(r => [
+        r.titulo, r.descripcion, this.getReporteEstadoLabel(r.estado), r.respuesta_jirb || '', new Date(r.created_at).toLocaleString('es-CR'),
+      ]),
+    ];
+    // Envolver en comillas y escapar comillas internas: descripciones y
+    // respuestas son texto libre y pueden traer comas o saltos de línea.
+    const csv = filas.map(fila => fila.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reportes-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ---- EMERGENCIAS ----
