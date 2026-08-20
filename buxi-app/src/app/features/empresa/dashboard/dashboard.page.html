@@ -349,10 +349,15 @@
                   <ion-icon name="map-outline"></ion-icon> Ver en el mapa
                 </span>
               </div>
-              <span class="status-tag" [style.background]="e.estado==='resuelto' ? '#00c853' : '#ff5449'">
-                {{ e.estado==='resuelto' ? 'Resuelta' : 'Pendiente' }}
-              </span>
-              <ion-icon name="checkmark-circle-outline" class="act-icon" *ngIf="e.estado!=='resuelto'" (click)="resolverEmergencia(e)" title="Marcar como resuelta"></ion-icon>
+              <div class="emergencia-actions">
+                <span class="status-tag lg" [style.background]="e.estado==='resuelto' ? '#00c853' : '#ff5449'">
+                  {{ e.estado==='resuelto' ? 'Resuelta' : 'Pendiente' }}
+                </span>
+                <button class="resolver-btn" *ngIf="e.estado!=='resuelto'" [disabled]="resolviendo===e.id" (click)="resolverEmergencia(e)">
+                  <ion-icon [name]="resolviendo===e.id ? 'hourglass-outline' : 'checkmark-circle-outline'"></ion-icon>
+                  {{ resolviendo===e.id ? 'Resolviendo…' : 'Marcar resuelta' }}
+                </button>
+              </div>
             </div>
             <div class="empty" *ngIf="emergencias.length===0">No hay emergencias registradas</div>
           </div>

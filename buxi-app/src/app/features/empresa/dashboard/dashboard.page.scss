@@ -278,6 +278,24 @@
   &:hover { text-decoration: underline; }
 }
 
+.emergencia-actions {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0;
+}
+
+.status-tag.lg { font-size: 12px; padding: 6px 14px; border-radius: 8px; }
+
+.resolver-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,200,83,0.12); border: 1px solid rgba(0,200,83,0.35);
+  color: #00e676; font-size: 12.5px; font-weight: 700;
+  padding: 7px 14px; border-radius: 10px; cursor: pointer;
+  transition: background 0.14s ease;
+
+  ion-icon { font-size: 15px; }
+  &:hover:not(:disabled) { background: rgba(0,200,83,0.2); }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
 .factura-row { align-items: flex-start; }
 .factura-icon { font-size: 20px; color: #00c853; margin-top: 1px; flex-shrink: 0; }
 .factura-monto { font-size: 13px; font-weight: 700; color: #fff; margin-right: 4px; font-variant-numeric: tabular-nums; }

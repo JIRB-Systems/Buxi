@@ -280,13 +280,19 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     setTimeout(() => this.initLiveMap(), 150);
   }
 
+  resolviendo: string | null = null;
+
   async resolverEmergencia(r: ReporteBug) {
+    if (this.resolviendo) return;
+    this.resolviendo = r.id;
     try {
       await this.admin.resolverEmergencia(r.id);
       r.estado = 'resuelto';
       this.showToast('Marcada como resuelta');
     } catch (e: any) {
       this.showToast(e?.message || 'No se pudo actualizar', 'danger');
+    } finally {
+      this.resolviendo = null;
     }
   }
 
