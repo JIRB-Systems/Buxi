@@ -163,6 +163,12 @@
     box-shadow: 0 2px 8px rgba(255,84,73,0.5);
     color: #fff; font-size: 15px; font-weight: 800; line-height: 1;
   }
+  // Sin transform acá a propósito (ni scale ni translate): MapLibre ya le
+  // pone su propio transform 3D al marcador para ubicarlo en el mapa
+  // inclinado (pitch 50), y un transform animado en un hijo rompía ese
+  // cálculo -- el marcador entero terminaba centrado ~900px arriba de
+  // donde debía, aunque el mapa sí estaba centrado bien. El anillo se anima
+  // con width/height/margin (que no tocan transform) en vez de scale().
   .emp-emergency-pulse {
     position: absolute; top: 50%; left: 50%;
     width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%;
@@ -170,7 +176,8 @@
     animation: emergency-pulse 1.6s ease-out infinite;
   }
   .emp-emergency-label {
-    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: calc(100% + 6px); left: 0; right: 0; margin: 0 auto;
+    width: max-content;
     white-space: nowrap; background: #2a0e0c; color: #ffb3ad;
     border: 1px solid rgba(255,84,73,0.4);
     border-radius: 8px; padding: 4px 10px; font-size: 11px; font-weight: 700;
@@ -181,8 +188,8 @@
 }
 
 @keyframes emergency-pulse {
-  0% { transform: scale(0.6); opacity: 0.8; }
-  100% { transform: scale(2.2); opacity: 0; }
+  0% { width: 28px; height: 28px; margin: -14px 0 0 -14px; opacity: 0.8; }
+  100% { width: 62px; height: 62px; margin: -31px 0 0 -31px; opacity: 0; }
 }
 
 .edit-ruta-banner {
