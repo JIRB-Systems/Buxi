@@ -681,8 +681,13 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private readonly EMERGENCY_LABEL_LAYER = 'emergency-points-label';
 
   private drawEmergencyMarkers(map: maplibregl.Map) {
-    if (!map.isStyleLoaded()) return;
-
+    // Sin el guard de isStyleLoaded() que sí necesita drawRouteLine: acá no
+    // depende de que OTRAS fuentes (el DEM del terreno, por ejemplo) hayan
+    // terminado de cargar -- agregar una fuente/capa GeoJSON propia es
+    // seguro en cualquier momento después de que el mapa exista, y ese
+    // guard hacía que esto nunca llegara a dibujar nada (isStyleLoaded()
+    // quedaba en false un rato después de que enable3D() agrega la fuente
+    // del terreno).
     const features = this.emergencias
       .filter(e => e.estado === 'pendiente')
       .map(em => {
@@ -728,7 +733,12 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       map.on('click', this.EMERGENCY_CIRCLE_LAYER, () => this.switchTab('emergencias'));
       map.on('mouseenter', this.EMERGENCY_CIRCLE_LAYER, () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', this.EMERGENCY_CIRCLE_LAYER, () => { map.getCanvas().style.cursor = ''; });
-    } catch { /* el mapa sigue usable sin estos marcadores */ }
+    } catch (err) {
+      // El mapa sigue usable sin estos marcadores; se deja en consola para
+      // poder diagnosticar por qué no aparecieron en vez de fallar en
+      // silencio total.
+      console.error('No se pudieron dibujar las emergencias en el mapa:', err);
+    }
   }
 
   // Separado de drawEmergencyMarkers a propósito: tiene que correr DESPUÉS
