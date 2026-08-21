@@ -104,6 +104,17 @@ export interface SolicitudPlan {
   empresa?: { id: string; nombre: string };
 }
 
+export interface MensajeChofer {
+  id: string;
+  empresa_id: string;
+  chofer_id: string;
+  autor_id: string | null;
+  mensaje: string;
+  leido: boolean;
+  created_at: string;
+  autor?: { nombre_completo: string };
+}
+
 export interface Factura {
   id: string;
   empresa_id: string;

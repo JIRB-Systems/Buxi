@@ -1124,6 +1124,23 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     await alert.present();
   }
 
+  async mensajeChofer(c: UserProfile) {
+    if (!this.profile?.empresa_id) return;
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: `Mensaje para ${c.nombre_completo}`,
+      inputs: [{ name: 'mensaje', type: 'textarea', placeholder: 'Escribí el mensaje...' }],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Enviar', handler: async (d) => {
+        if (!d.mensaje?.trim()) return false;
+        try {
+          await this.admin.enviarMensajeChofer(c.id, this.profile!.empresa_id!, this.profile!.id, d.mensaje.trim());
+          this.showToast('Mensaje enviado');
+        } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        return true;
+      }}],
+    });
+    await alert.present();
+  }
+
   async deleteChofer(c: UserProfile) {
     const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Eliminar chofer',

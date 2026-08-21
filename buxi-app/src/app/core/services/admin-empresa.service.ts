@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Ruta, Parada, BusLocation, Empresa } from '../models/transport.model';
-import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje } from '../models/features.model';
+import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje, MensajeChofer } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
 @Injectable({ providedIn: 'root' })
@@ -471,5 +471,15 @@ export class AdminEmpresaService {
       .lt('created_at', hasta);
     if (error) return [];
     return data as ReporteBug[];
+  }
+
+  // ---- MENSAJES A CHOFERES ----
+  // El chofer ya tenía cómo avisarle cosas a la empresa (incidente, pánico);
+  // esto es el camino inverso, uno a uno, no un aviso general.
+  async enviarMensajeChofer(choferId: string, empresaId: string, autorId: string, mensaje: string): Promise<void> {
+    const { error } = await this.supabase.from('mensajes_chofer').insert({
+      chofer_id: choferId, empresa_id: empresaId, autor_id: autorId, mensaje,
+    });
+    if (error) throw error;
   }
 }

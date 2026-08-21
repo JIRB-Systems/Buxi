@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Parada } from '../models/transport.model';
-import { Viaje, ReporteBug, Calificacion, Boleto } from '../models/features.model';
+import { Viaje, ReporteBug, Calificacion, Boleto, MensajeChofer } from '../models/features.model';
 
 @Injectable({ providedIn: 'root' })
 export class ChoferService {
@@ -145,5 +145,25 @@ export class ChoferService {
     if (updError) return { ok: false, motivo: 'No se pudo validar el boleto' };
 
     return { ok: true, boleto: boleto as Boleto };
+  }
+
+  // ---- MENSAJES DE LA EMPRESA ----
+  async getMisMensajes(choferId: string): Promise<MensajeChofer[]> {
+    const { data, error } = await this.supabase
+      .from('mensajes_chofer')
+      .select('*, autor:profiles!mensajes_chofer_autor_id_fkey(nombre_completo)')
+      .eq('chofer_id', choferId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) return [];
+    return data as MensajeChofer[];
+  }
+
+  async marcarMensajeLeido(mensajeId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('mensajes_chofer')
+      .update({ leido: true })
+      .eq('id', mensajeId);
+    if (error) throw error;
   }
 }

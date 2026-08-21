@@ -320,6 +320,7 @@
               </div>
               <span class="badge" [style.color]="c.estado==='activo'?'#00c853':'#aaa'">{{ c.estado }}</span>
               <div class="act-group">
+                <ion-icon name="chatbubble-ellipses-outline" class="act-icon" (click)="mensajeChofer(c)"></ion-icon>
                 <ion-icon name="create-outline" class="act-icon" (click)="editChofer(c)"></ion-icon>
                 <ion-icon [name]="c.estado==='activo' ? 'pause-circle-outline' : 'play-circle-outline'" class="act-icon" (click)="toggleChoferEstado(c)"></ion-icon>
                 <ion-icon name="key-outline" class="act-icon" (click)="resetChoferPassword(c)"></ion-icon>

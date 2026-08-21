@@ -19,6 +19,7 @@
            abria tocando el avatar, que no parece tocable. -->
       <div class="tb-menu" (click)="toggleProfilePanel()" role="button" aria-label="Menu">
         <ion-icon name="menu"></ion-icon>
+        <span class="tb-badge" *ngIf="mensajesNoLeidos > 0">{{ mensajesNoLeidos > 9 ? '9+' : mensajesNoLeidos }}</span>
       </div>
     </div>
   </div>
@@ -27,6 +28,12 @@
   <div class="status-chip" [class.active]="tracking && !paused" [class.paused]="paused">
     <span class="live-dot"></span>
     {{ paused ? 'En pausa' : (tracking ? 'Transmitiendo en vivo' : 'Sin transmitir') }}
+  </div>
+
+  <!-- Boletos escaneados en este viaje -->
+  <div class="boletos-chip" *ngIf="tracking">
+    <ion-icon name="qr-code-outline"></ion-icon>
+    {{ boletosEscaneados }} {{ boletosEscaneados === 1 ? 'boleto' : 'boletos' }}
   </div>
 
   <!-- Exceso de velocidad -->
@@ -151,6 +158,12 @@
         <span *ngIf="!assignedBus" class="no-bus">Sin bus asignado</span>
       </div>
 
+      <div class="pp-link" (click)="toggleProfilePanel(); openMensajes()">
+        <ion-icon name="chatbubble-ellipses-outline"></ion-icon><span>Mensajes de mi empresa</span>
+        <span class="pp-badge" *ngIf="mensajesNoLeidos > 0">{{ mensajesNoLeidos > 9 ? '9+' : mensajesNoLeidos }}</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+
       <div class="pp-link" (click)="toggleProfilePanel(); openHistorial()">
         <ion-icon name="time-outline"></ion-icon><span>Mis viajes</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
@@ -235,6 +248,32 @@
       </div>
       <div class="hs-empty" *ngIf="!loadingCalificaciones && misCalificaciones.length===0">
         Todavía no tenés calificaciones en este bus
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== MENSAJES DE LA EMPRESA ====== -->
+  <div class="panel-scrim" [class.open]="mensajesOpen" (click)="closeMensajes()"></div>
+
+  <section class="historial-sheet" [class.open]="mensajesOpen">
+    <div class="sheet-bar"></div>
+    <div class="hs-head">
+      <strong>Mensajes de mi empresa</strong>
+      <ion-icon name="close" (click)="closeMensajes()"></ion-icon>
+    </div>
+
+    <div class="hs-list">
+      <div class="hs-empty" *ngIf="loadingMensajes">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+      <div class="hs-row msg-row" *ngFor="let m of misMensajes">
+        <div class="hs-row-main">
+          <span>{{ m.mensaje }}</span>
+        </div>
+        <span class="hs-km">{{ m.autor?.nombre_completo || 'Empresa' }} · {{ m.created_at | date:'short' }}</span>
+      </div>
+      <div class="hs-empty" *ngIf="!loadingMensajes && misMensajes.length===0">
+        Todavía no tenés mensajes de tu empresa
       </div>
     </div>
   </section>

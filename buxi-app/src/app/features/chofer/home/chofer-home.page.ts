@@ -8,7 +8,7 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Parada } from '../../../core/models/transport.model';
-import { Viaje, Calificacion } from '../../../core/models/features.model';
+import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/features.model';
 import { ChoferService } from '../../../core/services/chofer.service';
 import { createMap, htmlMarkerEl, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 
@@ -67,7 +67,14 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   scannerOpen = false;
   scanResult: { ok: boolean; motivo?: string; nombre?: string; ruta?: string } | null = null;
   validandoBoleto = false;
+  boletosEscaneados = 0;
   private qrScanner: any = null;
+
+  // ---- Mensajes de la empresa ----
+  mensajesOpen = false;
+  loadingMensajes = false;
+  misMensajes: MensajeChofer[] = [];
+  mensajesNoLeidos = 0;
 
   private map!: maplibregl.Map;
   private destroyed = false;
@@ -103,6 +110,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
           this.paradasReady = this.loadRutaParadas(this.assignedBus.ruta_id);
         }
         await this.checkAssignmentChanged();
+        this.refreshMensajesNoLeidos();
       }
       this.choferService.getMaxSpeedKmh().then(v => this.maxSpeedKmh = v).catch(() => {});
     } catch {
@@ -356,6 +364,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     this.tracking = true;
     this.paused = false;
     this.tripDistanceKm = 0;
+    this.boletosEscaneados = 0;
     this.tripStartTime = Date.now();
     this.lastTripLat = this.currentLat;
     this.lastTripLng = this.currentLng;
@@ -636,6 +645,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         nombre: (res.boleto as any)?.pasajero?.nombre_completo,
         ruta: (res.boleto as any)?.ruta?.nombre,
       };
+      if (res.ok) this.boletosEscaneados++;
     } catch {
       this.scanResult = { ok: false, motivo: 'Error al validar el boleto' };
     } finally {
@@ -677,6 +687,39 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
 
   closeHistorial() {
     this.historialOpen = false;
+  }
+
+  // ---- MENSAJES DE LA EMPRESA ----
+  private async refreshMensajesNoLeidos() {
+    if (!this.profile) return;
+    try {
+      const mensajes = await this.choferService.getMisMensajes(this.profile.id);
+      this.mensajesNoLeidos = mensajes.filter(m => !m.leido).length;
+    } catch {
+    }
+  }
+
+  async openMensajes() {
+    if (!this.profile) return;
+    this.mensajesOpen = true;
+    this.loadingMensajes = true;
+    try {
+      this.misMensajes = await this.choferService.getMisMensajes(this.profile.id);
+      const noLeidos = this.misMensajes.filter(m => !m.leido);
+      this.mensajesNoLeidos = 0;
+      for (const m of noLeidos) {
+        this.choferService.marcarMensajeLeido(m.id).catch(() => {});
+        m.leido = true;
+      }
+    } catch {
+      this.misMensajes = [];
+    } finally {
+      this.loadingMensajes = false;
+    }
+  }
+
+  closeMensajes() {
+    this.mensajesOpen = false;
   }
 
   // ---- PANEL DE PERFIL ----
