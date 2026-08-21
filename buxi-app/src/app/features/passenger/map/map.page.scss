@@ -3,6 +3,13 @@
   --padding-bottom: 0;
   --padding-start: 0;
   --padding-end: 0;
+  // Sin ion-header/ion-footer, --offset-top/--offset-bottom deberían ser
+  // siempre 0. Ionic los mide mal tras la transición de página desde el
+  // login (bug de su propio cálculo interno) y deja --offset-top pegado a
+  // la altura completa del viewport, duplicando .inner-scroll y corriendo
+  // todo el contenido -- mapa incluido -- una pantalla entera hacia arriba.
+  --offset-top: 0px;
+  --offset-bottom: 0px;
 }
 
 // Fijo al viewport (no en flujo normal) para que nunca dependa de que el
