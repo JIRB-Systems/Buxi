@@ -639,17 +639,23 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // ahora en `registrarIconoBus`, dibujado sobre un canvas. Era un SVG en el
   // DOM hasta que los buses pasaron a una capa nativa de MapLibre.
 
-  // ---- ÍCONO DEL BUS COMO IMAGEN DE LA CAPA NATIVA ----
+  // ---- ÍCONO DEL BUS: SPRITES ISOMÉTRICOS DEL MODELO 3D ----
   //
-  // Una capa `symbol` no puede teñir un ícono a color libre (`icon-color` solo
-  // aplica a íconos SDF, que son de un solo tono y perderían el parabrisas y las
-  // ventanas). Así que se dibuja el mismo diseño en un canvas, una vez por
-  // combinación de color+estado, y se registra con addImage. Son poquísimas
-  // imágenes: los estados 'retrasado' y 'en_parada' tienen color fijo, y
-  // 'en_ruta' usa el color de la ruta, de los que hay un puñado.
-  private readonly BUS_S = 3;            // escala de dibujo = pixelRatio
-  private readonly BUS_W = 26;
-  private readonly BUS_H = 42;
+  // El ícono ya no se dibuja a mano: son 16 renders del modelo de Blender
+  // (`diseno/bus_buxi.blend`), uno cada 22.5°, repartidos en DOS hojas —
+  // carrocería en blanco por un lado, detalles (vidrios, ruedas, luces) por
+  // otro. Se separan porque el color de la ruta tiene que teñir SOLO la
+  // carrocería: tiñendo la imagen entera, el parabrisas de un bus azul saldría
+  // azul y las ruedas también.
+  //
+  // El rumbo va horneado en el sprite, NO en `icon-rotate`: un dibujo
+  // isométrico rotado en pantalla se ve torcido. Por eso la capa es billboard
+  // ('viewport') y lo que cambia según el rumbo es cuál de los 16 sprites se usa.
+  private readonly SPRITE_N = 16;
+  private readonly SPRITE_CELDA = 126;
+  private spriteBody: HTMLImageElement | null = null;
+  private spriteDet: HTMLImageElement | null = null;
+  private spritesListos = false;
 
   private colorDeEstado(estado: BusEstadoVivo, colorRuta: string): string {
     if (estado === 'retrasado') return '#f5a623';
@@ -657,102 +663,76 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return colorRuta;
   }
 
-  private busIconId(estado: BusEstadoVivo, colorRuta: string): string {
-    return `bus-${estado}-${this.colorDeEstado(estado, colorRuta).replace('#', '')}`;
+  // Índice de sprite según el rumbo. Se le RESTA la rotación del mapa: el
+  // sprite está dibujado en espacio de pantalla, así que si el usuario gira el
+  // mapa el bus tiene que girar con él o quedaría apuntando a cualquier lado.
+  private dirDeBus(loc: BusLocation): number {
+    const bearing = this.map ? this.map.getBearing() : 0;
+    const rel = (((loc.heading || 0) - bearing) % 360 + 360) % 360;
+    return Math.round(rel / (360 / this.SPRITE_N)) % this.SPRITE_N;
   }
 
-  // ctx.roundRect no existe en WebViews de Android viejas; sin este respaldo el
-  // ícono entero se caía en esos equipos, que son justamente los de un chofer.
-  private rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-    if (typeof (ctx as any).roundRect === 'function') {
-      ctx.beginPath(); (ctx as any).roundRect(x, y, w, h, r); return;
+  private async cargarSprites(): Promise<void> {
+    if (this.spritesListos) return;
+    const carga = (src: string) => new Promise<HTMLImageElement>((ok, fail) => {
+      const im = new Image();
+      im.onload = () => ok(im);
+      im.onerror = () => fail(new Error(src));
+      im.src = src;
+    });
+    try {
+      const [b, d] = await Promise.all([
+        carga('assets/bus/bus_body_sheet.png'),
+        carga('assets/bus/bus_det_sheet.png'),
+      ]);
+      if (this.destroyed) return;
+      this.spriteBody = b; this.spriteDet = d; this.spritesListos = true;
+      this.refrescarIconos();
+    } catch {
+      // Sin sprites no se dibuja ningún bus, pero el mapa sigue usable.
     }
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
   }
 
-  private registrarIconoBus(estado: BusEstadoVivo, colorRuta: string): string {
-    const id = this.busIconId(estado, colorRuta);
-    if (this.busIconosRegistrados.has(id)) return id;
+  // Recalcula el ícono de cada bus. Se llama al cargar los sprites, al girar el
+  // mapa y después de un cambio de estilo (que borra las imágenes registradas).
+  private refrescarIconos() {
+    this.busIcono.clear();
+    this.busLocationsMap.forEach((loc, id) => this.busIcono.set(
+      id, this.registrarIconoBus(this.estadoDeBus(loc), this.busColor(loc), this.dirDeBus(loc))));
+    this.pintarBuses(performance.now());
+  }
 
-    const S = this.BUS_S;
-    const pad = 8;                                    // aire para el halo
-    const cw = (this.BUS_W + pad * 2) * S;
-    const ch = (this.BUS_H + pad * 2) * S;
-    const canvas = document.createElement('canvas');
-    canvas.width = cw; canvas.height = ch;
-    const ctx = canvas.getContext('2d');
+  private registrarIconoBus(estado: BusEstadoVivo, colorRuta: string, dir: number): string {
+    const color = this.colorDeEstado(estado, colorRuta);
+    const id = `bus-${color.replace('#', '')}-${dir}`;
+    if (this.busIconosRegistrados.has(id)) return id;
+    if (!this.spritesListos || !this.spriteBody || !this.spriteDet) return id;
+
+    const L = this.SPRITE_CELDA;
+    const sx = (dir % 4) * L, sy = Math.floor(dir / 4) * L;
+    const c = document.createElement('canvas');
+    c.width = L; c.height = L;
+    const ctx = c.getContext('2d');
     if (!ctx) return id;
 
-    ctx.scale(S, S);
-    ctx.translate(pad, pad);
-    const color = this.colorDeEstado(estado, colorRuta);
-
-    // Halo de estado, como el anillo de la referencia
-    ctx.beginPath();
-    ctx.arc(13, 20, 15.5, 0, Math.PI * 2);
-    ctx.strokeStyle = color; ctx.globalAlpha = 0.22; ctx.lineWidth = 2.2;
-    ctx.stroke(); ctx.globalAlpha = 1;
-
-    // Sombra proyectada
-    ctx.beginPath();
-    ctx.ellipse(13, 39.5, 8.5, 3, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.40)'; ctx.fill();
-
-    // Carrocería: trompa angosta, cola ancha (la dirección se lee por la forma)
-    ctx.beginPath();
-    ctx.moveTo(13, 2.6);
-    ctx.bezierCurveTo(16.3, 2.6, 18.3, 4, 19.1, 6.9);
-    ctx.lineTo(21.3, 13.6); ctx.lineTo(21.3, 33.4);
-    ctx.bezierCurveTo(21.3, 36.1, 19.8, 37.4, 17.4, 37.4);
-    ctx.lineTo(8.6, 37.4);
-    ctx.bezierCurveTo(6.2, 37.4, 4.7, 36.1, 4.7, 33.4);
-    ctx.lineTo(4.7, 13.6); ctx.lineTo(6.9, 6.9);
-    ctx.bezierCurveTo(7.7, 4, 9.7, 2.6, 13, 2.6);
-    ctx.closePath();
-    ctx.fillStyle = color; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.7;
-    ctx.lineJoin = 'round'; ctx.stroke();
-
-    // Luz de posición al frente: una barra clara cruzando la trompa
-    this.rr(ctx, 9.0, 4.5, 8.0, 1.9, 0.95);
-    ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
-
-    // Parabrisas
-    ctx.beginPath();
-    ctx.moveTo(8.6, 9.4);
-    ctx.bezierCurveTo(10.5, 7.5, 15.5, 7.5, 17.4, 9.4);
-    ctx.lineTo(18.2, 12.6);
-    ctx.bezierCurveTo(15, 11, 11, 11, 7.8, 12.6);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
-
-    // Ventanas laterales
-    ctx.fillStyle = 'rgba(255,255,255,0.32)';
-    this.rr(ctx, 6.5, 16.4, 13, 2.7, 1.35); ctx.fill();
-    this.rr(ctx, 6.5, 21.4, 13, 2.7, 1.35); ctx.fill();
-
-    // Baliza GPS en el techo: punto claro con resplandor
-    ctx.beginPath();
-    ctx.arc(13, 27.6, 2.6, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fill();
-    ctx.beginPath();
-    ctx.arc(13, 27.6, 1.25, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
-
-    // Barra trasera
-    this.rr(ctx, 9.5, 31.6, 7, 2.5, 1.25);
-    ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fill();
+    // 1) la carrocería, blanca pero con el sombreado del render 3D
+    ctx.drawImage(this.spriteBody, sx, sy, L, L, 0, 0, L, L);
+    // 2) multiply: el blanco toma el color de la ruta y las sombras sobreviven,
+    //    que es lo que le da volumen (un relleno plano lo aplastaría)
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, L, L);
+    // 3) el multiply pinta el cuadro entero: se recorta contra el alfa del bus
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.drawImage(this.spriteBody, sx, sy, L, L, 0, 0, L, L);
+    // 4) y encima los detalles, sin teñir
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(this.spriteDet, sx, sy, L, L, 0, 0, L, L);
 
     try {
-      this.map.addImage(id, ctx.getImageData(0, 0, cw, ch), { pixelRatio: S });
+      this.map.addImage(id, ctx.getImageData(0, 0, L, L), { pixelRatio: 3 });
       this.busIconosRegistrados.add(id);
-    } catch { /* ya estaba registrada */ }
+    } catch { /* ya estaba */ }
     return id;
   }
 
@@ -1233,14 +1213,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // addImage. Sin esto la capa de buses quedaba marcada como "lista"
       // apuntando a algo que ya no existe, y los buses desaparecían para
       // siempre al cambiar de tema.
-      this.busLayerListo = false;
-      this.busIconosRegistrados.clear();
       // Los ids cacheados apuntan a imágenes que setStyle acaba de borrar:
       // hay que volver a registrarlas antes del próximo volcado.
-      this.busIcono.clear();
-      this.busLocationsMap.forEach((loc, id) => this.busIcono.set(
-        id, this.registrarIconoBus(this.estadoDeBus(loc), this.busColor(loc))));
-      this.pintarBuses(performance.now());
+      this.busLayerListo = false;
+      this.busIconosRegistrados.clear();
+      this.refrescarIconos();
     });
   }
 
@@ -1472,6 +1449,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   private async loadBusLocations() {
+    // Los sprites se piden en paralelo con los datos; cuando llegan,
+    // cargarSprites() refresca los iconos por su cuenta.
+    this.cargarSprites();
+
     // Se cebá el caché de colores ANTES de dibujar: así un bus que todavía no
     // transmitía al abrir el mapa, y que por lo tanto va a llegar por Realtime
     // (sin el join a su ruta), ya tiene su color resuelto cuando se cree su
@@ -1514,6 +1495,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // primer bus que llega, porque el estilo del mapa puede no estar listo todavía
   // cuando se dispara la carga inicial.
   private esperandoEstilo = false;
+  private rotateEnganchado = false;
+  private ultimoBearing = 0;
 
   private ensureBusLayer(): boolean {
     if (this.busLayerListo) return true;
@@ -1546,11 +1529,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         source: this.BUSES_SRC,
         layout: {
           'icon-image': ['get', 'icon'],
-          'icon-rotate': ['get', 'heading'],
-          // Igual que el Marker anterior: acostado sobre el plano del mapa y
-          // girando con él, para que el rumbo se lea con la cámara inclinada.
-          'icon-rotation-alignment': 'map',
-          'icon-pitch-alignment': 'map',
+          // Billboard: el bus se mantiene derecho frente a la cámara, como los
+          // iconos isométricos de la referencia. NO se usa icon-rotate — el
+          // rumbo lo da cuál de los 16 sprites se elige (ver dirDeBus).
+          'icon-rotation-alignment': 'viewport',
+          'icon-pitch-alignment': 'viewport',
+          'icon-anchor': 'bottom',
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'icon-size': 1,
@@ -1572,6 +1556,24 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       });
       this.map.on('mouseleave', this.BUSES_LAYER, () => {
         this.map.getCanvas().style.cursor = '';
+      });
+    }
+
+    // El listener de rotación va fuera del bloque de creación de la capa: tras
+    // un cambio de tema la capa se recrea, y si estuviera adentro se irían
+    // acumulando listeners duplicados en cada toggle.
+    if (!this.rotateEnganchado) {
+      this.rotateEnganchado = true;
+      this.map.on('rotate', () => {
+        if (this.destroyed) return;
+        // Girar el mapa cambia el rumbo RELATIVO a la pantalla, o sea el sprite
+        // que toca. Pero 'rotate' dispara decenas de veces por gesto y solo
+        // importa cuando se cruza medio paso de sprite (11.25°): por debajo de
+        // eso el ícono elegido sería el mismo y el trabajo iría a la basura.
+        const b = this.map.getBearing();
+        if (Math.abs(b - this.ultimoBearing) < (360 / this.SPRITE_N) / 2) return;
+        this.ultimoBearing = b;
+        this.refrescarIconos();
       });
     }
 
@@ -1611,7 +1613,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           // El ícono se resuelve cuando llega un punto nuevo, no acá: esto
           // corre en cada cuadro y calcular estado + color 60 veces por segundo
           // por bus es trabajo tirado.
-          icon: this.busIcono.get(busId) || this.registrarIconoBus('en_ruta', this.busColor(loc)),
+          icon: this.busIcono.get(busId)
+                || this.registrarIconoBus(this.estadoDeBus(loc), this.busColor(loc), this.dirDeBus(loc)),
         },
       });
     });
@@ -1649,7 +1652,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.busLocationsMap.set(location.bus_id, location);
     this.busIcono.set(
       location.bus_id,
-      this.registrarIconoBus(this.estadoDeBus(location), this.busColor(location)),
+      this.registrarIconoBus(this.estadoDeBus(location), this.busColor(location),
+                             this.dirDeBus(location)),
     );
 
     if (previo) {
