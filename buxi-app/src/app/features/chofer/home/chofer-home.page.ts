@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -18,7 +18,7 @@ import { createMap, htmlMarkerEl, set3DEnabled, distanceToPolylineMeters } from 
   styleUrls: ['./chofer-home.page.scss'],
   standalone: false,
 })
-export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
+export class ChoferHomePage implements OnInit, OnDestroy {
   profile: UserProfile | null = null;
   assignedBus: Bus | null = null;
   // Lo que se muestra donde iria la placa cuando no hay bus. Es un campo y no
@@ -73,6 +73,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   private qrScanner: any = null;
 
   private map!: maplibregl.Map;
+  private mapStarted = false;
   private destroyed = false;
   private userMarker: maplibregl.Marker | null = null;
   private watchId: string | null = null;
@@ -161,8 +162,22 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  ngAfterViewInit() {
-    setTimeout(() => this.initMap(), 100);
+  // El mapa se crea cuando Ionic confirma que la pagina TERMINO de entrar, no
+  // a los 100 ms a ojo desde ngAfterViewInit. Creandolo a mitad de la
+  // transicion, el canvas WebGL nacia mientras la pagina todavia se movia y el
+  // topbar quedaba en el DOM, con tamano correcto, pero sin pintar -- hasta
+  // que algo forzara un repintado (recargar la pagina, o abrir DevTools).
+  // Se veia sobre todo al entrar desde el login, que es cuando hay transicion.
+  // El mapa del pasajero no lo sufre por casualidad: su initMap() espera a
+  // profileReady, asi que su canvas nace despues de que la transicion termino.
+  ionViewDidEnter() {
+    if (this.mapStarted) {
+      // Al volver a la pantalla el contenedor pudo cambiar de tamano.
+      this.map?.resize();
+      return;
+    }
+    this.mapStarted = true;
+    this.initMap().catch(() => {});
   }
 
   private async initMap() {
