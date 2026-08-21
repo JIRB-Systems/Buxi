@@ -595,23 +595,64 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   // sobre el plano del mapa (pitchAlignment) y gira con él (rotationAlignment),
   // así que con la cámara inclinada se lee como un vehículo sobre la calle —
   // el mismo efecto que los aviones de FlightRadar24.
+  // El marcador anterior era un `rect rx="7"`: una cápsula simétrica. MapLibre
+  // ya lo rotaba con el rumbo real del bus (ver `rotation` en
+  // addOrUpdateBusMarker), pero a 0° y a 180° se veía idéntico — o sea que el
+  // heading que el chofer calcula, transmite y guardamos no se leía en pantalla.
+  //
+  // Esta silueta es asimétrica a propósito: trompa angosta, cola ancha. La
+  // dirección se entiende por la forma sola, incluso cuando el marcador es tan
+  // chico que ningún detalle interno se distingue. Los tres elementos claros
+  // (parabrisas y dos faros) están todos adelante, así que la parte más
+  // brillante del dibujo es siempre la que apunta hacia donde va.
+  //
+  // Nada de degradados: cada marcador es su propio <svg> en el documento y los
+  // `id` de un <linearGradient> chocarían entre buses. El volumen lo dan el
+  // contorno claro y el drop-shadow del CSS.
   private busMarkerHtml(color: string): string {
     return `
       <div class="bus-3d">
-        <svg viewBox="0 0 26 40" width="26" height="40">
-          <ellipse cx="13" cy="35" rx="9" ry="3" fill="rgba(0,0,0,0.35)"/>
-          <rect x="3" y="2" width="20" height="32" rx="7"
-                fill="${color}" stroke="rgba(255,255,255,0.92)" stroke-width="2"/>
-          <path d="M6 9 Q13 5 20 9 L20 13 Q13 10 6 13 Z" fill="rgba(255,255,255,0.85)"/>
-          <rect x="6.5" y="17" width="13" height="2.6" rx="1.3" fill="rgba(255,255,255,0.35)"/>
-          <rect x="6.5" y="22" width="13" height="2.6" rx="1.3" fill="rgba(255,255,255,0.35)"/>
-          <rect x="9" y="29" width="8" height="2.4" rx="1.2" fill="rgba(0,0,0,0.28)"/>
+        <svg viewBox="0 0 26 42" width="26" height="42">
+          <ellipse cx="13" cy="39.5" rx="8.5" ry="3" fill="rgba(0,0,0,0.4)"/>
+          <path d="M13 2.6
+                   C16.3 2.6 18.3 4 19.1 6.9
+                   L21.3 13.6 L21.3 33.4
+                   C21.3 36.1 19.8 37.4 17.4 37.4
+                   L8.6 37.4
+                   C6.2 37.4 4.7 36.1 4.7 33.4
+                   L4.7 13.6 L6.9 6.9
+                   C7.7 4 9.7 2.6 13 2.6 Z"
+                fill="${color}" stroke="rgba(255,255,255,0.95)"
+                stroke-width="1.7" stroke-linejoin="round"/>
+          <circle cx="9.8" cy="5.6" r="1" fill="rgba(255,255,255,0.9)"/>
+          <circle cx="16.2" cy="5.6" r="1" fill="rgba(255,255,255,0.9)"/>
+          <path d="M8.6 9.4 C10.5 7.5 15.5 7.5 17.4 9.4
+                   L18.2 12.6 C15 11 11 11 7.8 12.6 Z"
+                fill="rgba(255,255,255,0.92)"/>
+          <rect x="6.5" y="16.4" width="13" height="2.7" rx="1.35" fill="rgba(255,255,255,0.32)"/>
+          <rect x="6.5" y="21.4" width="13" height="2.7" rx="1.35" fill="rgba(255,255,255,0.32)"/>
+          <rect x="9.5" y="31.6" width="7" height="2.5" rx="1.25" fill="rgba(0,0,0,0.32)"/>
         </svg>
       </div>`;
   }
 
+  // Color de la ruta por bus, cacheado. Hace falta porque las dos fuentes de
+  // ubicaciones no traen lo mismo: la carga inicial (getLatestLocations) viene
+  // con el join a buses→rutas, pero el payload de Realtime es la fila cruda de
+  // bus_locations y no lo trae. Sin caché, un bus que aparecía por Realtime se
+  // pintaba con el verde de respaldo — y como el elemento del marcador se crea
+  // una sola vez, se quedaba verde para siempre aunque su ruta fuera de otro
+  // color.
+  private busColors = new Map<string, string>();
+  private readonly BUS_COLOR_FALLBACK = '#00c853';
+
   private busColor(loc: BusLocation): string {
-    return (loc.bus as any)?.ruta?.color || '#00c853';
+    const join = (loc.bus as any)?.ruta?.color;
+    if (join) {
+      this.busColors.set(loc.bus_id, join);
+      return join;
+    }
+    return this.busColors.get(loc.bus_id) || this.BUS_COLOR_FALLBACK;
   }
 
   constructor(
@@ -1217,6 +1258,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   }
 
   private async loadBusLocations() {
+    // Se cebá el caché de colores ANTES de dibujar: así un bus que todavía no
+    // transmitía al abrir el mapa, y que por lo tanto va a llegar por Realtime
+    // (sin el join a su ruta), ya tiene su color resuelto cuando se cree su
+    // marcador. Si esta consulta falla no se corta la carga: el mapa igual
+    // dibuja los buses, apenas con el color de respaldo.
+    try {
+      const buses = await this.tracking.getActiveBuses();
+      for (const b of buses) {
+        const color = (b as any)?.ruta?.color;
+        if (color) this.busColors.set(b.id, color);
+      }
+    } catch {}
+
     try {
       const locations = await this.tracking.getLatestLocations();
       this.activeBusCount = locations.length;
