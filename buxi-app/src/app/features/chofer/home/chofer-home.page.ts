@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -18,9 +18,12 @@ import { createMap, htmlMarkerEl, set3DEnabled, distanceToPolylineMeters } from 
   styleUrls: ['./chofer-home.page.scss'],
   standalone: false,
 })
-export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
+export class ChoferHomePage implements OnInit, OnDestroy {
   profile: UserProfile | null = null;
   assignedBus: Bus | null = null;
+  // Lo que se muestra donde iria la placa cuando no hay bus. Es un campo y no
+  // un texto fijo porque "sin bus" y "fallo la carga" se veian identicos.
+  sinBusTexto = 'Sin bus asignado';
   tracking = false;
   loading = true;
 
@@ -77,6 +80,7 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
   mensajesNoLeidos = 0;
 
   private map!: maplibregl.Map;
+  private mapStarted = false;
   private destroyed = false;
   private userMarker: maplibregl.Marker | null = null;
   private watchId: string | null = null;
@@ -113,7 +117,21 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
         this.refreshMensajesNoLeidos();
       }
       this.choferService.getMaxSpeedKmh().then(v => this.maxSpeedKmh = v).catch(() => {});
-    } catch {
+    } catch (e: any) {
+      // Este catch estaba vacio, asi que cualquier fallo -- red caida, RLS, o
+      // el error de PostgREST cuando un chofer quedo asignado a dos buses
+      // (getAssignedBus usa maybeSingle, que falla con mas de una fila y nada
+      // en el esquema impide la doble asignacion) -- terminaba en la misma
+      // pantalla de "Sin bus asignado". El chofer no podia salir de ahi ni
+      // saber por que.
+      this.sinBusTexto = 'Error al cargar';
+      const toast = await this.toastCtrl.create({
+        message: `No se pudo cargar tu asignacion: ${e?.message || 'error desconocido'}`,
+        duration: 6000,
+        color: 'danger',
+        position: 'top',
+      });
+      await toast.present();
     } finally {
       this.loading = false;
     }
@@ -152,8 +170,22 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  ngAfterViewInit() {
-    setTimeout(() => this.initMap(), 100);
+  // El mapa se crea cuando Ionic confirma que la pagina TERMINO de entrar, no
+  // a los 100 ms a ojo desde ngAfterViewInit. Creandolo a mitad de la
+  // transicion, el canvas WebGL nacia mientras la pagina todavia se movia y el
+  // topbar quedaba en el DOM, con tamano correcto, pero sin pintar -- hasta
+  // que algo forzara un repintado (recargar la pagina, o abrir DevTools).
+  // Se veia sobre todo al entrar desde el login, que es cuando hay transicion.
+  // El mapa del pasajero no lo sufre por casualidad: su initMap() espera a
+  // profileReady, asi que su canvas nace despues de que la transicion termino.
+  ionViewDidEnter() {
+    if (this.mapStarted) {
+      // Al volver a la pantalla el contenedor pudo cambiar de tamano.
+      this.map?.resize();
+      return;
+    }
+    this.mapStarted = true;
+    this.initMap().catch(() => {});
   }
 
   private async initMap() {
@@ -380,6 +412,11 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
     this.nextParadaIndex = 1;
+    // Tambien el indice de pantalla: solo se reiniciaba en loadRutaParadas(),
+    // que corre una vez en ngOnInit. Terminado el primer recorrido quedaba al
+    // final del arreglo y "proxima parada" no volvia a aparecer en todo el
+    // dia, hasta recargar la app.
+    this.displayParadaIndex = 1;
     this.segmentStartTime = Date.now();
 
     await this.sendLocation();
@@ -429,6 +466,11 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
       buttons: ['Listo'],
     });
     await alert.present();
+    // Esperar a que lo cierren, no solo a presentarlo: onLogout() llama a
+    // stopTracking() y despues monta su propio confirm. Sin esto los dos
+    // dialogos quedaban encima, y al confirmar la salida el resumen se
+    // quedaba huerfano sobre la pantalla de login.
+    await alert.onDidDismiss();
   }
 
   // Pausa sin terminar el viaje (almuerzo, descanso corto): deja de mandar
@@ -587,7 +629,17 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
 
   // ---- MIS CALIFICACIONES ----
   async openCalificaciones() {
-    if (!this.assignedBus) return;
+    if (!this.assignedBus) {
+      // Antes era un return a secas: se tocaba el boton y no pasaba nada.
+      const toast = await this.toastCtrl.create({
+        message: 'Las calificaciones son del bus que tengas asignado, y todavia no tenes uno.',
+        duration: 3500,
+        color: 'warning',
+        position: 'top',
+      });
+      await toast.present();
+      return;
+    }
     this.calificacionesOpen = true;
     this.loadingCalificaciones = true;
     try {
@@ -653,9 +705,13 @@ export class ChoferHomePage implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  async escanearOtro() {
+  escanearOtro() {
     this.scanResult = null;
-    await this.startScanner();
+    // El <div id="qr-reader"> vive dentro de un *ngIf="!scanResult": recien
+    // vuelve a existir despues de este render. Sin esperarlo, Html5Qrcode no
+    // encuentra el contenedor, tira, y el catch cerraba el escaner con
+    // "No se pudo acceder a la camara" -- un solo boleto por apertura.
+    setTimeout(() => this.startScanner(), 60);
   }
 
   async closeScanner() {

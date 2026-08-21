@@ -12,7 +12,7 @@
       <div class="tb-info">
         <strong>{{ profile?.nombre_completo || 'Chofer' }}</strong>
         <span *ngIf="assignedBus">{{ assignedBus.placa }} · {{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
-        <span *ngIf="!assignedBus" class="no-bus">Sin bus asignado</span>
+        <span *ngIf="!assignedBus" class="no-bus">{{ sinBusTexto }}</span>
       </div>
       <!-- El chofer no tiene dock (el pasajero llega al perfil por ahi), asi
            que sin este boton el panel -- y con el, cerrar sesion -- solo se
@@ -155,7 +155,7 @@
       <div class="pp-info-row">
         <ion-icon name="bus-outline"></ion-icon>
         <span *ngIf="assignedBus">{{ assignedBus.placa }} · {{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
-        <span *ngIf="!assignedBus" class="no-bus">Sin bus asignado</span>
+        <span *ngIf="!assignedBus" class="no-bus">{{ sinBusTexto }}</span>
       </div>
 
       <div class="pp-link" (click)="toggleProfilePanel(); openMensajes()">
