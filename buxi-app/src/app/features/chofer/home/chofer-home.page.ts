@@ -247,6 +247,19 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     const coords: [number, number][] = geometria?.length
       ? geometria.map(([lat, lng]) => [lng, lat] as [number, number])
       : this.rutaParadas.map(p => [p.longitud, p.latitud] as [number, number]);
+
+    // El primer/último punto de la geometría (calculado por el servicio de
+    // ruteo) no siempre cae exacto sobre la parada guardada -- a veces quedan
+    // a 30-40 m, imperceptible a zoom normal pero muy visible pegado a la
+    // terminal: la línea "arranca" en un punto distinto al de la parada. Se
+    // pisan los extremos con la coordenada real de la parada para que la
+    // línea siempre nazca y termine exacto en el punto marcado.
+    if (this.rutaParadas.length >= 2 && coords.length >= 2) {
+      const primera = this.rutaParadas[0];
+      const ultima = this.rutaParadas[this.rutaParadas.length - 1];
+      coords[0] = [primera.longitud, primera.latitud];
+      coords[coords.length - 1] = [ultima.longitud, ultima.latitud];
+    }
     this.routeCoords = coords;
 
     this.map.addSource('chofer-route', {
