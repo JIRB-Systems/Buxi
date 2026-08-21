@@ -237,9 +237,10 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     }
   }
 
-  // Traza la ruta asignada (línea + paradas) apenas se conoce, igual que ve
-  // el pasajero — antes el chofer solo veía su propio punto sin contexto de
-  // por dónde va el recorrido.
+  // Traza la ruta asignada (línea + paradas) apenas se conoce la ruta, pero
+  // oculta (ver routeVisibility abajo) hasta que el chofer arranca de verdad:
+  // mostrarla antes daba la impresión de un viaje ya en curso, igual que
+  // pasaba con el ícono del propio bus (ver setUserMarkerVisible).
   private drawAssignedRoute() {
     const color = this.assignedBus?.ruta?.color || '#00c853';
     const geometria = this.assignedBus?.ruta?.geometria as [number, number][] | null | undefined;
@@ -252,14 +253,16 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       type: 'geojson',
       data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } },
     });
+    // Oculta hasta que arranca el viaje -- ver setRouteVisible.
+    const routeVisibility = this.tracking ? 'visible' : 'none';
     this.map.addLayer({
       id: 'chofer-route-bg', type: 'line', source: 'chofer-route',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      layout: { 'line-cap': 'round', 'line-join': 'round', visibility: routeVisibility },
       paint: { 'line-color': color, 'line-width': 12, 'line-opacity': 0.12 },
     });
     this.map.addLayer({
       id: 'chofer-route-main', type: 'line', source: 'chofer-route',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      layout: { 'line-cap': 'round', 'line-join': 'round', visibility: routeVisibility },
       paint: { 'line-color': color, 'line-width': 5, 'line-opacity': 0.9 },
     });
 
@@ -274,6 +277,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     });
     this.map.addLayer({
       id: this.PARADAS_CIRCLE_LAYER, type: 'circle', source: this.PARADAS_SRC,
+      layout: { visibility: routeVisibility },
       paint: {
         'circle-radius': ['case', ['get', 'isTerminal'], 8, 4.5],
         'circle-color': ['get', 'color'],
@@ -292,6 +296,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         'text-anchor': 'top',
         'text-allow-overlap': false,
         'text-pitch-alignment': 'viewport',
+        visibility: routeVisibility,
       },
       paint: {
         'text-color': '#ffffff',
@@ -367,6 +372,17 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private setUserMarkerVisible(visible: boolean) {
     if (this.map?.getLayer(this.USER_LAYER)) {
       this.map.setLayoutProperty(this.USER_LAYER, 'visibility', visible ? 'visible' : 'none');
+    }
+  }
+
+  // La línea de la ruta y las paradas solo se ven mientras hay un viaje
+  // activo -- ver el comentario en drawAssignedRoute.
+  private readonly ROUTE_LAYERS = ['chofer-route-bg', 'chofer-route-main', this.PARADAS_CIRCLE_LAYER, this.PARADAS_LABEL_LAYER];
+  private setRouteVisible(visible: boolean) {
+    for (const id of this.ROUTE_LAYERS) {
+      if (this.map?.getLayer(id)) {
+        this.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+      }
     }
   }
 
@@ -513,6 +529,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private async startTracking() {
     this.tracking = true;
     this.setUserMarkerVisible(true);
+    this.setRouteVisible(true);
     this.paused = false;
     this.tripDistanceKm = 0;
     this.boletosEscaneados = 0;
@@ -553,6 +570,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private async stopTracking() {
     this.tracking = false;
     this.setUserMarkerVisible(false);
+    this.setRouteVisible(false);
     this.paused = false;
     this.speedWarning = false;
     this.offRoute = false;
