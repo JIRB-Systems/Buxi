@@ -633,6 +633,18 @@
       background: rgba(0, 224, 106, 0.14);
       border-color: rgba(0, 224, 106, 0.32);
     }
+    // Mismos colores que el ícono del bus en el mapa, para que la ficha y el
+    // marcador digan lo mismo de un vistazo.
+    &.tarde {
+      color: #ffc65c;
+      background: rgba(245, 166, 35, 0.16);
+      border-color: rgba(245, 166, 35, 0.36);
+    }
+    &.parada {
+      color: #c3ccda;
+      background: rgba(154, 163, 178, 0.16);
+      border-color: rgba(154, 163, 178, 0.34);
+    }
   }
 
   .sheet-close { font-size: 21px; color: #6f83a0; cursor: pointer; flex-shrink: 0; }
@@ -835,28 +847,17 @@
   // medio marcador, y el marcador se va fuera de cuadro. Es exactamente por eso
   // que el círculo de precisión (una capa GeoJSON, que no pasa por esto) caía
   // bien mientras ningún marcador HTML aparecía.
+  // Los buses ya no son marcadores del DOM: viven en una capa `symbol` nativa,
+  // así que sus estilos se fueron con ellos. Acá solo quedan los marcadores que
+  // siguen siendo HTML.
   .user-marker,
   .user-cone-marker,
-  .bus-marker,
   .stop-marker {
     position: absolute;
     top: 0;
     left: 0;
     will-change: transform;
   }
-  // El bus se acuesta sobre el plano del mapa y gira con él, así que el
-  // "3D" lo aporta la cámara inclinada + la sombra proyectada del SVG.
-  .bus-marker { cursor: pointer; }
-
-  .bus-3d {
-    display: grid; place-items: center;
-    transition: filter 0.2s ease;
-    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45));
-
-    svg { display: block; overflow: visible; }
-  }
-
-  .bus-marker:active .bus-3d { filter: drop-shadow(0 3px 5px rgba(0,0,0,0.45)) brightness(1.2); }
 
   // ---- UBICACIÓN DEL USUARIO ----
   // Dos marcadores: el cono va acostado en el suelo, la chapa siempre derecha.
