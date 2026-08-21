@@ -13,7 +13,7 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "geolocation=(self), camera=(), microphone=(), payment=()" },
+        { "key": "Permissions-Policy", "value": "geolocation=(self), camera=(self), microphone=(), payment=()" },
         { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://api.maptiler.com https://gduxelmqqnqupimfcdeb.supabase.co https://lh3.googleusercontent.com https://*.fbcdn.net https://platform-lookaside.fbsbx.com; connect-src 'self' https://gduxelmqqnqupimfcdeb.supabase.co wss://gduxelmqqnqupimfcdeb.supabase.co https://router.project-osrm.org https://*.basemaps.cartocdn.com https://api.maptiler.com; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" }
       ]
     }
