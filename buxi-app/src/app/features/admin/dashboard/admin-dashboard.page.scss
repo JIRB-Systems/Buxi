@@ -699,3 +699,27 @@
   .sidebar-footer { padding: 6px 10px 12px; }
 }
 
+// ---- MAPA EN PANTALLA COMPLETA ----
+// Los alto fijos de #admin-map / #admin-map-overview son deliberados para el
+// layout de la pagina (ver el comentario donde se declaran), pero en pantalla
+// completa dejarian el mapa en sus 640px con el resto de la pantalla en negro.
+// Hay que soltarlos mientras dure el modo.
+//
+// Las dos variantes van en reglas SEPARADAS a proposito: si compartieran
+// selector, un navegador que no reconoce una de las dos descartaria la regla
+// entera y el mapa quedaria chico igual.
+@mixin mapa-a-pantalla-completa {
+  border-radius: 0;
+  border: none;
+
+  #admin-map,
+  #admin-map-overview {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    flex: 1;
+  }
+}
+
+.live-map-container:fullscreen { @include mapa-a-pantalla-completa; }
+.live-map-container:-webkit-full-screen { @include mapa-a-pantalla-completa; }
