@@ -13,7 +13,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
 import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan, Factura } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
-import { createMap, htmlMarkerEl, circlePolygon, distanceToPolylineMeters } from '../../../core/utils/maplibre';
+import { createMap, htmlMarkerEl, circlePolygon, distanceToPolylineMeters, set3DEnabled } from '../../../core/utils/maplibre';
 import type { Feature, LineString } from 'geojson';
 import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
@@ -362,6 +362,10 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     });
     if (this.adminMap !== null) { try { map.remove(); } catch {} return; }
     this.adminMap = map;
+    // createMap siempre entrega el mapa en 3D, asi que el estado del boton
+    // arranca acordado con lo que se ve, incluso al recrear el mapa al
+    // cambiar de pestana.
+    this.is3D = true;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     // El contenedor de la pestaña "Mapa en vivo" recién aparece por el
@@ -577,6 +581,18 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   clearBusSearch() { this.busSearchQuery = ''; }
 
   // ---- CAPA DE CALOR DE ANOMALÍAS ----
+
+  // El mapa nace en 3D (threeD: true en initAdminMap) pero no habia forma de
+  // volver a 2D: el relieve y los edificios estorban para leer posiciones a
+  // escala de pais, que es como se usa esta pantalla.
+  is3D = true;
+
+  toggle3D() {
+    if (!this.adminMap) return;
+    this.is3D = !this.is3D;
+    set3DEnabled(this.adminMap, this.is3D, true);
+  }
+
   toggleAnomalyHeatmap() {
     this.showAnomalyHeatmap = !this.showAnomalyHeatmap;
     if (this.showAnomalyHeatmap) this.renderAnomalyHeatmap();

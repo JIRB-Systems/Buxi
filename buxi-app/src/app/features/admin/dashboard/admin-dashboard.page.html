@@ -348,6 +348,9 @@
               <button class="map-toggle-btn" [class.active]="historicalMode" (click)="toggleHistoricalMode()">
                 <ion-icon name="time-outline"></ion-icon> {{ historicalMode ? 'Volver a en vivo' : 'Histórico' }}
               </button>
+              <button class="map-toggle-btn" [class.active]="is3D" (click)="toggle3D()">
+                <ion-icon name="cube-outline"></ion-icon> {{ is3D ? 'Ver en 2D' : 'Ver en 3D' }}
+              </button>
             </div>
 
             <div class="historical-controls" *ngIf="historicalMode">
