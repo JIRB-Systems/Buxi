@@ -10,7 +10,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Parada } from '../../../core/models/transport.model';
 import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/features.model';
 import { ChoferService } from '../../../core/services/chofer.service';
-import { createMap, htmlMarkerEl, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
+import { createMap, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 
 @Component({
   selector: 'app-chofer-home',
@@ -82,7 +82,19 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private map!: maplibregl.Map;
   private mapStarted = false;
   private destroyed = false;
-  private userMarker: maplibregl.Marker | null = null;
+  // Posición propia y paradas dibujadas como capas nativas (circle/symbol),
+  // no maplibregl.Marker: con terreno 3D activo (pitch:50), Marker consulta
+  // la elevación del terreno para ubicarse y esa consulta de MapLibre trae un
+  // bug conocido (github.com/maplibre/maplibre-gl-js/issues/6701) que devuelve
+  // valores erróneos — el ícono aparecía centenares de píxeles fuera de su
+  // posición real, típicamente lejos de la terminal. Mismo fix ya aplicado a
+  // las paradas y emergencias del mapa de empresa.
+  private readonly USER_SRC = 'chofer-self';
+  private readonly USER_LAYER = 'chofer-self-icon';
+  private readonly PARADAS_SRC = 'chofer-paradas';
+  private readonly PARADAS_CIRCLE_LAYER = 'chofer-paradas-circle';
+  private readonly PARADAS_LABEL_LAYER = 'chofer-paradas-label';
+  private busIconReady = false;
   private watchId: string | null = null;
   private currentLat = 0;
   private currentLng = 0;
@@ -199,6 +211,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     });
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
+    this.ensureBusIcon();
     await this.startWatchingPosition();
 
     await this.paradasReady;
@@ -233,15 +246,88 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       paint: { 'line-color': color, 'line-width': 5, 'line-opacity': 0.9 },
     });
 
-    this.rutaParadas.forEach((parada, i) => {
-      const isTerminal = i === 0 || i === this.rutaParadas.length - 1;
-      const html = isTerminal
-        ? `<div class="stop-terminal" style="border-color:${color}"><div class="stop-inner" style="background:${color}"></div></div>`
-        : `<div class="stop-dot" style="border-color:${color}"></div>`;
-      const el = htmlMarkerEl('stop-marker', html);
-      new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([parada.longitud, parada.latitud])
-        .addTo(this.map);
+    const features = this.rutaParadas.map((parada, i) => ({
+      type: 'Feature' as const,
+      properties: { color, isTerminal: i === 0 || i === this.rutaParadas.length - 1, nombre: parada.nombre },
+      geometry: { type: 'Point' as const, coordinates: [parada.longitud, parada.latitud] },
+    }));
+    this.map.addSource(this.PARADAS_SRC, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features },
+    });
+    this.map.addLayer({
+      id: this.PARADAS_CIRCLE_LAYER, type: 'circle', source: this.PARADAS_SRC,
+      paint: {
+        'circle-radius': ['case', ['get', 'isTerminal'], 8, 4.5],
+        'circle-color': ['get', 'color'],
+        'circle-stroke-width': ['case', ['get', 'isTerminal'], 2, 1.5],
+        'circle-stroke-color': '#ffffff',
+        'circle-pitch-alignment': 'viewport',
+      },
+    });
+    this.map.addLayer({
+      id: this.PARADAS_LABEL_LAYER, type: 'symbol', source: this.PARADAS_SRC,
+      filter: ['==', ['get', 'isTerminal'], true],
+      layout: {
+        'text-field': ['get', 'nombre'],
+        'text-size': 11,
+        'text-offset': [0, 1.6],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+        'text-pitch-alignment': 'viewport',
+      },
+      paint: {
+        'text-color': '#ffffff',
+        'text-halo-color': 'rgba(10, 22, 40, 0.95)',
+        'text-halo-width': 1.5,
+      },
+    });
+  }
+
+  // Ícono del propio bus dibujado sobre un canvas y cargado como imagen del
+  // mapa, para poder usarlo en una capa `symbol` nativa (ver comentario en
+  // USER_SRC más arriba). Se genera una sola vez por instancia de mapa.
+  private ensureBusIcon() {
+    if (this.busIconReady || this.map.hasImage('chofer-bus-icon')) { this.busIconReady = true; return; }
+    const size = 96;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(10, 22, 40, 0.95)';
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#00c853';
+    ctx.stroke();
+    ctx.fillStyle = '#00e676';
+    ctx.font = `${Math.round(size * 0.5)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🚌', size / 2, size / 2 + 2);
+    this.map.addImage('chofer-bus-icon', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+    this.busIconReady = true;
+  }
+
+  private updateUserMarkerLayer(lng: number, lat: number) {
+    const geojson = { type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: [lng, lat] } };
+    const src = this.map.getSource(this.USER_SRC) as maplibregl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData(geojson as any);
+      return;
+    }
+    this.map.addSource(this.USER_SRC, { type: 'geojson', data: geojson as any });
+    this.map.addLayer({
+      id: this.USER_LAYER, type: 'symbol', source: this.USER_SRC,
+      layout: {
+        'icon-image': 'chofer-bus-icon',
+        'icon-size': 0.5,
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'icon-pitch-alignment': 'viewport',
+        'icon-rotation-alignment': 'viewport',
+      },
     });
   }
 
@@ -314,14 +400,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       this.lastTripLng = lng;
     }
 
-    if (this.userMarker) {
-      this.userMarker.setLngLat([lng, lat]);
-    } else {
-      const el = htmlMarkerEl('chofer-marker', `<div class="chofer-marker-inner"><ion-icon name="bus"></ion-icon></div>`);
-      this.userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([lng, lat])
-        .addTo(this.map);
-    }
+    this.updateUserMarkerLayer(lng, lat);
 
     this.updateNextParadaProgress();
   }

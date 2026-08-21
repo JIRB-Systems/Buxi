@@ -584,51 +584,6 @@
   span { font-size: 14px; color: #ff8585; font-weight: 600; }
 }
 
-:host ::ng-deep {
-  .chofer-marker-inner {
-    width: 48px;
-    height: 48px;
-    background: rgba(10, 22, 40, 0.9);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    border: 3px solid #00c853;
-
-    ion-icon {
-      font-size: 24px;
-      color: #00e676;
-    }
-  }
-
-  // Paradas de la ruta trazada — mismo lenguaje visual que el mapa del
-  // pasajero (punto blanco con borde del color de la ruta).
-  .stop-marker { display: grid; place-items: center; }
-
-  .stop-dot {
-    width: 10px; height: 10px;
-    background: #fff;
-    border: 2.5px solid #00c853;
-    border-radius: 50%;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-  }
-
-  .stop-terminal {
-    width: 16px; height: 16px;
-    background: #fff;
-    border: 2.5px solid #00c853;
-    border-radius: 50%;
-    display: grid; place-items: center;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.35);
-
-    .stop-inner {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-    }
-  }
-}
-
 // ---- HISTORIAL DE VIAJES ----
 .historial-sheet {
   position: absolute;
