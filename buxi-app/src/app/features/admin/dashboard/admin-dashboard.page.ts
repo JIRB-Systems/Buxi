@@ -54,6 +54,10 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private adminClusterMarkers: maplibregl.Marker[] = [];
   private readonly CLUSTER_PIXEL_RADIUS = 46;
   private clusterMoveHandler: (() => void) | null = null;
+  // Identifica el pedido de mapa vigente. createMap() tarda 1-3 s en cargar el
+  // estilo, y en ese rato se puede pedir otro (cambio de pestana), asi que hace
+  // falta saber cual de los dos sigue siendo el bueno cuando resuelvan.
+  private mapInitToken = 0;
   private clusterDebounce: any = null;
 
   // ---- Time-lapse histórico ----
@@ -335,6 +339,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   private async initAdminMap(elementId: string) {
+    const token = ++this.mapInitToken;
     if (this.adminMap) { this.adminMap.remove(); this.adminMap = null; }
     // El mapa se reconstruye al cambiar de pestaña: soltar el watch anterior,
     // si no queda uno colgado por cada visita alimentando un mapa muerto.
@@ -363,7 +368,15 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       // cooperativos la rueda hace zoom en vez de bajar la página.
       cooperativeGestures: true,
     });
-    if (this.adminMap !== null) { try { map.remove(); } catch {} return; }
+    // Antes esto decia `if (this.adminMap !== null)`, o sea: ganaba el primer
+    // mapa en resolver, no el ultimo en pedirse. Entrando al panel y tocando
+    // "Mapa en vivo" antes de que terminara de cargar el mapa del resumen, el
+    // del resumen resolvia primero y se quedaba con this.adminMap -- aunque su
+    // <div> ya no existiera, borrado por el *ngIf -- y el del mapa en vivo se
+    // eliminaba a si mismo al ver el lugar ocupado. Resultado: el mapa en vivo
+    // quedaba en blanco. Con el token gana el ultimo pedido, que es el que
+    // corresponde a la pestana que el usuario esta mirando.
+    if (token !== this.mapInitToken) { try { map.remove(); } catch {} return; }
     this.adminMap = map;
     // createMap siempre entrega el mapa en 3D, asi que el estado del boton
     // arranca acordado con lo que se ve, incluso al recrear el mapa al
