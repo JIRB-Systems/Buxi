@@ -11,7 +11,7 @@ import { Anuncio, HorarioSalida, Boleto } from '../../../core/models/features.mo
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
-import { createMap, animateMarkerTo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
+import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
@@ -28,6 +28,11 @@ const PROVINCIA_CENTERS: Record<string, [number, number]> = {
   limon: [-83.0333, 9.9907],
 };
 
+// Estado que se le muestra al pasajero sobre cada bus. No es `buses.estado` de
+// la base (activo / en_ruta): eso es la disponibilidad administrativa del
+// vehículo. Esto se deriva en vivo de la última ubicación.
+export type BusEstadoVivo = 'en_ruta' | 'retrasado' | 'en_parada';
+
 @Component({
   selector: 'app-map',
   templateUrl: './map.page.html',
@@ -43,10 +48,35 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Rutas dibujadas como capas GeoJSON + paradas como markers HTML.
   private routeLayerIds: string[] = [];
   private routeMarkers: maplibregl.Marker[] = [];
-  private busMarkers = new Map<string, maplibregl.Marker>();
+  // Los buses NO son marcadores del DOM. Van en una capa nativa de MapLibre por
+  // dos razones:
+  //
+  // 1. maplibregl.Marker se ubica consultando la elevación del terreno 3D, y con
+  //    `setTerrain` activo esa consulta devuelve valores erróneos: el ícono se va
+  //    cientos de píxeles de su posición real (maplibre-gl-js#6701). Ya mordió al
+  //    equipo en el mapa de empresa, el de JIRB y el del chofer; los tres se
+  //    arreglaron pasando a capas nativas. Éste era el que faltaba, y este mapa
+  //    tiene pitch 50 + enable3D, o sea todas las condiciones del bug.
+  // 2. Un Marker es un nodo del DOM que el navegador reposiciona en cada cuadro.
+  //    Con una flota de verdad eso es un nodo por bus compitiendo con el hilo
+  //    principal; la capa nativa la dibuja la GPU y el costo por bus es marginal.
+  private readonly BUSES_SRC = 'buses-src';
+  private readonly BUSES_LAYER = 'buses-layer';
+  private busLayerListo = false;
+  private busIconosRegistrados = new Set<string>();
   private busLocationsMap = new Map<string, BusLocation>();
   private busLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
+
+  // Interpolación: en vez de animar cada bus por separado, se guarda origen y
+  // destino de cada uno y un ÚNICO requestAnimationFrame interpola a todos y
+  // hace un solo setData por cuadro.
+  private busAnim = new Map<string, {
+    lng0: number; lat0: number; lng1: number; lat1: number;
+    head0: number; head1: number; t0: number;
+  }>();
+  private busRaf: number | null = null;
+  private readonly BUS_TWEEN_MS = 1000;
   private userMarker: maplibregl.Marker | null = null;
   private userConeMarker: maplibregl.Marker | null = null;
   private gpsHeading: number | null = null;
@@ -531,11 +561,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return (this.selectedBus?.bus as any)?.empresa?.nombre || 'Sin empresa';
   }
 
+  // Muestra el estado VIVO (el mismo que decide el color del ícono en el mapa),
+  // no `buses.estado` de la base. Ese campo es la disponibilidad administrativa
+  // del vehículo y decía "Activo" incluso con el bus parado en una terminal —
+  // al pasajero no le sirve de nada.
+  get selectedBusEstadoVivo(): BusEstadoVivo | null {
+    return this.selectedBus ? this.estadoDeBus(this.selectedBus) : null;
+  }
+
   get selectedBusEstado(): string {
-    const estado = (this.selectedBus?.bus as any)?.estado;
-    if (estado === 'en_ruta') return 'En recorrido';
-    if (estado === 'activo') return 'Activo';
-    return 'Detenido';
+    switch (this.selectedBusEstadoVivo) {
+      case 'en_parada':  return 'En parada';
+      case 'retrasado':  return 'Retrasado';
+      case 'en_ruta':    return 'En ruta';
+      default:           return 'Sin datos';
+    }
   }
 
   // Distancia del bus al usuario, no a la parada: es la que el pasajero mira
@@ -595,45 +635,179 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // sobre el plano del mapa (pitchAlignment) y gira con él (rotationAlignment),
   // así que con la cámara inclinada se lee como un vehículo sobre la calle —
   // el mismo efecto que los aviones de FlightRadar24.
-  // El marcador anterior era un `rect rx="7"`: una cápsula simétrica. MapLibre
-  // ya lo rotaba con el rumbo real del bus (ver `rotation` en
-  // addOrUpdateBusMarker), pero a 0° y a 180° se veía idéntico — o sea que el
-  // heading que el chofer calcula, transmite y guardamos no se leía en pantalla.
+  // El diseño del ícono (silueta asimétrica, trompa angosta y cola ancha) vive
+  // ahora en `registrarIconoBus`, dibujado sobre un canvas. Era un SVG en el
+  // DOM hasta que los buses pasaron a una capa nativa de MapLibre.
+
+  // ---- ÍCONO DEL BUS COMO IMAGEN DE LA CAPA NATIVA ----
   //
-  // Esta silueta es asimétrica a propósito: trompa angosta, cola ancha. La
-  // dirección se entiende por la forma sola, incluso cuando el marcador es tan
-  // chico que ningún detalle interno se distingue. Los tres elementos claros
-  // (parabrisas y dos faros) están todos adelante, así que la parte más
-  // brillante del dibujo es siempre la que apunta hacia donde va.
+  // Una capa `symbol` no puede teñir un ícono a color libre (`icon-color` solo
+  // aplica a íconos SDF, que son de un solo tono y perderían el parabrisas y las
+  // ventanas). Así que se dibuja el mismo diseño en un canvas, una vez por
+  // combinación de color+estado, y se registra con addImage. Son poquísimas
+  // imágenes: los estados 'retrasado' y 'en_parada' tienen color fijo, y
+  // 'en_ruta' usa el color de la ruta, de los que hay un puñado.
+  private readonly BUS_S = 3;            // escala de dibujo = pixelRatio
+  private readonly BUS_W = 26;
+  private readonly BUS_H = 42;
+
+  private colorDeEstado(estado: BusEstadoVivo, colorRuta: string): string {
+    if (estado === 'retrasado') return '#f5a623';
+    if (estado === 'en_parada') return '#9aa3b2';
+    return colorRuta;
+  }
+
+  private busIconId(estado: BusEstadoVivo, colorRuta: string): string {
+    return `bus-${estado}-${this.colorDeEstado(estado, colorRuta).replace('#', '')}`;
+  }
+
+  // ctx.roundRect no existe en WebViews de Android viejas; sin este respaldo el
+  // ícono entero se caía en esos equipos, que son justamente los de un chofer.
+  private rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    if (typeof (ctx as any).roundRect === 'function') {
+      ctx.beginPath(); (ctx as any).roundRect(x, y, w, h, r); return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  private registrarIconoBus(estado: BusEstadoVivo, colorRuta: string): string {
+    const id = this.busIconId(estado, colorRuta);
+    if (this.busIconosRegistrados.has(id)) return id;
+
+    const S = this.BUS_S;
+    const pad = 8;                                    // aire para el halo
+    const cw = (this.BUS_W + pad * 2) * S;
+    const ch = (this.BUS_H + pad * 2) * S;
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return id;
+
+    ctx.scale(S, S);
+    ctx.translate(pad, pad);
+    const color = this.colorDeEstado(estado, colorRuta);
+
+    // Halo de estado, como el anillo de la referencia
+    ctx.beginPath();
+    ctx.arc(13, 20, 15.5, 0, Math.PI * 2);
+    ctx.strokeStyle = color; ctx.globalAlpha = 0.22; ctx.lineWidth = 2.2;
+    ctx.stroke(); ctx.globalAlpha = 1;
+
+    // Sombra proyectada
+    ctx.beginPath();
+    ctx.ellipse(13, 39.5, 8.5, 3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.40)'; ctx.fill();
+
+    // Carrocería: trompa angosta, cola ancha (la dirección se lee por la forma)
+    ctx.beginPath();
+    ctx.moveTo(13, 2.6);
+    ctx.bezierCurveTo(16.3, 2.6, 18.3, 4, 19.1, 6.9);
+    ctx.lineTo(21.3, 13.6); ctx.lineTo(21.3, 33.4);
+    ctx.bezierCurveTo(21.3, 36.1, 19.8, 37.4, 17.4, 37.4);
+    ctx.lineTo(8.6, 37.4);
+    ctx.bezierCurveTo(6.2, 37.4, 4.7, 36.1, 4.7, 33.4);
+    ctx.lineTo(4.7, 13.6); ctx.lineTo(6.9, 6.9);
+    ctx.bezierCurveTo(7.7, 4, 9.7, 2.6, 13, 2.6);
+    ctx.closePath();
+    ctx.fillStyle = color; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 1.7;
+    ctx.lineJoin = 'round'; ctx.stroke();
+
+    // Luz de posición al frente: una barra clara cruzando la trompa
+    this.rr(ctx, 9.0, 4.5, 8.0, 1.9, 0.95);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+
+    // Parabrisas
+    ctx.beginPath();
+    ctx.moveTo(8.6, 9.4);
+    ctx.bezierCurveTo(10.5, 7.5, 15.5, 7.5, 17.4, 9.4);
+    ctx.lineTo(18.2, 12.6);
+    ctx.bezierCurveTo(15, 11, 11, 11, 7.8, 12.6);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
+
+    // Ventanas laterales
+    ctx.fillStyle = 'rgba(255,255,255,0.32)';
+    this.rr(ctx, 6.5, 16.4, 13, 2.7, 1.35); ctx.fill();
+    this.rr(ctx, 6.5, 21.4, 13, 2.7, 1.35); ctx.fill();
+
+    // Baliza GPS en el techo: punto claro con resplandor
+    ctx.beginPath();
+    ctx.arc(13, 27.6, 2.6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fill();
+    ctx.beginPath();
+    ctx.arc(13, 27.6, 1.25, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
+
+    // Barra trasera
+    this.rr(ctx, 9.5, 31.6, 7, 2.5, 1.25);
+    ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.fill();
+
+    try {
+      this.map.addImage(id, ctx.getImageData(0, 0, cw, ch), { pixelRatio: S });
+      this.busIconosRegistrados.add(id);
+    } catch { /* ya estaba registrada */ }
+    return id;
+  }
+
+  // ---- ESTADO VIVO DEL BUS ----
   //
-  // Nada de degradados: cada marcador es su propio <svg> en el documento y los
-  // `id` de un <linearGradient> chocarían entre buses. El volumen lo dan el
-  // contorno claro y el drop-shadow del CSS.
-  private busMarkerHtml(color: string): string {
-    return `
-      <div class="bus-3d">
-        <svg viewBox="0 0 26 42" width="26" height="42">
-          <ellipse cx="13" cy="39.5" rx="8.5" ry="3" fill="rgba(0,0,0,0.4)"/>
-          <path d="M13 2.6
-                   C16.3 2.6 18.3 4 19.1 6.9
-                   L21.3 13.6 L21.3 33.4
-                   C21.3 36.1 19.8 37.4 17.4 37.4
-                   L8.6 37.4
-                   C6.2 37.4 4.7 36.1 4.7 33.4
-                   L4.7 13.6 L6.9 6.9
-                   C7.7 4 9.7 2.6 13 2.6 Z"
-                fill="${color}" stroke="rgba(255,255,255,0.95)"
-                stroke-width="1.7" stroke-linejoin="round"/>
-          <circle cx="9.8" cy="5.6" r="1" fill="rgba(255,255,255,0.9)"/>
-          <circle cx="16.2" cy="5.6" r="1" fill="rgba(255,255,255,0.9)"/>
-          <path d="M8.6 9.4 C10.5 7.5 15.5 7.5 17.4 9.4
-                   L18.2 12.6 C15 11 11 11 7.8 12.6 Z"
-                fill="rgba(255,255,255,0.92)"/>
-          <rect x="6.5" y="16.4" width="13" height="2.7" rx="1.35" fill="rgba(255,255,255,0.32)"/>
-          <rect x="6.5" y="21.4" width="13" height="2.7" rx="1.35" fill="rgba(255,255,255,0.32)"/>
-          <rect x="9.5" y="31.6" width="7" height="2.5" rx="1.25" fill="rgba(0,0,0,0.32)"/>
-        </svg>
-      </div>`;
+  // 'en_parada': casi detenido y a menos de 70 m de una parada de su ruta.
+  // 'retrasado': su salida programada ya pasó hace más de RETRASO_MIN minutos.
+  //              Se calcula contra horario_salidas, que es la fuente correcta —
+  //              hoy esa tabla está vacía, así que este estado no se enciende
+  //              nunca. Es a propósito: preferimos que no aparezca a inventar un
+  //              retraso que no podemos justificar con datos.
+  // 'en_ruta':   todo lo demás.
+  private readonly PARADA_RADIO_KM = 0.07;
+  private readonly PARADA_VEL_MAX = 3;
+  private readonly RETRASO_MIN = 5;
+
+  // bus -> ruta y ruta -> paradas, cargados una vez. Sin esto "En parada" solo
+  // funcionaba con una ruta abierta, que es la minoría del tiempo que el
+  // pasajero pasa en el mapa.
+  private busRuta = new Map<string, string>();
+  private paradasPorRuta = new Map<string, Parada[]>();
+
+  private paradasDelBus(loc: BusLocation): Parada[] {
+    const rutaId = this.busRuta.get(loc.bus_id);
+    if (rutaId) return this.paradasPorRuta.get(rutaId) || [];
+    // Si la ruta del bus no se conoce, se cae a la ruta abierta (si la hay).
+    return this.activeParadas;
+  }
+
+  private estadoDeBus(loc: BusLocation): BusEstadoVivo {
+    const paradas = this.paradasDelBus(loc);
+    if ((loc.velocidad ?? 0) <= this.PARADA_VEL_MAX && paradas.length) {
+      const cerca = paradas.some(p =>
+        this.featuresService.distanceKm(loc.latitud, loc.longitud, p.latitud, p.longitud)
+          <= this.PARADA_RADIO_KM);
+      if (cerca) return 'en_parada';
+    }
+    if (this.minutosDeRetraso() > this.RETRASO_MIN) return 'retrasado';
+    return 'en_ruta';
+  }
+
+  // Minutos transcurridos desde la salida programada más reciente de la ruta
+  // activa. Sin horarios cargados devuelve 0 y nadie queda marcado como tarde.
+  private minutosDeRetraso(): number {
+    if (!this.activeSalidas?.length) return 0;
+    const ahora = new Date();
+    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
+    let mejor = -1;
+    for (const s of this.activeSalidas) {
+      const [hh, mm] = String((s as any).hora || '').split(':').map(Number);
+      if (isNaN(hh) || isNaN(mm)) continue;
+      const m = hh * 60 + mm;
+      if (m <= minutosAhora && m > mejor) mejor = m;
+    }
+    return mejor < 0 ? 0 : minutosAhora - mejor;
   }
 
   // Color de la ruta por bus, cacheado. Hace falta porque las dos fuentes de
@@ -762,7 +936,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         }
         for (const loc of locations) this.addOrUpdateBusMarker(loc);
       }
-      this.activeBusCount = this.busMarkers.size;
+      this.activeBusCount = this.busLocationsMap.size;
 
       if (allCoords.length > 0) {
         const bounds = allCoords.reduce(
@@ -1054,6 +1228,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           await this.drawRouteLayer(this.activeParadas, this.activeRuta.color, this.activeRuta.geometria);
         } catch {}
       }
+
+      // setStyle destruye fuentes, capas Y las imágenes registradas con
+      // addImage. Sin esto la capa de buses quedaba marcada como "lista"
+      // apuntando a algo que ya no existe, y los buses desaparecían para
+      // siempre al cambiar de tema.
+      this.busLayerListo = false;
+      this.busIconosRegistrados.clear();
+      // Los ids cacheados apuntan a imágenes que setStyle acaba de borrar:
+      // hay que volver a registrarlas antes del próximo volcado.
+      this.busIcono.clear();
+      this.busLocationsMap.forEach((loc, id) => this.busIcono.set(
+        id, this.registrarIconoBus(this.estadoDeBus(loc), this.busColor(loc))));
+      this.pintarBuses(performance.now());
     });
   }
 
@@ -1130,20 +1317,25 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private startStaleBusWatcher() {
     this.staleCheckInterval = setInterval(() => {
       const now = Date.now();
+      let cambio = false;
       this.busLastSeen.forEach((lastSeen, busId) => {
-        const marker = this.busMarkers.get(busId);
-        if (!marker) return;
         const age = now - lastSeen;
         if (age > this.REMOVE_MS) {
-          marker.remove();
-          this.busMarkers.delete(busId);
           this.busLocationsMap.delete(busId);
           this.busLastSeen.delete(busId);
-          this.activeBusCount = this.busMarkers.size;
+          this.busAnim.delete(busId);
+          this.busIcono.delete(busId);
+          cambio = true;
         } else if (age > this.STALE_MS) {
-          marker.getElement().style.opacity = '0.35';
+          // La atenuación la resuelve `icon-opacity` leyendo la propiedad
+          // `stale`, que pintarBuses recalcula en cada volcado.
+          cambio = true;
         }
       });
+      if (cambio) {
+        this.activeBusCount = this.busLocationsMap.size;
+        this.pintarBuses(performance.now());
+      }
     }, 10000);
   }
 
@@ -1260,10 +1452,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.routeMarkers.forEach(m => m.remove());
     this.routeMarkers = [];
 
-    this.busMarkers.forEach(m => m.remove());
-    this.busMarkers.clear();
     this.busLocationsMap.clear();
     this.busLastSeen.clear();
+    this.busAnim.clear();
+    this.busIcono.clear();
+    if (this.busLayerListo) this.pintarBuses(performance.now());
     this.activeBusCount = 0;
     this.selectedBus = null;
     this.followBusId = null;
@@ -1285,10 +1478,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // marcador. Si esta consulta falla no se corta la carga: el mapa igual
     // dibuja los buses, apenas con el color de respaldo.
     try {
-      const buses = await this.tracking.getActiveBuses();
+      const [buses, paradas] = await Promise.all([
+        this.tracking.getActiveBuses(),
+        this.tracking.getAllParadas(),
+      ]);
       for (const b of buses) {
         const color = (b as any)?.ruta?.color;
         if (color) this.busColors.set(b.id, color);
+        if (b.ruta_id) this.busRuta.set(b.id, b.ruta_id);
+      }
+      this.paradasPorRuta.clear();
+      for (const p of paradas) {
+        const arr = this.paradasPorRuta.get(p.ruta_id);
+        if (arr) arr.push(p); else this.paradasPorRuta.set(p.ruta_id, [p]);
       }
     } catch {}
 
@@ -1308,32 +1510,161 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     });
   }
 
+  // Crea la fuente y la capa una sola vez. Se llama de forma perezosa desde el
+  // primer bus que llega, porque el estilo del mapa puede no estar listo todavía
+  // cuando se dispara la carga inicial.
+  private esperandoEstilo = false;
+
+  private ensureBusLayer(): boolean {
+    if (this.busLayerListo) return true;
+    if (!this.map) return false;
+    if (!this.map.isStyleLoaded()) {
+      // Si el estilo todavía no cargó, este volcado se pierde. Sin este
+      // reintento un bus que dejó de transmitir justo en ese momento no se
+      // dibujaba nunca (los que siguen transmitiendo se salvaban solos al
+      // siguiente punto, 5 s después).
+      if (!this.esperandoEstilo) {
+        this.esperandoEstilo = true;
+        this.map.once('idle', () => {
+          this.esperandoEstilo = false;
+          if (!this.destroyed) this.pintarBuses(performance.now());
+        });
+      }
+      return false;
+    }
+
+    if (!this.map.getSource(this.BUSES_SRC)) {
+      this.map.addSource(this.BUSES_SRC, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] } as any,
+      });
+    }
+    if (!this.map.getLayer(this.BUSES_LAYER)) {
+      this.map.addLayer({
+        id: this.BUSES_LAYER,
+        type: 'symbol',
+        source: this.BUSES_SRC,
+        layout: {
+          'icon-image': ['get', 'icon'],
+          'icon-rotate': ['get', 'heading'],
+          // Igual que el Marker anterior: acostado sobre el plano del mapa y
+          // girando con él, para que el rumbo se lea con la cámara inclinada.
+          'icon-rotation-alignment': 'map',
+          'icon-pitch-alignment': 'map',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'icon-size': 1,
+        },
+        paint: {
+          // Un bus sin señal reciente se atenúa en vez de desaparecer de golpe.
+          'icon-opacity': ['case', ['get', 'stale'], 0.35, 1],
+        },
+      });
+
+      this.map.on('click', this.BUSES_LAYER, (e) => {
+        const id = e.features?.[0]?.properties?.['bus_id'];
+        if (!id) return;
+        const loc = this.busLocationsMap.get(String(id));
+        if (loc) this.zone.run(() => { this.selectedBus = loc; });
+      });
+      this.map.on('mouseenter', this.BUSES_LAYER, () => {
+        this.map.getCanvas().style.cursor = 'pointer';
+      });
+      this.map.on('mouseleave', this.BUSES_LAYER, () => {
+        this.map.getCanvas().style.cursor = '';
+      });
+    }
+
+    this.busLayerListo = true;
+    return true;
+  }
+
+  // Vuelca el estado actual de todos los buses a la fuente. Un solo setData por
+  // llamada, sin importar cuántos buses haya.
+  private pintarBuses(t: number) {
+    if (!this.ensureBusLayer()) return;
+    const src = this.map.getSource(this.BUSES_SRC) as maplibregl.GeoJSONSource | undefined;
+    if (!src) return;
+
+    const ahora = Date.now();
+    const features: any[] = [];
+    this.busLocationsMap.forEach((loc, busId) => {
+      const a = this.busAnim.get(busId);
+      let lng = loc.longitud, lat = loc.latitud, head = loc.heading || 0;
+      if (a) {
+        const k = Math.min(1, (t - a.t0) / this.BUS_TWEEN_MS);
+        const e = k * (2 - k);                       // ease-out suave
+        lng = a.lng0 + (a.lng1 - a.lng0) * e;
+        lat = a.lat0 + (a.lat1 - a.lat0) * e;
+        // Interpolar el rumbo por el camino corto: de 350° a 10° son 20°, no 340.
+        let d = ((a.head1 - a.head0 + 540) % 360) - 180;
+        head = (a.head0 + d * e + 360) % 360;
+      }
+      const lastSeen = this.busLastSeen.get(busId) ?? ahora;
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lng, lat] },
+        properties: {
+          bus_id: busId,
+          heading: head,
+          stale: (ahora - lastSeen) > this.STALE_MS,
+          // El ícono se resuelve cuando llega un punto nuevo, no acá: esto
+          // corre en cada cuadro y calcular estado + color 60 veces por segundo
+          // por bus es trabajo tirado.
+          icon: this.busIcono.get(busId) || this.registrarIconoBus('en_ruta', this.busColor(loc)),
+        },
+      });
+    });
+
+    src.setData({ type: 'FeatureCollection', features } as any);
+  }
+
+  // Un único rAF para toda la flota. Se apaga solo cuando ninguna interpolación
+  // sigue viva, así que un mapa quieto no gasta cuadros.
+  private tickBuses = () => {
+    const t = performance.now();
+    this.pintarBuses(t);
+    let vivo = false;
+    this.busAnim.forEach((a, id) => {
+      if (t - a.t0 >= this.BUS_TWEEN_MS) this.busAnim.delete(id);
+      else vivo = true;
+    });
+    this.busRaf = vivo && !this.destroyed ? requestAnimationFrame(this.tickBuses) : null;
+  };
+
+  private arrancarTick() {
+    if (this.busRaf === null && !this.destroyed) {
+      this.busRaf = requestAnimationFrame(this.tickBuses);
+    }
+  }
+
+  // Ícono ya resuelto por bus, recalculado solo cuando llega un punto nuevo
+  // (una vez cada 5 s por bus) en vez de en cada cuadro de animación.
+  private busIcono = new Map<string, string>();
+
   private addOrUpdateBusMarker(location: BusLocation) {
-    const lngLat: [number, number] = [location.longitud, location.latitud];
     const heading = location.heading || 0;
+    const previo = this.busLocationsMap.get(location.bus_id);
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
+    this.busIcono.set(
+      location.bus_id,
+      this.registrarIconoBus(this.estadoDeBus(location), this.busColor(location)),
+    );
 
-    if (this.busMarkers.has(location.bus_id)) {
-      const marker = this.busMarkers.get(location.bus_id)!;
-      animateMarkerTo(marker, lngLat, 1000, heading);
-      marker.getElement().style.opacity = '1';
-    } else {
-      const el = htmlMarkerEl('bus-marker', this.busMarkerHtml(this.busColor(location)));
-      el.addEventListener('click', () => {
-        this.zone.run(() => { this.selectedBus = this.busLocationsMap.get(location.bus_id) || location; });
+    if (previo) {
+      this.busAnim.set(location.bus_id, {
+        lng0: previo.longitud, lat0: previo.latitud,
+        lng1: location.longitud, lat1: location.latitud,
+        head0: previo.heading || 0, head1: heading,
+        t0: performance.now(),
       });
-      const marker = new maplibregl.Marker({
-        element: el,
-        anchor: 'center',
-        rotation: heading,
-        rotationAlignment: 'map',
-        pitchAlignment: 'map',
-      })
-        .setLngLat(lngLat)
-        .addTo(this.map);
-      this.busMarkers.set(location.bus_id, marker);
+      this.arrancarTick();
+    } else {
+      // Bus nuevo: aparece directo en su posición, sin viajar desde ningún lado.
+      this.pintarBuses(performance.now());
     }
+    this.activeBusCount = this.busLocationsMap.size;
 
     // La ficha abierta y el modo seguimiento tienen que reflejar el punto nuevo,
     // no el que había cuando se tocó el bus.
@@ -1342,7 +1673,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }
     if (this.followBusId === location.bus_id) {
       this.map.easeTo({
-        center: lngLat,
+        center: [location.longitud, location.latitud],
         bearing: heading,
         duration: 1000,
         easing: (t) => t,
@@ -1542,12 +1873,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (this.activeParadas.length > 0 && this.userLat !== 0) {
       this.nearestStop = this.featuresService.findNearestStop(this.userLat, this.userLng, this.activeParadas);
 
-      if (this.nearestStop && this.busMarkers.size > 0) {
-        const firstBus = this.busMarkers.values().next().value;
+      if (this.nearestStop && this.busLocationsMap.size > 0) {
+        const firstBus = this.busLocationsMap.values().next().value as BusLocation | undefined;
         if (firstBus) {
-          const busLngLat = firstBus.getLngLat();
           this.etaMinutes = this.featuresService.calculateETA(
-            busLngLat.lat, busLngLat.lng,
+            firstBus.latitud, firstBus.longitud,
             this.nearestStop.parada.latitud, this.nearestStop.parada.longitud,
             20
           );
@@ -1781,6 +2111,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   ngOnDestroy() {
     this.destroyed = true;
+    if (this.busRaf !== null) { cancelAnimationFrame(this.busRaf); this.busRaf = null; }
     this.tracking.unsubscribe();
     this.locationSub?.unsubscribe();
     if (this.navIdleTimer) clearTimeout(this.navIdleTimer);

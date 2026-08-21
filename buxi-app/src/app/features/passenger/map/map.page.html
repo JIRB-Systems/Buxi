@@ -261,7 +261,10 @@
         <strong>{{ selectedBusPlaca }}</strong>
         <span>{{ selectedBusEmpresa }}</span>
       </div>
-      <div class="estado-chip" [class.live]="selectedBusEstado === 'En recorrido'">
+      <div class="estado-chip"
+           [class.live]="selectedBusEstadoVivo === 'en_ruta'"
+           [class.tarde]="selectedBusEstadoVivo === 'retrasado'"
+           [class.parada]="selectedBusEstadoVivo === 'en_parada'">
         {{ selectedBusEstado }}
       </div>
       <ion-icon name="close" class="sheet-close" (click)="closeBusInfo()"></ion-icon>
