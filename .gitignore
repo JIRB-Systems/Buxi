@@ -1,0 +1,11 @@
+# Configuración local de IDEs — es de cada máquina, no del proyecto.
+# (buxi-app/.vscode sí se versiona a propósito: es config compartida del equipo.)
+.idea/
+*.iml
+
+# Salida de herramientas de análisis local.
+graphify-out/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

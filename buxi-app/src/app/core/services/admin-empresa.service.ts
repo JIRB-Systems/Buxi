@@ -114,7 +114,12 @@ export class AdminEmpresaService {
       // email solo: esta cuenta la crea la empresa para su chofer, no es un
       // self-signup público, así que no tiene sentido bloquearla esperando
       // que alguien confirme un correo que nadie va a mandar.
-      options: { data: { nombre_completo: nombre, created_by_admin: true } },
+      //
+      // `created_by_empresa_id` es lo que después deja reclamar este perfil:
+      // la policy de profiles ya no se guía por "creado hace menos de 5
+      // minutos" (que alcanzaba a cualquier registro nuevo de la plataforma)
+      // sino por esta marca — ver 20260821000000.
+      options: { data: { nombre_completo: nombre, created_by_admin: true, created_by_empresa_id: empresaId } },
     });
     if (error) throw error;
 
@@ -179,7 +184,7 @@ export class AdminEmpresaService {
     const isolated = this.newIsolatedClient();
     const { data, error } = await isolated.auth.signUp({
       email, password,
-      options: { data: { nombre_completo: nombre, created_by_admin: true } },
+      options: { data: { nombre_completo: nombre, created_by_admin: true, created_by_empresa_id: empresaId } },
     });
     if (error) throw error;
     if (data.user && data.user.identities?.length === 0) {
