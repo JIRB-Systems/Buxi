@@ -299,6 +299,14 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         'text-halo-width': 1.5,
       },
     });
+
+    // Las paradas se dibujan después de que el ícono propio ya pudo existir
+    // (llega con el primer fix de GPS, que corre antes de esperar las
+    // paradas). Sin este reorden, la parada terminal tapaba el bus cuando
+    // coinciden en el mismo punto -- típicamente arrancando el viaje.
+    if (this.map.getLayer(this.USER_LAYER)) {
+      this.map.moveLayer(this.USER_LAYER);
+    }
   }
 
   // Ícono del propio bus dibujado sobre un canvas y cargado como imagen del
