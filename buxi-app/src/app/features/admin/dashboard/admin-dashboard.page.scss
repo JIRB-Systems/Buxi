@@ -721,5 +721,29 @@
   }
 }
 
+
+// ---- BOTON DE PANTALLA COMPLETA ----
+// Arriba a la izquierda a proposito: arriba a la derecha esta el control de
+// zoom de MapLibre y se pisarian. Abajo a la izquierda esta la leyenda.
+// Mismo vidrio oscuro que ella, para que se lea como parte del mapa.
+.map-fs-btn {
+  position: absolute;
+  top: 12px; left: 12px;
+  z-index: 1001;
+  width: 34px; height: 34px;
+  padding: 0;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(10, 20, 35, 0.9);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #c0c8d4;
+  transition: background 0.16s ease, color 0.16s ease;
+
+  &:hover { background: rgba(20, 34, 54, 0.95); color: #fff; }
+
+  ion-icon { font-size: 18px; }
+}
+
 .live-map-container:fullscreen { @include mapa-a-pantalla-completa; }
 .live-map-container:-webkit-full-screen { @include mapa-a-pantalla-completa; }

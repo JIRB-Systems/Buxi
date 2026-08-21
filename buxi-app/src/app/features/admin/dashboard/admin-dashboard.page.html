@@ -363,6 +363,11 @@
 
             <div class="live-map-container">
               <div id="admin-map"></div>
+              <button class="map-fs-btn" (click)="toggleMapFullscreen()"
+                      [attr.aria-label]="mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'"
+                      [attr.title]="mapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'">
+                <ion-icon [name]="mapFullscreen ? 'contract-outline' : 'expand-outline'"></ion-icon>
+              </button>
               <div class="map-legend">
                 <div class="legend-item"><div class="legend-dot green"></div> En ruta</div>
                 <div class="legend-item"><div class="legend-dot blue"></div> Activo</div>

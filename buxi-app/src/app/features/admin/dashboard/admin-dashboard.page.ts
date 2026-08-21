@@ -163,6 +163,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
+    // Tambien se sale con Escape, y en ese caso no pasa por toggleMapFullscreen():
+    // sin escuchar el evento, el icono quedaria mostrando el estado anterior.
+    document.addEventListener('fullscreenchange', this.onFullscreenChange);
     this.fixContentOffset();
     try {
       this.profile = await this.supabase.getProfile();
@@ -368,16 +371,6 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.is3D = true;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
-    // Pantalla completa. Se agranda .live-map-container y no el div del mapa,
-    // para que la leyenda -- que es hermana absoluta dentro de ese contenedor --
-    // no se quede afuera. MapLibre observa el tamano del contenedor
-    // (_setupResizeObserver en el constructor), asi que no hace falta llamar a
-    // resize() a mano al entrar o salir.
-    const mapWrap = el.closest('.live-map-container') as HTMLElement | null;
-    map.addControl(
-      new maplibregl.FullscreenControl(mapWrap ? { container: mapWrap } : {}),
-      'top-right',
-    );
 
     // El contenedor de la pestaña "Mapa en vivo" recién aparece por el
     // *ngIf al cambiar de tab: MapLibre mide su tamaño en el momento de
@@ -597,6 +590,30 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   // volver a 2D: el relieve y los edificios estorban para leer posiciones a
   // escala de pais, que es como se usa esta pantalla.
   is3D = true;
+
+
+  // Pantalla completa al estilo de un video: el boton vive en una esquina del
+  // propio mapa, no en la caja de controles de MapLibre ni en la barra de
+  // arriba. Tiene que estar DENTRO de .live-map-container, porque en pantalla
+  // completa todo lo que quede fuera de ese elemento desaparece -- incluida la
+  // barra de herramientas. Si el boton viviera alli, la unica salida seria
+  // Escape.
+  mapFullscreen = false;
+
+  private onFullscreenChange = () => {
+    this.mapFullscreen = !!document.fullscreenElement;
+  };
+
+  toggleMapFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+      return;
+    }
+    // Se agranda el contenedor y no el div del mapa: la leyenda y el panel de
+    // recorrido son hermanos absolutos dentro de el y si no se quedarian fuera.
+    const wrap = document.getElementById('admin-map')?.closest('.live-map-container') as HTMLElement | null;
+    wrap?.requestFullscreen().catch(() => {});
+  }
 
   toggle3D() {
     if (!this.adminMap) return;
@@ -892,6 +909,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     this.stopWatchingUserLocation();
     this.stopPlayback();
     if (this.adminMap) this.adminMap.remove();
