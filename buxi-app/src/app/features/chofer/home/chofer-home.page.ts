@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -115,6 +115,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     private router: Router,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
+    private elRef: ElementRef<HTMLElement>,
   ) {}
 
   async ngOnInit() {
@@ -191,6 +192,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // El mapa del pasajero no lo sufre por casualidad: su initMap() espera a
   // profileReady, asi que su canvas nace despues de que la transicion termino.
   ionViewDidEnter() {
+    this.fixContentOffset();
     if (this.mapStarted) {
       // Al volver a la pantalla el contenedor pudo cambiar de tamano.
       this.map?.resize();
@@ -198,6 +200,21 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     }
     this.mapStarted = true;
     this.initMap().catch(() => {});
+  }
+
+  // Ionic calcula --offset-top a partir de un ion-header que esta pagina
+  // nunca tiene, pero tras la transicion de pagina desde /auth/login esa
+  // cuenta queda pegada en la altura completa del viewport (bug propio de
+  // Ionic, no de esta app) -- duplicando el alto real de .inner-scroll y
+  // corriendo todo el contenido, mapa incluido, una pantalla entera hacia
+  // arriba. Ionic lo fija via inline style (mayor especificidad que
+  // cualquier regla nuestra en el SCSS del componente), asi que hay que
+  // pisarlo igual, por JS, despues de que el.
+  private fixContentOffset() {
+    const ic = this.elRef.nativeElement.querySelector('ion-content') as HTMLElement | null;
+    if (!ic) return;
+    ic.style.setProperty('--offset-top', '0px');
+    ic.style.setProperty('--offset-bottom', '0px');
   }
 
   private async initMap() {

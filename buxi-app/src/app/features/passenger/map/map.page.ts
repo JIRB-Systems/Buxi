@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ViewWillEnter, AlertController, ToastController } from '@ionic/angular';
+import { ViewWillEnter, ViewDidEnter, AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
 import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-tracking.service';
@@ -36,7 +36,7 @@ const PROVINCIA_CENTERS: Record<string, [number, number]> = {
   styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss'],
   standalone: false,
 })
-export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter {
+export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
   private map!: maplibregl.Map;
   private mapReady = false;
   private destroyed = false;
@@ -664,7 +664,22 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
     private zone: NgZone,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
+    private elRef: ElementRef<HTMLElement>,
   ) {}
+
+  // Ionic calcula --offset-top a partir de un ion-header que esta pagina
+  // nunca tiene, pero tras la transicion de pagina desde /auth/login esa
+  // cuenta queda pegada en la altura completa del viewport (bug propio de
+  // Ionic) -- duplicando el alto real de .inner-scroll y corriendo todo el
+  // contenido, mapa incluido, una pantalla entera hacia arriba. Ionic lo fija
+  // via inline style (mayor especificidad que cualquier regla en el SCSS del
+  // componente), asi que hay que pisarlo igual, por JS.
+  private fixContentOffset() {
+    const ic = this.elRef.nativeElement.querySelector('ion-content') as HTMLElement | null;
+    if (!ic) return;
+    ic.style.setProperty('--offset-top', '0px');
+    ic.style.setProperty('--offset-bottom', '0px');
+  }
 
   // El mapa arranca en paralelo a ngOnInit, así que antes podía crear el
   // marcador y evaluar la ubicación con `profile` todavía en null: la foto no
@@ -772,10 +787,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter 
   }
 
   ngAfterViewInit() {
+    this.fixContentOffset();
     setTimeout(() => this.initMap(), 150);
   }
 
+  ionViewDidEnter() {
+    this.fixContentOffset();
+  }
+
   ionViewWillEnter() {
+    this.fixContentOffset();
     if (!this.mapReady) return;
     const rutaId = this.route.snapshot.queryParams['ruta'] || null;
 

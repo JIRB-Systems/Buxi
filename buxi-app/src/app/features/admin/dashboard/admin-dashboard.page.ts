@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
 import { Router } from '@angular/router';
 import * as maplibregl from 'maplibre-gl';
@@ -145,16 +145,32 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
     private modalCtrl: ModalController,
+    private elRef: ElementRef<HTMLElement>,
   ) {}
 
+  // Ionic calcula --offset-top a partir de un ion-header que esta pagina
+  // nunca tiene, pero tras la transicion de pagina desde /auth/login esa
+  // cuenta queda pegada en la altura completa del viewport (bug propio de
+  // Ionic) -- duplicando el alto real de .inner-scroll y corriendo todo el
+  // contenido, mapa incluido, una pantalla entera hacia arriba. Ionic lo fija
+  // via inline style (mayor especificidad que cualquier regla en el SCSS del
+  // componente), asi que hay que pisarlo igual, por JS.
+  private fixContentOffset() {
+    const ic = this.elRef.nativeElement.querySelector('ion-content') as HTMLElement | null;
+    if (!ic) return;
+    ic.style.setProperty('--offset-top', '0px');
+    ic.style.setProperty('--offset-bottom', '0px');
+  }
+
   async ngOnInit() {
+    this.fixContentOffset();
     try {
       this.profile = await this.supabase.getProfile();
       await this.loadData();
     } catch {} finally {
       this.loading = false;
       if (this.activeTab === 'overview') {
-        setTimeout(() => this.initAdminMap('admin-map-overview'), 150);
+        setTimeout(() => { this.fixContentOffset(); this.initAdminMap('admin-map-overview'); }, 150);
       }
     }
   }

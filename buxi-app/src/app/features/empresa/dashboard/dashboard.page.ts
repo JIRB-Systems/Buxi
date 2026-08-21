@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
@@ -151,9 +151,25 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
     private modalCtrl: ModalController,
+    private elRef: ElementRef<HTMLElement>,
   ) {}
 
+  // Ionic calcula --offset-top a partir de un ion-header que esta pagina
+  // nunca tiene, pero tras la transicion de pagina desde /auth/login esa
+  // cuenta queda pegada en la altura completa del viewport (bug propio de
+  // Ionic) -- duplicando el alto real de .inner-scroll y corriendo todo el
+  // contenido, mapa incluido, una pantalla entera hacia arriba. Ionic lo fija
+  // via inline style (mayor especificidad que cualquier regla en el SCSS del
+  // componente), asi que hay que pisarlo igual, por JS.
+  private fixContentOffset() {
+    const ic = this.elRef.nativeElement.querySelector('ion-content') as HTMLElement | null;
+    if (!ic) return;
+    ic.style.setProperty('--offset-top', '0px');
+    ic.style.setProperty('--offset-bottom', '0px');
+  }
+
   async ngOnInit() {
+    this.fixContentOffset();
     try {
       this.profile = await this.supabase.getProfile();
       if (this.profile?.empresa_id) {
@@ -161,7 +177,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       }
     } catch {} finally {
       this.loading = false;
-      setTimeout(() => this.initLiveMap(), 150);
+      setTimeout(() => { this.fixContentOffset(); this.initLiveMap(); }, 150);
     }
   }
 
