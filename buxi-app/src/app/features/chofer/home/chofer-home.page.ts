@@ -352,8 +352,22 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         'icon-ignore-placement': true,
         'icon-pitch-alignment': 'viewport',
         'icon-rotation-alignment': 'viewport',
+        // Oculto hasta que el chofer arranca de verdad: la posición se sigue
+        // actualizando en segundo plano desde que carga el mapa (para que
+        // "centrar en mi ubicación" funcione de una), pero mostrar el bus ya
+        // "puesto" en algún punto del recorrido antes de tocar "Iniciar ruta"
+        // se lee como si el viaje ya estuviera en curso.
+        visibility: this.tracking ? 'visible' : 'none',
       },
     });
+  }
+
+  // El propio marcador solo se ve mientras hay un viaje activo -- ver el
+  // comentario en updateUserMarkerLayer.
+  private setUserMarkerVisible(visible: boolean) {
+    if (this.map?.getLayer(this.USER_LAYER)) {
+      this.map.setLayoutProperty(this.USER_LAYER, 'visibility', visible ? 'visible' : 'none');
+    }
   }
 
   private async startWatchingPosition() {
@@ -498,6 +512,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   private async startTracking() {
     this.tracking = true;
+    this.setUserMarkerVisible(true);
     this.paused = false;
     this.tripDistanceKm = 0;
     this.boletosEscaneados = 0;
@@ -537,6 +552,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   private async stopTracking() {
     this.tracking = false;
+    this.setUserMarkerVisible(false);
     this.paused = false;
     this.speedWarning = false;
     this.offRoute = false;
