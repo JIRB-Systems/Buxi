@@ -2,8 +2,6 @@ import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
 import { Router } from '@angular/router';
 import * as maplibregl from 'maplibre-gl';
-import { Geolocation } from '@capacitor/geolocation';
-import { Capacitor } from '@capacitor/core';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { AlertController, LoadingController, ToastController, ModalController } from '@ionic/angular';
@@ -13,7 +11,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
 import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan, Factura } from '../../../core/models/features.model';
 import { BusLocation } from '../../../core/models/transport.model';
-import { createMap, htmlMarkerEl, circlePolygon, distanceToPolylineMeters, set3DEnabled } from '../../../core/utils/maplibre';
+import { createMap, htmlMarkerEl, distanceToPolylineMeters, set3DEnabled } from '../../../core/utils/maplibre';
 import type { Feature, LineString } from 'geojson';
 import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
@@ -29,9 +27,6 @@ import { descargarFacturaPDF } from '../../../core/utils/factura-pdf';
 export class AdminDashboardPage implements OnInit, OnDestroy {
   private adminMap: maplibregl.Map | null = null;
   private adminBusMarkers = new Map<string, maplibregl.Marker>();
-  private adminUserMarker: maplibregl.Marker | null = null;
-  private adminAccuracyDrawn = false;
-  private adminUserWatchId: string | null = null;
   private realtimeChannel: RealtimeChannel | null = null;
   profile: UserProfile | null = null;
   activeTab = 'overview';
@@ -341,11 +336,6 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private async initAdminMap(elementId: string) {
     const token = ++this.mapInitToken;
     if (this.adminMap) { this.adminMap.remove(); this.adminMap = null; }
-    // El mapa se reconstruye al cambiar de pestaña: soltar el watch anterior,
-    // si no queda uno colgado por cada visita alimentando un mapa muerto.
-    this.stopWatchingUserLocation();
-    this.adminUserMarker = null;
-    this.adminAccuracyDrawn = false;
     this.trailBusPlaca = null;
     this.exitHistoricalMode(false);
     this.adminClusterMarkers.forEach(m => m.remove());
@@ -439,98 +429,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.realtimeChannel = null;
     }
     this.startMapRealtime();
-    this.centerOnUserLocation();
   }
 
-  private async centerOnUserLocation() {
-    try {
-      // requestPermissions() sólo existe en nativo; en web el permiso se pide
-      // directamente al llamar getCurrentPosition() (mismo patrón que el mapa
-      // de pasajero).
-      if (Capacitor.isNativePlatform()) {
-        const permission = await Geolocation.requestPermissions();
-        if (permission.location === 'denied') return;
-      }
-      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
-      if (!this.adminMap) return;
-
-      const { latitude, longitude, accuracy } = position.coords;
-      this.renderUserPosition(latitude, longitude, accuracy);
-
-      // A propósito NO se recentra el mapa acá. Este dashboard es para
-      // vigilar la flota de todo el país, no la posición del admin que lo
-      // mira: saltar a su ubicación (a menudo por WiFi/IP, fácil que erre
-      // varios km o directo el país) dejaba el mapa mostrando una región
-      // random en vez de la vista general de Costa Rica.
-
-      // La primera lectura suele venir de WiFi/IP y puede errar kilómetros; el
-      // navegador la refina en los segundos siguientes. Sin este watch el mapa
-      // se quedaba clavado en esa primera lectura mala, que es justo la razón
-      // por la que acá la ubicación no coincidía con la del mapa de pasajero.
-      this.adminUserWatchId = await Geolocation.watchPosition(
-        { enableHighAccuracy: true },
-        (pos) => {
-          if (!pos || !this.adminMap) return;
-          // Sin recentrar: mover la vista mientras el admin navega el mapa
-          // sería peor que el error de precisión.
-          this.renderUserPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-        },
-      ) as unknown as string;
-    } catch {}
-  }
-
-  // Dibuja (o mueve) el punto del usuario junto a un círculo del radio de
-  // precisión que reporta el navegador, para que un dato de ±3 km no se vea
-  // igual de confiable que uno de ±10 m.
-  private renderUserPosition(lat: number, lng: number, accuracy?: number | null) {
-    if (!this.adminMap) return;
-    const lngLat: [number, number] = [lng, lat];
-
-    const precision = accuracy && accuracy > 0
-      ? (accuracy >= 1000 ? `± ${(accuracy / 1000).toFixed(1)} km` : `± ${Math.round(accuracy)} m`)
-      : 'precisión desconocida';
-
-    if (this.adminUserMarker) {
-      this.adminUserMarker.setLngLat(lngLat);
-      this.adminUserMarker.getPopup()?.setHTML(`Tu ubicación<br><small>${precision}</small>`);
-    } else {
-      const el = htmlMarkerEl('admin-user-marker', `<div class="admin-user-dot"></div><div class="admin-user-pulse"></div>`);
-      const popup = new maplibregl.Popup({ offset: 12, closeButton: false })
-        .setHTML(`Tu ubicación<br><small>${precision}</small>`);
-      this.adminUserMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat(lngLat)
-        .setPopup(popup)
-        .addTo(this.adminMap);
-    }
-
-    if (accuracy && accuracy > 0) {
-      try {
-        const data = circlePolygon(lng, lat, accuracy);
-        const existing = this.adminMap.getSource('admin-accuracy') as maplibregl.GeoJSONSource | undefined;
-        if (existing) {
-          existing.setData(data);
-        } else if (!this.adminAccuracyDrawn) {
-          this.adminAccuracyDrawn = true;
-          this.adminMap.addSource('admin-accuracy', { type: 'geojson', data });
-          this.adminMap.addLayer({
-            id: 'admin-accuracy-fill', type: 'fill', source: 'admin-accuracy',
-            paint: { 'fill-color': '#4285f4', 'fill-opacity': 0.1 },
-          });
-          this.adminMap.addLayer({
-            id: 'admin-accuracy-line', type: 'line', source: 'admin-accuracy',
-            paint: { 'line-color': '#4285f4', 'line-width': 1, 'line-opacity': 0.4 },
-          });
-        }
-      } catch { /* estilo sin cargar todavia: el punto de usuario sigue visible sin el circulo */ }
-    }
-  }
-
-  private stopWatchingUserLocation() {
-    if (this.adminUserWatchId) {
-      Geolocation.clearWatch({ id: this.adminUserWatchId });
-      this.adminUserWatchId = null;
-    }
-  }
 
   private addAdminBusMarker(loc: BusLocation) {
     if (!this.adminMap) return;
@@ -930,7 +830,6 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
-    this.stopWatchingUserLocation();
     this.stopPlayback();
     if (this.adminMap) this.adminMap.remove();
     if (this.realtimeChannel) {
