@@ -406,7 +406,14 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
         (b, l) => b.extend([l.longitud, l.latitud]),
         new maplibregl.LngLatBounds([this.liveLocations[0].longitud, this.liveLocations[0].latitud], [this.liveLocations[0].longitud, this.liveLocations[0].latitud]),
       );
-      this.adminMap.fitBounds(bounds, { padding: 40, duration: 0 });
+      // maxZoom es imprescindible, no un ajuste fino: la caja se siembra con
+      // un solo punto (LngLatBounds(p, p)), asi que con UN bus transmitiendo
+      // -- o con varios estacionados en la misma terminal -- queda de area
+      // cero. fitBounds calcula entonces el zoom para encuadrar algo de
+      // tamano cero, o sea infinito, y termina clavado en el maximo (22). A
+      // ese nivel no existen tiles y, con pitch 50 y relieve 3D, la camara
+      // queda metida bajo la superficie del terreno: el mapa se veia vacio.
+      this.adminMap.fitBounds(bounds, { padding: 40, duration: 0, maxZoom: 15 });
     }
 
     if (this.showAnomalyHeatmap) this.renderAnomalyHeatmap();

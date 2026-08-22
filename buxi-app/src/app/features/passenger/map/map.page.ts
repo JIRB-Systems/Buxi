@@ -923,7 +923,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           (b, coord) => b.extend(coord),
           new maplibregl.LngLatBounds(allCoords[0], allCoords[0]),
         );
-        this.map.fitBounds(bounds, { padding: 60, duration: 300 });
+        // maxZoom: la caja se siembra con un punto, asi que una ruta con
+        // todas sus paradas casi en el mismo lugar la deja de area cero y
+        // fitBounds se va al zoom maximo, bajo el terreno 3D.
+        this.map.fitBounds(bounds, { padding: 60, duration: 300, maxZoom: 16 });
       } else {
         // Rutas registradas pero sin paradas suficientes para trazarlas.
         await this.toast(`${empresa.nombre} aun no tiene paradas cargadas.`, 'warning');
@@ -1355,7 +1358,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       (b, coord) => b.extend(coord),
       new maplibregl.LngLatBounds(coords[0], coords[0]),
     );
-    this.map.fitBounds(bounds, { padding: 60, duration: 0 });
+    // Mismo motivo que el otro fitBounds de esta pantalla: sin tope, una
+    // caja de area cero manda la camara al zoom maximo.
+    this.map.fitBounds(bounds, { padding: 60, duration: 0, maxZoom: 16 });
   }
 
   // Dibuja una ruta (línea + paradas) sin encuadrar el mapa, para poder
