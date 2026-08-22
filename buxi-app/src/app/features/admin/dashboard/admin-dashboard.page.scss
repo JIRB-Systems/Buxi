@@ -558,7 +558,16 @@
     position: absolute; top: 0; left: 0; will-change: transform;
   }
 
-  .admin-user-marker { position: relative; width: 22px; height: 22px; }
+  // Solo el tamano: el `position: absolute` se lo da la regla de arriba y NO
+  // hay que pisarlo. Cuando esta linea decia `position: relative`, este
+  // marcador de 22px entraba en el flujo normal y empujaba el canvas del mapa
+  // 22px hacia abajo; los tiles bajaban pero los marcadores no, porque
+  // MapLibre los coloca con su propia matematica desde el origen del
+  // contenedor. Todos quedaban 22px mas arriba de su posicion real y un bus
+  // cerca del borde superior se salia del mapa.
+  // El punto y el pulso de adentro siguen ubicandose bien: `absolute` tambien
+  // establece bloque contenedor, igual que `relative`.
+  .admin-user-marker { width: 22px; height: 22px; }
   .admin-user-dot {
     position: absolute; top: 4px; left: 4px; width: 14px; height: 14px;
     background: #4285f4; border-radius: 50%; border: 2.5px solid #fff;
