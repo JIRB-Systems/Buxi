@@ -333,6 +333,17 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     return '#9aa5b4';
   }
 
+
+  // Cede al navegador hasta que el contenedor reporte un alto plausible. Techo
+  // de ~1s en fotogramas: si algo sale mal se sigue igual y el mapa se crea
+  // como antes, que es peor pero no peor que no crearlo.
+  private async waitForRealSize(el: HTMLElement, minHeight = 100): Promise<void> {
+    for (let i = 0; i < 60; i++) {
+      if (el.clientWidth > 0 && el.clientHeight >= minHeight) return;
+      await new Promise(r => requestAnimationFrame(() => r(null)));
+    }
+  }
+
   private async initAdminMap(elementId: string) {
     const token = ++this.mapInitToken;
     if (this.adminMap) { this.adminMap.remove(); this.adminMap = null; }
@@ -344,6 +355,18 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
     const el = document.getElementById(elementId);
     if (!el) return;
+
+    // MapLibre calcula la proyeccion con el tamano que mide al construirse. Si
+    // mide un alto transitorio -- el *ngIf acaba de insertar el div, el layout
+    // todavia no asento -- centra la camara sobre ESE tamano. El canvas despues
+    // se estira por CSS a los 260/640px declarados y los tiles se ven, pero la
+    // proyeccion ya quedo mal: con un contenedor medido en ~2px, fitBounds
+    // dejaba al bus en y=1px, o sea todos los marcadores apilados contra el
+    // borde superior y saliendose por arriba.
+    // Esperar a que el alto sea real es la unica forma de no depender de un
+    // setTimeout adivinado.
+    await this.waitForRealSize(el);
+    if (token !== this.mapInitToken) return;
 
     // Mismo estilo "rico" (edificios 3D, relieve, cielo, POIs) que el mapa
     // de pasajero y el dashboard de empresa, en vez del dataviz-dark plano.
