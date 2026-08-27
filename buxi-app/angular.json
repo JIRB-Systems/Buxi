@@ -55,7 +55,40 @@
                   "with": "src/environments/environment.prod.ts"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              // inlineCritical extrae el CSS crítico al <head> y deja el resto en
+              // un <link media="print" onload="this.media='all'">, para que no
+              // bloquee el primer pintado. Ese onload es un manejador inline, y
+              // la CSP de vercel.json (script-src 'self', sin unsafe-inline) lo
+              // bloquea: el media se queda en "print" PARA SIEMPRE y styles.css
+              // entero — global.scss, variables.scss y maplibre-gl.css — nunca
+              // se aplica en pantalla.
+              //
+              // El síntoma que lo destapó: los marcadores del mapa JIRB se
+              // pintaban 49px más arriba, encima del encabezado del panel. Sin
+              // maplibre-gl.css, .maplibregl-map se queda sin position:relative
+              // ni overflow:hidden, así que cada marker se posiciona contra
+              // .live-map-container (el alto del encabezado) y nada lo recorta.
+              //
+              // Si algún día se quiere recuperar el CSS crítico, hay que
+              // resolver primero el onload inline (hash en la CSP o un script
+              // propio), no volver a prender esto a secas.
+              "optimization": {
+                "scripts": true,
+                "fonts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                }
+              }
+              "optimization": {
+                "scripts": true,
+                "fonts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                }
+              }
             },
             "development": {
               "buildOptimizer": false,
