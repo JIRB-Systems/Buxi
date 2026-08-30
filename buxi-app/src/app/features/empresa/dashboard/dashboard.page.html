@@ -43,6 +43,7 @@
           <h1 *ngIf="activeTab==='buses'">Buses</h1>
           <h1 *ngIf="activeTab==='choferes'">Choferes</h1>
           <h1 *ngIf="activeTab==='mapa'">Seguimiento en vivo</h1>
+          <h1 *ngIf="activeTab==='notificaciones'">Notificaciones</h1>
           <h1 *ngIf="activeTab==='avisos'">Avisos</h1>
           <h1 *ngIf="activeTab==='reportes'">Reportes</h1>
           <h1 *ngIf="activeTab==='planes'">Planes</h1>
@@ -289,6 +290,8 @@
               <div class="act-group">
                 <ion-icon name="git-branch-outline" class="act-icon" (click)="assignBusRoute(b)"></ion-icon>
                 <ion-icon name="person-outline" class="act-icon" (click)="assignBusChofer(b)"></ion-icon>
+                <ion-icon name="time-outline" class="act-icon warn" title="Avisar atraso de este bus"
+                          (click)="avisarAtrasoDeBus(b, $event)"></ion-icon>
                 <ion-icon name="trash-outline" class="act-icon danger" (click)="deleteBus(b)"></ion-icon>
               </div>
             </div>
@@ -349,6 +352,49 @@
               </div>
             </div>
             <div class="empty" *ngIf="avisos.length===0">No hay avisos activos</div>
+          </div>
+        </div>
+
+        <!-- ===== NOTIFICACIONES A PASAJEROS ===== -->
+        <!-- Distinto de "Avisos", que es lo que JIRB le manda a la empresa.
+             Esto va en el otro sentido: de la empresa a sus pasajeros. -->
+        <div *ngIf="activeTab==='notificaciones'" class="page">
+          <div class="page-toolbar">
+            <ion-button class="btn-action" (click)="nuevaNotificacion()">
+              <ion-icon name="add" slot="start"></ion-icon>Nuevo aviso
+            </ion-button>
+            <div class="seguidores-tag">
+              <ion-icon name="people-outline"></ion-icon>
+              {{ seguidores }} {{ seguidores === 1 ? 'seguidor' : 'seguidores' }}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-row notif-row" *ngFor="let n of notificaciones">
+              <ion-icon [name]="getNotifIcon(n.tipo)" [style.color]="getNotifColor(n.tipo)" class="notif-icon"></ion-icon>
+              <div class="row-main">
+                <strong>
+                  {{ n.titulo }}
+                  <span class="notif-tag" [style.background]="getNotifColor(n.tipo)">{{ getNotifLabel(n.tipo) }}</span>
+                </strong>
+                <span class="muted">{{ n.mensaje }}</span>
+                <span class="muted small">
+                  {{ n.created_at | date:'medium' }}
+                  <ng-container *ngIf="n.ruta"> · Ruta {{ n.ruta.nombre }}</ng-container>
+                  <ng-container *ngIf="n.bus"> · Bus {{ n.bus.placa }}</ng-container>
+                </span>
+              </div>
+              <div class="act-group">
+                <ion-icon name="trash-outline" class="act-icon danger" (click)="eliminarNotificacion(n)"></ion-icon>
+              </div>
+            </div>
+
+            <div class="empty-state" *ngIf="notificaciones.length===0">
+              <ion-icon name="notifications-outline"></ion-icon>
+              <strong>Todavía no mandaste ningún aviso</strong>
+              <span>Contales a tus pasajeros de un atraso, un desvío o una cancelación. Les llega a los que marcaron tu empresa como favorita.</span>
+              <ion-button size="small" (click)="nuevaNotificacion()">Nuevo aviso</ion-button>
+            </div>
           </div>
         </div>
 

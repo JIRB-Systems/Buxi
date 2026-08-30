@@ -1,0 +1,78 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Avisar a los pasajeros</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">Cerrar</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="form-content">
+  <!-- El alcance va arriba de todo: saber a cuánta gente le llega cambia cómo
+       se escribe el aviso, así que tiene que verse antes de escribirlo. -->
+  <div class="alcance" [class.vacio]="seguidores === 0">
+    <ion-icon [name]="seguidores === 0 ? 'people-outline' : 'people'"></ion-icon>
+    <div class="al-txt">
+      <strong>{{ seguidoresLabel }}</strong>
+      <span *ngIf="seguidores === 0">
+        Los pasajeros te siguen desde la app, tocando la estrella de tu empresa. Podés mandarlo igual: lo van a ver los que te sigan.
+      </span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Tipo de aviso</label>
+    <div class="tipo-chips">
+      <button
+        type="button"
+        class="tipo-chip"
+        *ngFor="let t of tipos"
+        [class.on]="tipo === t.id"
+        [style.--chip]="t.color"
+        (click)="tipo = t.id">
+        <ion-icon [name]="t.icon"></ion-icon>
+        <span>{{ t.label }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="field" *ngIf="busLabel">
+    <label>Bus</label>
+    <div class="bus-fijo">
+      <ion-icon name="bus"></ion-icon>
+      <span>{{ busLabel }}</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Ruta afectada <span class="opt">(opcional)</span></label>
+    <select class="ruta-select" [(ngModel)]="rutaId">
+      <option [ngValue]="null">Todas mis rutas</option>
+      <option *ngFor="let r of rutas" [ngValue]="r.id">{{ r.nombre }} — {{ r.origen }} → {{ r.destino }}</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>
+      Título
+      <span class="cuenta" [class.pasado]="titulo.length > MAX_TITULO">{{ titulo.length }}/{{ MAX_TITULO }}</span>
+    </label>
+    <ion-input [(ngModel)]="titulo" placeholder="Ej. Atraso de 20 minutos" fill="outline"></ion-input>
+  </div>
+
+  <div class="field">
+    <label>
+      Mensaje
+      <span class="cuenta" [class.pasado]="mensaje.length > MAX_MENSAJE">{{ mensaje.length }}/{{ MAX_MENSAJE }}</span>
+    </label>
+    <ion-textarea
+      [(ngModel)]="mensaje"
+      placeholder="Contá qué pasa y desde cuándo. Ej. Por un accidente en la ruta 1, las salidas de la mañana están saliendo con 20 minutos de atraso."
+      fill="outline" [autoGrow]="true" rows="4"></ion-textarea>
+  </div>
+
+  <ion-button expand="block" [disabled]="!canSend" (click)="send()">
+    <ion-icon name="send-outline" slot="start"></ion-icon>
+    Enviar aviso
+  </ion-button>
+</ion-content>

@@ -245,7 +245,34 @@
   }
 }
 
-.act-icon { font-size: 18px; color: var(--dash-text-muted); cursor: pointer; &.danger { color: var(--ion-color-danger); } &:hover { color: #8fa8c8; } }
+.act-icon { font-size: 18px; color: var(--dash-text-muted); cursor: pointer; &.danger { color: var(--ion-color-danger); } &.warn { color: #ff9800; } &:hover { color: #8fa8c8; } }
+
+// ====== NOTIFICACIONES A PASAJEROS ======
+// Distinto de .aviso-row (lo que JIRB manda a la empresa): acá la empresa es
+// la que habla, así que la fila lleva la etiqueta del tipo y el botón de
+// retirar.
+.notif-row { align-items: flex-start; }
+.notif-icon { font-size: 22px; margin-top: 1px; flex-shrink: 0; }
+
+.notif-tag {
+  display: inline-block; vertical-align: middle;
+  margin-left: 8px; padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+  color: #04121f;
+}
+
+// Cuántos pasajeros siguen a la empresa. Va en la barra de la sección, al lado
+// del botón de enviar, porque es el dato que decide si vale la pena escribir.
+.seguidores-tag {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 13px; color: var(--dash-text-muted);
+  ion-icon { font-size: 16px; }
+}
 .act-group { display: flex; gap: 6px; }
 .empty { text-align: center; padding: 24px; color: var(--dash-text-muted); font-size: 13px; }
 

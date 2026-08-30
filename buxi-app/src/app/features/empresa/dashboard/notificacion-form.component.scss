@@ -1,0 +1,135 @@
+:host {
+  ion-header ion-toolbar {
+    --background: var(--dash-bg);
+    --color: #fff;
+    --border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  ion-header ion-button {
+    --color: var(--dash-text-muted);
+  }
+}
+
+.form-content {
+  --background: var(--dash-bg);
+  --color: #e6edf5;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 16px;
+
+  ion-input, ion-textarea {
+    --background: var(--dash-surface);
+    --color: #fff;
+    --placeholder-color: var(--dash-text-muted);
+    --placeholder-opacity: 1;
+    --padding-start: 12px;
+    --padding-end: 12px;
+    --border-color: rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+  }
+}
+
+.field {
+  margin-bottom: 18px;
+
+  label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--dash-text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .opt { text-transform: none; letter-spacing: 0; opacity: 0.7; }
+
+  .cuenta {
+    text-transform: none;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+    &.pasado { color: #f44336; font-weight: 700; }
+  }
+}
+
+// ---- Alcance del aviso ----
+.alcance {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: rgba(0, 200, 83, 0.1);
+  border: 1px solid rgba(0, 200, 83, 0.28);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+
+  ion-icon { font-size: 20px; color: #00c853; flex-shrink: 0; margin-top: 1px; }
+
+  .al-txt { display: flex; flex-direction: column; gap: 3px; }
+  strong { font-size: 13px; color: #fff; }
+  span { font-size: 12px; color: var(--dash-text-muted); line-height: 1.45; }
+
+  // Sin seguidores el aviso no le llega a nadie: se pinta en ámbar para que se
+  // note, pero no bloquea el envío — una empresa puede querer dejarlo escrito.
+  &.vacio {
+    background: rgba(255, 152, 0, 0.1);
+    border-color: rgba(255, 152, 0, 0.3);
+    ion-icon { color: #ff9800; }
+  }
+}
+
+// ---- Selector de tipo ----
+.tipo-chips {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.tipo-chip {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--dash-surface);
+  color: var(--dash-text-muted);
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+
+  ion-icon { font-size: 17px; }
+
+  &.on {
+    border-color: var(--chip);
+    color: var(--chip);
+    background: color-mix(in srgb, var(--chip) 14%, transparent);
+  }
+}
+
+// ---- Bus fijado por el atajo ----
+.bus-fijo {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--dash-surface);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 14px; color: #fff;
+
+  ion-icon { font-size: 17px; color: var(--dash-text-muted); }
+}
+
+// ---- Selector de ruta ----
+// <select> nativo y no ion-select: dentro de un modal, el popover de ion-select
+// se monta sobre el modal y en escritorio queda desalineado. Acá alcanza con
+// una lista corta.
+.ruta-select {
+  width: 100%;
+  background: var(--dash-surface);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 12px;
+  color: #fff;
+  font-size: 14px;
+  appearance: none;
+
+  option { background: var(--dash-bg); color: #fff; }
+}

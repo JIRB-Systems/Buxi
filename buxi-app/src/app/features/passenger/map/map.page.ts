@@ -3,11 +3,12 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ViewWillEnter, ViewDidEnter, AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-tracking.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { UserProfile } from '../../../core/models/user-profile.model';
-import { Anuncio, HorarioSalida, Boleto } from '../../../core/models/features.model';
+import { Anuncio, HorarioSalida, Boleto, NotificacionEmpresa } from '../../../core/models/features.model';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -119,7 +120,25 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   activePanel: 'rutas' | 'favoritos' | 'alertas' | 'lugares' | null = null;
   panelSearch = '';
   favoritoRutaIds = new Set<string>();
+  favoritoEmpresaIds = new Set<string>();
   favoritosLoading = false;
+
+  // Favoritos tiene dos pestañas porque son dos cosas distintas: una ruta
+  // guardada es un atajo para verla en el mapa, y una empresa seguida es una
+  // suscripción a sus avisos. Mezclarlas en una lista sola obligaría a
+  // explicar en cada fila cuál de las dos cosas hace la estrella.
+  favoritosTab: 'rutas' | 'empresas' = 'rutas';
+
+  // ---- Alertas ----
+  notificaciones: NotificacionEmpresa[] = [];
+  notificacionesLoading = false;
+  private notificacionesVistasAt: string | null = null;
+  private notifChannel: RealtimeChannel | null = null;
+
+  // Se congela al abrir el panel. Si el resaltado usara la marca en vivo, al
+  // entrar se actualizaría a "ahora" y los avisos nuevos dejarían de verse
+  // como nuevos en el mismo instante en que el usuario los abre para leerlos.
+  private notifResaltarDesde = 0;
 
   // Tarjeta patrocinada, mezclada en el panel de rutas — nunca en
   // favoritos (no tiene sentido publicidad entre lo que el usuario ya
@@ -146,6 +165,52 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return base.filter(r =>
       `${r.nombre} ${r.origen} ${r.destino} ${r.empresa?.nombre || ''}`.toLowerCase().includes(q),
     );
+  }
+
+  // Empresas de la pestaña "Empresas" de favoritos: solo las que el pasajero
+  // sigue, pasadas por el mismo buscador del panel.
+  get panelEmpresasFavoritas(): EmpresaListItem[] {
+    const q = this.panelSearch.trim().toLowerCase();
+    const base = this.empresas.filter(e => this.favoritoEmpresaIds.has(e.id));
+    if (!q) return base;
+    return base.filter(e => e.nombre.toLowerCase().includes(q));
+  }
+
+  // Globito de la campana. Si el usuario apagó las notificaciones en su perfil
+  // no se le cuenta nada: el interruptor tiene que significar algo.
+  get notificacionesNoLeidas(): number {
+    if (!this.notificationsEnabled) return 0;
+    const visto = this.notificacionesVistasAt ? Date.parse(this.notificacionesVistasAt) : 0;
+    return this.notificaciones.filter(n => Date.parse(n.created_at) > visto).length;
+  }
+
+  notifEsNueva(n: NotificacionEmpresa): boolean {
+    return Date.parse(n.created_at) > this.notifResaltarDesde;
+  }
+
+  notifIcon(t: string): string {
+    return { atraso: 'time-outline', desvio: 'git-branch-outline', cancelacion: 'close-circle-outline', info: 'information-circle-outline' }[t] || 'information-circle-outline';
+  }
+
+  notifColor(t: string): string {
+    return { atraso: '#ff9800', desvio: '#2196f3', cancelacion: '#f44336', info: '#00c853' }[t] || '#9aa5b4';
+  }
+
+  notifLabel(t: string): string {
+    return { atraso: 'Atraso', desvio: 'Desvío', cancelacion: 'Cancelación', info: 'Información' }[t] || t;
+  }
+
+  // "hace 10 min" en vez de una fecha: en un aviso de atraso lo único que
+  // importa es cuán viejo es. Se apoya en `nowTs`, que ya se refresca con el
+  // reloj del componente, así que el texto envejece solo.
+  notifHace(n: NotificacionEmpresa): string {
+    const mins = Math.floor((this.nowTs - Date.parse(n.created_at)) / 60000);
+    if (mins < 1) return 'recién';
+    if (mins < 60) return `hace ${mins} min`;
+    const horas = Math.floor(mins / 60);
+    if (horas < 24) return `hace ${horas} h`;
+    const dias = Math.floor(horas / 24);
+    return dias === 1 ? 'ayer' : `hace ${dias} días`;
   }
 
   // Se calcula UNA vez y se guarda. Antes esto era un getter llamado desde tres
@@ -326,6 +391,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.navVisible = true;
     }
     if (this.activePanel === 'favoritos') await this.loadFavoritos();
+    if (this.activePanel === 'alertas') await this.abrirAlertas();
     if (this.activePanel === 'rutas' && !this.listAd) {
       this.featuresService.getAnuncio('lista').then(ad => { this.listAd = ad; }).catch(() => {});
     }
@@ -355,11 +421,90 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private async loadFavoritos() {
     if (!this.profile) return;
     this.favoritosLoading = true;
-    try {
-      const favoritos = await this.featuresService.getFavoritos(this.profile.id);
-      this.favoritoRutaIds = new Set(favoritos.map(f => f.ruta_id));
-    } catch {}
+    // Cada lista se resuelve por su cuenta y no dentro de un Promise.all con
+    // un solo catch: si el favorito de empresas falla —tabla todavía sin
+    // migrar, por ejemplo— un catch compartido se llevaría puestos también los
+    // favoritos de rutas, que venían funcionando desde antes.
+    const [rutas, empresas] = await Promise.allSettled([
+      this.featuresService.getFavoritos(this.profile.id),
+      this.featuresService.getFavoritosEmpresa(this.profile.id),
+    ]);
+    if (rutas.status === 'fulfilled') {
+      this.favoritoRutaIds = new Set(rutas.value.map(f => f.ruta_id));
+    }
+    if (empresas.status === 'fulfilled') {
+      this.favoritoEmpresaIds = new Set(empresas.value.map(f => f.empresa_id));
+    }
     this.favoritosLoading = false;
+  }
+
+  isFavoritoEmpresa(empresaId: string): boolean {
+    return this.favoritoEmpresaIds.has(empresaId);
+  }
+
+  // Seguir una empresa la suscribe a sus avisos, así que al marcarla se
+  // recargan las notificaciones: si ya tenía avisos publicados, aparecen de
+  // una y no recién la próxima vez que se abra la app.
+  async toggleFavoritoEmpresa(empresa: EmpresaListItem, ev: Event) {
+    // Sin esto, seguir la empresa además la seleccionaría en el mapa.
+    ev.stopPropagation();
+    if (!this.profile) return;
+
+    const seguia = this.favoritoEmpresaIds.has(empresa.id);
+    // Optimista, igual que la estrella de las rutas.
+    if (seguia) this.favoritoEmpresaIds.delete(empresa.id);
+    else this.favoritoEmpresaIds.add(empresa.id);
+
+    try {
+      if (seguia) await this.featuresService.removeFavoritoEmpresa(this.profile.id, empresa.id);
+      else await this.featuresService.addFavoritoEmpresa(this.profile.id, empresa.id);
+      await this.toast(seguia ? `Dejaste de seguir a ${empresa.nombre}` : `Vas a recibir los avisos de ${empresa.nombre}`);
+      await this.loadNotificaciones();
+    } catch {
+      // Revertir si el servidor rechazó, para no mentirle al usuario.
+      if (seguia) this.favoritoEmpresaIds.add(empresa.id);
+      else this.favoritoEmpresaIds.delete(empresa.id);
+    }
+  }
+
+  // ---- ALERTAS ----
+  private async loadNotificaciones() {
+    this.notificacionesLoading = true;
+    try {
+      this.notificaciones = await this.featuresService.getNotificaciones();
+    } catch {
+      this.notificaciones = [];
+    }
+    this.notificacionesLoading = false;
+  }
+
+  private async abrirAlertas() {
+    this.notifResaltarDesde = this.notificacionesVistasAt ? Date.parse(this.notificacionesVistasAt) : 0;
+    await this.loadNotificaciones();
+    if (!this.profile) return;
+    try {
+      await this.featuresService.marcarNotificacionesVistas(this.profile.id);
+      this.notificacionesVistasAt = new Date().toISOString();
+    } catch {}
+  }
+
+  // Realtime respeta RLS, así que por este canal solo llegan los INSERT de las
+  // empresas que este pasajero sigue. Igual se vuelve a pedir la lista en vez
+  // de usar la fila del payload: viene sin los joins de empresa/ruta/bus.
+  private escucharNotificaciones() {
+    if (this.notifChannel) return;
+    this.notifChannel = this.featuresService.subscribeNotificaciones(() => {
+      // El websocket resuelve fuera de la zona de Angular en algunos casos;
+      // sin esto el globito no se repinta hasta el próximo toque.
+      this.zone.run(async () => {
+        if (this.destroyed) return;
+        await this.loadNotificaciones();
+        if (this.notificationsEnabled && this.activePanel !== 'alertas') {
+          const ultima = this.notificaciones[0];
+          if (ultima) await this.toast(`${ultima.empresa?.nombre || 'Aviso'}: ${ultima.titulo}`);
+        }
+      });
+    });
   }
 
   isFavorito(rutaId: string): boolean {
@@ -873,6 +1018,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.allParadas = paradas;
       this.recomputeEmpresasCercanas();
     } catch {}
+
+    // Los favoritos y las alertas se cargan al arrancar y no al abrir cada
+    // panel: la estrella de las empresas se pinta en la barra lateral, que se
+    // ve sin abrir nada, y el globito de la campana tiene que estar bien desde
+    // el primer segundo.
+    await this.loadFavoritos();
+    await this.loadNotificaciones();
+    this.escucharNotificaciones();
   }
 
   async showEmpresaRoutes(empresa: EmpresaListItem) {
@@ -1112,6 +1265,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       if (prefs) {
         this.notificationsEnabled = prefs.notifications_enabled;
         this.darkMode = prefs.dark_mode;
+        this.notificacionesVistasAt = prefs.notificaciones_vistas_at;
       }
     } catch {}
   }
@@ -2122,6 +2276,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.destroyed = true;
     if (this.busRaf !== null) { cancelAnimationFrame(this.busRaf); this.busRaf = null; }
     this.tracking.unsubscribe();
+    this.featuresService.unsubscribeNotificaciones(this.notifChannel);
+    this.notifChannel = null;
     this.locationSub?.unsubscribe();
     if (this.navIdleTimer) clearTimeout(this.navIdleTimer);
     if (this.clockInterval) clearInterval(this.clockInterval);

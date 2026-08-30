@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Favorito, Horario, Calificacion, UserPreferences, Anuncio, Boleto } from '../models/features.model';
+import { Favorito, FavoritoEmpresa, NotificacionEmpresa, Horario, Calificacion, UserPreferences, Anuncio, Boleto } from '../models/features.model';
 import { Parada, Ruta } from '../models/transport.model';
 
 @Injectable({ providedIn: 'root' })
@@ -63,6 +63,82 @@ export class FeaturesService {
       .eq('ruta_id', rutaId)
       .maybeSingle();
     return !!data;
+  }
+
+  // ---- FAVORITOS DE EMPRESA ----
+  // Seguir una empresa no es un marcador más: es lo que la suscribe a sus
+  // avisos. Quién ve qué notificación lo decide la policy
+  // "Pasajero lee notificaciones de sus empresas favoritas" a partir de esta
+  // tabla, así que dar de alta acá es dar de alta en el canal.
+  async getFavoritosEmpresa(userId: string): Promise<FavoritoEmpresa[]> {
+    const { data, error } = await this.supabase
+      .from('favoritos_empresa')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as FavoritoEmpresa[];
+  }
+
+  async addFavoritoEmpresa(userId: string, empresaId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('favoritos_empresa')
+      .insert({ user_id: userId, empresa_id: empresaId });
+    if (error) throw error;
+  }
+
+  async removeFavoritoEmpresa(userId: string, empresaId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('favoritos_empresa')
+      .delete()
+      .eq('user_id', userId)
+      .eq('empresa_id', empresaId);
+    if (error) throw error;
+  }
+
+  // ---- NOTIFICACIONES DE LAS EMPRESAS QUE SIGO ----
+  // Un aviso de atraso de hace cinco días no es información, es ruido. La
+  // ventana acota el panel a lo que todavía le sirve al pasajero y de paso le
+  // pone un techo a la consulta.
+  private readonly NOTIF_VENTANA_DIAS = 7;
+
+  // Sin filtro por usuario ni por empresa a propósito: la policy ya acota a
+  // las empresas que el pasajero sigue. Filtrar también acá obligaría a traer
+  // primero la lista de favoritos y a mantener dos versiones de la misma regla
+  // en sincronía — y la del cliente es la que no se puede hacer cumplir.
+  async getNotificaciones(): Promise<NotificacionEmpresa[]> {
+    const desde = new Date(Date.now() - this.NOTIF_VENTANA_DIAS * 86400000).toISOString();
+    const { data, error } = await this.supabase
+      .from('notificaciones_empresa')
+      .select('*, empresa:empresas(nombre, logo_url), ruta:rutas(nombre, color), bus:buses(placa, numero_unidad)')
+      .gte('created_at', desde)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return (data || []) as NotificacionEmpresa[];
+  }
+
+  async marcarNotificacionesVistas(userId: string): Promise<void> {
+    await this.savePreferences(userId, { notificaciones_vistas_at: new Date().toISOString() });
+  }
+
+  // El payload de un INSERT de realtime trae la fila cruda, sin los joins de
+  // empresa/ruta/bus que el panel necesita para pintarse. En vez de armar a
+  // mano una fila a medias, se avisa y el que llama vuelve a pedir la lista:
+  // son pocas filas y así lo que se muestra sale siempre de la misma consulta.
+  subscribeNotificaciones(onNueva: () => void): RealtimeChannel {
+    return this.supabase
+      .channel('notificaciones-empresa')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notificaciones_empresa' },
+        () => onNueva(),
+      )
+      .subscribe();
+  }
+
+  unsubscribeNotificaciones(channel: RealtimeChannel | null): void {
+    if (channel) this.supabase.removeChannel(channel);
   }
 
   // ---- HORARIOS ----

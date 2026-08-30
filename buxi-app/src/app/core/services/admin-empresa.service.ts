@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, Ruta, Parada, BusLocation, Empresa } from '../models/transport.model';
-import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje, MensajeChofer } from '../models/features.model';
+import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje, MensajeChofer, NotificacionEmpresa, TipoNotificacion } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
 @Injectable({ providedIn: 'root' })
@@ -451,6 +451,60 @@ export class AdminEmpresaService {
       .order('inicio', { ascending: true });
     if (error) return [];
     return data as Viaje[];
+  }
+
+  // ---- NOTIFICACIONES A LOS PASAJEROS ----
+  // Llegan solo a quien marcó esta empresa como favorita. La policy de insert
+  // exige que empresa_id sea la propia y que autor_id sea auth.uid(), así que
+  // ambos se mandan explícitos y no se pueden falsear desde el navegador.
+  async getNotificaciones(empresaId: string): Promise<NotificacionEmpresa[]> {
+    const { data, error } = await this.supabase
+      .from('notificaciones_empresa')
+      .select('*, ruta:rutas(nombre, color), bus:buses(placa, numero_unidad)')
+      .eq('empresa_id', empresaId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    return (data || []) as NotificacionEmpresa[];
+  }
+
+  async crearNotificacion(input: {
+    empresaId: string;
+    autorId: string;
+    tipo: TipoNotificacion;
+    titulo: string;
+    mensaje: string;
+    rutaId?: string | null;
+    busId?: string | null;
+  }): Promise<void> {
+    const { error } = await this.supabase.from('notificaciones_empresa').insert({
+      empresa_id: input.empresaId,
+      autor_id: input.autorId,
+      tipo: input.tipo,
+      titulo: input.titulo,
+      mensaje: input.mensaje,
+      ruta_id: input.rutaId || null,
+      bus_id: input.busId || null,
+    });
+    if (error) throw error;
+  }
+
+  // Un aviso ya entregado no se edita, solo se retira: cambiarle el texto a
+  // espaldas de quien ya lo leyó es peor que borrarlo. Por eso no hay
+  // updateNotificacion — y tampoco hay policy de UPDATE que lo permita.
+  async deleteNotificacion(id: string): Promise<void> {
+    const { error } = await this.supabase.from('notificaciones_empresa').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  // Cuánta gente sigue a la empresa, para saber a cuántos les va a llegar.
+  // Va por RPC y no por un select sobre favoritos_empresa porque eso le
+  // entregaría a la empresa los user_id de sus seguidores; la función devuelve
+  // el número y nada más.
+  async contarSeguidores(empresaId: string): Promise<number> {
+    const { data, error } = await this.supabase.rpc('contar_seguidores_empresa', { p_empresa_id: empresaId });
+    if (error) return 0;
+    return (data as number) || 0;
   }
 
   // ---- REPORTE MENSUAL (PDF) ----

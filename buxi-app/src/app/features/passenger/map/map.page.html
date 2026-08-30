@@ -68,6 +68,14 @@
           </span>
           <span class="empresa-freq" *ngIf="x.empresa.frecuencia">cada {{ x.empresa.frecuencia }} min</span>
         </div>
+        <!-- Seguir la empresa = recibir sus avisos. El title lo dice porque la
+             estrella, sola, se lee como "guardar" y acá hace algo más. -->
+        <ion-icon
+          class="empresa-fav"
+          [class.on]="isFavoritoEmpresa(x.empresa.id)"
+          [name]="isFavoritoEmpresa(x.empresa.id) ? 'star' : 'star-outline'"
+          [title]="isFavoritoEmpresa(x.empresa.id) ? 'Dejar de recibir sus avisos' : 'Seguir y recibir sus avisos'"
+          (click)="toggleFavoritoEmpresa(x.empresa, $event)"></ion-icon>
       </div>
       <div class="ds-empty" *ngIf="empresas.length === 0">Sin empresas disponibles</div>
       <div class="ds-link" (click)="openPanel('rutas')">Ver todas las rutas <ion-icon name="chevron-forward"></ion-icon></div>
@@ -408,6 +416,7 @@
 
     <div class="dock-item" [class.active]="activePanel === 'alertas'" (click)="openPanel('alertas')">
       <ion-icon [name]="activePanel === 'alertas' ? 'notifications' : 'notifications-outline'"></ion-icon>
+      <span class="dock-badge" *ngIf="notificacionesNoLeidas > 0">{{ notificacionesNoLeidas > 9 ? '9+' : notificacionesNoLeidas }}</span>
       <span>Alertas</span>
     </div>
 
@@ -441,6 +450,17 @@
       <ion-spinner *ngIf="placeSearching" name="crescent" class="lp-spin"></ion-spinner>
     </div>
 
+    <!-- Dos pestañas: rutas guardadas y empresas seguidas. Solo en favoritos:
+         en el panel de rutas no hay nada que separar. -->
+    <div class="lp-tabs" *ngIf="activePanel === 'favoritos'">
+      <button type="button" [class.on]="favoritosTab === 'rutas'" (click)="favoritosTab = 'rutas'">
+        <ion-icon name="git-branch-outline"></ion-icon> Rutas
+      </button>
+      <button type="button" [class.on]="favoritosTab === 'empresas'" (click)="favoritosTab = 'empresas'">
+        <ion-icon name="business-outline"></ion-icon> Empresas
+      </button>
+    </div>
+
     <div class="lp-search" *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
       <ion-icon name="search-outline"></ion-icon>
       <input
@@ -452,7 +472,7 @@
 
     <div class="lp-body">
       <!-- Rutas y favoritos comparten la misma lista -->
-      <ng-container *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
+      <ng-container *ngIf="activePanel === 'rutas' || (activePanel === 'favoritos' && favoritosTab === 'rutas')">
         <a class="lp-sponsored" *ngIf="activePanel === 'rutas' && listAd" [class]="'anim-' + listAd.animacion"
            [href]="listAd.link_url || null" target="_blank" rel="noopener">
           <span class="lp-sp-tag">Patrocinado</span>
@@ -494,6 +514,37 @@
         </div>
       </ng-container>
 
+      <!-- Favoritos > Empresas: las que el pasajero sigue. La estrella acá solo
+           puede quitar, porque para estar en esta lista ya está seguida. -->
+      <ng-container *ngIf="activePanel === 'favoritos' && favoritosTab === 'empresas'">
+        <div class="lp-row" *ngFor="let e of panelEmpresasFavoritas" (click)="openEmpresaDetail(e)">
+          <div class="lp-empresa-logo">
+            <img *ngIf="e.logo_url" [src]="e.logo_url" alt="" />
+            <ion-icon *ngIf="!e.logo_url" name="business"></ion-icon>
+          </div>
+          <div class="lp-info">
+            <strong>{{ e.nombre }}</strong>
+            <span class="lp-trip">{{ e.rutaResumen }}</span>
+            <span class="lp-empresa">Recibís sus avisos</span>
+          </div>
+          <ion-icon
+            class="lp-fav on"
+            name="star"
+            title="Dejar de recibir sus avisos"
+            (click)="toggleFavoritoEmpresa(e, $event)"></ion-icon>
+        </div>
+
+        <div class="lp-empty" *ngIf="favoritosLoading">
+          <ion-spinner name="dots"></ion-spinner>
+        </div>
+
+        <div class="lp-empty" *ngIf="!favoritosLoading && panelEmpresasFavoritas.length === 0">
+          <ion-icon name="business-outline"></ion-icon>
+          <strong>No seguís ninguna empresa</strong>
+          <span>Tocá la estrella de una empresa en la lista lateral y te van a llegar sus avisos de atrasos, desvíos y cancelaciones.</span>
+        </div>
+      </ng-container>
+
       <!-- Lugares: geocodificador + los lugares propios de la base -->
       <ng-container *ngIf="activePanel === 'lugares'">
         <div class="lp-row" *ngFor="let p of placeResults" (click)="selectPlace(p)">
@@ -518,12 +569,50 @@
         </div>
       </ng-container>
 
-      <!-- Alertas: todavía sin respaldo en la base -->
-      <div class="lp-empty" *ngIf="activePanel === 'alertas'">
-        <ion-icon name="notifications-off-outline"></ion-icon>
-        <strong>Sin alertas por ahora</strong>
-        <span>Cuando un chofer reporte tráfico, un accidente o una avería, lo vas a ver acá y sobre el mapa.</span>
-      </div>
+      <!-- Alertas: avisos de las empresas que el pasajero sigue -->
+      <ng-container *ngIf="activePanel === 'alertas'">
+        <div class="lp-notif" *ngFor="let n of notificaciones" [class.nueva]="notifEsNueva(n)">
+          <div class="lp-notif-icon" [style.background]="notifColor(n.tipo)">
+            <ion-icon [name]="notifIcon(n.tipo)"></ion-icon>
+          </div>
+          <div class="lp-info">
+            <strong>
+              {{ n.titulo }}
+              <span class="lp-notif-tag" [style.background]="notifColor(n.tipo)">{{ notifLabel(n.tipo) }}</span>
+            </strong>
+            <span class="lp-notif-msg">{{ n.mensaje }}</span>
+            <span class="lp-notif-meta">
+              {{ n.empresa?.nombre }}
+              <ng-container *ngIf="n.ruta"> · {{ n.ruta.nombre }}</ng-container>
+              · {{ notifHace(n) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="lp-empty" *ngIf="notificacionesLoading">
+          <ion-spinner name="dots"></ion-spinner>
+        </div>
+
+        <!-- Tres vacíos distintos: no es lo mismo "las apagaste", "no seguís a
+             nadie" y "no hay novedades". Cada uno lleva a una acción distinta. -->
+        <div class="lp-empty" *ngIf="!notificacionesLoading && !notificationsEnabled">
+          <ion-icon name="notifications-off-outline"></ion-icon>
+          <strong>Tenés las notificaciones apagadas</strong>
+          <span>Activalas desde tu perfil para volver a recibir los avisos de las empresas que seguís.</span>
+        </div>
+
+        <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && favoritoEmpresaIds.size === 0">
+          <ion-icon name="business-outline"></ion-icon>
+          <strong>Todavía no seguís ninguna empresa</strong>
+          <span>Marcá una empresa con la estrella y acá te van a llegar sus avisos de atrasos, desvíos y cancelaciones.</span>
+        </div>
+
+        <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && favoritoEmpresaIds.size > 0 && notificaciones.length === 0">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+          <strong>Sin novedades</strong>
+          <span>Las empresas que seguís no reportaron nada en los últimos días.</span>
+        </div>
+      </ng-container>
     </div>
   </section>
 

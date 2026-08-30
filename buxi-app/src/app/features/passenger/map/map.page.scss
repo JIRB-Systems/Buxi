@@ -784,6 +784,8 @@
   gap: 3px;
   padding: 6px 0;
   cursor: pointer;
+  // Bloque contenedor del globito de no leidas (.dock-badge, en map.panels.scss).
+  position: relative;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &:active { transform: scale(0.92); }

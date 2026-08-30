@@ -5,6 +5,31 @@ export interface Favorito {
   created_at: string;
 }
 
+export interface FavoritoEmpresa {
+  id: string;
+  user_id: string;
+  empresa_id: string;
+  created_at: string;
+}
+
+// Aviso que una empresa manda a los pasajeros que la siguen.
+export type TipoNotificacion = 'atraso' | 'desvio' | 'cancelacion' | 'info';
+
+export interface NotificacionEmpresa {
+  id: string;
+  empresa_id: string;
+  autor_id: string | null;
+  ruta_id: string | null;
+  bus_id: string | null;
+  tipo: TipoNotificacion;
+  titulo: string;
+  mensaje: string;
+  created_at: string;
+  empresa?: { nombre: string; logo_url: string | null } | null;
+  ruta?: { nombre: string; color: string } | null;
+  bus?: { placa: string; numero_unidad: string | null } | null;
+}
+
 export interface Horario {
   id: string;
   ruta_id: string;
@@ -38,6 +63,9 @@ export interface UserPreferences {
   user_id: string;
   dark_mode: boolean;
   notifications_enabled: boolean;
+  // Marca de agua de lectura del panel de Alertas: todo lo posterior a esta
+  // hora cuenta como no leído. Null = nunca lo abrió.
+  notificaciones_vistas_at: string | null;
 }
 
 export interface Viaje {

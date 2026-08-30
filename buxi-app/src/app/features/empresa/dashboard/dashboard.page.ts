@@ -10,10 +10,11 @@ import { AdminEmpresaService } from '../../../core/services/admin-empresa.servic
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation, Empresa } from '../../../core/models/transport.model';
-import { ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje } from '../../../core/models/features.model';
+import { ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje, NotificacionEmpresa, TipoNotificacion } from '../../../core/models/features.model';
 import { RutaFormComponent } from './ruta-form.component';
 import { HorariosFormComponent } from './horarios-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
+import { NotificacionFormComponent } from './notificacion-form.component';
 import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/maplibre';
 import { descargarFacturaPDF } from '../../../core/utils/factura-pdf';
 import { descargarReporteMensualPDF } from '../../../core/utils/reporte-mensual-pdf';
@@ -39,6 +40,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { id: 'buses', icon: 'bus-outline', label: 'Buses' },
     { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
     { id: 'mapa', icon: 'location-outline', label: 'Seguimiento en vivo' },
+    { id: 'notificaciones', icon: 'notifications-outline', label: 'Notificaciones' },
     { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
     { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
     { id: 'planes', icon: 'card-outline', label: 'Planes' },
@@ -61,6 +63,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   facturas: Factura[] = [];
   empresa: Empresa | null = null;
   viajesRecientes: Viaje[] = [];
+  notificaciones: NotificacionEmpresa[] = [];
+  seguidores = 0;
 
   get emergenciasPendientes(): number {
     return this.emergencias.filter(e => e.estado === 'pendiente').length;
@@ -184,7 +188,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async loadData() {
     if (!this.profile?.empresa_id) return;
     const eid = this.profile.empresa_id;
-    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente, facturas, empresa, viajesRecientes, equipo] = await Promise.all([
+    const [stats, rutas, buses, choferes, anomalias, reportes, emergencias, avisos, planes, miSuscripcion, solicitudPlanPendiente, facturas, empresa, viajesRecientes, equipo, notificaciones, seguidores] = await Promise.all([
       this.admin.getStats(eid),
       this.admin.getRutas(eid),
       this.admin.getBuses(eid),
@@ -200,6 +204,10 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.admin.getEmpresa(eid).catch(() => null),
       this.admin.getViajesRecientes(eid),
       this.admin.getEquipo(eid).catch(() => []),
+      // Estas dos no deben tumbar el panel entero si fallan: son de una
+      // funcionalidad nueva y el resto del dashboard no depende de ellas.
+      this.admin.getNotificaciones(eid).catch(() => []),
+      this.admin.contarSeguidores(eid).catch(() => 0),
     ]);
     this.stats = stats;
     this.rutas = rutas;
@@ -216,7 +224,88 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.empresa = empresa;
     this.viajesRecientes = viajesRecientes;
     this.equipo = equipo;
+    this.notificaciones = notificaciones;
+    this.seguidores = seguidores;
   }
+
+  // ---- NOTIFICACIONES A LOS PASAJEROS ----
+  // Le llegan a quien haya marcado esta empresa como favorita en la app. El
+  // alcance se recalcula al abrir el modal y no solo en loadData: entre que se
+  // cargó el panel y que la empresa se sienta a escribir un aviso puede haber
+  // pasado media mañana.
+  async nuevaNotificacion(prefill: {
+    tipo?: TipoNotificacion; titulo?: string; mensaje?: string;
+    rutaId?: string | null; busId?: string | null; busLabel?: string | null;
+  } | null = null) {
+    if (!this.profile?.empresa_id) return;
+    this.seguidores = await this.admin.contarSeguidores(this.profile.empresa_id).catch(() => this.seguidores);
+
+    const modal = await this.modalCtrl.create({
+      component: NotificacionFormComponent,
+      componentProps: { rutas: this.rutas, seguidores: this.seguidores, prefill },
+    });
+    await modal.present();
+
+    const { data, role } = await modal.onWillDismiss();
+    if (role !== 'confirm' || !data) return;
+
+    try {
+      await this.admin.crearNotificacion({
+        empresaId: this.profile.empresa_id,
+        autorId: this.profile.id,
+        tipo: data.tipo,
+        titulo: data.titulo,
+        mensaje: data.mensaje,
+        rutaId: data.rutaId,
+        busId: data.busId,
+      });
+      this.notificaciones = await this.admin.getNotificaciones(this.profile.empresa_id);
+      this.showToast(this.seguidores > 0 ? 'Aviso enviado' : 'Aviso publicado (todavía no te sigue nadie)');
+    } catch (e: any) {
+      this.showToast(e?.message || 'No se pudo enviar el aviso', 'danger');
+    }
+  }
+
+  // Atajo desde la lista de buses: el caso que más se repite es "este bus va
+  // atrasado", y llegar hasta él pasando por el formulario en blanco son cinco
+  // pasos. Esto lo deja en dos, con el texto ya redactado y editable.
+  async avisarAtrasoDeBus(bus: Bus, ev?: Event) {
+    ev?.stopPropagation();
+    const rutaNombre = (bus as any)?.ruta?.nombre as string | undefined;
+    const unidad = bus.numero_unidad ? `${bus.placa} (${bus.numero_unidad})` : bus.placa;
+    await this.nuevaNotificacion({
+      tipo: 'atraso',
+      titulo: rutaNombre ? `Atraso en ${rutaNombre}` : 'Atraso en el servicio',
+      mensaje: rutaNombre
+        ? `El bus ${unidad} de la ruta ${rutaNombre} está circulando con atraso. Perdoná la demora.`
+        : `El bus ${unidad} está circulando con atraso. Perdoná la demora.`,
+      rutaId: bus.ruta_id || null,
+      busId: bus.id,
+      busLabel: unidad,
+    });
+  }
+
+  async eliminarNotificacion(n: NotificacionEmpresa) {
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Retirar aviso',
+      message: `¿Retirar "${n.titulo}"? Va a desaparecer del panel de alertas de los pasajeros.`,
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Retirar', role: 'destructive', handler: async () => {
+          try {
+            await this.admin.deleteNotificacion(n.id);
+            this.notificaciones = this.notificaciones.filter(x => x.id !== n.id);
+            this.showToast('Aviso retirado');
+          } catch (e: any) { this.showToast(e?.message || 'Error', 'danger'); }
+        }},
+      ],
+    });
+    await alert.present();
+  }
+
+  getNotifLabel(t: string) { return { atraso: 'Atraso', desvio: 'Desvío', cancelacion: 'Cancelación', info: 'Información' }[t] || t; }
+  getNotifColor(t: string) { return { atraso: '#ff9800', desvio: '#2196f3', cancelacion: '#f44336', info: '#00c853' }[t] || '#9aa5b4'; }
+  getNotifIcon(t: string) { return { atraso: 'time-outline', desvio: 'git-branch-outline', cancelacion: 'close-circle-outline', info: 'information-circle-outline' }[t] || 'information-circle-outline'; }
 
   // ---- FACTURAS ----
   descargarFactura(f: Factura) {

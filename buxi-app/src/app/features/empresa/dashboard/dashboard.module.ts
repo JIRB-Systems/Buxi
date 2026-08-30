@@ -7,9 +7,10 @@ import { EmpresaDashboardPage } from './dashboard.page';
 import { RutaFormComponent } from './ruta-form.component';
 import { ReporteFormComponent } from './reporte-form.component';
 import { HorariosFormComponent } from './horarios-form.component';
+import { NotificacionFormComponent } from './notificacion-form.component';
 
 @NgModule({
-  declarations: [EmpresaDashboardPage, RutaFormComponent, ReporteFormComponent, HorariosFormComponent],
+  declarations: [EmpresaDashboardPage, RutaFormComponent, ReporteFormComponent, HorariosFormComponent, NotificacionFormComponent],
   imports: [
     CommonModule,
     FormsModule,
