@@ -571,7 +571,7 @@
 
       <!-- Alertas: avisos de las empresas que el pasajero sigue -->
       <ng-container *ngIf="activePanel === 'alertas'">
-        <div class="lp-notif" *ngFor="let n of notificaciones" [class.nueva]="notifEsNueva(n)">
+        <div class="lp-notif" *ngFor="let n of notificacionesVisibles" [class.nueva]="notifEsNueva(n)">
           <div class="lp-notif-icon" [style.background]="notifColor(n.tipo)">
             <ion-icon [name]="notifIcon(n.tipo)"></ion-icon>
           </div>
@@ -593,21 +593,30 @@
           <ion-spinner name="dots"></ion-spinner>
         </div>
 
-        <!-- Tres vacíos distintos: no es lo mismo "las apagaste", "no seguís a
-             nadie" y "no hay novedades". Cada uno lleva a una acción distinta. -->
+        <!-- Cuatro vacíos distintos: no es lo mismo "falló la carga", "las
+             apagaste", "no seguís a nadie" y "no hay novedades". Cada uno lleva
+             a una acción distinta, y el de error es el que faltaba: hasta ahora
+             una consulta caída se disfrazaba de "Sin novedades". -->
         <div class="lp-empty" *ngIf="!notificacionesLoading && !notificationsEnabled">
           <ion-icon name="notifications-off-outline"></ion-icon>
           <strong>Tenés las notificaciones apagadas</strong>
           <span>Activalas desde tu perfil para volver a recibir los avisos de las empresas que seguís.</span>
         </div>
 
-        <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && favoritoEmpresaIds.size === 0">
+        <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && alertasError">
+          <ion-icon name="cloud-offline-outline"></ion-icon>
+          <strong>No se pudieron cargar los avisos</strong>
+          <span>Revisá tu conexión e intentá de nuevo.</span>
+          <button type="button" class="lp-retry" (click)="reintentarAlertas()">Reintentar</button>
+        </div>
+
+        <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && !alertasError && favoritoEmpresaIds.size === 0">
           <ion-icon name="business-outline"></ion-icon>
           <strong>Todavía no seguís ninguna empresa</strong>
           <span>Marcá una empresa con la estrella y acá te van a llegar sus avisos de atrasos, desvíos y cancelaciones.</span>
         </div>
 
-        <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && favoritoEmpresaIds.size > 0 && notificaciones.length === 0">
+        <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && !alertasError && favoritoEmpresaIds.size > 0 && notificaciones.length === 0">
           <ion-icon name="checkmark-circle-outline"></ion-icon>
           <strong>Sin novedades</strong>
           <span>Las empresas que seguís no reportaron nada en los últimos días.</span>

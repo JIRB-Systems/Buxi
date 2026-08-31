@@ -323,6 +323,19 @@
   ion-icon { font-size: 34px; color: #3e5170; }
   strong { font-size: 14px; color: #dbe6f5; font-weight: 700; }
   span { font-size: 12.5px; color: #7e93b0; line-height: 1.45; }
+
+  // Solo lo lleva el vacío de error: es el único del que se puede salir sin
+  // cerrar el panel.
+  .lp-retry {
+    margin-top: 5px;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 12.5px; font-weight: 700;
+    cursor: pointer;
+  }
 }
 
 // ---- PANEL LATERAL DE PERFIL ----

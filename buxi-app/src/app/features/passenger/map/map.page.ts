@@ -13,6 +13,7 @@ import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
+import { logError } from '../../../core/utils/log';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
@@ -33,6 +34,11 @@ const PROVINCIA_CENTERS: Record<string, [number, number]> = {
 // la base (activo / en_ruta): eso es la disponibilidad administrativa del
 // vehículo. Esto se deriva en vivo de la última ubicación.
 export type BusEstadoVivo = 'en_ruta' | 'retrasado' | 'en_parada';
+
+// Referencia estable para "no hay nada que listar". Devolver un [] nuevo en cada
+// ciclo de detección de cambios obliga a *ngFor a re-diferenciar una lista que
+// no cambió.
+const SIN_NOTIFICACIONES: NotificacionEmpresa[] = [];
 
 @Component({
   selector: 'app-map',
@@ -132,6 +138,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // ---- Alertas ----
   notificaciones: NotificacionEmpresa[] = [];
   notificacionesLoading = false;
+  // Un fallo de carga tiene que verse distinto de "no hay nada". Sin estas dos
+  // banderas, una consulta caída —red, sesión vencida, tabla sin migrar— pintaba
+  // el mismo "Sin novedades" que un día tranquilo, y el catch vacío tampoco
+  // dejaba rastro en ninguna parte para enterarse.
+  notificacionesError = false;
+  favoritosEmpresaError = false;
   private notificacionesVistasAt: string | null = null;
   private notifChannel: RealtimeChannel | null = null;
 
@@ -182,6 +194,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (!this.notificationsEnabled) return 0;
     const visto = this.notificacionesVistasAt ? Date.parse(this.notificacionesVistasAt) : 0;
     return this.notificaciones.filter(n => Date.parse(n.created_at) > visto).length;
+  }
+
+  // El panel de Alertas se apoya en DOS consultas y no puede afirmar nada si
+  // falló cualquiera de las dos: sin la lista de empresas seguidas, "todavía no
+  // seguís a ninguna" es mentira; sin los avisos, "sin novedades" también.
+  get alertasError(): boolean {
+    return this.notificacionesError || this.favoritosEmpresaError;
+  }
+
+  // Lo que el panel lista de verdad. Con el interruptor apagado, o con un fallo
+  // de carga, no hay lista: en ambos casos el panel ya tiene un cartel propio
+  // que lo explica, y pintar además los avisos era decir dos cosas opuestas en
+  // la misma pantalla.
+  get notificacionesVisibles(): NotificacionEmpresa[] {
+    return this.notificationsEnabled && !this.alertasError ? this.notificaciones : SIN_NOTIFICACIONES;
   }
 
   notifEsNueva(n: NotificacionEmpresa): boolean {
@@ -431,9 +458,18 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     ]);
     if (rutas.status === 'fulfilled') {
       this.favoritoRutaIds = new Set(rutas.value.map(f => f.ruta_id));
+    } else {
+      logError('cargar rutas favoritas', rutas.reason);
     }
     if (empresas.status === 'fulfilled') {
       this.favoritoEmpresaIds = new Set(empresas.value.map(f => f.empresa_id));
+      this.favoritosEmpresaError = false;
+    } else {
+      // Le importa sobre todo al panel de Alertas: sin esta lista,
+      // favoritoEmpresaIds queda vacío y el panel le diría "todavía no seguís
+      // ninguna empresa" a alguien que sigue cinco.
+      logError('cargar empresas seguidas', empresas.reason);
+      this.favoritosEmpresaError = true;
     }
     this.favoritosLoading = false;
   }
@@ -469,13 +505,33 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // ---- ALERTAS ----
   private async loadNotificaciones() {
+    // Con el interruptor apagado no se pide nada y la lista queda vacía. Hasta
+    // ahora solo se silenciaban el globito y el toast: los avisos igual se
+    // traían y se pintaban, debajo del cartel que decía que estaban apagados.
+    if (!this.notificationsEnabled) {
+      this.notificaciones = [];
+      this.notificacionesError = false;
+      return;
+    }
+
     this.notificacionesLoading = true;
+    this.notificacionesError = false;
     try {
       this.notificaciones = await this.featuresService.getNotificaciones();
-    } catch {
+    } catch (e) {
+      logError('cargar avisos de las empresas seguidas', e);
       this.notificaciones = [];
+      this.notificacionesError = true;
     }
     this.notificacionesLoading = false;
+  }
+
+  // El de error es el único vacío del panel del que se puede salir sin cerrarlo,
+  // así que es el único que lleva botón. Reintenta las dos consultas porque
+  // cualquiera de ellas pudo ser la que falló.
+  async reintentarAlertas() {
+    await this.loadFavoritos();
+    await this.loadNotificaciones();
   }
 
   private async abrirAlertas() {
@@ -1267,7 +1323,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         this.darkMode = prefs.dark_mode;
         this.notificacionesVistasAt = prefs.notificaciones_vistas_at;
       }
-    } catch {}
+    } catch (e) {
+      // No es inocuo: sin preferencias el interruptor se queda en "encendido" y
+      // la marca de leído en null, así que TODO cuenta como no leído y el
+      // globito de la campana aparece lleno sin motivo.
+      logError('cargar preferencias del pasajero', e);
+    }
   }
 
   startEditProfile() {
@@ -1305,13 +1366,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   async toggleNotifications() {
     this.notificationsEnabled = !this.notificationsEnabled;
+    // El interruptor corta la entrega, no solo el globito: al prenderlo hay que
+    // traer lo que se publicó mientras estuvo apagado, y al apagarlo la lista se
+    // vacía sola ahí adentro.
+    await this.loadNotificaciones();
     if (!this.profile) return;
     try {
       await this.featuresService.savePreferences(this.profile.id, {
         notifications_enabled: this.notificationsEnabled,
       });
-    } catch {
+    } catch (e) {
+      logError('guardar preferencia de notificaciones', e);
       this.notificationsEnabled = !this.notificationsEnabled;
+      await this.loadNotificaciones();
       await this.toast('No se pudo guardar la preferencia', 'danger');
     }
   }
