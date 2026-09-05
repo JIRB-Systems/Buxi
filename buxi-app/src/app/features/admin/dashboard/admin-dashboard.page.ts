@@ -7,6 +7,7 @@ import { environment } from '../../../../environments/environment';
 import { AlertController, LoadingController, ToastController, ModalController } from '@ionic/angular';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { AdminJirbService } from '../../../core/services/admin-jirb.service';
+import { logError } from '../../../core/utils/log';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
 import { Calificacion, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan, Factura } from '../../../core/models/features.model';
@@ -169,7 +170,13 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     try {
       this.profile = await this.supabase.getProfile();
       await this.loadData();
-    } catch {} finally {
+    } catch (e) {
+      // El finally apaga el spinner pase lo que pase, así que sin esto un fallo
+      // a mitad de loadData dejaba el panel dibujado a medias y con toda la
+      // pinta de haber cargado bien.
+      logError('JIRB: no se pudo cargar el panel', e);
+      await this.showToast('No se pudieron cargar todos los datos del panel', 'danger');
+    } finally {
       this.loading = false;
       if (this.activeTab === 'overview') {
         setTimeout(() => { this.fixContentOffset(); this.initAdminMap('admin-map-overview'); }, 150);
@@ -1408,7 +1415,13 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private async logAction(accion: string, detalle?: string, entidad?: string, entidadId?: string) {
     try {
       await this.admin.addLog(this.profile?.id || null, accion, detalle, entidad, entidadId);
-    } catch {}
+    } catch (e) {
+      // Un log de auditoría con huecos invisibles vale menos que no tenerlo. La
+      // acción ya se ejecutó, así que lo único honesto es decir que no quedó
+      // registrada en vez de dejar el rastro incompleto y callado.
+      logError('JIRB: no se pudo registrar "' + accion + '" en el log de auditoría', e);
+      await this.showToast('La acción se hizo, pero no quedó registrada en el log', 'warning');
+    }
   }
 
   private async showToast(msg: string, color = 'success') {
