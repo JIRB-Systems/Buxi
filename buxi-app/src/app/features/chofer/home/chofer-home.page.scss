@@ -164,6 +164,15 @@
     border-color: rgba(255, 209, 102, 0.35);
     .live-dot { background: #ffd166; }
   }
+
+  // Los envíos se están cayendo. Rojo y latiendo, como las alertas de
+  // velocidad: es un problema activo, no un estado de reposo como la pausa.
+  &.caida {
+    color: #ff8a80;
+    background: rgba(255, 84, 73, 0.18);
+    border-color: rgba(255, 84, 73, 0.42);
+    .live-dot { background: #ff5449; animation: pulse 1.4s infinite; }
+  }
 }
 
 // ---- BOLETOS ESCANEADOS ----

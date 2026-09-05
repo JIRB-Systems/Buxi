@@ -11,6 +11,7 @@ import { Bus, Parada } from '../../../core/models/transport.model';
 import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/features.model';
 import { ChoferService } from '../../../core/services/chofer.service';
 import { createMap, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
+import { logError } from '../../../core/utils/log';
 
 @Component({
   selector: 'app-chofer-home',
@@ -50,6 +51,18 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // ---- Desvío de ruta ----
   offRoute = false;
   private routeCoords: [number, number][] = [];
+
+  // ---- Estado real de la transmisión ----
+  // El chip de arriba decía "Transmitiendo en vivo" mientras los envíos venían
+  // fallando: el chofer seguía manejando convencido de que se lo estaba
+  // grabando, y a los pasajeros el bus se les congelaba y la app se lo pintaba
+  // como "sin señal", culpando al bus de un problema del teléfono.
+  //
+  // Dos fallos seguidos (10 s) antes de avisar, para no encender el cartel por
+  // un bache de red de un solo intento.
+  transmisionCaida = false;
+  private enviosFallidos = 0;
+  private readonly FALLOS_PARA_AVISAR = 2;
 
   // ---- Botón de pánico ----
   sendingPanic = false;
@@ -546,6 +559,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.paused = false;
     this.tripDistanceKm = 0;
     this.boletosEscaneados = 0;
+    this.transmisionCaida = false;
+    this.enviosFallidos = 0;
     this.tripStartTime = Date.now();
     this.lastTripLat = this.currentLat;
     this.lastTripLng = this.currentLng;
@@ -587,6 +602,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.paused = false;
     this.speedWarning = false;
     this.offRoute = false;
+    this.transmisionCaida = false;
+    this.enviosFallidos = 0;
 
     if (this.trackingInterval) {
       clearInterval(this.trackingInterval);
@@ -639,9 +656,21 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       this.speedWarning = false;
       this.offRoute = false;
     } else {
+      // Al retomar se arranca de cero: un fallo anterior a la pausa no tiene
+      // por qué pintar "sin señal" antes del primer envío nuevo.
+      this.transmisionCaida = false;
+      this.enviosFallidos = 0;
       this.sendLocation();
       this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
     }
+  }
+
+  // El chip de estado tiene que decir la verdad: "Transmitiendo en vivo" con
+  // los envíos caídos es exactamente lo que el chofer no puede leer.
+  get estadoTransmisionTexto(): string {
+    if (this.paused) return 'En pausa';
+    if (!this.tracking) return 'Sin transmitir';
+    return this.transmisionCaida ? 'Sin señal · no se guarda' : 'Transmitiendo en vivo';
   }
 
   private async sendLocation() {
@@ -655,7 +684,14 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         this.currentSpeedKmh,
         this.currentHeading,
       );
-    } catch {
+      this.enviosFallidos = 0;
+      this.transmisionCaida = false;
+    } catch (e) {
+      // Esto era un catch vacío, en el camino de datos más importante del
+      // producto y corriendo cada 5 segundos.
+      this.enviosFallidos++;
+      logError('chofer: no se pudo enviar la ubicación (fallos seguidos: ' + this.enviosFallidos + ')', e);
+      if (this.enviosFallidos >= this.FALLOS_PARA_AVISAR) this.transmisionCaida = true;
     }
 
     this.checkSegmentProgress();

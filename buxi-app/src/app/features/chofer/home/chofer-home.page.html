@@ -24,10 +24,14 @@
     </div>
   </div>
 
-  <!-- Estado de transmisión -->
-  <div class="status-chip" [class.active]="tracking && !paused" [class.paused]="paused">
+  <!-- Estado de transmisión. Tres estados y no dos: "transmitiendo" y "los
+       envíos se están cayendo" no son lo mismo, y antes se veían igual. -->
+  <div class="status-chip"
+       [class.active]="tracking && !paused && !transmisionCaida"
+       [class.paused]="paused"
+       [class.caida]="tracking && !paused && transmisionCaida">
     <span class="live-dot"></span>
-    {{ paused ? 'En pausa' : (tracking ? 'Transmitiendo en vivo' : 'Sin transmitir') }}
+    {{ estadoTransmisionTexto }}
   </div>
 
   <!-- Boletos escaneados en este viaje -->
