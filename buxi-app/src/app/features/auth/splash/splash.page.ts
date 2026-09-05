@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, QueryList, ViewChild, 
 import { Router } from '@angular/router';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
+import { logError } from '../../../core/utils/log';
 import { Anuncio } from '../../../core/models/features.model';
 
 // Duracion total de la intro; la navegacion espera a que termine.
@@ -58,7 +59,13 @@ export class SplashPage implements AfterViewInit, OnDestroy {
             this.pendingTarget = this.supabase.homeRouteForRole(profile.rol);
             isPasajero = profile.rol === 'pasajero';
           }
-        } catch {}
+        } catch (e) {
+          // Sin perfil no se sabe el rol, y caer al mapa del pasajero por
+          // defecto era entrar derecho al ciclo de guards. El login es la única
+          // pantalla que se puede pintar sin saber quién es el usuario.
+          logError('Splash: hay sesión pero el perfil no se pudo leer', e);
+          this.pendingTarget = ['/auth/login'];
+        }
       } else {
         this.pendingTarget = ['/auth/login'];
       }
