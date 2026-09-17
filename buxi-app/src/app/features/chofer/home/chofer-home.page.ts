@@ -12,6 +12,10 @@ import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/feature
 import { ChoferService } from '../../../core/services/chofer.service';
 import { createMap, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
+import {
+  SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
+  registrarIconoBus as registrarSpriteBus,
+} from '../../../core/utils/bus-sprite';
 import { supabaseClient } from '../../../core/supabase-client';
 import { suscribirCambios } from '../../../core/utils/live';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -107,10 +111,19 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // las paradas y emergencias del mapa de empresa.
   private readonly USER_SRC = 'chofer-self';
   private readonly USER_LAYER = 'chofer-self-icon';
+  private readonly USER_HALO_LAYER = 'chofer-self-halo';
   private readonly PARADAS_SRC = 'chofer-paradas';
   private readonly PARADAS_CIRCLE_LAYER = 'chofer-paradas-circle';
   private readonly PARADAS_LABEL_LAYER = 'chofer-paradas-label';
   private busIconReady = false;
+
+  // El mismo bus 3D que ve el pasajero, del modelo de Blender: 16 direcciones
+  // y teñido con el color de la ruta. El dibujo es compartido a propósito
+  // (core/utils/bus-sprite) para que las dos pantallas no se separen.
+  private sprites: SpritesBus | null = null;
+  private busIconosRegistrados = new Set<string>();
+  private ultimoBearing = 0;
+  private readonly COLOR_BUS_FALLBACK = '#00c853';
 
   // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
   // ngOnInit termine de resolver el bus asignado (son dos llamadas de red).
@@ -130,13 +143,13 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private readonly FLOTA_SRC = 'chofer-flota';
   private readonly FLOTA_LAYER = 'chofer-flota-icon';
   private readonly FLOTA_LABEL_LAYER = 'chofer-flota-label';
-  private flotaIconReady = false;
   private flotaChannel: RealtimeChannel | null = null;
   private flotaInterval: any = null;
   // bus_id -> etiqueta. Se carga una vez al entrar y además hace de filtro:
   // el payload de Realtime no dice de qué empresa es el bus que se movió.
   private flotaEtiquetas = new Map<string, string>();
-  private flotaPosiciones = new Map<string, { lng: number; lat: number; visto: number }>();
+  private flotaColores = new Map<string, string>();
+  private flotaPosiciones = new Map<string, { lng: number; lat: number; heading: number; visto: number }>();
   // Un bus que dejó de transmitir tiene que desaparecer. Un marcador clavado
   // donde se lo vio hace media hora es peor que ninguno cuando justamente lo
   // que se está mirando es la distancia entre unidades.
@@ -277,7 +290,13 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     });
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
+    // Antes de empezar a posicionar nada: el marcador se crea en cuanto llega
+    // la primera lectura del GPS, y si los sprites no están todavía nacería
+    // con el ícono de reserva.
+    this.sprites = await cargarSpritesBus();
+    if (this.destroyed) return;
     this.ensureBusIcon();
+    this.engancharRotacion();
     await this.startWatchingPosition();
 
     await this.asignacionLista;
@@ -409,19 +428,54 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.busIconReady = true;
   }
 
+  // El ícono del bus propio: mismo sprite que el del pasajero, teñido con el
+  // color de la ruta asignada y con el sprite que corresponde al rumbo.
+  //
+  // Si los sprites no cargaron se cae al ícono de reserva. El pasajero en ese
+  // caso simplemente no dibuja buses, pero un chofer sin su propio marcador
+  // pierde lo único que le dice dónde está: no es el mismo trato.
+  private iconoBusPropio(): string {
+    const color = this.assignedBus?.ruta?.color || this.COLOR_BUS_FALLBACK;
+    const dir = dirDeSprite(this.currentHeading, this.map ? this.map.getBearing() : 0);
+    const id = registrarSpriteBus(this.map, this.sprites, color, dir, this.busIconosRegistrados);
+    return this.sprites ? id : 'chofer-bus-icon';
+  }
+
   private updateUserMarkerLayer(lng: number, lat: number) {
-    const geojson = { type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: [lng, lat] } };
+    const geojson = {
+      type: 'Feature' as const,
+      properties: { icon: this.iconoBusPropio() },
+      geometry: { type: 'Point' as const, coordinates: [lng, lat] },
+    };
     const src = this.map.getSource(this.USER_SRC) as maplibregl.GeoJSONSource | undefined;
     if (src) {
       src.setData(geojson as any);
       return;
     }
     this.map.addSource(this.USER_SRC, { type: 'geojson', data: geojson as any });
+    // El halo va DEBAJO del bus y solo lo lleva el propio. Con el mismo sprite
+    // y el mismo color de ruta que el resto de la flota, es lo único que dice
+    // cuál de todos los buses en pantalla sos vos.
+    this.map.addLayer({
+      id: this.USER_HALO_LAYER, type: 'circle', source: this.USER_SRC,
+      paint: {
+        'circle-radius': 12,
+        'circle-color': '#00c853',
+        'circle-opacity': 0.22,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#00e676',
+        'circle-stroke-opacity': 0.9,
+      },
+    });
     this.map.addLayer({
       id: this.USER_LAYER, type: 'symbol', source: this.USER_SRC,
       layout: {
-        'icon-image': 'chofer-bus-icon',
-        'icon-size': 0.5,
+        'icon-image': ['get', 'icon'],
+        // Billboard y anclado abajo, igual que en el mapa del pasajero: el
+        // rumbo va horneado en el sprite, no en icon-rotate (un dibujo
+        // isométrico rotado en pantalla se ve torcido).
+        'icon-size': 1,
+        'icon-anchor': 'bottom',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
         'icon-pitch-alignment': 'viewport',
@@ -429,6 +483,23 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       },
     });
     this.refrescarBusPropio();
+  }
+
+  // Girar el mapa cambia el rumbo RELATIVO a la pantalla, o sea cuál de los 16
+  // sprites toca. 'rotate' dispara decenas de veces por gesto y solo importa
+  // al cruzar medio paso de sprite: por debajo, el ícono elegido sería el
+  // mismo y el trabajo iría a la basura.
+  private engancharRotacion() {
+    this.map.on('rotate', () => {
+      if (this.destroyed || !this.map) return;
+      const b = this.map.getBearing();
+      if (Math.abs(b - this.ultimoBearing) < SPRITE_PASO_MEDIO) return;
+      this.ultimoBearing = b;
+      if (this.currentLat !== 0 || this.currentLng !== 0) {
+        this.updateUserMarkerLayer(this.currentLng, this.currentLat);
+      }
+      this.renderFlota();
+    });
   }
 
   // El bus propio se ve SIEMPRE desde que hay una posición: el chofer quiere
@@ -444,49 +515,29 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   }
 
   private refrescarBusPropio() {
-    if (!this.map?.getLayer(this.USER_LAYER)) return;
-    this.map.setPaintProperty(this.USER_LAYER, 'icon-opacity', this.busPropioActivo ? 1 : 0.4);
+    if (!this.map) return;
+    const activo = this.busPropioActivo;
+    if (this.map.getLayer(this.USER_LAYER)) {
+      this.map.setPaintProperty(this.USER_LAYER, 'icon-opacity', activo ? 1 : 0.45);
+    }
+    if (this.map.getLayer(this.USER_HALO_LAYER)) {
+      this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-opacity', activo ? 0.22 : 0.08);
+      this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-stroke-opacity', activo ? 0.9 : 0.3);
+    }
   }
 
   // ---- EL RESTO DE LA FLOTA ----
-  // Ícono distinto del propio a propósito: mismo lenguaje visual pero con el
-  // aro en gris azulado, sin el verde que significa "este sos vos". Confundir
-  // otra unidad con la propia en un mapa con 50° de pitch es fácil y caro.
-  private ensureFlotaIcon() {
-    if (this.flotaIconReady || this.map.hasImage('chofer-flota-icon')) { this.flotaIconReady = true; return; }
-    const size = 96;
-    const canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2 - 6, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(10, 22, 40, 0.9)';
-    ctx.fill();
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = '#5b7fa6';
-    ctx.stroke();
-    ctx.font = `${Math.round(size * 0.42)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🚌', size / 2, size / 2 + 2);
-    this.map.addImage('chofer-flota-icon', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
-    this.flotaIconReady = true;
-  }
-
   private async iniciarFlota() {
     const empresaId = this.assignedBus?.empresa_id;
     if (!empresaId || !this.map) return;
 
     try {
       const buses = await this.choferService.getBusesDeEmpresa(empresaId);
-      this.flotaEtiquetas = new Map(
-        buses
-          // El propio queda afuera: ya se dibuja como el marcador de arriba, y
-          // verlo dos veces en el mismo punto es peor que no verlo.
-          .filter(b => b.id !== this.assignedBus?.id)
-          .map(b => [b.id, b.numero_unidad || b.placa]),
-      );
+      // El propio queda afuera: ya se dibuja como el marcador de arriba, y
+      // verlo dos veces en el mismo punto es peor que no verlo.
+      const ajenos = buses.filter(b => b.id !== this.assignedBus?.id);
+      this.flotaEtiquetas = new Map(ajenos.map(b => [b.id, b.numero_unidad || b.placa]));
+      this.flotaColores = new Map(ajenos.map(b => [b.id, b.ruta?.color || this.COLOR_BUS_FALLBACK]));
     } catch (e) {
       logError('chofer: no se pudo cargar la flota de la empresa', e);
       return;
@@ -511,6 +562,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         this.flotaPosiciones.set(u.bus_id, {
           lng: u.longitud,
           lat: u.latitud,
+          heading: u.heading || 0,
           visto: u.timestamp ? Date.parse(u.timestamp) : ahora,
         });
       }
@@ -536,6 +588,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
           this.flotaPosiciones.set(loc.bus_id, {
             lng: loc.longitud,
             lat: loc.latitud,
+            heading: loc.heading || 0,
             visto: Date.now(),
           });
           this.renderFlota();
@@ -555,11 +608,21 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   private renderFlota() {
     if (!this.map) return;
+    const bearing = this.map.getBearing();
     const data = {
       type: 'FeatureCollection' as const,
       features: [...this.flotaPosiciones.entries()].map(([busId, p]) => ({
         type: 'Feature' as const,
-        properties: { etiqueta: this.flotaEtiquetas.get(busId) || '' },
+        properties: {
+          etiqueta: this.flotaEtiquetas.get(busId) || '',
+          icon: registrarSpriteBus(
+            this.map,
+            this.sprites,
+            this.flotaColores.get(busId) || this.COLOR_BUS_FALLBACK,
+            dirDeSprite(p.heading, bearing),
+            this.busIconosRegistrados,
+          ),
+        },
         geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
       })),
     };
@@ -567,19 +630,23 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     const src = this.map.getSource(this.FLOTA_SRC) as maplibregl.GeoJSONSource | undefined;
     if (src) { src.setData(data as any); return; }
 
-    this.ensureFlotaIcon();
+    // Sin sprites no se dibuja la flota, igual que en el mapa del pasajero.
+    // Acá sí vale ese trato: lo que no puede faltar es el bus propio, que
+    // tiene su ícono de reserva.
     this.map.addSource(this.FLOTA_SRC, { type: 'geojson', data: data as any });
     this.map.addLayer({
       id: this.FLOTA_LAYER, type: 'symbol', source: this.FLOTA_SRC,
       layout: {
-        'icon-image': 'chofer-flota-icon',
-        'icon-size': 0.38,
+        'icon-image': ['get', 'icon'],
+        'icon-size': 1,
+        'icon-anchor': 'bottom',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
         'icon-pitch-alignment': 'viewport',
         'icon-rotation-alignment': 'viewport',
       },
-      paint: { 'icon-opacity': 0.85 },
+      // Un punto por debajo del propio: son contexto, no el protagonista.
+      paint: { 'icon-opacity': 0.9 },
     });
     this.map.addLayer({
       id: this.FLOTA_LABEL_LAYER, type: 'symbol', source: this.FLOTA_SRC,

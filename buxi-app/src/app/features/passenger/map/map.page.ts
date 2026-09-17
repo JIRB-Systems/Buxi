@@ -15,6 +15,10 @@ import { Capacitor } from '@capacitor/core';
 import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
+import {
+  SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
+  registrarIconoBus as registrarSpriteBus,
+} from '../../../core/utils/bus-sprite';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
@@ -853,11 +857,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // El rumbo va horneado en el sprite, NO en `icon-rotate`: un dibujo
   // isométrico rotado en pantalla se ve torcido. Por eso la capa es billboard
   // ('viewport') y lo que cambia según el rumbo es cuál de los 16 sprites se usa.
-  private readonly SPRITE_N = 16;
-  private readonly SPRITE_CELDA = 126;
-  private spriteBody: HTMLImageElement | null = null;
-  private spriteDet: HTMLImageElement | null = null;
-  private spritesListos = false;
+  // Las hojas de sprites, el teñido y el paso angular viven en
+  // core/utils/bus-sprite: los comparte con el mapa del chofer, para que el
+  // bus sea el mismo dibujo en las dos pantallas y no dos copias que se van
+  // separando con el tiempo.
+  private sprites: SpritesBus | null = null;
 
   private colorDeEstado(estado: BusEstadoVivo, colorRuta: string): string {
     if (estado === 'retrasado') return '#f5a623';
@@ -869,30 +873,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // sprite está dibujado en espacio de pantalla, así que si el usuario gira el
   // mapa el bus tiene que girar con él o quedaría apuntando a cualquier lado.
   private dirDeBus(loc: BusLocation): number {
-    const bearing = this.map ? this.map.getBearing() : 0;
-    const rel = (((loc.heading || 0) - bearing) % 360 + 360) % 360;
-    return Math.round(rel / (360 / this.SPRITE_N)) % this.SPRITE_N;
+    return dirDeSprite(loc.heading || 0, this.map ? this.map.getBearing() : 0);
   }
 
   private async cargarSprites(): Promise<void> {
-    if (this.spritesListos) return;
-    const carga = (src: string) => new Promise<HTMLImageElement>((ok, fail) => {
-      const im = new Image();
-      im.onload = () => ok(im);
-      im.onerror = () => fail(new Error(src));
-      im.src = src;
-    });
-    try {
-      const [b, d] = await Promise.all([
-        carga('assets/bus/bus_body_sheet.png'),
-        carga('assets/bus/bus_det_sheet.png'),
-      ]);
-      if (this.destroyed) return;
-      this.spriteBody = b; this.spriteDet = d; this.spritesListos = true;
-      this.refrescarIconos();
-    } catch {
-      // Sin sprites no se dibuja ningún bus, pero el mapa sigue usable.
-    }
+    if (this.sprites) return;
+    // Sin sprites no se dibuja ningún bus, pero el mapa sigue usable: eso lo
+    // decide acá, la utilidad solo devuelve null si no pudo cargarlos.
+    const sprites = await cargarSpritesBus();
+    if (this.destroyed || !sprites) return;
+    this.sprites = sprites;
+    this.refrescarIconos();
   }
 
   // Recalcula el ícono de cada bus. Se llama al cargar los sprites, al girar el
@@ -904,38 +895,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.pintarBuses(performance.now());
   }
 
+  // Lo propio del pasajero es el color: el estado vivo del bus (retrasado, en
+  // parada) pisa el color de la ruta. El dibujo en sí es compartido.
   private registrarIconoBus(estado: BusEstadoVivo, colorRuta: string, dir: number): string {
-    const color = this.colorDeEstado(estado, colorRuta);
-    const id = `bus-${color.replace('#', '')}-${dir}`;
-    if (this.busIconosRegistrados.has(id)) return id;
-    if (!this.spritesListos || !this.spriteBody || !this.spriteDet) return id;
-
-    const L = this.SPRITE_CELDA;
-    const sx = (dir % 4) * L, sy = Math.floor(dir / 4) * L;
-    const c = document.createElement('canvas');
-    c.width = L; c.height = L;
-    const ctx = c.getContext('2d');
-    if (!ctx) return id;
-
-    // 1) la carrocería, blanca pero con el sombreado del render 3D
-    ctx.drawImage(this.spriteBody, sx, sy, L, L, 0, 0, L, L);
-    // 2) multiply: el blanco toma el color de la ruta y las sombras sobreviven,
-    //    que es lo que le da volumen (un relleno plano lo aplastaría)
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, L, L);
-    // 3) el multiply pinta el cuadro entero: se recorta contra el alfa del bus
-    ctx.globalCompositeOperation = 'destination-in';
-    ctx.drawImage(this.spriteBody, sx, sy, L, L, 0, 0, L, L);
-    // 4) y encima los detalles, sin teñir
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(this.spriteDet, sx, sy, L, L, 0, 0, L, L);
-
-    try {
-      this.map.addImage(id, ctx.getImageData(0, 0, L, L), { pixelRatio: 3 });
-      this.busIconosRegistrados.add(id);
-    } catch { /* ya estaba */ }
-    return id;
+    return registrarSpriteBus(
+      this.map,
+      this.sprites,
+      this.colorDeEstado(estado, colorRuta),
+      dir,
+      this.busIconosRegistrados,
+    );
   }
 
   // ---- ESTADO VIVO DEL BUS ----
@@ -1798,7 +1767,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         // importa cuando se cruza medio paso de sprite (11.25°): por debajo de
         // eso el ícono elegido sería el mismo y el trabajo iría a la basura.
         const b = this.map.getBearing();
-        if (Math.abs(b - this.ultimoBearing) < (360 / this.SPRITE_N) / 2) return;
+        if (Math.abs(b - this.ultimoBearing) < SPRITE_PASO_MEDIO) return;
         this.ultimoBearing = b;
         this.refrescarIconos();
       });

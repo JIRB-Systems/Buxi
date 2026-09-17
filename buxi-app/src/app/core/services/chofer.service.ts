@@ -44,7 +44,7 @@ export class ChoferService {
     if (!busIds.length) return [];
     const { data, error } = await this.supabase
       .rpc('latest_bus_locations')
-      .select('bus_id, latitud, longitud, timestamp')
+      .select('bus_id, latitud, longitud, heading, timestamp')
       .in('bus_id', busIds);
     if (error) throw error;
     return (data || []) as unknown as BusLocation[];
@@ -56,10 +56,15 @@ export class ChoferService {
   async getBusesDeEmpresa(empresaId: string): Promise<Bus[]> {
     const { data, error } = await this.supabase
       .from('buses')
-      .select('id, placa, numero_unidad, empresa_id')
+      // El color de la ruta va acá porque el bus se tiñe con él, igual que en
+      // el mapa del pasajero: dos unidades de rutas distintas tienen que
+      // distinguirse de un vistazo.
+      .select('id, placa, numero_unidad, empresa_id, ruta:rutas(color)')
       .eq('empresa_id', empresaId);
     if (error) throw error;
-    return (data || []) as Bus[];
+    // as unknown de por medio: PostgREST tipa el embed de la ruta como arreglo
+    // aunque la relación sea a uno, y en tiempo de ejecución llega un objeto.
+    return (data || []) as unknown as Bus[];
   }
 
   async sendLocation(busId: string, lat: number, lng: number, speed: number = 0, heading: number = 0) {
