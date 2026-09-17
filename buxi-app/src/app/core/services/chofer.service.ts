@@ -4,6 +4,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Bus, BusLocation, Parada } from '../models/transport.model';
 import { Viaje, ReporteBug, Calificacion, Boleto, MensajeChofer } from '../models/features.model';
+import { logError } from '../utils/log';
 
 @Injectable({ providedIn: 'root' })
 export class ChoferService {
@@ -22,6 +23,23 @@ export class ChoferService {
       .maybeSingle();
     if (error) throw error;
     return data as Bus | null;
+  }
+
+  // El color que la empresa eligió para sus buses en Personalización, o null
+  // si no eligió ninguno (y entonces vale el de cada ruta, como siempre).
+  //
+  // Consulta aparte y tolerante al fallo por la misma razón que del lado del
+  // pasajero: `color_bus` es una columna nueva (20260919000000). Embebida en
+  // el select de getAssignedBus, un 400 por migración sin aplicar dejaría al
+  // chofer sin bus asignado — que es toda su pantalla.
+  async getColorBusEmpresa(empresaId: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from('empresas').select('color_bus').eq('id', empresaId).maybeSingle();
+    if (error) {
+      logError('cargar el color de bus de la empresa', error);
+      return null;
+    }
+    return (data as any)?.color_bus || null;
   }
 
   // ---- EL RESTO DE LA FLOTA ----

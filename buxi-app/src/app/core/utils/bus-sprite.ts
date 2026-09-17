@@ -60,6 +60,42 @@ export function dirDeSprite(heading: number, bearingMapa: number): number {
 // elegido sería el mismo y el trabajo iría a la basura.
 export const SPRITE_PASO_MEDIO = (360 / SPRITE_N) / 2;
 
+// Devuelve el bus de esa dirección teñido de ese color, en un canvas suelto.
+//
+// Separado de registrarIconoBus porque no todos los usos tienen un mapa: la
+// vista previa de Personalización, en el panel de empresa, necesita dibujar
+// el bus en un <canvas> para que la empresa vea el color que está eligiendo
+// antes de guardarlo. Es el mismo teñido, así que la previa no puede mentir
+// sobre cómo va a quedar en el mapa.
+export function tintarSpriteBus(
+  sprites: SpritesBus | null,
+  color: string,
+  dir: number,
+): HTMLCanvasElement | null {
+  if (!sprites) return null;
+  const L = SPRITE_CELDA;
+  const sx = (dir % 4) * L, sy = Math.floor(dir / 4) * L;
+  const c = document.createElement('canvas');
+  c.width = L; c.height = L;
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+
+  // 1) la carrocería, blanca pero con el sombreado del render 3D
+  ctx.drawImage(sprites.body, sx, sy, L, L, 0, 0, L, L);
+  // 2) multiply: el blanco toma el color y las sombras sobreviven, que es lo
+  //    que le da volumen (un relleno plano lo aplastaría)
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, L, L);
+  // 3) el multiply pinta el cuadro entero: se recorta contra el alfa del bus
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(sprites.body, sx, sy, L, L, 0, 0, L, L);
+  // 4) y encima los detalles, sin teñir
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(sprites.det, sx, sy, L, L, 0, 0, L, L);
+  return c;
+}
+
 // Registra (o reutiliza) la imagen del bus en ese color y esa dirección, y
 // devuelve el id para usar en 'icon-image'. `registrados` es el set de la
 // pantalla que llama: las imágenes viven en el mapa, y cada mapa es suyo.
@@ -72,31 +108,13 @@ export function registrarIconoBus(
 ): string {
   const id = `bus-${color.replace('#', '')}-${dir}`;
   if (registrados.has(id)) return id;
-  if (!sprites) return id;
 
-  const L = SPRITE_CELDA;
-  const sx = (dir % 4) * L, sy = Math.floor(dir / 4) * L;
-  const c = document.createElement('canvas');
-  c.width = L; c.height = L;
-  const ctx = c.getContext('2d');
-  if (!ctx) return id;
-
-  // 1) la carrocería, blanca pero con el sombreado del render 3D
-  ctx.drawImage(sprites.body, sx, sy, L, L, 0, 0, L, L);
-  // 2) multiply: el blanco toma el color de la ruta y las sombras sobreviven,
-  //    que es lo que le da volumen (un relleno plano lo aplastaría)
-  ctx.globalCompositeOperation = 'multiply';
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, L, L);
-  // 3) el multiply pinta el cuadro entero: se recorta contra el alfa del bus
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.drawImage(sprites.body, sx, sy, L, L, 0, 0, L, L);
-  // 4) y encima los detalles, sin teñir
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.drawImage(sprites.det, sx, sy, L, L, 0, 0, L, L);
+  const c = tintarSpriteBus(sprites, color, dir);
+  const ctx = c?.getContext('2d');
+  if (!c || !ctx) return id;
 
   try {
-    map.addImage(id, ctx.getImageData(0, 0, L, L), { pixelRatio: 3 });
+    map.addImage(id, ctx.getImageData(0, 0, c.width, c.height), { pixelRatio: 3 });
     registrados.add(id);
   } catch { /* ya estaba registrada */ }
   return id;

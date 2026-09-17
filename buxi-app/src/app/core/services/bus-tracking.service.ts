@@ -4,6 +4,7 @@ import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { BusLocation, Ruta, Parada, Bus } from '../models/transport.model';
+import { logError } from '../utils/log';
 import { Horario, HorarioSalida } from '../models/features.model';
 
 export interface EmpresaListItem {
@@ -58,6 +59,28 @@ export class BusTrackingService implements OnDestroy {
     return data as Bus[];
   }
 
+  // El color que cada empresa eligió para sus buses (Personalización, en el
+  // panel de empresa). Devuelve solo las que eligieron alguno.
+  //
+  // Va en una consulta APARTE y no embebida en el select de los buses, y eso
+  // es deliberado: `color_bus` es una columna nueva (20260919000000) y si el
+  // código llega a producción antes que la migración, PostgREST responde 400
+  // a todo el select que la mencione. Embebida, ese 400 dejaría el mapa sin
+  // un solo bus; aparte, lo único que pasa es que todavía nadie tiene color
+  // propio y los buses siguen con el color de su ruta, como siempre.
+  async getColoresBusEmpresas(): Promise<Map<string, string>> {
+    const { data, error } = await this.supabase.from('empresas').select('id, color_bus');
+    if (error) {
+      logError('cargar los colores de bus de las empresas', error);
+      return new Map();
+    }
+    return new Map(
+      (data || [])
+        .filter((e: any) => e.color_bus)
+        .map((e: any) => [e.id as string, e.color_bus as string]),
+    );
+  }
+
   async getRuta(rutaId: string): Promise<Ruta | null> {
     const { data, error } = await this.supabase
       .from('rutas')
@@ -81,7 +104,9 @@ export class BusTrackingService implements OnDestroy {
   // El "último punto por bus" lo resuelve Postgres (DISTINCT ON). Antes se
   // traía el historial completo y se deduplicaba acá, lo que crecía sin techo
   // a razón de ~17.000 filas por bus por día.
-  private readonly BUS_SELECT = '*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color), empresa:empresas(nombre))';
+  // empresa_id viaja acá para poder cruzar el bus con el color que eligió su
+  // empresa (ver getColoresBusEmpresas), que va en una consulta aparte.
+  private readonly BUS_SELECT = '*, bus:buses(placa, numero_unidad, empresa_id, ruta:rutas(nombre, color), empresa:empresas(nombre))';
 
   async getLocationsByRuta(rutaId: string): Promise<BusLocation[]> {
     const { data, error } = await this.supabase

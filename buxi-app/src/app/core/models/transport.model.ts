@@ -6,6 +6,9 @@ export interface Empresa {
   email: string | null;
   logo_url: string | null;
   estado: string;
+  // Personalización del bus. null = usar el color de la ruta, que es como se
+  // venía pintando y lo que ve una empresa que nunca entró a personalizar.
+  color_bus?: string | null;
 }
 
 export interface Ruta {

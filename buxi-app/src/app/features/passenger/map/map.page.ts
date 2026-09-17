@@ -968,14 +968,28 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // pintaba con el verde de respaldo — y como el elemento del marcador se crea
   // una sola vez, se quedaba verde para siempre aunque su ruta fuera de otro
   // color.
+  // empresa_id -> color elegido en Personalización. Se carga al abrir el mapa
+  // y manda sobre el color de la ruta (ver busColor).
+  private coloresEmpresa = new Map<string, string>();
   private busColors = new Map<string, string>();
   private readonly BUS_COLOR_FALLBACK = '#00c853';
 
+  // El color de la empresa gana sobre el de la ruta: si una empresa eligió su
+  // color en Personalización, toda su flota se ve de ese color aunque cada
+  // unidad ande por una ruta distinta. Es lo que pidió el panel de empresa, y
+  // tiene una consecuencia buscada: se gana identidad de empresa y se pierde
+  // el poder distinguir rutas por el color del bus. La línea de la ruta en el
+  // mapa sigue usando su propio color, así que el recorrido no se confunde.
+  //
+  // Sin color_bus (el caso de toda empresa que no entró a personalizar) esto
+  // se comporta exactamente como antes.
   private busColor(loc: BusLocation): string {
-    const join = (loc.bus as any)?.ruta?.color;
-    if (join) {
-      this.busColors.set(loc.bus_id, join);
-      return join;
+    const bus = loc.bus as any;
+    const crudo = this.coloresEmpresa.get(bus?.empresa_id) || bus?.ruta?.color;
+    if (crudo) {
+      const color = colorSeguro(crudo);
+      this.busColors.set(loc.bus_id, color);
+      return color;
     }
     return this.busColors.get(loc.bus_id) || this.BUS_COLOR_FALLBACK;
   }
@@ -1655,13 +1669,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // marcador. Si esta consulta falla no se corta la carga: el mapa igual
     // dibuja los buses, apenas con el color de respaldo.
     try {
-      const [buses, paradas] = await Promise.all([
+      const [buses, paradas, colores] = await Promise.all([
         this.tracking.getActiveBuses(),
         this.tracking.getAllParadas(),
+        // Antes de cebar el caché: si llegara después, los buses ya dibujados
+        // se quedarían con el color de la ruta hasta el próximo refresco.
+        this.tracking.getColoresBusEmpresas(),
       ]);
+      this.coloresEmpresa = colores;
       for (const b of buses) {
-        const color = (b as any)?.ruta?.color;
-        if (color) this.busColors.set(b.id, color);
+        // Misma precedencia que busColor(): el color que eligió la empresa
+        // gana sobre el de la ruta. Si acá se cebara solo con el de la ruta,
+        // un bus que empieza a transmitir con el mapa ya abierto se quedaría
+        // con el color viejo — que es justo el caso que este caché atiende.
+        const color = this.coloresEmpresa.get(b.empresa_id) || (b as any)?.ruta?.color;
+        if (color) this.busColors.set(b.id, colorSeguro(color));
         if (b.ruta_id) this.busRuta.set(b.id, b.ruta_id);
       }
       this.paradasPorRuta.clear();

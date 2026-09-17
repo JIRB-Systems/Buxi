@@ -12,6 +12,7 @@ import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/feature
 import { ChoferService } from '../../../core/services/chofer.service';
 import { createMap, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
+import { colorSeguro } from '../../../core/utils/html';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
@@ -124,6 +125,18 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private busIconosRegistrados = new Set<string>();
   private ultimoBearing = 0;
   private readonly COLOR_BUS_FALLBACK = '#00c853';
+
+  // El color con el que se tiñe el bus: el que la empresa eligió en
+  // Personalización, y si no eligió ninguno, el de la ruta como siempre.
+  // Vale para el bus propio y para toda la flota — es la misma empresa.
+  private colorDeLaFlota(colorRuta?: string | null): string {
+    return colorSeguro(
+      this.colorEmpresa || colorRuta || this.assignedBus?.ruta?.color || '',
+    );
+  }
+
+  // Lo elegido por la empresa en Personalización. null = el de cada ruta.
+  private colorEmpresa: string | null = null;
 
   // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
   // ngOnInit termine de resolver el bus asignado (son dos llamadas de red).
@@ -435,7 +448,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // caso simplemente no dibuja buses, pero un chofer sin su propio marcador
   // pierde lo único que le dice dónde está: no es el mismo trato.
   private iconoBusPropio(): string {
-    const color = this.assignedBus?.ruta?.color || this.COLOR_BUS_FALLBACK;
+    const color = this.colorDeLaFlota();
     const dir = dirDeSprite(this.currentHeading, this.map ? this.map.getBearing() : 0);
     const id = registrarSpriteBus(this.map, this.sprites, color, dir, this.busIconosRegistrados);
     return this.sprites ? id : 'chofer-bus-icon';
@@ -531,13 +544,20 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     const empresaId = this.assignedBus?.empresa_id;
     if (!empresaId || !this.map) return;
 
+    // El color propio de la empresa manda sobre el de la ruta, así que se
+    // resuelve antes de armar los iconos de la flota y del bus propio.
+    this.colorEmpresa = await this.choferService.getColorBusEmpresa(empresaId);
+    if (this.currentLat !== 0 || this.currentLng !== 0) {
+      this.updateUserMarkerLayer(this.currentLng, this.currentLat);
+    }
+
     try {
       const buses = await this.choferService.getBusesDeEmpresa(empresaId);
       // El propio queda afuera: ya se dibuja como el marcador de arriba, y
       // verlo dos veces en el mismo punto es peor que no verlo.
       const ajenos = buses.filter(b => b.id !== this.assignedBus?.id);
       this.flotaEtiquetas = new Map(ajenos.map(b => [b.id, b.numero_unidad || b.placa]));
-      this.flotaColores = new Map(ajenos.map(b => [b.id, b.ruta?.color || this.COLOR_BUS_FALLBACK]));
+      this.flotaColores = new Map(ajenos.map(b => [b.id, this.colorDeLaFlota(b.ruta?.color)]));
     } catch (e) {
       logError('chofer: no se pudo cargar la flota de la empresa', e);
       return;

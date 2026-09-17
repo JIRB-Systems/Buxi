@@ -41,6 +41,7 @@
           <h1 *ngIf="activeTab==='rutas'">Mis rutas</h1>
           <h1 *ngIf="activeTab==='horarios'">Horarios</h1>
           <h1 *ngIf="activeTab==='buses'">Buses</h1>
+          <h1 *ngIf="activeTab==='personalizacion'">Personalización</h1>
           <h1 *ngIf="activeTab==='choferes'">Choferes</h1>
           <h1 *ngIf="activeTab==='mapa'">Seguimiento en vivo</h1>
           <h1 *ngIf="activeTab==='notificaciones'">Notificaciones</h1>
@@ -526,6 +527,68 @@
               <strong>Solo vos tenés acceso por ahora</strong>
               <span>Agregá a alguien más de tu equipo con su propio usuario.</span>
               <ion-button size="small" (click)="addEquipoMiembro()">Agregar administrador</ion-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== PERSONALIZACIÓN ===== -->
+        <div *ngIf="activeTab==='personalizacion'" class="page">
+          <p class="page-hint">Cómo se ve tu flota en el mapa de los pasajeros y en el de tus choferes.</p>
+
+          <div class="card">
+            <div class="perso-titulo">
+              <strong>Color de tus buses</strong>
+              <span class="muted">Se aplica a todas tus unidades, en todas tus rutas.</span>
+            </div>
+
+            <!-- Previa: el bus real, con el mismo teñido que usa el mapa. -->
+            <div class="perso-preview">
+              <canvas *ngFor="let d of PREVIEW_DIRS" [id]="'preview-bus-' + d" width="126" height="126"></canvas>
+            </div>
+            <p class="perso-pie" *ngIf="!usaColorPropio">
+              Ahora cada bus usa el color de su ruta; arriba va
+              {{ rutas[0]?.nombre || 'el color por defecto' }} como ejemplo.
+            </p>
+
+            <div class="perso-modo">
+              <button type="button" [class.on]="!usaColorPropio" (click)="alternarColorPropio(false)">
+                El color de cada ruta
+              </button>
+              <button type="button" [class.on]="usaColorPropio" (click)="alternarColorPropio(true)">
+                Un color para toda mi flota
+              </button>
+            </div>
+
+            <div class="perso-paleta" [class.apagada]="!usaColorPropio">
+              <button type="button" class="swatch" *ngFor="let c of PALETA_BUS"
+                      [style.background]="c"
+                      [class.sel]="usaColorPropio && colorBus === c"
+                      [attr.aria-label]="'Usar el color ' + c"
+                      (click)="elegirColorBus(c)"></button>
+              <label class="swatch custom" [style.background]="colorBus" title="Elegir otro color">
+                <ion-icon name="color-wand-outline"></ion-icon>
+                <input type="color" [value]="colorBus"
+                       (input)="elegirColorBus($any($event.target).value)" />
+              </label>
+            </div>
+
+            <div class="perso-acciones">
+              <span class="muted" *ngIf="!personalizacionSucia">Todo guardado</span>
+              <span class="perso-sucio" *ngIf="personalizacionSucia">Tenés cambios sin guardar</span>
+              <ion-button class="btn-action"
+                          [disabled]="!personalizacionSucia || guardandoPersonalizacion"
+                          (click)="guardarPersonalizacion()">
+                <ion-spinner *ngIf="guardandoPersonalizacion" name="crescent"></ion-spinner>
+                <span *ngIf="!guardandoPersonalizacion">Guardar</span>
+              </ion-button>
+            </div>
+          </div>
+
+          <div class="card perso-proximo">
+            <ion-icon name="cube-outline"></ion-icon>
+            <div>
+              <strong>Modelo y diseño del bus</strong>
+              <span class="muted">Más adelante vas a poder elegir entre distintos modelos y diseños de bus, además del color. Van a aparecer acá mismo.</span>
             </div>
           </div>
         </div>

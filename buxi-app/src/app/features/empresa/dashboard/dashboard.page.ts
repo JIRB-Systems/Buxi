@@ -3,6 +3,7 @@ import { supabaseClient } from '../../../core/supabase-client';
 import { esc, colorSeguro } from '../../../core/utils/html';
 import { suscribirCambios } from '../../../core/utils/live';
 import { logError } from '../../../core/utils/log';
+import { SpritesBus, cargarSpritesBus, tintarSpriteBus } from '../../../core/utils/bus-sprite';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -41,6 +42,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { id: 'rutas', icon: 'git-branch-outline', label: 'Mis rutas' },
     { id: 'horarios', icon: 'time-outline', label: 'Horarios' },
     { id: 'buses', icon: 'bus-outline', label: 'Buses' },
+    { id: 'personalizacion', icon: 'color-palette-outline', label: 'Personalización' },
     { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
     { id: 'mapa', icon: 'location-outline', label: 'Seguimiento en vivo' },
     { id: 'notificaciones', icon: 'notifications-outline', label: 'Notificaciones' },
@@ -50,6 +52,41 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
     { id: 'equipo', icon: 'people-circle-outline', label: 'Mi equipo' },
   ];
+
+  // ---- PERSONALIZACIÓN DEL BUS ----
+  // Primer ajuste: el color de la flota. El modelo y el diseño del bus van a
+  // vivir en este mismo apartado, por eso es una sección y no un campo suelto
+  // dentro de la ficha de la empresa.
+  readonly COLOR_BUS_DEFECTO = '#00c853';
+  // Ocho colores que se distinguen entre sí sobre el mapa oscuro y que no se
+  // pisan con los estados del bus en el mapa del pasajero: naranja es
+  // "retrasado" y gris es "en parada", así que ninguno de los dos está acá.
+  readonly PALETA_BUS = [
+    '#00c853', '#2196f3', '#e53935', '#8e24aa',
+    '#00acc1', '#fdd835', '#7cb342', '#546e7a',
+  ];
+  // Cuatro de las 16 direcciones del sprite: alcanza para ver el bus por los
+  // cuatro costados sin convertir la previa en un catálogo.
+  readonly PREVIEW_DIRS = [0, 4, 8, 12];
+
+  usaColorPropio = false;
+  colorBus = '#00c853';
+  guardandoPersonalizacion = false;
+  private colorBusGuardado: string | null = null;
+  private spritesPreview: SpritesBus | null = null;
+
+  // Con el color propio apagado cada bus usa el de SU ruta, así que no hay un
+  // único color que mostrar: se usa el de la primera ruta como muestra y el
+  // texto del panel aclara que es un ejemplo.
+  get colorPreview(): string {
+    if (this.usaColorPropio) return colorSeguro(this.colorBus);
+    return colorSeguro(this.rutas[0]?.color || this.COLOR_BUS_DEFECTO);
+  }
+
+  get personalizacionSucia(): boolean {
+    const actual = this.usaColorPropio ? colorSeguro(this.colorBus) : null;
+    return actual !== this.colorBusGuardado;
+  }
 
   stats = { buses: 0, rutas: 0, choferes: 0, busesEnRuta: 0 };
   rutas: Ruta[] = [];
@@ -230,6 +267,10 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.solicitudPlanPendiente = solicitudPlanPendiente;
     this.facturas = facturas;
     this.empresa = empresa;
+    // null = nunca personalizó: cada bus sigue con el color de su ruta.
+    this.colorBusGuardado = empresa?.color_bus || null;
+    this.usaColorPropio = !!this.colorBusGuardado;
+    this.colorBus = this.colorBusGuardado || this.COLOR_BUS_DEFECTO;
     this.viajesRecientes = viajesRecientes;
     this.equipo = equipo;
     this.notificaciones = notificaciones;
@@ -494,6 +535,63 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     if (tab === 'horarios') {
       this.loadHorariosResumen();
     }
+    if (tab === 'personalizacion') {
+      // Los canvas recién existen cuando Angular pintó el panel.
+      setTimeout(() => this.prepararPreview(), 0);
+    }
+  }
+
+  // ---- PERSONALIZACIÓN ----
+  private async prepararPreview() {
+    if (!this.spritesPreview) this.spritesPreview = await cargarSpritesBus();
+    this.dibujarPreview();
+  }
+
+  // Dibuja el bus con el MISMO teñido que usa el mapa (tintarSpriteBus, de
+  // core/utils/bus-sprite). Es a propósito: una previa hecha con otro código
+  // puede quedar linda y mentir sobre cómo se va a ver de verdad.
+  dibujarPreview() {
+    const color = this.colorPreview;
+    for (const dir of this.PREVIEW_DIRS) {
+      const destino = this.elRef.nativeElement
+        .querySelector('#preview-bus-' + dir) as HTMLCanvasElement | null;
+      if (!destino) continue;
+      const ctx = destino.getContext('2d');
+      if (!ctx) continue;
+      ctx.clearRect(0, 0, destino.width, destino.height);
+      const bus = tintarSpriteBus(this.spritesPreview, color, dir);
+      if (bus) ctx.drawImage(bus, 0, 0, destino.width, destino.height);
+    }
+  }
+
+  elegirColorBus(color: string) {
+    this.colorBus = color;
+    this.usaColorPropio = true;
+    this.dibujarPreview();
+  }
+
+  alternarColorPropio(usar: boolean) {
+    this.usaColorPropio = usar;
+    this.dibujarPreview();
+  }
+
+  async guardarPersonalizacion() {
+    if (!this.profile?.empresa_id || this.guardandoPersonalizacion) return;
+    // null vuelve al comportamiento de siempre: el color de cada ruta.
+    const color = this.usaColorPropio ? colorSeguro(this.colorBus) : null;
+    this.guardandoPersonalizacion = true;
+    try {
+      await this.admin.updateEmpresa(this.profile.empresa_id, { color_bus: color });
+      this.colorBusGuardado = color;
+      if (this.empresa) this.empresa.color_bus = color;
+      this.showToast(color
+        ? 'Listo: toda tu flota se ve de ese color'
+        : 'Tus buses vuelven al color de cada ruta');
+    } catch (e: any) {
+      logError('guardar la personalización del bus', e);
+      this.showToast(e?.message || 'No se pudo guardar la personalización', 'danger');
+    }
+    this.guardandoPersonalizacion = false;
   }
 
   // ---- HORARIOS (resumen por ruta) ----
