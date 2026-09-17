@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
+import { esc, colorSeguro } from '../../../core/utils/html';
 import { suscribirCambios } from '../../../core/utils/live';
 import { Router } from '@angular/router';
 import * as maplibregl from 'maplibre-gl';
@@ -482,7 +483,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       return;
     }
 
-    const el = htmlMarkerEl('admin-bus-marker', `<div class="admin-bus-icon" style="background:${color}"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`);
+    const el = htmlMarkerEl('admin-bus-marker', `<div class="admin-bus-icon" style="background:${colorSeguro(color)}"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`);
     if (deviated) el.classList.add('deviated');
     // Clic en el bus dibuja su estela de las últimas horas — independiente
     // del popup, que Marker.setPopup ya engancha a este mismo click.
@@ -500,7 +501,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
   private busPopupHtml(busInfo: any, loc: BusLocation, deviated: boolean): string {
     const warn = deviated ? `<br><span style="color:#f44336;font-weight:700">⚠ Fuera de ruta trazada</span>` : '';
-    return `<b>${busInfo?.placa || 'Bus'}</b><br>${busInfo?.ruta?.nombre || 'Sin ruta'}<br>${loc.velocidad} km/h${warn}`;
+    return `<b>${esc(busInfo?.placa || 'Bus')}</b><br>${esc(busInfo?.ruta?.nombre || 'Sin ruta')}<br>${esc(Math.round(Number(loc.velocidad) || 0))} km/h${warn}`;
   }
 
   // `ruta.geometria` se guarda en formato Leaflet [lat, lng]; la función de
@@ -842,8 +843,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       if (existing) {
         existing.setLngLat([latest.lng, latest.lat]);
       } else {
-        const el = htmlMarkerEl('admin-bus-marker', `<div class="admin-bus-icon" style="background:${latest.color}"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`);
-        const popup = new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(`<b>${latest.placa}</b>`);
+        const el = htmlMarkerEl('admin-bus-marker', `<div class="admin-bus-icon" style="background:${colorSeguro(latest.color)}"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>`);
+        const popup = new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(`<b>${esc(latest.placa)}</b>`);
         const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
           .setLngLat([latest.lng, latest.lat])
           .setPopup(popup)

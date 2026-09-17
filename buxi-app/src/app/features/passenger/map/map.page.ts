@@ -14,6 +14,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
+import { esc, colorSeguro } from '../../../core/utils/html';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
@@ -1587,7 +1588,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Dibuja una ruta (línea + paradas) sin encuadrar el mapa, para poder
   // dibujar varias rutas seguidas y encuadrar todas juntas al final.
   private async drawRouteLayer(paradas: Parada[], color: string, geometria?: [number, number][] | null): Promise<[number, number][]> {
-    const c = color || '#00c853';
+    const c = colorSeguro(color);
     // Coords guardadas en formato Leaflet [lat, lng]; MapLibre las quiere [lng, lat].
     const latlng: [number, number][] = geometria?.length
       ? geometria
@@ -1618,7 +1619,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       const isTerminal = i === 0 || i === paradas.length - 1;
       const nombreCorto = this.nombreParadaCorto(parada.nombre);
       const html = isTerminal
-        ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div><div class="stop-label" title="${parada.nombre}">${nombreCorto}</div>`
+        ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div><div class="stop-label" title="${esc(parada.nombre)}">${esc(nombreCorto)}</div>`
         : `<div class="stop-dot" style="border-color:${c}"></div>`;
       const el = htmlMarkerEl('stop-marker', html);
       const m = new maplibregl.Marker({ element: el, anchor: 'center' })

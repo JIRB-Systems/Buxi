@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
+import { esc, colorSeguro } from '../../../core/utils/html';
 import { suscribirCambios } from '../../../core/utils/live';
 import { logError } from '../../../core/utils/log';
 import { Router } from '@angular/router';
@@ -835,7 +836,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
     const color = this.editingRuta?.color || '#00c853';
     this.editingParadas.forEach((p, i) => {
-      const html = `<div class="ruta-point-dot" style="background:${color}">${i + 1}</div><div class="ruta-point-label">${p.nombre}</div>`;
+      const html = `<div class="ruta-point-dot" style="background:${colorSeguro(color)}">${i + 1}</div><div class="ruta-point-label">${esc(p.nombre)}</div>`;
       const el = htmlMarkerEl('ruta-point-marker', html);
       const m = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([p.longitud, p.latitud])
