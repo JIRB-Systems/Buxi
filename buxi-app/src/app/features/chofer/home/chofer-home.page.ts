@@ -111,6 +111,37 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private readonly PARADAS_CIRCLE_LAYER = 'chofer-paradas-circle';
   private readonly PARADAS_LABEL_LAYER = 'chofer-paradas-label';
   private busIconReady = false;
+
+  // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
+  // ngOnInit termine de resolver el bus asignado (son dos llamadas de red).
+  // Todo lo que dependa de assignedBus tiene que esperar esto: sin la espera,
+  // la flota arrancaba con assignedBus en null, salía por el return temprano
+  // y no volvía a intentarlo nunca.
+  //
+  // El orden de estos dos campos importa: con target es2022 y
+  // useDefineForClassFields, declarar el resolver DESPUÉS lo redefine como
+  // undefined y pisa la asignación que hace el initializer de la promesa.
+  private resolverAsignacion!: () => void;
+  private asignacionLista = new Promise<void>(r => { this.resolverAsignacion = r; });
+
+  // ---- El resto de la flota de la empresa ----
+  // Mismo motivo que arriba para usar capas nativas y no maplibregl.Marker:
+  // el bug de elevación con terreno 3D deja los marcadores fuera de lugar.
+  private readonly FLOTA_SRC = 'chofer-flota';
+  private readonly FLOTA_LAYER = 'chofer-flota-icon';
+  private readonly FLOTA_LABEL_LAYER = 'chofer-flota-label';
+  private flotaIconReady = false;
+  private flotaChannel: RealtimeChannel | null = null;
+  private flotaInterval: any = null;
+  // bus_id -> etiqueta. Se carga una vez al entrar y además hace de filtro:
+  // el payload de Realtime no dice de qué empresa es el bus que se movió.
+  private flotaEtiquetas = new Map<string, string>();
+  private flotaPosiciones = new Map<string, { lng: number; lat: number; visto: number }>();
+  // Un bus que dejó de transmitir tiene que desaparecer. Un marcador clavado
+  // donde se lo vio hace media hora es peor que ninguno cuando justamente lo
+  // que se está mirando es la distancia entre unidades.
+  private readonly FLOTA_OLVIDO_MS = 5 * 60 * 1000;
+
   private watchId: string | null = null;
   private currentLat = 0;
   private currentLng = 0;
@@ -164,6 +195,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       await toast.present();
     } finally {
       this.loading = false;
+      this.resolverAsignacion();
     }
   }
 
@@ -248,16 +280,23 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.ensureBusIcon();
     await this.startWatchingPosition();
 
+    await this.asignacionLista;
     await this.paradasReady;
     if (!this.destroyed && this.rutaParadas.length >= 2) {
       this.drawAssignedRoute();
     }
+    if (!this.destroyed) await this.iniciarFlota();
   }
 
   // Traza la ruta asignada (línea + paradas) apenas se conoce la ruta, pero
   // oculta (ver routeVisibility abajo) hasta que el chofer arranca de verdad:
-  // mostrarla antes daba la impresión de un viaje ya en curso, igual que
-  // pasaba con el ícono del propio bus (ver setUserMarkerVisible).
+  // mostrarla antes daba la impresión de un viaje ya en curso.
+  //
+  // El bus propio salía oculto por el mismo motivo y ya no: ahora se ve
+  // siempre y es la opacidad la que distingue "todavía no arrancaste" (ver
+  // refrescarBusPropio). La ruta se deja como estaba a propósito — un bus
+  // apagado en el mapa se entiende solo, pero un recorrido completo trazado
+  // sin viaje en curso sigue siendo confuso.
   private drawAssignedRoute() {
     const color = this.assignedBus?.ruta?.color || '#00c853';
     const geometria = this.assignedBus?.ruta?.geometria as [number, number][] | null | undefined;
@@ -387,22 +426,177 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         'icon-ignore-placement': true,
         'icon-pitch-alignment': 'viewport',
         'icon-rotation-alignment': 'viewport',
-        // Oculto hasta que el chofer arranca de verdad: la posición se sigue
-        // actualizando en segundo plano desde que carga el mapa (para que
-        // "centrar en mi ubicación" funcione de una), pero mostrar el bus ya
-        // "puesto" en algún punto del recorrido antes de tocar "Iniciar ruta"
-        // se lee como si el viaje ya estuviera en curso.
-        visibility: this.tracking ? 'visible' : 'none',
       },
     });
+    this.refrescarBusPropio();
   }
 
-  // El propio marcador solo se ve mientras hay un viaje activo -- ver el
-  // comentario en updateUserMarkerLayer.
-  private setUserMarkerVisible(visible: boolean) {
-    if (this.map?.getLayer(this.USER_LAYER)) {
-      this.map.setLayoutProperty(this.USER_LAYER, 'visibility', visible ? 'visible' : 'none');
+  // El bus propio se ve SIEMPRE desde que hay una posición: el chofer quiere
+  // ubicarse en el mapa antes de salir, no después.
+  //
+  // Antes estaba oculto hasta tocar "Iniciar ruta" por un motivo real: verlo
+  // ya "puesto" en algún punto del recorrido se leía como un viaje en curso.
+  // Eso ahora lo resuelve la opacidad en vez de la visibilidad — apagado
+  // significa "acá estás, todavía no arrancaste", y es la misma distinción
+  // que ya hace el chip de estado, que no puede contradecir al mapa.
+  private get busPropioActivo(): boolean {
+    return this.tracking && !this.paused && !this.transmisionCaida;
+  }
+
+  private refrescarBusPropio() {
+    if (!this.map?.getLayer(this.USER_LAYER)) return;
+    this.map.setPaintProperty(this.USER_LAYER, 'icon-opacity', this.busPropioActivo ? 1 : 0.4);
+  }
+
+  // ---- EL RESTO DE LA FLOTA ----
+  // Ícono distinto del propio a propósito: mismo lenguaje visual pero con el
+  // aro en gris azulado, sin el verde que significa "este sos vos". Confundir
+  // otra unidad con la propia en un mapa con 50° de pitch es fácil y caro.
+  private ensureFlotaIcon() {
+    if (this.flotaIconReady || this.map.hasImage('chofer-flota-icon')) { this.flotaIconReady = true; return; }
+    const size = 96;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(10, 22, 40, 0.9)';
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#5b7fa6';
+    ctx.stroke();
+    ctx.font = `${Math.round(size * 0.42)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🚌', size / 2, size / 2 + 2);
+    this.map.addImage('chofer-flota-icon', ctx.getImageData(0, 0, size, size), { pixelRatio: 2 });
+    this.flotaIconReady = true;
+  }
+
+  private async iniciarFlota() {
+    const empresaId = this.assignedBus?.empresa_id;
+    if (!empresaId || !this.map) return;
+
+    try {
+      const buses = await this.choferService.getBusesDeEmpresa(empresaId);
+      this.flotaEtiquetas = new Map(
+        buses
+          // El propio queda afuera: ya se dibuja como el marcador de arriba, y
+          // verlo dos veces en el mismo punto es peor que no verlo.
+          .filter(b => b.id !== this.assignedBus?.id)
+          .map(b => [b.id, b.numero_unidad || b.placa]),
+      );
+    } catch (e) {
+      logError('chofer: no se pudo cargar la flota de la empresa', e);
+      return;
     }
+    if (!this.flotaEtiquetas.size) return;
+
+    await this.refrescarFlota();
+    this.escucharFlota();
+    this.flotaInterval = setInterval(() => this.olvidarFlotaVieja(), 30000);
+  }
+
+  private async refrescarFlota() {
+    // flotaEtiquetas ya viene sin el bus propio, así que el filtro de la
+    // consulta lo excluye solo.
+    const ids = [...this.flotaEtiquetas.keys()];
+    if (!ids.length) return;
+    try {
+      const ubicaciones = await this.choferService.getUbicacionesFlota(ids);
+      const ahora = Date.now();
+      for (const u of ubicaciones) {
+        if (!this.flotaEtiquetas.has(u.bus_id)) continue;
+        this.flotaPosiciones.set(u.bus_id, {
+          lng: u.longitud,
+          lat: u.latitud,
+          visto: u.timestamp ? Date.parse(u.timestamp) : ahora,
+        });
+      }
+      this.renderFlota();
+    } catch (e) {
+      logError('chofer: no se pudieron cargar las ubicaciones de la flota', e);
+    }
+  }
+
+  // Sin debounce y parcheando fila por fila, al revés que suscribirCambios():
+  // acá cae un punto cada 5 segundos por cada bus, y volver a pedir la lista
+  // entera en cada uno sería justo el caso que ese helper dice no cubrir.
+  private escucharFlota() {
+    if (this.flotaChannel) return;
+    this.flotaChannel = supabaseClient()
+      .channel('chofer-flota')
+      .on(
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'bus_locations' },
+        (payload: any) => {
+          const loc = payload?.new;
+          if (this.destroyed || !loc || !this.flotaEtiquetas.has(loc.bus_id)) return;
+          this.flotaPosiciones.set(loc.bus_id, {
+            lng: loc.longitud,
+            lat: loc.latitud,
+            visto: Date.now(),
+          });
+          this.renderFlota();
+        },
+      )
+      .subscribe();
+  }
+
+  private olvidarFlotaVieja() {
+    const limite = Date.now() - this.FLOTA_OLVIDO_MS;
+    let cambio = false;
+    for (const [busId, p] of this.flotaPosiciones) {
+      if (p.visto < limite) { this.flotaPosiciones.delete(busId); cambio = true; }
+    }
+    if (cambio) this.renderFlota();
+  }
+
+  private renderFlota() {
+    if (!this.map) return;
+    const data = {
+      type: 'FeatureCollection' as const,
+      features: [...this.flotaPosiciones.entries()].map(([busId, p]) => ({
+        type: 'Feature' as const,
+        properties: { etiqueta: this.flotaEtiquetas.get(busId) || '' },
+        geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
+      })),
+    };
+
+    const src = this.map.getSource(this.FLOTA_SRC) as maplibregl.GeoJSONSource | undefined;
+    if (src) { src.setData(data as any); return; }
+
+    this.ensureFlotaIcon();
+    this.map.addSource(this.FLOTA_SRC, { type: 'geojson', data: data as any });
+    this.map.addLayer({
+      id: this.FLOTA_LAYER, type: 'symbol', source: this.FLOTA_SRC,
+      layout: {
+        'icon-image': 'chofer-flota-icon',
+        'icon-size': 0.38,
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'icon-pitch-alignment': 'viewport',
+        'icon-rotation-alignment': 'viewport',
+      },
+      paint: { 'icon-opacity': 0.85 },
+    });
+    this.map.addLayer({
+      id: this.FLOTA_LABEL_LAYER, type: 'symbol', source: this.FLOTA_SRC,
+      layout: {
+        'text-field': ['get', 'etiqueta'],
+        'text-size': 10,
+        'text-offset': [0, 1.4],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+        'text-pitch-alignment': 'viewport',
+      },
+      paint: {
+        'text-color': '#cfe0f2',
+        'text-halo-color': 'rgba(10, 22, 40, 0.95)',
+        'text-halo-width': 1.5,
+      },
+    });
   }
 
   // La línea de la ruta y las paradas solo se ven mientras hay un viaje
@@ -558,7 +752,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   private async startTracking() {
     this.tracking = true;
-    this.setUserMarkerVisible(true);
+    this.refrescarBusPropio();
     this.setRouteVisible(true);
     this.paused = false;
     this.tripDistanceKm = 0;
@@ -601,7 +795,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   private async stopTracking() {
     this.tracking = false;
-    this.setUserMarkerVisible(false);
+    this.refrescarBusPropio();
     this.setRouteVisible(false);
     this.paused = false;
     this.speedWarning = false;
@@ -651,6 +845,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   togglePause() {
     if (!this.tracking) return;
     this.paused = !this.paused;
+    this.refrescarBusPropio();
 
     if (this.paused) {
       if (this.trackingInterval) {
@@ -698,6 +893,10 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       if (this.enviosFallidos >= this.FALLOS_PARA_AVISAR) this.transmisionCaida = true;
     }
 
+    // Acá y no solo al arrancar/parar: la transmisión se puede caer o volver
+    // en medio del viaje, y el bus del mapa tiene que decir lo mismo que el
+    // chip. Corre cada 5 segundos, que es cada cuánto puede cambiar.
+    this.refrescarBusPropio();
     this.checkSegmentProgress();
   }
 
@@ -1059,6 +1258,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroyed = true;
     if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
+    if (this.flotaChannel) supabaseClient().removeChannel(this.flotaChannel);
+    if (this.flotaInterval) clearInterval(this.flotaInterval);
     if (this.tracking) {
       clearInterval(this.trackingInterval);
     }

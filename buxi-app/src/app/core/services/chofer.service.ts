@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Bus, Parada } from '../models/transport.model';
+import { Bus, BusLocation, Parada } from '../models/transport.model';
 import { Viaje, ReporteBug, Calificacion, Boleto, MensajeChofer } from '../models/features.model';
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +22,44 @@ export class ChoferService {
       .maybeSingle();
     if (error) throw error;
     return data as Bus | null;
+  }
+
+  // ---- EL RESTO DE LA FLOTA ----
+  // Los demás buses de la MISMA empresa, para que el chofer vea dónde anda el
+  // resto de las unidades sin tener que preguntarlo por radio.
+  //
+  // No hace falta ninguna policy nueva: bus_locations es de lectura pública a
+  // propósito (20260822000000 lo deja explícito cuando endurece el resto). Lo
+  // que sí importa es que el recorte se haga en el servidor: latest_bus_locations()
+  // devuelve el último punto de cada bus del país, y traerse todo eso para
+  // descartarlo en el teléfono es lo que 20260809120000 vino a evitar.
+  //
+  // El recorte va por ids y no por la empresa del bus embebido: PostgREST
+  // aplica los filtros de un .rpc() sobre las columnas que devuelve la
+  // función, no sobre las tablas embebidas, así que `bus.empresa_id=eq.X`
+  // revienta con "column pgrst_call.empresa_id does not exist" — probado
+  // contra la base, no deducido. `bus_id` sí es columna del resultado, y los
+  // ids de la flota ya hacen falta igual para filtrar los eventos de Realtime.
+  async getUbicacionesFlota(busIds: string[]): Promise<BusLocation[]> {
+    if (!busIds.length) return [];
+    const { data, error } = await this.supabase
+      .rpc('latest_bus_locations')
+      .select('bus_id, latitud, longitud, timestamp')
+      .in('bus_id', busIds);
+    if (error) throw error;
+    return (data || []) as unknown as BusLocation[];
+  }
+
+  // Los buses de la empresa, para poder filtrar los eventos de Realtime: el
+  // payload de un INSERT en bus_locations trae el bus_id pelado, sin decir de
+  // qué empresa es, y abrir una suscripción por bus no escala.
+  async getBusesDeEmpresa(empresaId: string): Promise<Bus[]> {
+    const { data, error } = await this.supabase
+      .from('buses')
+      .select('id, placa, numero_unidad, empresa_id')
+      .eq('empresa_id', empresaId);
+    if (error) throw error;
+    return (data || []) as Bus[];
   }
 
   async sendLocation(busId: string, lat: number, lng: number, speed: number = 0, heading: number = 0) {
