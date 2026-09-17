@@ -1,18 +1,19 @@
 import { NgModule } from '@angular/core';
-import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
+import { RouterModule, Routes } from '@angular/router';
+import { PreloadSelectivo } from './core/preload-selectivo';
 import { NoAuthGuard } from './core/guards/no-auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 
 const routes: Routes = [
   { path: '', redirectTo: 'splash', pathMatch: 'full' },
   { path: 'splash', loadChildren: () => import('./features/auth/splash/splash.module').then(m => m.SplashPageModule) },
-  { path: 'auth/login', loadChildren: () => import('./features/auth/login/login.module').then(m => m.LoginPageModule), canActivate: [NoAuthGuard] },
+  { path: 'auth/login', loadChildren: () => import('./features/auth/login/login.module').then(m => m.LoginPageModule), canActivate: [NoAuthGuard], data: { precargar: true } },
   { path: 'auth/register', loadChildren: () => import('./features/auth/register/register.module').then(m => m.RegisterPageModule), canActivate: [NoAuthGuard] },
   { path: 'auth/empresa-request', loadChildren: () => import('./features/auth/empresa-request/empresa-request.module').then(m => m.EmpresaRequestPageModule) },
   { path: 'legal/privacy', loadChildren: () => import('./features/legal/privacy/privacy.module').then(m => m.PrivacyPageModule) },
   { path: 'legal/terms', loadChildren: () => import('./features/legal/terms/terms.module').then(m => m.TermsPageModule) },
   { path: 'auth/forgot-password', loadChildren: () => import('./features/auth/forgot-password/forgot-password.module').then(m => m.ForgotPasswordPageModule), canActivate: [NoAuthGuard] },
-  { path: 'passenger/map', loadChildren: () => import('./features/passenger/map/map.module').then(m => m.MapPageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'] } },
+  { path: 'passenger/map', loadChildren: () => import('./features/passenger/map/map.module').then(m => m.MapPageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'], precargar: true } },
 
   // La experiencia del pasajero vive entera sobre el mapa: rutas, favoritos,
   // alertas y perfil son paneles flotantes, no pantallas. Estas cuatro rutas
@@ -42,7 +43,7 @@ const routes: Routes = [
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules })],
+  imports: [RouterModule.forRoot(routes, { preloadingStrategy: PreloadSelectivo })],
   exports: [RouterModule],
 })
 export class AppRoutingModule {}

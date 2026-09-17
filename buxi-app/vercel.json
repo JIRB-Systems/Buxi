@@ -3,18 +3,57 @@
   "buildCommand": "npm run build",
   "outputDirectory": "www",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/((?![^/]+\\.[0-9a-f]{16}\\.(?:js|css)).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "geolocation=(self), camera=(self), microphone=(), payment=()" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://api.maptiler.com https://gduxelmqqnqupimfcdeb.supabase.co https://lh3.googleusercontent.com https://*.fbcdn.net https://platform-lookaside.fbsbx.com; media-src 'self' data: blob: https://gduxelmqqnqupimfcdeb.supabase.co; connect-src 'self' https://gduxelmqqnqupimfcdeb.supabase.co wss://gduxelmqqnqupimfcdeb.supabase.co https://router.project-osrm.org https://*.basemaps.cartocdn.com https://api.maptiler.com; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" }
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(self), camera=(self), microphone=(), payment=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://api.maptiler.com https://gduxelmqqnqupimfcdeb.supabase.co https://lh3.googleusercontent.com https://*.fbcdn.net https://platform-lookaside.fbsbx.com; media-src 'self' data: blob: https://gduxelmqqnqupimfcdeb.supabase.co; connect-src 'self' https://gduxelmqqnqupimfcdeb.supabase.co wss://gduxelmqqnqupimfcdeb.supabase.co https://router.project-osrm.org https://*.basemaps.cartocdn.com https://api.maptiler.com; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+        }
+      ]
+    },
+    {
+      "source": "/([^/]+\\.[0-9a-f]{16}\\.(?:js|css))",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
       ]
     }
   ]
