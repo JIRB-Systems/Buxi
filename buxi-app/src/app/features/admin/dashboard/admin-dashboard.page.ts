@@ -1,5 +1,6 @@
 import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
+import { suscribirCambios } from '../../../core/utils/live';
 import { Router } from '@angular/router';
 import * as maplibregl from 'maplibre-gl';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -29,6 +30,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private adminMap: maplibregl.Map | null = null;
   private adminBusMarkers = new Map<string, maplibregl.Marker>();
   private realtimeChannel: RealtimeChannel | null = null;
+  // Canal de datos, independiente del canal del mapa en vivo.
+  private liveChannel: RealtimeChannel | null = null;
   profile: UserProfile | null = null;
   activeTab = 'overview';
   loading = true;
@@ -177,6 +180,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       logError('JIRB: no se pudo cargar el panel', e);
       await this.showToast('No se pudieron cargar todos los datos del panel', 'danger');
     } finally {
+      // En el finally y no en el try: si la primera carga falla (red caída), el
+      // panel igual queda suscrito, y el primer cambio que llegue reintenta.
+      this.iniciarDatosEnVivo();
       this.loading = false;
       if (this.activeTab === 'overview') {
         setTimeout(() => { this.fixContentOffset(); this.initAdminMap('admin-map-overview'); }, 150);
@@ -858,8 +864,24 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     return `${h}:${m}`;
   }
 
+  // JIRB ve toda la plataforma: una solicitud de empresa nueva o una
+  // emergencia de cualquier empresa tiene que aparecer sin recargar.
+  private iniciarDatosEnVivo() {
+    if (this.liveChannel) return;
+    const sb = supabaseClient();
+    this.liveChannel = suscribirCambios(
+      sb.channel('jirb-datos'),
+      ['reportes_bugs', 'solicitudes_empresa', 'solicitudes_plan', 'empresas',
+       'profiles', 'buses', 'rutas', 'paradas', 'viajes', 'boletos',
+       'anuncios', 'avisos_sistema', 'facturas', 'suscripciones', 'planes',
+       'notificaciones_empresa'],
+      () => this.loadData().catch(e => logError('JIRB: refresco en vivo', e)),
+    ).subscribe();
+  }
+
   ngOnDestroy() {
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
+    if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
     this.stopPlayback();
     if (this.adminMap) this.adminMap.remove();
     if (this.realtimeChannel) {

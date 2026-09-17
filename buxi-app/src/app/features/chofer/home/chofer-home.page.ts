@@ -12,6 +12,9 @@ import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/feature
 import { ChoferService } from '../../../core/services/chofer.service';
 import { createMap, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
+import { supabaseClient } from '../../../core/supabase-client';
+import { suscribirCambios } from '../../../core/utils/live';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 @Component({
   selector: 'app-chofer-home',
@@ -141,6 +144,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         }
         await this.checkAssignmentChanged();
         this.refreshMensajesNoLeidos();
+        this.iniciarDatosEnVivo();
       }
       this.choferService.getMaxSpeedKmh().then(v => this.maxSpeedKmh = v).catch(() => {});
     } catch (e: any) {
@@ -1025,8 +1029,36 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     await alert.present();
   }
 
+  // El chofer maneja: no puede estar recargando la pantalla para enterarse de
+  // que la empresa le mando un mensaje o le cambio el bus asignado.
+  private liveChannel: RealtimeChannel | null = null;
+
+  private iniciarDatosEnVivo() {
+    if (this.liveChannel) return;
+    this.liveChannel = suscribirCambios(
+      supabaseClient().channel('chofer-datos'),
+      ['mensajes_chofer', 'buses', 'avisos_sistema'],
+      async () => {
+        if (this.destroyed || !this.profile) return;
+        this.refreshMensajesNoLeidos();
+        try {
+          const bus = await this.choferService.getAssignedBus(this.profile.id);
+          // Solo se toca assignedBus si de verdad cambio: reasignarlo en cada
+          // evento reiniciaria la vista del bus en medio de un viaje.
+          if (bus?.id !== this.assignedBus?.id) {
+            this.assignedBus = bus;
+            await this.checkAssignmentChanged();
+          }
+        } catch (e) {
+          logError('Chofer: refresco en vivo del bus asignado', e);
+        }
+      },
+    ).subscribe();
+  }
+
   ngOnDestroy() {
     this.destroyed = true;
+    if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
     if (this.tracking) {
       clearInterval(this.trackingInterval);
     }

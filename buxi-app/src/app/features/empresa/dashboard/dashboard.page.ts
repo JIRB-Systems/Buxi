@@ -1,5 +1,7 @@
 import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { supabaseClient } from '../../../core/supabase-client';
+import { suscribirCambios } from '../../../core/utils/live';
+import { logError } from '../../../core/utils/log';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -132,6 +134,10 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private liveMarkersLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
   private realtimeChannel: RealtimeChannel | null = null;
+  // Canal de DATOS, aparte del canal del mapa. El del mapa se crea al iniciar
+  // el mapa, asi que estando en Reportes o en Choferes no existia y esas
+  // pantallas solo se actualizaban recargando.
+  private liveChannel: RealtimeChannel | null = null;
   // Fuentes/capas de las líneas de ruta y markers de paradas dibujados sobre
   // el mapa: se limpian a mano en cada redibujo porque MapLibre no tiene un
   // grupo tipo L.LayerGroup que los saque a todos de una.
@@ -178,6 +184,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.profile = await this.supabase.getProfile();
       if (this.profile?.empresa_id) {
         await this.loadData();
+        this.iniciarDatosEnVivo();
       }
     } catch {} finally {
       this.loading = false;
@@ -1358,8 +1365,28 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async onLogout() { await this.supabase.signOut(); this.router.navigate(['/auth/login'], { replaceUrl: true }); }
   private async showToast(m: string, c = 'success') { const t = await this.toastCtrl.create({ message: m, duration: 2000, color: c, position: 'top' }); await t.present(); }
 
+  // Todo lo que el panel muestra y puede cambiar mientras se mira: una
+  // emergencia del boton de panico, un boleto escaneado, un chofer que la
+  // empresa acaba de crear en otra pestana.
+  private iniciarDatosEnVivo() {
+    if (this.liveChannel) return;
+    const sb = supabaseClient();
+    this.liveChannel = suscribirCambios(
+      sb.channel('emp-datos'),
+      ['reportes_bugs', 'boletos', 'buses', 'rutas', 'paradas', 'viajes',
+       'profiles', 'horarios', 'horario_salidas', 'mensajes_chofer',
+       'solicitudes_plan', 'facturas', 'suscripciones', 'avisos_sistema',
+       'empresas', 'calificaciones', 'notificaciones_empresa'],
+      () => {
+        if (!this.profile?.empresa_id) return;
+        this.loadData().catch(e => logError('Empresa: refresco en vivo', e));
+      },
+    ).subscribe();
+  }
+
   ngOnDestroy() {
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
+    if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
     if (this.liveMap) this.liveMap.remove();
     if (this.realtimeChannel) {
       supabaseClient().removeChannel(this.realtimeChannel);
