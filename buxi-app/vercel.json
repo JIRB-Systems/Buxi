@@ -4,7 +4,11 @@
   "outputDirectory": "www",
   "rewrites": [
     {
-      "source": "/((?![^/]+\\.[0-9a-f]{16}\\.(?:js|css)).*)",
+      "source": "/([^/]+\\.[0-9a-f]{16}\\.(?:js|css))",
+      "destination": "/__chunk-inexistente"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
