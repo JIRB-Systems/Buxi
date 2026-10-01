@@ -66,10 +66,11 @@ export class FeaturesService {
   }
 
   // ---- FAVORITOS DE EMPRESA ----
-  // Seguir una empresa no es un marcador más: es lo que la suscribe a sus
-  // avisos. Quién ve qué notificación lo decide la policy
-  // "Pasajero lee notificaciones de sus empresas favoritas" a partir de esta
-  // tabla, así que dar de alta acá es dar de alta en el canal.
+  // Seguir una empresa no es un marcador más: es lo que da acceso a sus buses
+  // en vivo y a sus avisos. Lo deciden las policies "Pasajero lee
+  // notificaciones de sus empresas favoritas" (20260830000000) y "Ve la posición
+  // de los buses de sus empresas" (20260930000000) a partir de esta tabla, así
+  // que dar de alta acá es dar de alta en los dos canales.
   async getFavoritosEmpresa(userId: string): Promise<FavoritoEmpresa[]> {
     const { data, error } = await this.supabase
       .from('favoritos_empresa')

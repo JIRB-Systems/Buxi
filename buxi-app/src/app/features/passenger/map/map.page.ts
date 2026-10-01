@@ -149,6 +149,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // dejaba rastro en ninguna parte para enterarse.
   notificacionesError = false;
   favoritosEmpresaError = false;
+  // Hasta la primera carga, favoritoEmpresaIds vacío no significa "no sigue a
+  // nadie": sin esta bandera el cartel de "Seguí una empresa" parpadearía al
+  // abrir el mapa en la cara de alguien que sigue cinco.
+  favoritosEmpresaCargados = false;
   private notificacionesVistasAt: string | null = null;
   private notifChannel: RealtimeChannel | null = null;
 
@@ -206,6 +210,18 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // seguís a ninguna" es mentira; sin los avisos, "sin novedades" también.
   get alertasError(): boolean {
     return this.notificacionesError || this.favoritosEmpresaError;
+  }
+
+  // Los buses solo se ven si se sigue a su empresa: lo decide RLS
+  // (20260930000000), no el cliente. Estos dos getters solo explican en pantalla
+  // por qué no hay buses, en vez de dejar un "0 buses" sin contexto.
+  get sinEmpresasSeguidas(): boolean {
+    return this.favoritosEmpresaCargados && this.favoritoEmpresaIds.size === 0;
+  }
+
+  get rutaActivaSinSeguir(): boolean {
+    return !!this.activeRuta && this.favoritosEmpresaCargados
+      && !this.favoritoEmpresaIds.has(this.activeRuta.empresa_id);
   }
 
   // Lo que el panel lista de verdad. Con el interruptor apagado, o con un fallo
@@ -469,6 +485,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (empresas.status === 'fulfilled') {
       this.favoritoEmpresaIds = new Set(empresas.value.map(f => f.empresa_id));
       this.favoritosEmpresaError = false;
+      this.favoritosEmpresaCargados = true;
     } else {
       // Le importa sobre todo al panel de Alertas: sin esta lista,
       // favoritoEmpresaIds queda vacío y el panel le diría "todavía no seguís
@@ -483,9 +500,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return this.favoritoEmpresaIds.has(empresaId);
   }
 
-  // Seguir una empresa la suscribe a sus avisos, así que al marcarla se
-  // recargan las notificaciones: si ya tenía avisos publicados, aparecen de
-  // una y no recién la próxima vez que se abra la app.
+  // Seguir una empresa es lo que da acceso a sus buses y a sus avisos (RLS,
+  // 20260830000000 y 20260930000000). Por eso al marcarla se recargan las dos
+  // cosas: los buses y los avisos que ya existían aparecen de una, y no recién
+  // con el próximo punto GPS o la próxima vez que se abra la app.
   async toggleFavoritoEmpresa(empresa: EmpresaListItem, ev: Event) {
     // Sin esto, seguir la empresa además la seleccionaría en el mapa.
     ev.stopPropagation();
@@ -499,7 +517,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     try {
       if (seguia) await this.featuresService.removeFavoritoEmpresa(this.profile.id, empresa.id);
       else await this.featuresService.addFavoritoEmpresa(this.profile.id, empresa.id);
-      await this.toast(seguia ? `Dejaste de seguir a ${empresa.nombre}` : `Vas a recibir los avisos de ${empresa.nombre}`);
+      if (seguia) this.quitarBusesDeEmpresa(empresa.id);
+      else this.recargarBusesVisibles();
+      await this.toast(seguia
+        ? `Dejaste de seguir a ${empresa.nombre}: ya no ves sus buses ni recibís sus avisos`
+        : `Ahora ves los buses de ${empresa.nombre} y recibís sus avisos`);
       await this.loadNotificaciones();
     } catch {
       // Revertir si el servidor rechazó, para no mentirle al usuario.
@@ -925,12 +947,63 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // pasajero pasa en el mapa.
   private busRuta = new Map<string, string>();
   private paradasPorRuta = new Map<string, Parada[]>();
+  // bus -> empresa, para poder sacar del mapa los buses de una empresa que se
+  // deja de seguir: el punto que llega por Realtime trae el bus_id pelado.
+  private busEmpresa = new Map<string, string>();
 
   private paradasDelBus(loc: BusLocation): Parada[] {
     const rutaId = this.busRuta.get(loc.bus_id);
     if (rutaId) return this.paradasPorRuta.get(rutaId) || [];
     // Si la ruta del bus no se conoce, se cae a la ruta abierta (si la hay).
     return this.activeParadas;
+  }
+
+  private empresaDelBus(busId: string, loc?: BusLocation): string | undefined {
+    const directa = this.busEmpresa.get(busId) || loc?.bus?.empresa_id;
+    if (directa) return directa;
+    const rutaId = this.busRuta.get(busId);
+    return rutaId ? this.allRutas.find(r => r.id === rutaId)?.empresa_id : undefined;
+  }
+
+  // Al dejar de seguir una empresa, RLS deja de mandar sus puntos, pero los
+  // buses que ya estaban dibujados seguirían ahí (atenuados) hasta REMOVE_MS.
+  // Se sacan en el momento: si no, el pasajero ve que "dejar de seguir" no hizo
+  // nada durante cinco minutos.
+  private quitarBusesDeEmpresa(empresaId: string) {
+    const ids: string[] = [];
+    this.busLocationsMap.forEach((loc, busId) => {
+      if (this.empresaDelBus(busId, loc) === empresaId) ids.push(busId);
+    });
+    if (!ids.length) return;
+
+    for (const id of ids) {
+      this.busLocationsMap.delete(id);
+      this.busLastSeen.delete(id);
+      this.busAnim.delete(id);
+      this.busIcono.delete(id);
+    }
+    this.tracking.olvidarBuses(ids);
+
+    if (this.selectedBus && ids.includes(this.selectedBus.bus_id)) this.closeBusInfo();
+    if (this.followBusId && ids.includes(this.followBusId)) this.stopFollowing();
+
+    this.activeBusCount = this.busLocationsMap.size;
+    if (this.busLayerListo) this.pintarBuses(performance.now());
+  }
+
+  // Al empezar a seguir una empresa, RLS ya deja ver sus buses: se piden de
+  // nuevo en vez de esperar a que cada uno mande su próximo punto.
+  private async recargarBusesVisibles() {
+    if (!this.activeRuta) {
+      await this.loadBusLocations();
+      return;
+    }
+    try {
+      const locations = await this.tracking.getLocationsByRuta(this.activeRuta.id);
+      for (const loc of locations) this.addOrUpdateBusMarker(loc);
+    } catch (e) {
+      logError('recargar los buses de la ruta', e);
+    }
   }
 
   private estadoDeBus(loc: BusLocation): BusEstadoVivo {
@@ -1685,6 +1758,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         const color = this.coloresEmpresa.get(b.empresa_id) || (b as any)?.ruta?.color;
         if (color) this.busColors.set(b.id, colorSeguro(color));
         if (b.ruta_id) this.busRuta.set(b.id, b.ruta_id);
+        if (b.empresa_id) this.busEmpresa.set(b.id, b.empresa_id);
       }
       this.paradasPorRuta.clear();
       for (const p of paradas) {
@@ -1868,6 +1942,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const previo = this.busLocationsMap.get(location.bus_id);
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
+    if (location.bus?.empresa_id) this.busEmpresa.set(location.bus_id, location.bus.empresa_id);
     this.busIcono.set(
       location.bus_id,
       this.registrarIconoBus(this.estadoDeBus(location), this.busColor(location),

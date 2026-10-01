@@ -68,13 +68,14 @@
           </span>
           <span class="empresa-freq" *ngIf="x.empresa.frecuencia">cada {{ x.empresa.frecuencia }} min</span>
         </div>
-        <!-- Seguir la empresa = recibir sus avisos. El title lo dice porque la
-             estrella, sola, se lee como "guardar" y acá hace algo más. -->
+        <!-- Seguir la empresa = ver sus buses y recibir sus avisos. El title lo
+             dice porque la estrella, sola, se lee como "guardar" y acá hace
+             bastante más. -->
         <ion-icon
           class="empresa-fav"
           [class.on]="isFavoritoEmpresa(x.empresa.id)"
           [name]="isFavoritoEmpresa(x.empresa.id) ? 'star' : 'star-outline'"
-          [title]="isFavoritoEmpresa(x.empresa.id) ? 'Dejar de recibir sus avisos' : 'Seguir y recibir sus avisos'"
+          [title]="isFavoritoEmpresa(x.empresa.id) ? 'Dejar de seguir: ya no vas a ver sus buses ni recibir sus avisos' : 'Seguir para ver sus buses y recibir sus avisos'"
           (click)="toggleFavoritoEmpresa(x.empresa, $event)"></ion-icon>
       </div>
       <div class="ds-empty" *ngIf="empresas.length === 0">Sin empresas disponibles</div>
@@ -133,11 +134,18 @@
     </div>
 
     <div class="ds-section" *ngIf="!activeRuta">
-      <div class="ds-card ds-hint">
+      <div class="ds-card ds-hint" *ngIf="!sinEmpresasSeguidas">
         <ion-icon name="navigate-circle-outline"></ion-icon>
         <div>
           <strong>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo</strong>
           <span>Elige una ruta para ver el próximo bus a tu parada</span>
+        </div>
+      </div>
+      <div class="ds-card ds-hint" *ngIf="sinEmpresasSeguidas">
+        <ion-icon name="star-outline"></ion-icon>
+        <div>
+          <strong>Seguí una empresa para ver sus buses</strong>
+          <span>Tocá la estrella de una empresa de la lista y vas a ver sus buses en vivo y recibir sus avisos</span>
         </div>
       </div>
     </div>
@@ -215,10 +223,21 @@
     {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
   </div>
 
+  <!-- Sin empresas seguidas no llega ningún bus (RLS). Abre la lista de
+       empresas, que es donde está la estrella para seguirlas. -->
+  <button class="live-chip seguir-chip" *ngIf="sinEmpresasSeguidas && !activeRuta && !sidebarOpen"
+          (click)="toggleSidebar()">
+    <ion-icon name="star-outline"></ion-icon>
+    Seguí una empresa para ver sus buses
+  </button>
+
   <!-- Route info chip -->
   <div class="route-chip" *ngIf="activeRuta">
-    <span class="live-dot"></span>
-    {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en esta ruta
+    <span class="live-dot" *ngIf="!rutaActivaSinSeguir"></span>
+    <ng-container *ngIf="!rutaActivaSinSeguir">
+      {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en esta ruta
+    </ng-container>
+    <ng-container *ngIf="rutaActivaSinSeguir">Seguí a la empresa para ver sus buses</ng-container>
     <span class="chip-sep">·</span>
     {{ activeParadas.length }} paradas
   </div>
@@ -525,12 +544,12 @@
           <div class="lp-info">
             <strong>{{ e.nombre }}</strong>
             <span class="lp-trip">{{ e.rutaResumen }}</span>
-            <span class="lp-empresa">Recibís sus avisos</span>
+            <span class="lp-empresa">Ves sus buses y recibís sus avisos</span>
           </div>
           <ion-icon
             class="lp-fav on"
             name="star"
-            title="Dejar de recibir sus avisos"
+            title="Dejar de seguir: ya no vas a ver sus buses ni recibir sus avisos"
             (click)="toggleFavoritoEmpresa(e, $event)"></ion-icon>
         </div>
 
@@ -541,7 +560,7 @@
         <div class="lp-empty" *ngIf="!favoritosLoading && panelEmpresasFavoritas.length === 0">
           <ion-icon name="business-outline"></ion-icon>
           <strong>No seguís ninguna empresa</strong>
-          <span>Tocá la estrella de una empresa en la lista lateral y te van a llegar sus avisos de atrasos, desvíos y cancelaciones.</span>
+          <span>Tocá la estrella de una empresa en la lista de empresas: vas a ver sus buses en el mapa y te van a llegar sus avisos de atrasos, desvíos y cancelaciones.</span>
         </div>
       </ng-container>
 

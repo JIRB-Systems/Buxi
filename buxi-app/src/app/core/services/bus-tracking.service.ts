@@ -227,6 +227,19 @@ export class BusTrackingService implements OnDestroy {
     return this.busLocations$;
   }
 
+  // El Map de arriba acumula todo bus visto en la sesión y se reemite entero en
+  // cada INSERT. Al dejar de seguir una empresa, RLS deja de mandar sus puntos,
+  // pero los que ya estaban acá volverían a pintarse con el próximo evento de
+  // cualquier otro bus: por eso hay que olvidarlos también de este lado.
+  //
+  // No se reemite: quien llama ya los sacó de su propio mapa, y reemitir haría
+  // reprocesar toda la flota de nuevo. Los suscriptores reciben copias (ver el
+  // `new Map(current)` de arriba), así que tocar este Map no les cambia nada.
+  olvidarBuses(busIds: Iterable<string>) {
+    const current = this._busLocations.value;
+    for (const id of busIds) current.delete(id);
+  }
+
   unsubscribe() {
     if (this.channel) {
       this.supabase.removeChannel(this.channel);

@@ -270,6 +270,14 @@
   }
 }
 
+// Mismo chip, pero es un botón: abre la lista de empresas para seguir una.
+.seguir-chip {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  ion-icon { font-size: 14px; color: #ffc107; }
+}
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }

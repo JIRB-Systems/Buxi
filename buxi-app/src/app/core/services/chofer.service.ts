@@ -46,11 +46,12 @@ export class ChoferService {
   // Los demás buses de la MISMA empresa, para que el chofer vea dónde anda el
   // resto de las unidades sin tener que preguntarlo por radio.
   //
-  // No hace falta ninguna policy nueva: bus_locations es de lectura pública a
-  // propósito (20260822000000 lo deja explícito cuando endurece el resto). Lo
-  // que sí importa es que el recorte se haga en el servidor: latest_bus_locations()
-  // devuelve el último punto de cada bus del país, y traerse todo eso para
-  // descartarlo en el teléfono es lo que 20260809120000 vino a evitar.
+  // El chofer ve los buses y posiciones de su propia empresa por la policy
+  // "Ve la posición de los buses de sus empresas" (20260930000000); los de otras
+  // empresas ya no le llegan. Igual importa que el recorte se haga en el
+  // servidor: si además sigue empresas como pasajero, latest_bus_locations() le
+  // devuelve también esos buses, y traerse todo eso para descartarlo en el
+  // teléfono es lo que 20260809120000 vino a evitar.
   //
   // El recorte va por ids y no por la empresa del bus embebido: PostgREST
   // aplica los filtros de un .rpc() sobre las columnas que devuelve la
