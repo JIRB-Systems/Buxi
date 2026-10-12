@@ -326,12 +326,6 @@ export class FeaturesService {
     return { parada: nearest, distanceKm: minDist };
   }
 
-  calculateETA(busLat: number, busLng: number, stopLat: number, stopLng: number, speedKmh: number): number | null {
-    if (speedKmh <= 0) return null;
-    const dist = this.haversine(busLat, busLng, stopLat, stopLng);
-    return Math.round((dist / speedKmh) * 60);
-  }
-
   // ---- TRAZADO DE RUTA (siguiendo calles) ----
   async fetchRoadRouteCoords(paradas: Parada[]): Promise<[number, number][]> {
     const fallback: [number, number][] = paradas.map(p => [p.latitud, p.longitud]);

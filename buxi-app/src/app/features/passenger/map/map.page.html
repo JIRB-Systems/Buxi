@@ -102,8 +102,8 @@
         <div class="ds-bus-row" *ngFor="let b of nearbyBuses">
           <ion-icon name="bus"></ion-icon>
           <strong>{{ b.placa }}</strong>
-          <span class="ds-bus-dist">{{ b.distanceKm | number:'1.1-1' }} km</span>
-          <span class="ds-bus-eta" *ngIf="b.etaMinutes !== null">{{ b.etaMinutes }} min</span>
+          <span class="ds-bus-dist">{{ b.detalle }}</span>
+          <span class="ds-bus-eta" *ngIf="b.etaMinutes !== null">{{ b.etaMinutes === 0 ? 'Ya' : b.etaMinutes + ' min' }}</span>
         </div>
       </div>
     </div>
@@ -248,7 +248,7 @@
     <ng-container *ngIf="activeRuta as ruta">
       <div class="rs-main">
         <div class="rs-eta" *ngIf="nearestStop && etaMinutes !== null">
-          <strong>{{ etaMinutes }}</strong>
+          <strong>{{ etaMinutes === 0 ? '&lt;1' : etaMinutes }}</strong>
           <span>min</span>
         </div>
         <div class="rs-eta rs-eta--none" *ngIf="!(nearestStop && etaMinutes !== null)">
@@ -256,7 +256,7 @@
         </div>
 
         <div class="rs-info" *ngIf="nearestStop">
-          <span class="rs-label">{{ etaMinutes !== null ? 'Próximo bus en tu parada' : 'Tu parada más cercana' }}</span>
+          <span class="rs-label">{{ etaMinutes !== null ? ('Próximo bus' + (etaHacia ? ' · hacia ' + etaHacia : '')) : 'Tu parada más cercana' }}</span>
           <strong>{{ nearestStop.parada.nombre }}</strong>
           <span class="rs-sub">
             a {{ nearestStop.distanceKm < 1 ? (nearestStop.distanceKm * 1000 | number:'1.0-0') + ' m' : (nearestStop.distanceKm | number:'1.1-1') + ' km' }} de vos
@@ -279,6 +279,9 @@
         </span>
         <span class="rs-pill warn" *ngIf="rutaActivaSinSeguir">
           <ion-icon name="star-outline" aria-hidden="true"></ion-icon>Seguí a la empresa para ver sus buses
+        </span>
+        <span class="rs-pill" *ngIf="sinBusEnCamino && !rutaActivaSinSeguir">
+          Ninguno viene hacia tu parada ahora
         </span>
         <span class="rs-pill">{{ activeParadas.length }} paradas</span>
         <span class="rs-pill" *ngIf="nextSalida">Sale {{ nextSalida.hora.slice(0,5) }}</span>
@@ -343,9 +346,9 @@
               : (selectedBusDistanceKm! | number:'1.1-1') + ' km' }}
         </strong>
       </div>
-      <div class="sg-cell" *ngIf="selectedBusEtaMinutes !== null">
-        <span class="sg-label">Llegada</span>
-        <strong class="sg-eta">{{ selectedBusEtaMinutes }} min</strong>
+      <div class="sg-cell" *ngIf="selectedBusLlegada as llegada">
+        <span class="sg-label">A tu parada</span>
+        <strong [class.sg-eta]="llegada !== 'Ya pasó'">{{ llegada }}</strong>
       </div>
     </div>
 

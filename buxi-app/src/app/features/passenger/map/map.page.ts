@@ -12,6 +12,9 @@ import { Anuncio, HorarioSalida, Boleto, NotificacionEmpresa } from '../../../co
 import { FeaturesService } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import {
+  TrazadoRuta, LatLng, Sentido, Llegada, estimarLlegada, sentidoSegunRumbo, suavizarVelocidad,
+} from '../../../core/utils/eta';
 import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
@@ -44,6 +47,15 @@ export type BusEstadoVivo = 'en_ruta' | 'retrasado' | 'en_parada';
 // ciclo de detección de cambios obliga a *ngFor a re-diferenciar una lista que
 // no cambió.
 const SIN_NOTIFICACIONES: NotificacionEmpresa[] = [];
+
+// Una fila de "Próximos buses a tu parada".
+interface BusProximo {
+  placa: string;
+  // Minutos hasta la parada; 0 = llegando; null = no viene (ver `detalle`).
+  etaMinutes: number | null;
+  // "a 1.4 km · hacia Cartago", "Ya pasó tu parada", "Sin señal"…
+  detalle: string;
+}
 
 @Component({
   selector: 'app-map',
@@ -773,16 +785,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private allRutas: Ruta[] = [];
   selectedEmpresaId: string | null = null;
 
-  get nearbyBuses(): { placa: string; etaMinutes: number | null; distanceKm: number }[] {
-    if (!this.nearestStop) return [];
-    const stop = this.nearestStop.parada;
-    const rows = Array.from(this.busLocationsMap.values()).map(loc => {
-      const distanceKm = this.featuresService.distanceKm(loc.latitud, loc.longitud, stop.latitud, stop.longitud);
-      const etaMinutes = this.featuresService.calculateETA(loc.latitud, loc.longitud, stop.latitud, stop.longitud, 20);
-      return { placa: (loc.bus as any)?.placa || 'Bus', etaMinutes, distanceKm };
-    });
-    rows.sort((a, b) => (a.etaMinutes ?? 999) - (b.etaMinutes ?? 999));
-    return rows.slice(0, 3);
+  // Los buses de la ruta abierta respecto a la parada del pasajero. Lo arma
+  // updateETA(); acá solo se lee, porque la plantilla lo consulta en cada
+  // ciclo de detección de cambios y recalcularlo ahí era trabajo de más.
+  get nearbyBuses(): BusProximo[] {
+    return this.proximos;
   }
 
   // ---- Ficha del bus ----
@@ -816,14 +823,27 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     );
   }
 
-  get selectedBusEtaMinutes(): number | null {
-    if (!this.selectedBus || this.userLat === 0) return null;
-    // Si el bus va detenido, su velocidad instantánea daría ETA infinito;
-    // se usa 20 km/h como promedio urbano razonable.
-    const speed = this.selectedBus.velocidad > 5 ? this.selectedBus.velocidad : 20;
-    return this.featuresService.calculateETA(
-      this.selectedBus.latitud, this.selectedBus.longitud, this.userLat, this.userLng, speed,
-    );
+  // Cuánto le falta al bus elegido para llegar a la parada del pasajero: la
+  // más cercana a él sobre la ruta de ESE bus. Antes era el tiempo en línea
+  // recta hasta donde está parado el pasajero, como si el bus fuera a
+  // buscarlo a la puerta.
+  get selectedBusLlegada(): string | null {
+    const loc = this.selectedBus;
+    if (!loc || this.userLat === 0) return null;
+    const rutaId = this.rutaDelBus(loc.bus_id);
+    if (!rutaId) return null;
+    const paradas = this.paradasPorRuta.get(rutaId)
+      ?? (this.activeRuta?.id === rutaId ? this.activeParadas : []);
+    const cercana = this.featuresService.findNearestStop(this.userLat, this.userLng, paradas);
+    if (!cercana) return null;
+    const r = this.llegadaDe(loc, cercana.parada);
+    if (!r) return null;
+    switch (r.llegada.estado) {
+      case 'llegando': return 'Llegando';
+      case 'viene':    return `${r.llegada.minutos} min`;
+      case 'ya_paso':  return 'Ya pasó';
+      default:         return null;
+    }
   }
 
   get selectedBusAgeText(): string {
@@ -1599,6 +1619,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         this.activeBusCount = this.busLocationsMap.size;
         this.pintarBuses(performance.now());
       }
+      // Un bus que deja de transmitir no manda ningún punto que dispare el
+      // recálculo: sin esto su "llega en 4 min" se quedaba congelado.
+      if (this.activeRuta) this.zone.run(() => this.updateETA());
     }, 10000);
   }
 
@@ -1667,6 +1690,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       ? geometria
       : await this.featuresService.fetchRoadRouteCoords(paradas);
     const coords: [number, number][] = latlng.map(([lat, lng]) => [lng, lat]);
+
+    // Si la ruta no traía trazado guardado, este (por calles) es mejor que
+    // la línea entre paradas para calcular las llegadas: se recuerda.
+    const rutaId = paradas[0]?.ruta_id;
+    if (rutaId && !geometria?.length && latlng.length > paradas.length) {
+      this.trazadoCalculado.set(rutaId, latlng);
+      this.trazados.delete(rutaId);
+    }
 
     const srcId = `route-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     this.map.addSource(srcId, {
@@ -1780,6 +1811,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         if (b.empresa_id) this.busEmpresa.set(b.id, b.empresa_id);
       }
       this.paradasPorRuta.clear();
+      this.trazados.clear();
       for (const p of paradas) {
         const arr = this.paradasPorRuta.get(p.ruta_id);
         if (arr) arr.push(p); else this.paradasPorRuta.set(p.ruta_id, [p]);
@@ -1966,6 +1998,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const previo = this.busLocationsMap.get(location.bus_id);
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
+    this.actualizarMarcha(location);
     if (this.activeRuta) this.updateETA();
     if (location.bus?.empresa_id) this.busEmpresa.set(location.bus_id, location.bus.empresa_id);
     this.busIcono.set(
@@ -2193,29 +2226,188 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     });
   }
 
-  // Se llama al elegir o soltar una ruta, al moverse el usuario y al llegar
-  // una posición de bus. Antes solo corría con una lectura nueva del GPS: quien
-  // esperaba quieto en la parada elegía una ruta y no veía el tiempo de llegada
-  // hasta moverse.
-  private updateETA() {
-    if (this.activeParadas.length > 0 && this.userLat !== 0) {
-      this.nearestStop = this.featuresService.findNearestStop(this.userLat, this.userLng, this.activeParadas);
+  // ====== TIEMPO DE LLEGADA ======
+  // El cálculo en sí vive en core/utils/eta.ts (con sus pruebas). Acá está lo
+  // que necesita del mapa: el trazado de cada ruta y lo que se va sabiendo de
+  // cada bus de un punto al siguiente.
 
-      if (this.nearestStop && this.busLocationsMap.size > 0) {
-        const firstBus = this.busLocationsMap.values().next().value as BusLocation | undefined;
-        if (firstBus) {
-          this.etaMinutes = this.featuresService.calculateETA(
-            firstBus.latitud, firstBus.longitud,
-            this.nearestStop.parada.latitud, this.nearestStop.parada.longitud,
-            20
-          );
-        }
+  // Por ruta: su trazado y en qué kilómetro cae cada parada. Se arma una vez.
+  private trazados = new Map<string, { trazado: TrazadoRuta; kmParadas: Map<string, number> }>();
+  // Trazado por calles de una ruta que no lo tiene guardado en la base: se
+  // obtiene al dibujarla y se recuerda acá.
+  private trazadoCalculado = new Map<string, LatLng[]>();
+  // Por bus: avance sobre su ruta, sentido de marcha y velocidad en movimiento.
+  private busMarcha = new Map<string, { km: number; desvioKm: number; sentido: Sentido; velKmh?: number }>();
+
+  // Hacia dónde va el próximo bus ("Cartago"), para decirlo junto a los minutos.
+  etaHacia: string | null = null;
+  // Hay buses en la ruta, pero ninguno viene hacia la parada del pasajero.
+  sinBusEnCamino = false;
+  private proximos: BusProximo[] = [];
+
+  private rutaDelBus(busId: string): string | null {
+    return this.busRuta.get(busId) ?? this.activeRuta?.id ?? null;
+  }
+
+  private trazadoDe(rutaId: string): { trazado: TrazadoRuta; kmParadas: Map<string, number> } | null {
+    const listo = this.trazados.get(rutaId);
+    if (listo) return listo;
+
+    const deLaActiva = this.activeRuta?.id === rutaId;
+    const ruta = this.allRutas.find(r => r.id === rutaId) ?? (deLaActiva ? this.activeRuta : null);
+    const paradas = [...(this.paradasPorRuta.get(rutaId) ?? (deLaActiva ? this.activeParadas : []))]
+      .sort((x, y) => x.orden - y.orden);
+
+    // El trazado guardado en la base; si no hay, el que se calculó por calles
+    // al dibujar la ruta; y si tampoco, la línea que une las paradas en orden.
+    // Esta última corta las curvas, pero conserva lo importante: qué parada
+    // viene antes que cuál.
+    const coords: LatLng[] = ruta?.geometria?.length
+      ? ruta.geometria
+      : this.trazadoCalculado.get(rutaId) ?? paradas.map(p => [p.latitud, p.longitud] as LatLng);
+
+    const trazado = new TrazadoRuta(coords);
+    if (!trazado.valido) return null;
+
+    // Cada parada usa de pista el avance de la anterior: en un trazado que
+    // pasa dos veces por la misma calle, así cae en la pasada que le toca.
+    const kmParadas = new Map<string, number>();
+    let pista = 0;
+    for (const parada of paradas) {
+      pista = trazado.proyectar(parada.latitud, parada.longitud, pista).km;
+      kmParadas.set(parada.id, pista);
+    }
+
+    const entrada = { trazado, kmParadas };
+    this.trazados.set(rutaId, entrada);
+    return entrada;
+  }
+
+  // Con cada punto nuevo de un bus: dónde va sobre su ruta, en qué sentido y
+  // a qué velocidad se mueve.
+  private actualizarMarcha(loc: BusLocation) {
+    const rutaId = this.rutaDelBus(loc.bus_id);
+    const t = rutaId ? this.trazadoDe(rutaId) : null;
+    if (!t) return;
+
+    const previa = this.busMarcha.get(loc.bus_id);
+    const p = t.trazado.proyectar(loc.latitud, loc.longitud, previa?.km);
+
+    // El sentido sale, en este orden: del rumbo del bus si va andando (quieto,
+    // el rumbo del GPS apunta a cualquier lado; y un 0 exacto es "sin dato");
+    // de hacia dónde avanzó desde el punto anterior; o del que ya traía.
+    let sentido: Sentido = previa?.sentido ?? 1;
+    const andando = (loc.velocidad ?? 0) > 5;
+    const porRumbo = andando && loc.heading ? sentidoSegunRumbo(loc.heading, p.rumbo) : null;
+    if (porRumbo) {
+      sentido = porRumbo;
+    } else if (previa && Math.abs(p.km - previa.km) > 0.03) {
+      sentido = p.km > previa.km ? 1 : -1;
+    }
+
+    this.busMarcha.set(loc.bus_id, {
+      km: p.km,
+      desvioKm: p.desvioKm,
+      sentido,
+      velKmh: suavizarVelocidad(previa?.velKmh, loc.velocidad),
+    });
+  }
+
+  private llegadaDe(loc: BusLocation, parada: Parada): { llegada: Llegada; sentido: Sentido } | null {
+    const rutaId = this.rutaDelBus(loc.bus_id);
+    const t = rutaId ? this.trazadoDe(rutaId) : null;
+    if (!t) return null;
+
+    if (!this.busMarcha.has(loc.bus_id)) this.actualizarMarcha(loc);
+    const marcha = this.busMarcha.get(loc.bus_id);
+    if (!marcha) return null;
+
+    const kmParada = t.kmParadas.get(parada.id)
+      ?? t.trazado.proyectar(parada.latitud, parada.longitud).km;
+
+    // Paradas que el bus todavía tiene que hacer antes de esta.
+    const desde = Math.min(marcha.km, kmParada) + 0.03;
+    const hasta = Math.max(marcha.km, kmParada) - 0.03;
+    let enMedio = 0;
+    for (const km of t.kmParadas.values()) if (km > desde && km < hasta) enMedio++;
+
+    return {
+      sentido: marcha.sentido,
+      llegada: estimarLlegada({
+        kmBus: marcha.km,
+        kmParada,
+        sentido: marcha.sentido,
+        desvioKm: marcha.desvioKm,
+        velocidadKmh: marcha.velKmh,
+        paradasEnMedio: enMedio,
+      }),
+    };
+  }
+
+  // Se llama al elegir o soltar una ruta, al moverse el pasajero, al llegar un
+  // punto de un bus y cada 10 s (para notar al bus que se quedó sin señal).
+  private updateETA() {
+    this.nearestStop = this.activeParadas.length > 0 && this.userLat !== 0
+      ? this.featuresService.findNearestStop(this.userLat, this.userLng, this.activeParadas)
+      : null;
+
+    this.etaMinutes = null;
+    this.etaHacia = null;
+    this.sinBusEnCamino = false;
+    this.proximos = [];
+    if (!this.nearestStop || !this.activeRuta) return;
+
+    const ruta = this.activeRuta;
+    const parada = this.nearestStop.parada;
+    const ahora = Date.now();
+    const filas: (BusProximo & { hacia: string })[] = [];
+    // Buses de los que se sabe dónde van, aunque no vengan hacia la parada.
+    let ubicados = 0;
+
+    for (const loc of this.busLocationsMap.values()) {
+      const rutaDelBus = this.busRuta.get(loc.bus_id);
+      if (rutaDelBus && rutaDelBus !== ruta.id) continue;
+
+      const placa = (loc.bus as any)?.placa || 'Bus';
+      const r = this.llegadaDe(loc, parada);
+      const hacia = r?.sentido === -1 ? ruta.origen : ruta.destino;
+      const sinSenal = ahora - (this.busLastSeen.get(loc.bus_id) ?? ahora) > this.STALE_MS;
+
+      let etaMinutes: number | null = null;
+      let detalle: string;
+      if (sinSenal) {
+        // Con la posición vieja no se promete nada: el bus puede estar en
+        // cualquier lado.
+        detalle = 'Sin señal';
+      } else if (!r) {
+        detalle = 'Sin datos del recorrido';
+      } else if (r.llegada.estado === 'llegando') {
+        etaMinutes = 0;
+        detalle = 'Llegando a tu parada';
+      } else if (r.llegada.estado === 'viene') {
+        etaMinutes = r.llegada.minutos;
+        detalle = `a ${this.metrosTexto((r.llegada.distanciaKm ?? 0) * 1000)} · hacia ${hacia}`;
+      } else if (r.llegada.estado === 'ya_paso') {
+        detalle = 'Ya pasó tu parada';
       } else {
-        this.etaMinutes = null;
+        detalle = 'Fuera del recorrido';
       }
+      if (!sinSenal && r) ubicados++;
+      filas.push({ placa, etaMinutes, detalle, hacia });
+    }
+
+    // Primero los que vienen, del más cercano al más lejano; después el resto.
+    filas.sort((x, y) => (x.etaMinutes ?? Infinity) - (y.etaMinutes ?? Infinity));
+    this.proximos = filas.slice(0, 4);
+
+    const proximo = filas.find(f => f.etaMinutes !== null);
+    if (proximo) {
+      this.etaMinutes = proximo.etaMinutes;
+      this.etaHacia = proximo.hacia;
     } else {
-      this.nearestStop = null;
-      this.etaMinutes = null;
+      // Solo se afirma si se sabe: con todos los buses sin señal no se
+      // puede decir que ninguno viene.
+      this.sinBusEnCamino = ubicados > 0;
     }
   }
 
