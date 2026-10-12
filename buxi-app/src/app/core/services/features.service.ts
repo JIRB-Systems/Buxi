@@ -5,6 +5,17 @@ import { environment } from '../../../environments/environment';
 import { Favorito, FavoritoEmpresa, NotificacionEmpresa, Horario, Calificacion, UserPreferences, Anuncio, Boleto } from '../models/features.model';
 import { Parada, Ruta } from '../models/transport.model';
 
+export interface PuntoGeo { lat: number; lng: number; }
+
+// `coords` va en [lng, lat], como lo quiere MapLibre.
+export interface RutaAPie {
+  coords: [number, number][];
+  metros: number;
+  minutos: number;
+  // false = no se pudo calcular por calles: es la línea recta y un tiempo estimado.
+  exacta: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class FeaturesService {
   private supabase: SupabaseClient;
@@ -339,6 +350,47 @@ export class FeaturesService {
     } catch {}
 
     return fallback;
+  }
+
+  // ---- CÓMO LLEGAR A PIE ----
+  // Camino por calles hasta una parada, vía la función `ruta-a-pie` (ver su
+  // cabecera: pasa por nuestro servidor para no mandar la ubicación del
+  // pasajero, con su IP, directo a un tercero).
+  //
+  // Nunca falla hacia afuera: si el enrutador no responde, devuelve la línea
+  // recta con un tiempo estimado y `exacta: false`, para que la pantalla
+  // pueda decir "aprox." en vez de quedarse sin nada.
+  async rutaAPie(desde: PuntoGeo, hasta: PuntoGeo): Promise<RutaAPie> {
+    try {
+      const { data, error } = await this.supabase.functions.invoke('ruta-a-pie', { body: { desde, hasta } });
+      const coords = (data as any)?.coords;
+      if (!error && Array.isArray(coords) && coords.length > 1) {
+        const metros = Number((data as any).metros) || 0;
+        const segundos = Number((data as any).segundos) || 0;
+        return {
+          coords: coords as [number, number][],
+          metros,
+          minutos: Math.max(1, Math.round(segundos / 60)),
+          exacta: true,
+        };
+      }
+    } catch {}
+
+    const estimado = this.estimarCaminata(this.haversine(desde.lat, desde.lng, hasta.lat, hasta.lng));
+    return {
+      coords: [[desde.lng, desde.lat], [hasta.lng, hasta.lat]],
+      metros: estimado.metros,
+      minutos: estimado.minutos,
+      exacta: false,
+    };
+  }
+
+  // Estimación sin enrutador, a partir de la distancia en línea recta. Las
+  // calles alargan el camino cerca de un 30 %, y se camina a unos 4,5 km/h
+  // (75 m por minuto), que es también lo que asume el enrutador.
+  estimarCaminata(lineaRectaKm: number): { metros: number; minutos: number } {
+    const metros = Math.round(lineaRectaKm * 1000 * 1.3);
+    return { metros, minutos: Math.max(1, Math.round(metros / 75)) };
   }
 
   distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

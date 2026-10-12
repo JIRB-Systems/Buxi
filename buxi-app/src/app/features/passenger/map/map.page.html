@@ -109,6 +109,26 @@
     </div>
 
     <div class="ds-section ds-inicio" *ngIf="!activeRuta">
+      <div class="ds-card pc-card" *ngIf="paradaCercana as pc">
+        <span class="ds-label">Tu parada más cercana</span>
+        <div class="pc-main">
+          <div class="pc-icono"><ion-icon name="location" aria-hidden="true"></ion-icon></div>
+          <div class="pc-info">
+            <strong>{{ nombreCorto(pc.parada) }}</strong>
+            <span>a {{ metrosTexto(pc.distanceKm * 1000) }} de vos</span>
+          </div>
+        </div>
+        <ng-container *ngTemplateOutlet="tplLlegar"></ng-container>
+        <div class="pc-rutas" *ngIf="pc.rutas.length">
+          <span class="ds-label">Pasan por acá</span>
+          <button type="button" class="pc-ruta" *ngFor="let r of pc.rutas | slice:0:5" (click)="selectRutaFromPanel(r)">
+            <i [style.background]="r.color"></i>
+            <span>{{ r.nombre }}</span>
+            <ion-icon name="chevron-forward" aria-hidden="true"></ion-icon>
+          </button>
+        </div>
+      </div>
+
       <div class="ds-card ds-hint" *ngIf="!sinEmpresasSeguidas">
         <ion-icon name="navigate-circle-outline"></ion-icon>
         <div>
@@ -205,6 +225,25 @@
        pulgar: cuánto falta, en qué parada, cuántos buses hay y el boleto.
        Antes eran cuatro fichas sueltas arriba del mapa que se pisaban entre
        sí. En escritorio esta misma información vive en el panel lateral. -->
+  <!-- ====== CÓMO LLEGAR A PIE ======
+       Una fila: cuánto se tarda caminando hasta la parada y el botón que
+       dibuja el camino. Mientras no se pide, el tiempo es una estimación
+       (y lo dice); al pedirlo pasa a ser el del enrutador. Se usa en la
+       hoja de ruta y en la tarjeta de la parada más cercana. -->
+  <ng-template #tplLlegar>
+    <div class="llegar" *ngIf="caminataInfo as c" [class.activa]="caminataActiva">
+      <ion-icon name="walk" aria-hidden="true"></ion-icon>
+      <div class="llegar-info">
+        <strong>{{ c.minutos }} min a pie<ng-container *ngIf="!c.exacta"> aprox.</ng-container></strong>
+        <span>{{ metrosTexto(c.metros) }}<ng-container *ngIf="caminataActiva && !c.exacta"> en línea recta</ng-container></span>
+      </div>
+      <button type="button" class="llegar-btn" *ngIf="sePuedeCaminar"
+              [disabled]="caminataCargando" (click)="caminataActiva ? quitarCaminata() : comoLlegar()">
+        {{ caminataCargando ? 'Buscando…' : (caminataActiva ? 'Ocultar' : 'Cómo llegar') }}
+      </button>
+    </div>
+  </ng-template>
+
   <ng-template #hojaRuta>
     <ng-container *ngIf="activeRuta as ruta">
       <div class="rs-main">
@@ -229,6 +268,10 @@
           <span class="rs-sub">Activá tu ubicación para ver cuánto falta</span>
         </div>
       </div>
+
+      <ng-container *ngIf="nearestStop">
+        <ng-container *ngTemplateOutlet="tplLlegar"></ng-container>
+      </ng-container>
 
       <div class="rs-meta">
         <span class="rs-pill live" *ngIf="!rutaActivaSinSeguir">
@@ -396,6 +439,26 @@
       </div>
       <div class="ed-empty" *ngIf="!misBoletos.length">Todavía no comprás boletos</div>
     </div>
+  </section>
+
+  <!-- ====== PARADA MÁS CERCANA (teléfono) ======
+       En escritorio esto mismo vive en el panel. Acá va encima del dock, y
+       se aparta con él cuando el pasajero mueve el mapa. -->
+  <section class="pc-flotante" *ngIf="paradaCercana as pc"
+           [class.oculta]="!navVisible || !!activeRuta || !!selectedBus || !!activePanel || sidebarOpen || profilePanelOpen || settingsPanelOpen"
+           aria-label="Tu parada más cercana">
+    <div class="pc-icono"><ion-icon name="location" aria-hidden="true"></ion-icon></div>
+    <div class="pc-info">
+      <span class="pc-label">Parada más cercana</span>
+      <strong>{{ nombreCorto(pc.parada) }}</strong>
+      <span *ngIf="caminataInfo as c">{{ metrosTexto(pc.distanceKm * 1000) }} · {{ c.minutos }} min a pie<ng-container *ngIf="!c.exacta"> aprox.</ng-container></span>
+    </div>
+    <button type="button" class="pc-ir" *ngIf="sePuedeCaminar" [disabled]="caminataCargando"
+            (click)="caminataActiva ? quitarCaminata() : comoLlegar()"
+            [attr.aria-label]="caminataActiva ? 'Ocultar el camino' : 'Cómo llegar a la parada'">
+      <ion-icon [name]="caminataActiva ? 'close' : 'walk'" aria-hidden="true"></ion-icon>
+      <span>{{ caminataCargando ? '…' : (caminataActiva ? 'Ocultar' : 'Ir') }}</span>
+    </button>
   </section>
 
   <!-- ====== DOCK FLOTANTE ====== -->

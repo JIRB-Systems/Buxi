@@ -50,7 +50,7 @@ const SIN_NOTIFICACIONES: NotificacionEmpresa[] = [];
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -1129,6 +1129,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       ]);
       this.empresas = empresas;
       this.allRutas = rutas;
+      this.recalcularParadaCercana();
       this.allParadas = paradas;
       this.recomputeEmpresasCercanas();
     } catch {}
@@ -1491,6 +1492,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         } catch {}
       }
 
+      // El camino a pie, si había uno dibujado.
+      try { this.dibujarCaminata(); } catch {}
+
       // setStyle destruye fuentes, capas Y las imágenes registradas con
       // addImage. Sin esto la capa de buses quedaba marcada como "lista"
       // apuntando a algo que ya no existe, y los buses desaparecían para
@@ -1714,6 +1718,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   clearRoute(navigate = true) {
+    this.quitarCaminata();
     this.routeLayerIds.forEach(id => {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     });
@@ -1779,6 +1784,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         const arr = this.paradasPorRuta.get(p.ruta_id);
         if (arr) arr.push(p); else this.paradasPorRuta.set(p.ruta_id, [p]);
       }
+      this.recalcularParadaCercana();
     } catch {}
 
     try {
@@ -2087,6 +2093,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.applyUserHeading();
     this.updateAccuracyCircle(lng, lat, accuracy);
     this.updateETA();
+    this.recalcularParadaCercana();
+    this.seguirCaminata();
   }
 
   // Sólo la figura, sin chapa. El disco blanco no era adorno: daba el contraste
@@ -2208,6 +2216,242 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     } else {
       this.nearestStop = null;
       this.etaMinutes = null;
+    }
+  }
+
+  // ====== PARADA MÁS CERCANA Y CÓMO LLEGAR ======
+  // Sin ruta elegida, la parada más cercana de todas las rutas activas, con
+  // las rutas que pasan por ahí. Con una ruta elegida el objetivo es la parada
+  // más cercana de ESA ruta (`nearestStop`, que ya existía).
+  paradaCercana: { parada: Parada; distanceKm: number; rutas: Ruta[] } | null = null;
+
+  // El camino a pie dibujado, si hay uno.
+  caminata: { paradaId: string; metros: number; minutos: number; exacta: boolean } | null = null;
+  caminataCargando = false;
+
+  private caminataCoords: [number, number][] | null = null;
+  private caminataParada: Parada | null = null;
+  private caminataDesde: { lat: number; lng: number; t: number } | null = null;
+  private caminataMarker: maplibregl.Marker | null = null;
+  private readonly CAMINATA_SRC = 'caminata-src';
+  // Más lejos que esto no se ofrece ir caminando: la tarjeta sigue diciendo
+  // cuál es la parada y a cuánto está, pero sin el botón.
+  readonly CAMINATA_MAX_KM = 8;
+
+  get paradaObjetivo(): { parada: Parada; distanceKm: number } | null {
+    return this.activeRuta ? this.nearestStop : this.paradaCercana;
+  }
+
+  // El camino dibujado corresponde a la parada que se está mostrando.
+  get caminataActiva(): boolean {
+    const objetivo = this.paradaObjetivo;
+    return !!objetivo && !!this.caminata && this.caminata.paradaId === objetivo.parada.id;
+  }
+
+  // Lo que muestra la fila "a pie": el dato del enrutador si ya se pidió el
+  // camino, o una estimación mientras tanto.
+  get caminataInfo(): { metros: number; minutos: number; exacta: boolean } | null {
+    const objetivo = this.paradaObjetivo;
+    if (!objetivo) return null;
+    if (this.caminataActiva && this.caminata) return this.caminata;
+    return { ...this.featuresService.estimarCaminata(objetivo.distanceKm), exacta: false };
+  }
+
+  get sePuedeCaminar(): boolean {
+    const objetivo = this.paradaObjetivo;
+    return !!objetivo && objetivo.distanceKm <= this.CAMINATA_MAX_KM;
+  }
+
+  nombreCorto(parada: Parada): string {
+    return this.nombreParadaCorto(parada.nombre);
+  }
+
+  metrosTexto(metros: number): string {
+    return metros < 1000 ? `${Math.round(metros / 10) * 10} m` : `${(metros / 1000).toFixed(1)} km`;
+  }
+
+  // Se llama al cargar las paradas y cada vez que el pasajero se mueve.
+  private recalcularParadaCercana() {
+    if (this.userLat === 0 || this.paradasPorRuta.size === 0) {
+      this.paradaCercana = null;
+      return;
+    }
+    // Solo paradas de rutas activas, si ya se sabe cuáles son: una parada de
+    // una ruta dada de baja no le sirve a nadie.
+    const activas = this.allRutas.length ? new Set(this.allRutas.map(r => r.id)) : null;
+
+    let mejor: Parada | null = null;
+    let min = Infinity;
+    for (const [rutaId, paradas] of this.paradasPorRuta) {
+      if (activas && !activas.has(rutaId)) continue;
+      for (const p of paradas) {
+        const d = this.featuresService.distanceKm(this.userLat, this.userLng, p.latitud, p.longitud);
+        if (d < min) { min = d; mejor = p; }
+      }
+    }
+    if (!mejor) { this.paradaCercana = null; return; }
+
+    // Cada ruta guarda su propia fila de parada, así que la misma esquina
+    // aparece una vez por ruta. "Pasan por acá" junta las que tienen una
+    // parada a menos de 80 m de la elegida.
+    const ganadora = mejor;
+    const rutaIds = new Set<string>();
+    for (const [rutaId, paradas] of this.paradasPorRuta) {
+      if (activas && !activas.has(rutaId)) continue;
+      if (paradas.some(p => this.featuresService.distanceKm(ganadora.latitud, ganadora.longitud, p.latitud, p.longitud) <= 0.08)) {
+        rutaIds.add(rutaId);
+      }
+    }
+    this.paradaCercana = {
+      parada: ganadora,
+      distanceKm: min,
+      rutas: this.allRutas.filter(r => rutaIds.has(r.id)),
+    };
+  }
+
+  // Pide el camino a pie hasta la parada que se está mostrando y lo dibuja.
+  async comoLlegar(encuadrar = true) {
+    const objetivo = this.paradaObjetivo;
+    if (!objetivo || !this.mapReady) return;
+    if (this.userLat === 0) {
+      // Sin ubicación no hay desde dónde: el mismo botón la pide.
+      await this.centerOnUser();
+      return;
+    }
+
+    const parada = objetivo.parada;
+    const desde = { lat: this.userLat, lng: this.userLng };
+    this.caminataCargando = true;
+    const ruta = await this.featuresService.rutaAPie(desde, { lat: parada.latitud, lng: parada.longitud });
+    this.caminataCargando = false;
+
+    // Mientras llegaba la respuesta el pasajero pudo cambiar de ruta o cerrar
+    // todo: un camino hacia una parada que ya no se muestra sobra.
+    if (this.destroyed || this.paradaObjetivo?.parada.id !== parada.id) return;
+
+    this.caminataCoords = ruta.coords;
+    this.caminataParada = parada;
+    this.caminataDesde = { ...desde, t: Date.now() };
+    this.caminata = { paradaId: parada.id, metros: ruta.metros, minutos: ruta.minutos, exacta: ruta.exacta };
+    this.dibujarCaminata();
+
+    if (encuadrar) {
+      const bounds = ruta.coords.reduce(
+        (b, c) => b.extend(c),
+        new maplibregl.LngLatBounds(ruta.coords[0], ruta.coords[0]),
+      );
+      this.map.fitBounds(bounds, { padding: this.margenDeCaminata(), duration: 600, maxZoom: 17 });
+    }
+  }
+
+  quitarCaminata() {
+    this.caminata = null;
+    this.caminataCoords = null;
+    this.caminataParada = null;
+    this.caminataDesde = null;
+    this.caminataCargando = false;
+    this.caminataMarker?.remove();
+    this.caminataMarker = null;
+    if (!this.map) return;
+    this.atenuarEdificios(false);
+    for (const id of [`${this.CAMINATA_SRC}-puntos`, `${this.CAMINATA_SRC}-borde`]) {
+      if (this.map.getLayer(id)) this.map.removeLayer(id);
+    }
+    if (this.map.getSource(this.CAMINATA_SRC)) this.map.removeSource(this.CAMINATA_SRC);
+  }
+
+  // Línea de puntos (la convención de "a pie" en cualquier mapa) y un pin en
+  // la parada de destino. También se llama tras un cambio de estilo del mapa,
+  // que borra todas las capas propias.
+  private dibujarCaminata() {
+    if (!this.caminataCoords || !this.caminataParada || !this.map) return;
+    const data = {
+      type: 'Feature' as const, properties: {},
+      geometry: { type: 'LineString' as const, coordinates: this.caminataCoords },
+    };
+    const src = this.map.getSource(this.CAMINATA_SRC) as maplibregl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData(data);
+    } else {
+      this.map.addSource(this.CAMINATA_SRC, { type: 'geojson', data });
+      // Arriba de todo, edificios 3D incluidos: metida debajo de la capa de
+      // buses quedaba tapada por los edificios y el camino se veía a pedazos.
+      this.map.addLayer({
+        id: `${this.CAMINATA_SRC}-borde`, type: 'line', source: this.CAMINATA_SRC,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#04101f', 'line-width': 9, 'line-opacity': 0.6 },
+      });
+      // Guiones cortos y no puntos: con la vista inclinada, un punto (un guion
+      // de largo casi cero) se achica con la distancia hasta desaparecer, y el
+      // camino se cortaba en la parte lejana del mapa.
+      this.map.addLayer({
+        id: `${this.CAMINATA_SRC}-puntos`, type: 'line', source: this.CAMINATA_SRC,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#6cb0ff', 'line-width': 5, 'line-dasharray': [0.5, 2] },
+      });
+      // Los buses siguen por encima del camino.
+      if (this.map.getLayer(this.BUSES_LAYER)) this.map.moveLayer(this.BUSES_LAYER);
+    }
+
+    this.atenuarEdificios(true);
+
+    const { longitud, latitud, nombre } = this.caminataParada;
+    if (this.caminataMarker) {
+      this.caminataMarker.setLngLat([longitud, latitud]);
+    } else {
+      const el = htmlMarkerEl(
+        'walk-stop-marker',
+        `<div class="wsm-pin" title="${esc(nombre)}"><span class="wsm-pulso"></span><span class="wsm-punta"></span></div>`,
+      );
+      this.caminataMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([longitud, latitud])
+        .addTo(this.map);
+    }
+  }
+
+  // Con el relieve activado MapLibre pinta las líneas sobre el terreno, y los
+  // edificios 3D quedan encima sin importar el orden de las capas: de cerca
+  // tapaban el camino a pedazos. Mientras hay un camino dibujado se vuelven
+  // casi transparentes; al quitarlo recuperan su opacidad (la de enable3D).
+  private atenuarEdificios(atenuar: boolean) {
+    const id = 'buxi-buildings-3d';
+    if (!this.map?.getLayer(id)) return;
+    this.map.setPaintProperty(id, 'fill-extrusion-opacity', atenuar ? 0.25 : (this.darkMode ? 0.85 : 0.92));
+  }
+
+  // En el teléfono el camino tiene que caber entre la barra de arriba y la
+  // hoja o tarjeta de abajo; en escritorio el mapa ya está libre.
+  private margenDeCaminata(): { top: number; bottom: number; left: number; right: number } {
+    const escritorio = window.innerWidth >= 900;
+    return escritorio
+      ? { top: 90, bottom: 90, left: 90, right: 90 }
+      : { top: 110, bottom: this.activeRuta ? 300 : 210, left: 50, right: 70 };
+  }
+
+  // Con el camino dibujado, al moverse el pasajero: se quita al llegar o si la
+  // parada más cercana pasó a ser otra, y se vuelve a pedir si se alejó del
+  // punto desde el que se calculó (sin pedirlo más de una vez cada 20 s).
+  private seguirCaminata() {
+    if (!this.caminata || !this.caminataParada || this.caminataCargando) return;
+
+    if (this.paradaObjetivo?.parada.id !== this.caminata.paradaId) {
+      this.quitarCaminata();
+      return;
+    }
+
+    const aLaParada = this.featuresService.distanceKm(
+      this.userLat, this.userLng, this.caminataParada.latitud, this.caminataParada.longitud);
+    if (aLaParada <= 0.025) {
+      this.quitarCaminata();
+      this.toast('Llegaste a la parada');
+      return;
+    }
+
+    if (!this.caminataDesde) return;
+    const movido = this.featuresService.distanceKm(
+      this.userLat, this.userLng, this.caminataDesde.lat, this.caminataDesde.lng);
+    if (movido >= 0.04 && Date.now() - this.caminataDesde.t >= 20000) {
+      this.comoLlegar(false);
     }
   }
 

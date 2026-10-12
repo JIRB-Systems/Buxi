@@ -1,0 +1,184 @@
+// ====== PARADA MÁS CERCANA Y CÓMO LLEGAR ======
+// Hoja aparte porque map.page.scss está al borde del presupuesto de estilos
+// por componente. Las cuatro hojas del mapa se cargan juntas.
+
+// ---- Fila "a pie" ----
+// Va en la hoja de ruta y en la tarjeta de la parada más cercana.
+.llegar {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 12px;
+  padding: 10px 10px 10px 12px;
+  border-radius: var(--bx-r-md);
+  background: var(--bx-blue-soft);
+  border: 1px solid rgba(47, 139, 255, 0.24);
+
+  > ion-icon { flex: none; font-size: 24px; color: var(--bx-blue-bright); }
+
+  .llegar-info {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    strong { font-size: 15px; font-weight: 700; color: var(--bx-text); }
+    span { font-size: 12px; color: var(--bx-text-2); }
+  }
+}
+
+// Azul y no verde: el verde es la acción principal de la pantalla (comprar el
+// boleto, seguir el recorrido) y esto es información de apoyo.
+.llegar-btn {
+  flex: none;
+  height: 40px; padding: 0 14px;
+  border: 0; border-radius: var(--bx-r-sm);
+  background: var(--bx-blue);
+  color: #04101f;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease), transform var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: var(--bx-blue-bright); }
+  &:active { transform: scale(0.97); }
+  &:disabled { opacity: 0.6; }
+}
+
+// Con el camino dibujado, el botón pasa a segundo plano: ya cumplió.
+.llegar.activa .llegar-btn {
+  background: rgba(255,255,255,0.1);
+  color: var(--bx-text);
+}
+
+// ---- Tarjeta de la parada más cercana (panel) ----
+.pc-main { display: flex; align-items: center; gap: 12px; }
+
+.pc-icono {
+  flex: none;
+  width: 44px; height: 44px;
+  border-radius: var(--bx-r-md);
+  display: grid; place-items: center;
+  background: var(--bx-blue-soft);
+  color: var(--bx-blue-bright);
+  font-size: 22px;
+}
+
+.pc-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+
+  strong {
+    font-size: 17px; font-weight: 800; color: var(--bx-text); letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  span { font-size: 13px; color: var(--bx-text-2); }
+}
+
+.pc-card .llegar { margin-top: 2px; }
+
+.pc-rutas {
+  display: flex; flex-direction: column; gap: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--bx-line);
+
+  .ds-label { margin-bottom: 4px; }
+}
+
+.pc-ruta {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 40px;
+  padding: 6px 8px; margin: 0 -8px;
+  width: calc(100% + 16px);
+  border: 0; border-radius: var(--bx-r-sm);
+  background: transparent;
+  color: var(--bx-text);
+  font-family: inherit; font-size: 14px; font-weight: 600; text-align: left;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: rgba(255,255,255,0.06); }
+
+  // El color de la ruta, como en su línea del mapa.
+  i { flex: none; width: 4px; height: 22px; border-radius: 2px; }
+  span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  ion-icon { flex: none; font-size: 16px; color: var(--bx-text-3); }
+}
+
+// ---- Tarjeta flotante (teléfono) ----
+// Deja libre a la derecha la columna de controles del mapa.
+.pc-flotante {
+  position: absolute;
+  left: 12px; right: 68px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
+  z-index: 1000;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px;
+  border-radius: var(--bx-r-lg);
+  background: var(--bx-glass-strong);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
+  box-shadow: var(--bx-shadow-2);
+  transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s;
+
+  &.oculta { opacity: 0; visibility: hidden; transform: translateY(12px); pointer-events: none; }
+
+  .pc-icono { width: 40px; height: 40px; font-size: 20px; }
+  .pc-label { font-size: 11px; font-weight: 700; color: var(--bx-text-3); }
+  .pc-info strong { font-size: 15px; }
+  .pc-info span:not(.pc-label) { font-size: 12px; }
+}
+
+.pc-ir {
+  flex: none;
+  height: 44px; padding: 0 12px;
+  border: 0; border-radius: var(--bx-r-md);
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bx-blue);
+  color: #04101f;
+  font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+
+  ion-icon { font-size: 20px; }
+  &:disabled { opacity: 0.6; }
+}
+
+// En escritorio la tarjeta va dentro del panel.
+@media (min-width: 900px) {
+  .pc-flotante { display: none; }
+}
+
+// ---- Pin de la parada de destino ----
+:host ::ng-deep {
+  // Igual que el resto de marcadores HTML: MapLibre no les pone su clase de
+  // posicionamiento, así que hay que reponerlo a mano (ver map.page.scss).
+  .walk-stop-marker {
+    position: absolute; top: 0; left: 0;
+    will-change: transform;
+  }
+
+  .wsm-pin {
+    position: relative;
+    width: 28px; height: 36px;
+  }
+
+  // Gota azul: el mismo azul de la línea de puntos que llega hasta ella.
+  .wsm-punta {
+    position: absolute; left: 2px; top: 0;
+    width: 24px; height: 24px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    background: #2f8bff;
+    border: 3px solid #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .wsm-pulso {
+    position: absolute; left: 50%; bottom: -6px;
+    width: 26px; height: 12px;
+    margin-left: -13px;
+    border-radius: 50%;
+    background: rgba(47, 139, 255, 0.5);
+    animation: wsm-pulso 1.8s ease-out infinite;
+  }
+
+  @keyframes wsm-pulso {
+    0% { transform: scale(0.6); opacity: 0.8; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+}
