@@ -40,7 +40,7 @@ export class ForgotPasswordPage {
       this.emailSent = true;
     } catch (error: any) {
       const toast = await this.toastCtrl.create({
-        message: 'Error al enviar el enlace. Intenta de nuevo.',
+        message: 'Error al enviar el enlace. Intentá de nuevo.',
         duration: 3000,
         color: 'danger',
         position: 'top',

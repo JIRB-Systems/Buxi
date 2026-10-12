@@ -3,7 +3,7 @@
     <div class="auth-in">
 
       <div class="auth-head">
-        <h1>Crea tu cuenta</h1>
+        <h1>Creá tu cuenta</h1>
         <p>Es gratis y toma menos de un minuto.</p>
       </div>
 
@@ -14,7 +14,7 @@
           <div class="auth-input">
             <ion-input formControlName="nombre_completo" autocomplete="name" aria-label="Nombre completo" placeholder="Tu nombre"></ion-input>
           </div>
-          <span class="auth-err" role="alert" *ngIf="registerForm.get('nombre_completo')?.touched && registerForm.get('nombre_completo')?.hasError('required')">Escribe tu nombre</span>
+          <span class="auth-err" role="alert" *ngIf="registerForm.get('nombre_completo')?.touched && registerForm.get('nombre_completo')?.hasError('required')">Escribí tu nombre</span>
           <span class="auth-err" role="alert" *ngIf="registerForm.get('nombre_completo')?.touched && registerForm.get('nombre_completo')?.hasError('minlength')">Mínimo 3 letras</span>
         </div>
 
@@ -24,7 +24,7 @@
             <ion-input formControlName="email" type="email" inputmode="email" autocomplete="email"
                        aria-label="Correo electrónico" placeholder="nombre@correo.com"></ion-input>
           </div>
-          <span class="auth-err" role="alert" *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('required')">Escribe tu correo</span>
+          <span class="auth-err" role="alert" *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('required')">Escribí tu correo</span>
           <span class="auth-err" role="alert" *ngIf="registerForm.get('email')?.touched && registerForm.get('email')?.hasError('email')">Ese correo no parece válido</span>
         </div>
 
@@ -82,7 +82,7 @@
         <ion-button type="submit" class="auth-btn">Crear cuenta</ion-button>
       </form>
 
-      <p class="auth-alt">¿Ya tienes cuenta?<a routerLink="/auth/login">Iniciar sesión</a></p>
+      <p class="auth-alt">¿Ya tenés cuenta?<a routerLink="/auth/login">Iniciar sesión</a></p>
     </div>
   </app-auth-shell>
 </ion-content>

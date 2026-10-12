@@ -117,8 +117,8 @@ export class LoginPage {
       return 'Correo o contraseña incorrectos';
     }
     if (error?.message?.includes('Email not confirmed')) {
-      return 'Debes confirmar tu correo electrónico';
+      return 'Tenés que confirmar tu correo electrónico';
     }
-    return 'Error al iniciar sesión. Intenta de nuevo.';
+    return 'Error al iniciar sesión. Intentá de nuevo.';
   }
 }

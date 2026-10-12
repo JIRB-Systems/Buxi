@@ -60,7 +60,7 @@ export class RegisterPage {
       this.registerForm.markAllAsTouched();
       if (!this.acceptTerms) {
         const toast = await this.toastCtrl.create({
-          message: 'Debes aceptar los términos y condiciones',
+          message: 'Tenés que aceptar los términos y condiciones',
           duration: 3000,
           color: 'warning',
           position: 'top',
@@ -83,7 +83,7 @@ export class RegisterPage {
       });
 
       const toast = await this.toastCtrl.create({
-        message: 'Cuenta creada exitosamente. Revisa tu correo para confirmar.',
+        message: 'Cuenta creada. Revisá tu correo para confirmarla.',
         duration: 4000,
         color: 'success',
         position: 'top',
@@ -108,6 +108,6 @@ export class RegisterPage {
     if (error?.message?.includes('already registered')) {
       return 'Este correo ya está registrado';
     }
-    return 'Error al crear la cuenta. Intenta de nuevo.';
+    return 'Error al crear la cuenta. Intentá de nuevo.';
   }
 }

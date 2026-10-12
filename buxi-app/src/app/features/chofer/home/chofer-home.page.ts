@@ -791,7 +791,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   async toggleTracking() {
     if (!this.assignedBus) {
       const toast = await this.toastCtrl.create({
-        message: 'No tienes un bus asignado. Contacta a tu empresa.',
+        message: 'No tenés un bus asignado. Contactá a tu empresa.',
         duration: 3000,
         color: 'warning',
         position: 'top',

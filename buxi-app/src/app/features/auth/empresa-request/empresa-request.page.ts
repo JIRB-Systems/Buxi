@@ -80,7 +80,7 @@ export class EmpresaRequestPage {
       this.submitted = true;
     } catch {
       const toast = await this.toastCtrl.create({
-        message: 'Error al enviar. Intenta de nuevo.',
+        message: 'Error al enviar. Intentá de nuevo.',
         duration: 3000, color: 'danger', position: 'top',
       });
       await toast.present();

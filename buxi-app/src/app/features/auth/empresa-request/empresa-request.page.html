@@ -9,7 +9,7 @@
 
       <div class="auth-head">
         <h1>Lleva tu empresa a Buxi</h1>
-        <p>Completa el formulario y nuestro equipo te contacta para activar tu flota.</p>
+        <p>Completá el formulario y nuestro equipo te contacta para activar tu flota.</p>
       </div>
 
       <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
@@ -34,7 +34,7 @@
           <div class="auth-input">
             <ion-input formControlName="nombre_empresa" autocomplete="organization" aria-label="Nombre de la empresa" placeholder="Transportes Ejemplo S.A."></ion-input>
           </div>
-          <span class="auth-err" role="alert" *ngIf="form.get('nombre_empresa')?.touched && form.get('nombre_empresa')?.hasError('required')">Escribe el nombre de la empresa</span>
+          <span class="auth-err" role="alert" *ngIf="form.get('nombre_empresa')?.touched && form.get('nombre_empresa')?.hasError('required')">Escribí el nombre de la empresa</span>
         </div>
 
         <div class="auth-field">
@@ -49,7 +49,7 @@
           <div class="auth-input">
             <ion-input formControlName="nombre_contacto" autocomplete="name" aria-label="Persona de contacto" placeholder="Nombre completo"></ion-input>
           </div>
-          <span class="auth-err" role="alert" *ngIf="form.get('nombre_contacto')?.touched && form.get('nombre_contacto')?.hasError('required')">Escribe a quién contactamos</span>
+          <span class="auth-err" role="alert" *ngIf="form.get('nombre_contacto')?.touched && form.get('nombre_contacto')?.hasError('required')">Escribí a quién contactamos</span>
         </div>
 
         <div class="auth-row-2">
@@ -58,14 +58,14 @@
             <div class="auth-input">
               <ion-input formControlName="email" type="email" inputmode="email" autocomplete="email" aria-label="Correo" placeholder="tu@empresa.cr"></ion-input>
             </div>
-            <span class="auth-err" role="alert" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">Revisa el correo</span>
+            <span class="auth-err" role="alert" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">Revisá el correo</span>
           </div>
           <div class="auth-field" [class.has-error]="form.get('telefono')?.touched && form.get('telefono')?.invalid">
             <span class="auth-label">Teléfono</span>
             <div class="auth-input">
               <ion-input formControlName="telefono" type="tel" inputmode="tel" autocomplete="tel" aria-label="Teléfono" placeholder="8888-8888"></ion-input>
             </div>
-            <span class="auth-err" role="alert" *ngIf="form.get('telefono')?.touched && form.get('telefono')?.invalid">Escribe un teléfono</span>
+            <span class="auth-err" role="alert" *ngIf="form.get('telefono')?.touched && form.get('telefono')?.invalid">Escribí un teléfono</span>
           </div>
         </div>
 

@@ -3,7 +3,7 @@
     <div class="auth-in">
 
       <div class="auth-head">
-        <h1>Inicia sesión</h1>
+        <h1>Iniciá sesión</h1>
         <p>Tus buses en vivo, minuto a minuto.</p>
       </div>
 
@@ -15,7 +15,7 @@
             <ion-input formControlName="email" type="email" inputmode="email" autocomplete="email"
                        aria-label="Correo electrónico" placeholder="nombre@correo.com"></ion-input>
           </div>
-          <span class="auth-err" role="alert" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('required')">Escribe tu correo</span>
+          <span class="auth-err" role="alert" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('required')">Escribí tu correo</span>
           <span class="auth-err" role="alert" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('email')">Ese correo no parece válido</span>
         </div>
 
@@ -30,7 +30,7 @@
               <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" aria-hidden="true"></ion-icon>
             </button>
           </div>
-          <span class="auth-err" role="alert" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('required')">Escribe tu contraseña</span>
+          <span class="auth-err" role="alert" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('required')">Escribí tu contraseña</span>
           <span class="auth-err" role="alert" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('minlength')">Mínimo 6 caracteres</span>
         </div>
 
@@ -43,7 +43,7 @@
         <ion-button type="submit" class="auth-btn">Iniciar sesión</ion-button>
       </form>
 
-      <div class="auth-sep">o continúa con</div>
+      <div class="auth-sep">o continuá con</div>
 
       <div class="auth-stack">
         <ion-button class="auth-btn auth-btn--ghost" (click)="onGoogleLogin()">
@@ -64,13 +64,13 @@
         </ion-button>
       </div>
 
-      <p class="auth-alt">¿No tienes una cuenta?<a routerLink="/auth/register">Crear cuenta</a></p>
+      <p class="auth-alt">¿No tenés una cuenta?<a routerLink="/auth/register">Crear cuenta</a></p>
 
       <a class="auth-empresa" routerLink="/auth/empresa-request">
         <ion-icon name="business" aria-hidden="true"></ion-icon>
         <span>
-          <strong>¿Tienes una empresa de transporte?</strong>
-          <small>Solicita acceso para tu flota</small>
+          <strong>¿Tenés una empresa de transporte?</strong>
+          <small>Solicitá acceso para tu flota</small>
         </span>
         <ion-icon name="chevron-forward" aria-hidden="true"></ion-icon>
       </a>
