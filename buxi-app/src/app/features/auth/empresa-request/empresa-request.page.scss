@@ -1,147 +1,60 @@
-.req-content {
-  --background: radial-gradient(120% 90% at 50% 0%, #0d2036 0%, #0a1420 55%, #070f1c 100%);
+// Los campos y botones salen de theme/auth.scss, compartidos con el resto de
+// pantallas de acceso. Acá queda solo lo propio de esta: la carga del logo.
+.logo-upload { margin-bottom: 20px; }
+
+.logo-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1.5px dashed var(--bx-line-strong);
+  border-radius: var(--bx-r-md);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: border-color var(--bx-t-fast) var(--bx-ease), background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { border-color: var(--bx-green); background: var(--bx-bg-3); }
+
+  > ion-icon {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+    border-radius: var(--bx-r-sm);
+    background: var(--bx-bg-3);
+    color: var(--bx-text-2);
+  }
+
+  .logo-text { display: grid; gap: 2px; min-width: 0; }
+  strong { font-size: var(--bx-fs-body); font-weight: 700; color: var(--bx-text); }
+  small { font-size: var(--bx-fs-caption); color: var(--bx-text-3); }
 }
 
-.req-wrapper {
-  min-height: 100%;
-  display: flex; flex-direction: column;
-  padding: 16px 20px 32px; max-width: 440px; margin: 0 auto;
-}
-
-.back-btn { --color: #c0c8d4; margin: 0 0 0 -14px; font-size: 20px; flex-shrink: 0; }
-
-.req-body {
-  flex: 1;
-  display: flex; flex-direction: column; justify-content: center;
-  text-align: center;
-
-  h2 { font-size: 22px; font-weight: 800; color: #f5f7fa; margin: 0 0 6px; }
-  p { font-size: 14px; color: #8a95a3; line-height: 1.5; margin: 0 0 24px; }
-
-  form { text-align: left; }
-}
-
-.req-icon {
+.logo-preview {
   position: relative;
-  width: 84px; height: 84px; margin: 0 auto 20px;
-  border-radius: 50%; display: grid; place-items: center;
-  background: radial-gradient(circle at 35% 30%, rgba(47,139,255,0.3), rgba(47,139,255,0.1) 60%, transparent 100%);
-  box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.08), 0 12px 30px -8px rgba(47,139,255,0.4);
+  display: block;
+  width: 88px;
+  height: 88px;
+  padding: 0;
+  border: 1px solid var(--bx-line-strong);
+  border-radius: var(--bx-r-lg);
+  overflow: hidden;
+  background: var(--bx-bg-3);
+  cursor: pointer;
 
-  ion-icon {
-    font-size: 32px; color: #5b9dff;
-    filter: drop-shadow(0 0 8px rgba(47,139,255,0.55));
+  img { width: 100%; height: 100%; object-fit: cover; }
+
+  .logo-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--bx-r-pill);
+    background: rgba(0, 0, 0, 0.66);
+    color: #fff;
+    font-size: 14px;
   }
-
-  &::after {
-    content: ''; position: absolute; inset: -7px; border-radius: 50%;
-    border: 1.5px solid rgba(47,139,255,0.35);
-    animation: req-ring-pulse 2.4s ease-out infinite;
-  }
-
-  &.ok {
-    background: linear-gradient(135deg, #2f8bff, #00c853);
-    box-shadow: 0 12px 30px -6px rgba(0,200,83,0.5);
-    ion-icon { color: #fff; font-size: 36px; filter: none; }
-    &::after { display: none; }
-  }
-}
-
-@keyframes req-ring-pulse {
-  0% { transform: scale(1); opacity: 0.65; }
-  100% { transform: scale(1.35); opacity: 0; }
-}
-
-.logo-upload {
-  margin-bottom: 18px;
-
-  .logo-preview {
-    position: relative; width: 100px; height: 100px;
-    margin: 0 auto; border-radius: 16px; overflow: hidden; cursor: pointer;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-
-    img { width: 100%; height: 100%; object-fit: cover; }
-
-    .logo-remove {
-      position: absolute; top: 4px; right: 4px;
-      width: 24px; height: 24px; background: rgba(0,0,0,0.6);
-      border-radius: 50%; display: grid; place-items: center;
-      ion-icon { font-size: 14px; color: #fff; }
-    }
-  }
-
-  .logo-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 20px; border: 1.5px dashed #1f2f47; border-radius: 14px;
-    cursor: pointer; transition: border-color 0.15s; background: #101d30;
-
-    &:hover { border-color: #00c853; }
-
-    ion-icon { font-size: 28px; color: #5c6b80; }
-    span { font-size: 13px; color: #c0c8d4; font-weight: 500; }
-    .opt { font-size: 11px; color: #5c6b80; font-weight: 400; }
-  }
-}
-
-.field {
-  margin-bottom: 14px;
-  label {
-    display: block; font-size: 13px; font-weight: 600; color: #c0c8d4; margin-bottom: 5px;
-    .opt { font-weight: 400; color: #5c6b80; }
-  }
-  .input-wrap {
-    display: flex; align-items: center; background: #101d30;
-    border: 1.5px solid #1f2f47; border-radius: 12px; padding: 0 14px;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    &:focus-within { border-color: #00c853; box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.12); }
-    ion-input, ion-textarea {
-      --padding-start: 0; --padding-top: 11px; --padding-bottom: 11px;
-      --color: #f5f7fa; --placeholder-color: #5c6b80; --placeholder-opacity: 1;
-      font-size: 14px; flex: 1;
-    }
-  }
-  .textarea-wrap { align-items: flex-start; padding: 8px 14px; }
-  .err { display: block; font-size: 11px; color: var(--ion-color-danger); margin-top: 3px; }
-}
-
-.row-2 { display: flex; gap: 10px; }
-
-.btn-main {
-  --background: linear-gradient(90deg, #2f8bff, #00c853);
-  --background-hover: linear-gradient(90deg, #2f8bff, #00c853);
-  --background-activated: linear-gradient(90deg, #2f8bff, #00c853);
-  --border-radius: 12px; --box-shadow: 0 4px 14px rgba(0, 200, 83, 0.18);
-  font-weight: 700; font-size: 15px; height: 48px; text-transform: none; margin-top: 8px;
-}
-
-// ---- Mobile scale-up ----
-@media (max-width: 480px) {
-  .req-wrapper { padding: 16px 18px 28px; }
-
-  .req-body {
-    h2 { font-size: 25px; }
-    p { font-size: 15px; }
-  }
-
-  .req-icon {
-    width: 96px; height: 96px;
-    ion-icon { font-size: 36px; }
-    &.ok ion-icon { font-size: 40px; }
-  }
-
-  .logo-upload .logo-btn {
-    padding: 24px;
-    ion-icon { font-size: 32px; }
-    span { font-size: 14px; }
-  }
-
-  .field {
-    label { font-size: 14px; }
-    .input-wrap {
-      padding: 0 15px;
-      ion-input, ion-textarea { --padding-top: 14px; --padding-bottom: 14px; font-size: 15px; }
-    }
-  }
-
-  .btn-main { height: 52px; font-size: 16px; }
 }

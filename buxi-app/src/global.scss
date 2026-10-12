@@ -9,66 +9,220 @@
 @import "@ionic/angular/css/text-transformation.css";
 @import "@ionic/angular/css/flex-utils.css";
 
+// ====== Tipografía ======
+// Manrope, servida desde la propia app: funciona sin red dentro de la app de
+// Android y no agrega un dominio externo a la política de seguridad. Un solo
+// archivo variable (25 KB) cubre todos los pesos.
+// Antes se usaba la fuente del sistema, así que los títulos pesados salían en
+// Segoe UI Black en Windows, Roboto en Android y San Francisco en iPhone: tres
+// apps distintas según el aparato.
+@font-face {
+  font-family: 'Manrope';
+  src: url('/assets/fonts/manrope-latin-var.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--bx-font);
+  background: var(--bx-bg-1);
+  color: var(--bx-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  // Cifras del mismo ancho: los minutos, precios y contadores cambian en vivo
+  // y con cifras proporcionales el texto de al lado "baila" en cada cambio.
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: rgba(0, 200, 83, 0.35);
+  color: #fff;
+}
+
+// Foco visible solo con teclado. Sin esto no hay forma de saber dónde está
+// uno al navegar con Tab, y varias hojas lo habían apagado con outline: none.
+:focus-visible {
+  outline: 2px solid var(--bx-green-bright);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--bx-blue-bright);
+}
+
+// Barras de desplazamiento del color de la app (escritorio).
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
 }
 
 ion-content {
   --keyboard-offset: 0px !important;
 }
 
-ion-input {
-  --highlight-color-focused: #00c853;
-  --highlight-color-valid: #00c853;
+// ====== Controles de Ionic ======
+ion-button {
+  // Ionic en modo Material pone mayúsculas y espaciado ancho; se ve a
+  // formulario de 2015 y no es como habla el resto de la app.
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 700;
+  --border-radius: var(--bx-r-md);
+  --box-shadow: none;
+}
+
+ion-input,
+ion-textarea,
+ion-select {
+  --highlight-color-focused: var(--bx-green);
+  --highlight-color-valid: var(--bx-green);
 }
 
 ion-toggle {
-  --track-background: #e0e5ec;
-  --track-background-checked: #00c853;
+  --track-background: var(--bx-bg-4);
+  --track-background-checked: var(--bx-green);
+  --handle-background: #fff;
   --handle-background-checked: #fff;
 }
 
 ion-checkbox {
-  --checkbox-background-checked: #00c853;
-  --border-color-checked: #00c853;
+  --size: 22px;
+  --border-radius: 7px;
+  --border-color: var(--bx-line-strong);
+  --checkbox-background: var(--bx-bg-3);
+  --checkbox-background-checked: var(--bx-green);
+  --border-color-checked: var(--bx-green);
+  --checkmark-color: var(--bx-ink);
 }
 
-ion-select {
-  --highlight-color-focused: #00c853;
+ion-spinner {
+  --color: var(--bx-green);
 }
 
+ion-refresher { --ion-color-primary: var(--bx-green); }
+
+ion-footer.ion-no-border { --ion-toolbar-border-color: transparent; }
+
+// ====== Capas que Ionic monta fuera de la página ======
+// Cargador, avisos, hojas de acción y selectores viven en el <body>, fuera
+// de cualquier componente, así que solo se pueden vestir desde acá.
 ion-loading {
-  --spinner-color: #00c853;
+  --background: var(--bx-bg-3);
+  --spinner-color: var(--bx-green);
+  --backdrop-opacity: 0.6;
+  color: var(--bx-text);
+  font-weight: 600;
+
+  .loading-wrapper {
+    border-radius: var(--bx-r-lg);
+    border: 1px solid var(--bx-line);
+    box-shadow: var(--bx-shadow-3);
+    padding: 20px 24px;
+  }
 }
 
-// Skeleton loader
+ion-toast {
+  --background: var(--bx-bg-4);
+  --color: var(--bx-text);
+  --border-radius: var(--bx-r-md);
+  --box-shadow: var(--bx-shadow-2);
+  --max-width: 440px;
+  font-size: var(--bx-fs-body);
+  font-weight: 600;
+}
+
+ion-action-sheet {
+  --background: var(--bx-bg-2);
+  --color: var(--bx-text);
+  --button-color: var(--bx-text);
+  --button-background-hover: var(--bx-bg-3);
+  --button-background-selected: var(--bx-bg-3);
+  --button-color-selected: var(--bx-green-bright);
+  --backdrop-opacity: 0.6;
+}
+
+ion-popover {
+  --background: var(--bx-bg-2);
+  --box-shadow: var(--bx-shadow-3);
+  --backdrop-opacity: 0.4;
+
+  &::part(content) {
+    border: 1px solid var(--bx-line);
+    border-radius: var(--bx-r-md);
+  }
+}
+
+ion-modal {
+  --background: var(--bx-bg-1);
+  --backdrop-opacity: 0.6;
+}
+
+// ====== Marca ======
+// El logo, igual en todas partes: el pin azul con las ondas verdes y la
+// palabra al lado. Había cuatro versiones distintas según la pantalla (la
+// flecha, el bus ilustrado, este mismo pin y un cuadrado verde con un bus).
+.bx-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  img,
+  svg {
+    width: 30px;
+    height: 30px;
+    flex: none;
+  }
+
+  .bx-word {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: var(--bx-text);
+
+    // La "I" lleva el azul del pin, como en el logo completo.
+    i { font-style: normal; color: var(--bx-blue); }
+  }
+
+  &--lg {
+    gap: 12px;
+    img, svg { width: 44px; height: 44px; }
+    .bx-word { font-size: 30px; }
+  }
+}
+
+// ====== Esqueletos de carga ======
 .skeleton {
-  background: linear-gradient(90deg, #eef1f5 25%, #f8f9fb 50%, #eef1f5 75%);
+  background: linear-gradient(90deg, var(--bx-bg-3) 25%, var(--bx-bg-4) 50%, var(--bx-bg-3) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
-  border-radius: 8px;
+  border-radius: var(--bx-r-sm);
 }
 
 .skeleton-text { height: 14px; width: 60%; margin-bottom: 8px; }
 .skeleton-text.short { width: 35%; }
 .skeleton-title { height: 20px; width: 50%; margin-bottom: 10px; }
 .skeleton-circle { width: 48px; height: 48px; border-radius: 50%; }
-.skeleton-card { height: 80px; border-radius: 14px; margin-bottom: 10px; }
+.skeleton-card { height: 80px; border-radius: var(--bx-r-md); margin-bottom: 10px; }
 
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
-// Page transitions
+// Entrada de página
 ion-router-outlet > * {
-  animation: pageIn 0.2s ease-out;
+  animation: pageIn var(--bx-t) var(--bx-ease-out);
 }
 
 @keyframes pageIn {
@@ -76,10 +230,19 @@ ion-router-outlet > * {
   to { opacity: 1; transform: translateY(0); }
 }
 
-// Pull to refresh
-ion-refresher { --ion-color-primary: #00c853; }
-
-ion-footer.ion-no-border { --ion-toolbar-border-color: transparent; }
+// Quien pidió menos movimiento en su sistema no recibe ninguna animación
+// decorativa. Las de 0.01ms (en vez de none) conservan los eventos de fin de
+// animación de los que dependen algunos componentes de Ionic.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 // ====== Diálogos de confirmación (cssClass: 'buxi-alert') ======
 // ion-alert se monta fuera del componente, así que su estilo vive acá y no en
@@ -92,7 +255,7 @@ ion-footer.ion-no-border { --ion-toolbar-border-color: transparent; }
 // especificidad lo justo para ganar sin recurrir a !important.
 ion-alert.buxi-alert {
   --backdrop-opacity: 0.62;
-  --background: rgba(11, 26, 46, 0.93);
+  --background: var(--bx-glass-strong);
 
   // En iOS, ion-alert le gana a estas reglas con su propia hoja incluso con
   // el selector de más especificidad de arriba (el modo ios trae su propio
@@ -100,11 +263,11 @@ ion-alert.buxi-alert {
   // diálogo salía blanco de sistema con texto blanco encima, invisible. El
   // !important es la única forma confiable de ganarle en los dos modos.
   .alert-wrapper {
-    background: rgba(11, 26, 46, 0.93) !important;
-    backdrop-filter: blur(30px) saturate(180%);
-    -webkit-backdrop-filter: blur(30px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 24px !important;
+    background: var(--bx-glass-strong) !important;
+    backdrop-filter: var(--bx-glass-blur);
+    -webkit-backdrop-filter: var(--bx-glass-blur);
+    border: 1px solid var(--bx-line-strong);
+    border-radius: var(--bx-r-lg) !important;
     box-shadow: 0 20px 56px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.09);
     min-width: 290px;
     padding: 4px 2px 2px;
@@ -114,15 +277,15 @@ ion-alert.buxi-alert {
 
   .alert-title {
     color: #fff !important;
-    font-size: 17px; font-weight: 800; letter-spacing: -0.3px;
+    font-size: var(--bx-fs-title); font-weight: 800; letter-spacing: -0.02em;
   }
 
-  .alert-sub-title { color: #9fb2cc !important; }
+  .alert-sub-title { color: var(--bx-text-2) !important; }
 
   .alert-message {
     padding: 0 22px 20px;
-    color: #9fb2cc !important;
-    font-size: 13.5px; line-height: 1.5;
+    color: var(--bx-text-2) !important;
+    font-size: var(--bx-fs-body); line-height: 1.5;
     text-align: left;
   }
 
@@ -134,26 +297,25 @@ ion-alert.buxi-alert {
   .alert-button {
     flex: 1;
     margin: 0;
-    height: 46px;
-    border-radius: 14px;
+    height: var(--bx-tap);
+    border-radius: var(--bx-r-md);
     border: 1px solid transparent;
     // Ionic pone mayúsculas en modo Material; acá desentonan.
     text-transform: none;
-    font-size: 13.5px; font-weight: 700; letter-spacing: -0.1px;
+    font-size: var(--bx-fs-body); font-weight: 700;
 
     .alert-button-inner { justify-content: center; }
   }
 
   .alert-button.ba-cancel {
-    color: #9fb2cc;
+    color: var(--bx-text-2);
     background: rgba(255,255,255,0.06);
     border-color: rgba(255,255,255,0.1);
   }
 
   .alert-button.ba-confirm {
-    color: #04140b;
-    background: linear-gradient(145deg, #00e06a, #00b552);
-    box-shadow: 0 4px 16px rgba(0, 200, 83, 0.32);
+    color: var(--bx-ink);
+    background: var(--bx-green);
   }
 
   // Destructivo: rojo contenido, no relleno sólido. Debe leerse como riesgo,
@@ -179,8 +341,8 @@ ion-alert.buxi-alert {
     font-size: 14px;
     margin-bottom: 8px;
 
-    &::placeholder { color: #6b7d99 !important; -webkit-text-fill-color: #6b7d99; }
-    &:focus { border-color: #00c853; }
+    &::placeholder { color: var(--bx-text-3) !important; -webkit-text-fill-color: var(--bx-text-3); }
+    &:focus { border-color: var(--bx-green); }
   }
 
   // ---- Radios y checkboxes ----
@@ -195,7 +357,7 @@ ion-alert.buxi-alert {
 
   .alert-radio-label,
   .alert-checkbox-label {
-    color: #e4e8ed !important;
+    color: var(--bx-text) !important;
     font-size: 14px;
   }
 
@@ -204,39 +366,11 @@ ion-alert.buxi-alert {
     border-color: rgba(255,255,255,0.3) !important;
   }
 
-  .alert-radio-inner { background-color: #00c853 !important; }
+  .alert-radio-inner { background-color: var(--bx-green) !important; }
   .alert-checkbox-icon.alert-checkbox-icon-checked {
-    background-color: #00c853 !important;
-    border-color: #00c853 !important;
+    background-color: var(--bx-green) !important;
+    border-color: var(--bx-green) !important;
   }
 
   .alert-tappable:hover { background: rgba(255,255,255,0.04); }
-}
-
-// Dark mode
-body.dark {
-  --ion-background-color: #0f1720;
-  --ion-text-color: #e4e8ed;
-  --ion-toolbar-background: #0f1720;
-  --ion-item-background: #1a2432;
-  --ion-card-background: #1a2432;
-
-  ion-content { --background: #0f1720; }
-  ion-toolbar { --background: #0f1720; --color: #e4e8ed; }
-  ion-header { --ion-toolbar-background: #0f1720; }
-
-  // Acá había una lista larga de clases con `!important`, casi todas de las
-  // pantallas de pasajero que ya no existen. Se quitaron junto con ellas.
-  //
-  // Lo que NO vuelve son los selectores de brocha gorda (`p, span, label`,
-  // `.bus-sheet`): el mapa y sus paneles ya son glass oscuro, y un
-  // `!important` global les pisaba el color y el desenfoque en cuanto se
-  // activaba el modo oscuro. El tema se resuelve por variables de Ionic, que
-  // es lo que corresponde, y cada página oscura se pinta sola.
-  .stat-card, .bus-row { background: #1a2432 !important; }
-
-  .input-wrap, .field .input-wrap {
-    background: #141d28 !important;
-    border-color: #2a3545 !important;
-  }
 }

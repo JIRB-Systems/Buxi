@@ -20,11 +20,11 @@
   display: flex;
   flex-direction: column;
   padding: 8px 0 6px;
-  border-radius: 26px;
-  background: rgba(11, 26, 46, 0.86);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 24px;
+  background: var(--bx-glass-strong);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 16px 48px rgba(0,0,0,0.52), inset 0 1px 0 rgba(255,255,255,0.08);
 
   opacity: 0;
@@ -53,9 +53,9 @@
 
   h2 {
     flex: 1; margin: 0;
-    font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.3px;
+    font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.3px;
   }
-  ion-icon { font-size: 22px; color: #6f83a0; cursor: pointer; }
+  ion-icon { font-size: 22px; color: var(--bx-text-3); cursor: pointer; }
 }
 
 .lp-search {
@@ -65,16 +65,16 @@
   height: 40px;
   border-radius: 999px;
   background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.09);
+  border: 1px solid var(--bx-line);
   flex-shrink: 0;
 
-  ion-icon { font-size: 16px; color: #7e93b0; flex-shrink: 0; }
+  ion-icon { font-size: 16px; color: var(--bx-text-3); flex-shrink: 0; }
 
   input {
     flex: 1; min-width: 0;
     background: none; border: none; outline: none;
-    font-size: 13.5px; color: #fff; font-family: inherit;
-    &::placeholder { color: #6f83a0; }
+    font-size: 14px; color: #fff; font-family: inherit;
+    &::placeholder { color: var(--bx-text-3); }
   }
 }
 
@@ -95,7 +95,7 @@
 .lp-row {
   display: flex; align-items: center; gap: 11px;
   padding: 11px 10px;
-  border-radius: 15px;
+  border-radius: 14px;
   cursor: pointer;
   transition: background 0.16s ease;
 
@@ -116,17 +116,17 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .lp-trip {
-      font-size: 12px; color: #9fb2cc;
+      font-size: 12px; color: var(--bx-text-2);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .lp-empresa { font-size: 10.5px; color: #6f83a0; font-weight: 600; }
+    .lp-empresa { font-size: 11px; color: var(--bx-text-3); font-weight: 600; }
   }
 
   .lp-fav {
-    font-size: 20px; color: #56698a; flex-shrink: 0;
+    font-size: 20px; color: var(--bx-text-3); flex-shrink: 0;
     padding: 4px;
     transition: color 0.16s ease, transform 0.16s ease;
-    &.on { color: #ffc93c; }
+    &.on { color: var(--bx-warning); }
     &:active { transform: scale(0.85); }
   }
 }
@@ -136,7 +136,7 @@
 .lp-sponsored {
   display: flex; align-items: flex-start; gap: 11px;
   padding: 10px 10px;
-  border-radius: 15px;
+  border-radius: 14px;
   margin-bottom: 4px;
   text-decoration: none;
   color: inherit;
@@ -150,14 +150,14 @@
 
   .lp-sp-tag {
     position: absolute; top: -7px; left: 12px;
-    font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
-    color: #ffb020; background: var(--dash-bg, #0a1628);
+    font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--bx-warning); background: var(--dash-bg, var(--bx-bg-1));
     padding: 0 6px;
   }
 
   .lp-sp-thumb {
     width: 40px; height: 40px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
-    background: #0d1e33;
+    background: var(--bx-bg-2);
     video, img { width: 100%; height: 100%; object-fit: cover; display: block; }
   }
 
@@ -174,7 +174,7 @@
 
     strong {
       display: block;
-      font-size: 13.5px; font-weight: 700; color: #fff;
+      font-size: 14px; font-weight: 700; color: #fff;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .lp-trip {
@@ -182,11 +182,11 @@
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
       overflow: hidden;
-      font-size: 11.5px; line-height: 1.3; color: #e0c48f;
+      font-size: 12px; line-height: 1.3; color: #e0c48f;
     }
   }
 
-  .lp-sp-chevron { font-size: 16px; color: #ffb020; flex-shrink: 0; margin-top: 3px; }
+  .lp-sp-chevron { font-size: 16px; color: var(--bx-warning); flex-shrink: 0; margin-top: 3px; }
 
   &.anim-fade { animation: lpFade 0.5s ease both; }
   &.anim-slide { animation: lpSlide 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -208,7 +208,7 @@
   margin: 0 14px 10px;
   padding: 4px;
   background: rgba(255,255,255,0.05);
-  border-radius: 13px;
+  border-radius: 12px;
 
   button {
     flex: 1;
@@ -217,7 +217,7 @@
     border: none;
     border-radius: 10px;
     background: transparent;
-    color: #8298b6;
+    color: var(--bx-text-3);
     font-size: 13px; font-weight: 700;
     cursor: pointer;
     transition: background 0.16s ease, color 0.16s ease;
@@ -238,7 +238,7 @@
   overflow: hidden;
 
   img { width: 100%; height: 100%; object-fit: cover; }
-  ion-icon { font-size: 18px; color: #7e93b0; }
+  ion-icon { font-size: 18px; color: var(--bx-text-3); }
 }
 
 // ---- ESTRELLA DE SEGUIR EMPRESA (barra lateral) ----
@@ -246,10 +246,10 @@
 // hoja está a un pelo del presupuesto de 26kb por componente. Las tres hojas
 // se cargan juntas, así que para el navegador da igual.
 .empresa-fav {
-  font-size: 19px; color: #56698a; flex-shrink: 0;
+  font-size: 20px; color: var(--bx-text-3); flex-shrink: 0;
   padding: 4px; margin-left: 2px;
   transition: color 0.16s ease, transform 0.16s ease;
-  &.on { color: #ffc93c; }
+  &.on { color: var(--bx-warning); }
   &:active { transform: scale(0.85); }
 }
 
@@ -264,9 +264,9 @@
   min-width: 16px; height: 16px;
   padding: 0 4px;
   border-radius: 999px;
-  background: #f44336;
+  background: var(--bx-danger);
   color: #fff;
-  font-size: 10px; font-weight: 800; line-height: 16px;
+  font-size: 11px; font-weight: 800; line-height: 16px;
   text-align: center;
   box-shadow: 0 0 0 2px rgba(8, 16, 30, 0.9);
 }
@@ -275,14 +275,14 @@
 .lp-notif {
   display: flex; align-items: flex-start; gap: 11px;
   padding: 12px 10px;
-  border-radius: 15px;
+  border-radius: 14px;
   position: relative;
 
   .lp-notif-icon {
     width: 32px; height: 32px; flex-shrink: 0;
     border-radius: 10px;
     display: grid; place-items: center;
-    ion-icon { font-size: 17px; color: #04121f; }
+    ion-icon { font-size: 18px; color: var(--bx-bg-0); }
   }
 
   .lp-info {
@@ -298,12 +298,12 @@
     display: inline-block; vertical-align: middle;
     margin-left: 6px; padding: 1px 7px;
     border-radius: 999px;
-    font-size: 9.5px; font-weight: 800; letter-spacing: 0.02em;
-    color: #04121f;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+    color: var(--bx-bg-0);
   }
 
-  .lp-notif-msg { font-size: 12.5px; color: #9fb2cc; line-height: 1.45; }
-  .lp-notif-meta { font-size: 10.5px; color: #6f83a0; font-weight: 600; }
+  .lp-notif-msg { font-size: 13px; color: var(--bx-text-2); line-height: 1.45; }
+  .lp-notif-meta { font-size: 11px; color: var(--bx-text-3); font-weight: 600; }
 
   // Sin leer: un punto al margen en vez de pintar la fila entera, que a la
   // tercera notificación nueva convierte el panel en un semáforo.
@@ -312,7 +312,7 @@
     position: absolute; left: 1px; top: 50%;
     width: 4px; height: 4px; margin-top: -2px;
     border-radius: 50%;
-    background: #00c853;
+    background: var(--bx-green);
   }
 }
 
@@ -320,9 +320,9 @@
   display: flex; flex-direction: column; align-items: center;
   gap: 7px; padding: 34px 26px; text-align: center;
 
-  ion-icon { font-size: 34px; color: #3e5170; }
-  strong { font-size: 14px; color: #dbe6f5; font-weight: 700; }
-  span { font-size: 12.5px; color: #7e93b0; line-height: 1.45; }
+  ion-icon { font-size: 36px; color: #3e5170; }
+  strong { font-size: 14px; color: var(--bx-text); font-weight: 700; }
+  span { font-size: 13px; color: var(--bx-text-3); line-height: 1.45; }
 
   // Solo lo lleva el vacío de error: es el único del que se puede salir sin
   // cerrar el panel.
@@ -333,7 +333,7 @@
     border-radius: 999px;
     background: rgba(255,255,255,0.1);
     color: #fff;
-    font-size: 12.5px; font-weight: 700;
+    font-size: 13px; font-weight: 700;
     cursor: pointer;
   }
 }
@@ -370,10 +370,10 @@
   display: flex;
   flex-direction: column;
   padding: calc(env(safe-area-inset-top, 20px) + 18px) 0 calc(env(safe-area-inset-bottom, 0px) + 18px);
-  background: rgba(9, 20, 36, 0.86);
-  backdrop-filter: blur(30px) saturate(180%);
-  -webkit-backdrop-filter: blur(30px) saturate(180%);
-  border-left: 1px solid rgba(255,255,255,0.1);
+  background: var(--bx-glass-strong);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border-left: 1px solid var(--bx-line);
   box-shadow: -14px 0 40px rgba(0,0,0,0.45);
   transform: translateX(100%);
   transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
@@ -386,7 +386,7 @@
   align-items: center;
   gap: 12px;
   padding: 0 18px 18px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid var(--bx-line);
   // Sin esto, si el contenido no entra, flexbox encoge la cabecera hasta
   // hacerla desaparecer en lugar de dejar que la lista scrollee.
   flex-shrink: 0;
@@ -399,10 +399,10 @@
   overflow: hidden;
   display: grid; place-items: center;
   background: rgba(255,255,255,0.09);
-  border: 1px solid rgba(255,255,255,0.16);
+  border: 1px solid var(--bx-line-strong);
 
   position: relative;
-  ion-icon { font-size: 24px; color: #9fb2cc; }
+  ion-icon { font-size: 24px; color: var(--bx-text-2); }
   .av-photo {
     position: absolute; inset: 0;
     width: 100%; height: 100%; object-fit: cover;
@@ -418,12 +418,12 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   span {
-    font-size: 12px; color: #8fa3bd;
+    font-size: 12px; color: var(--bx-text-2);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 }
 
-.pp-close { font-size: 22px; color: #8fa3bd; cursor: pointer; flex-shrink: 0; }
+.pp-close { font-size: 22px; color: var(--bx-text-2); cursor: pointer; flex-shrink: 0; }
 
 .pp-links {
   flex: 1;
@@ -442,15 +442,15 @@
   align-items: center;
   gap: 13px;
   padding: 13px 12px;
-  border-radius: 13px;
+  border-radius: 12px;
   cursor: pointer;
   transition: background 0.16s ease;
 
   &:active { background: rgba(255,255,255,0.07); }
 
-  ion-icon { font-size: 19px; color: #7f96b4; flex-shrink: 0; }
-  span { flex: 1; font-size: 14px; color: #e2ecf8; font-weight: 500; }
-  .pp-chev { font-size: 15px; color: #4a5d78; }
+  ion-icon { font-size: 20px; color: var(--bx-text-3); flex-shrink: 0; }
+  span { flex: 1; font-size: 14px; color: var(--bx-text); font-weight: 500; }
+  .pp-chev { font-size: 15px; color: var(--bx-text-3); }
 }
 
 // Interruptor propio: ion-toggle trae su propio tema y desentonaba con el glass.
@@ -458,7 +458,7 @@
   width: 40px; height: 23px;
   border-radius: 999px;
   background: rgba(255,255,255,0.13);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bx-line);
   flex-shrink: 0;
   position: relative;
   transition: background 0.22s ease;
@@ -473,7 +473,7 @@
   }
 
   &.on {
-    background: linear-gradient(145deg, #00e06a, #00a844);
+    background: linear-gradient(145deg, var(--bx-green-bright), var(--bx-green-deep));
     border-color: transparent;
     i { transform: translateX(17px); }
   }
@@ -484,27 +484,27 @@
   display: flex; flex-direction: column; gap: 6px;
   margin: 2px 0 10px;
   padding: 14px 12px;
-  border-radius: 15px;
+  border-radius: 14px;
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--bx-line);
 
   label {
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px;
-    color: #7e93b0; margin-top: 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+    color: var(--bx-text-3); margin-top: 6px;
     &:first-child { margin-top: 0; }
   }
 
   input {
     height: 38px;
     padding: 0 12px;
-    border-radius: 11px;
+    border-radius: 10px;
     background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff; font-size: 13.5px; font-family: inherit;
+    border: 1px solid var(--bx-line);
+    color: #fff; font-size: 14px; font-family: inherit;
     outline: none;
     transition: border-color 0.16s ease;
     &:focus { border-color: rgba(0, 224, 106, 0.55); }
-    &::placeholder { color: #5b6e8c; }
+    &::placeholder { color: var(--bx-text-3); }
   }
 }
 
@@ -516,16 +516,16 @@
 .pp-chip {
   padding: 6px 11px;
   border-radius: 999px;
-  font-size: 11.5px; font-weight: 600; font-family: inherit;
-  color: #9fb2cc;
+  font-size: 12px; font-weight: 600; font-family: inherit;
+  color: var(--bx-text-2);
   background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.09);
+  border: 1px solid var(--bx-line);
   cursor: pointer;
   transition: all 0.16s ease;
 
   &.on {
-    color: #04140b;
-    background: linear-gradient(145deg, #00e06a, #00b552);
+    color: var(--bx-ink);
+    background: linear-gradient(145deg, var(--bx-green-bright), var(--bx-green-deep));
     border-color: transparent;
   }
 }
@@ -547,14 +547,14 @@
   &[disabled] { opacity: 0.6; cursor: default; }
 
   &.ghost {
-    color: #9fb2cc;
+    color: var(--bx-text-2);
     background: rgba(255,255,255,0.06);
-    border-color: rgba(255,255,255,0.1);
+    border-color: var(--bx-line);
   }
 
   &.solid {
-    color: #04140b;
-    background: linear-gradient(145deg, #00e06a, #00b552);
+    color: var(--bx-ink);
+    background: linear-gradient(145deg, var(--bx-green-bright), var(--bx-green-deep));
     box-shadow: 0 4px 14px rgba(0, 200, 83, 0.3);
   }
 }
@@ -562,14 +562,14 @@
 .pp-danger {
   display: flex; align-items: center; gap: 13px;
   padding: 13px 12px;
-  border-radius: 13px;
+  border-radius: 12px;
   cursor: pointer;
   transition: background 0.16s ease;
 
   &:active { background: rgba(255, 82, 82, 0.1); }
 
-  ion-icon { font-size: 19px; color: #ff6b6b; flex-shrink: 0; }
-  span { flex: 1; font-size: 14px; color: #ff8585; font-weight: 500; }
+  ion-icon { font-size: 20px; color: var(--bx-danger); flex-shrink: 0; }
+  span { flex: 1; font-size: 14px; color: var(--bx-danger); font-weight: 500; }
 }
 
 .pp-logout {
@@ -579,7 +579,7 @@
   margin: 0 18px;
   flex-shrink: 0;
   padding: 13px 12px;
-  border-radius: 13px;
+  border-radius: 12px;
   border: 1px solid rgba(255, 82, 82, 0.24);
   background: rgba(255, 82, 82, 0.09);
   cursor: pointer;
@@ -587,8 +587,8 @@
 
   &:active { background: rgba(255, 82, 82, 0.16); }
 
-  ion-icon { font-size: 19px; color: #ff6b6b; }
-  span { font-size: 14px; color: #ff8585; font-weight: 600; }
+  ion-icon { font-size: 20px; color: var(--bx-danger); }
+  span { font-size: 14px; color: var(--bx-danger); font-weight: 600; }
 }
 
 
@@ -596,24 +596,24 @@
 .lp-place-icon {
   width: 34px; height: 34px;
   flex-shrink: 0;
-  border-radius: 11px;
+  border-radius: 10px;
   display: grid; place-items: center;
   background: rgba(47, 139, 255, 0.16);
   border: 1px solid rgba(47, 139, 255, 0.28);
 
-  ion-icon { font-size: 17px; color: #4da3ff; }
+  ion-icon { font-size: 18px; color: var(--bx-blue-bright); }
 }
 
 // El geocodificador tarda: el spinner vive dentro del campo para que se note
 // que sigue trabajando sin mover la lista de abajo.
-.lp-spin { width: 17px; height: 17px; color: #6f83a0; flex-shrink: 0; }
+.lp-spin { width: 17px; height: 17px; color: var(--bx-text-3); flex-shrink: 0; }
 
 // El panel de Ajustes reusa el layout de Perfil, pero su cabecera no lleva
 // foto: el icono lo distingue de un vistazo al abrirlo.
 .pp-avatar.settings {
   background: rgba(0, 224, 106, 0.14);
   border-color: rgba(0, 224, 106, 0.3);
-  ion-icon { color: #4dffa0; }
+  ion-icon { color: var(--bx-green-bright); }
 }
 
 .pp-version {
@@ -621,5 +621,5 @@
   padding: 10px 12px;
   text-align: center;
   font-size: 11px;
-  color: #56698a;
+  color: var(--bx-text-3);
 }

@@ -1,81 +1,81 @@
-<ion-content [fullscreen]="true" class="login-content" [scrollY]="true">
+<ion-content [fullscreen]="true" class="auth-content" [scrollY]="true">
+  <app-auth-shell>
+    <div class="auth-in">
 
-  <!-- Fondo: rutas que se dibujan solas, como el mapa vivo de la app.
-       Es SVG puro, así que no depende del proveedor de mapas ni de la red. -->
-  <div class="auth-bg" aria-hidden="true">
-    <svg viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice">
-      <path class="rt rt-1" d="M-20 120 C 120 180, 90 320, 220 380 S 420 520, 380 700" />
-      <path class="rt rt-2" d="M420 80 C 300 200, 340 300, 200 420 S 40 560, 90 780" />
-      <path class="rt rt-3" d="M-40 520 C 120 470, 260 600, 440 540" />
-      <circle class="stop" cx="220" cy="380" r="4" />
-      <circle class="stop" cx="200" cy="420" r="4" />
-      <circle class="stop" cx="90" cy="212" r="4" />
-    </svg>
-    <div class="auth-glow"></div>
-  </div>
-
-  <div class="login-wrapper">
-
-    <div class="brand">
-      <div class="brand-mark">
-        <img src="assets/icon/buxi-logo-mark.png" alt="Buxi" />
+      <div class="auth-head">
+        <h1>Inicia sesión</h1>
+        <p>Tus buses en vivo, minuto a minuto.</p>
       </div>
-      <div class="wordmark">BUX<span class="accent-i">I</span></div>
-      <p class="tagline">— Tus buses en <span>tiempo real</span> —</p>
-    </div>
 
-    <div class="auth-card">
-
-    <div class="welcome">
-      <h2>¡Bienvenido a <span class="accent">Buxi</span>!</h2>
-      <p>Inicia sesión para continuar</p>
-    </div>
-
-    <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
-      <div class="field" [class.has-error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid">
-        <div class="input-wrap">
-          <ion-icon name="mail-outline" class="field-icon"></ion-icon>
-          <ion-input formControlName="email" type="email" placeholder="Correo electrónico"></ion-input>
+      <form [formGroup]="loginForm" (ngSubmit)="onLogin()" novalidate>
+        <div class="auth-field" [class.has-error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid">
+          <span class="auth-label">Correo electrónico</span>
+          <div class="auth-input">
+            <ion-icon name="mail-outline" aria-hidden="true"></ion-icon>
+            <ion-input formControlName="email" type="email" inputmode="email" autocomplete="email"
+                       aria-label="Correo electrónico" placeholder="nombre@correo.com"></ion-input>
+          </div>
+          <span class="auth-err" role="alert" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('required')">Escribe tu correo</span>
+          <span class="auth-err" role="alert" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('email')">Ese correo no parece válido</span>
         </div>
-        <span class="err" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.hasError('email')">Correo no válido</span>
-      </div>
 
-      <div class="field" [class.has-error]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid">
-        <div class="input-wrap">
-          <ion-icon name="lock-closed-outline" class="field-icon"></ion-icon>
-          <ion-input formControlName="password" [type]="showPassword ? 'text' : 'password'" placeholder="Contraseña"></ion-input>
-          <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" class="eye" (click)="togglePassword()"></ion-icon>
+        <div class="auth-field" [class.has-error]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid">
+          <span class="auth-label">Contraseña</span>
+          <div class="auth-input">
+            <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+            <ion-input formControlName="password" [type]="showPassword ? 'text' : 'password'" autocomplete="current-password"
+                       aria-label="Contraseña" placeholder="Tu contraseña"></ion-input>
+            <button type="button" class="auth-eye" (click)="togglePassword()"
+                    [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+              <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" aria-hidden="true"></ion-icon>
+            </button>
+          </div>
+          <span class="auth-err" role="alert" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('required')">Escribe tu contraseña</span>
+          <span class="auth-err" role="alert" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('minlength')">Mínimo 6 caracteres</span>
         </div>
-        <span class="err" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('minlength')">Mínimo 6 caracteres</span>
+
+        <div class="auth-forgot">
+          <a routerLink="/auth/forgot-password">¿Olvidaste tu contraseña?</a>
+        </div>
+
+        <!-- Siempre activo: si falta algo, al tocarlo se marcan los campos con
+             su error. Un botón apagado no le dice a nadie qué le falta. -->
+        <ion-button type="submit" class="auth-btn">Iniciar sesión</ion-button>
+      </form>
+
+      <div class="auth-sep">o continúa con</div>
+
+      <div class="auth-stack">
+        <ion-button class="auth-btn auth-btn--ghost" (click)="onGoogleLogin()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.63h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.09 3.57-5.16 3.57-8.8z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.87-3c-1.07.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11A12 12 0 0 0 12 24z"/>
+            <path fill="#FBBC05" d="M5.27 14.28a7.2 7.2 0 0 1 0-4.56V6.61H1.27a12 12 0 0 0 0 10.78l4-3.11z"/>
+            <path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.43-3.43C17.95 1.19 15.23 0 12 0A12 12 0 0 0 1.27 6.61l4 3.11C6.22 6.86 8.87 4.75 12 4.75z"/>
+          </svg>
+          Continuar con Google
+        </ion-button>
+        <ion-button class="auth-btn auth-btn--ghost" (click)="onFacebookLogin()">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#1877F2" d="M24 12a12 12 0 1 0-13.88 11.85v-8.38H7.08V12h3.04V9.36c0-3 1.79-4.67 4.53-4.67 1.31 0 2.69.24 2.69.24v2.95h-1.52c-1.49 0-1.95.93-1.95 1.87V12h3.32l-.53 3.47h-2.79v8.38A12 12 0 0 0 24 12z"/>
+            <path fill="#fff" d="M16.67 15.47 17.2 12h-3.32V9.75c0-.94.46-1.87 1.95-1.87h1.52V4.93s-1.38-.24-2.69-.24c-2.74 0-4.53 1.66-4.53 4.67V12H7.08v3.47h3.04v8.38a12.1 12.1 0 0 0 3.76 0v-8.38h2.79z"/>
+          </svg>
+          Continuar con Facebook
+        </ion-button>
       </div>
 
-      <div class="forgot-row">
-        <a routerLink="/auth/forgot-password" class="forgot">¿Olvidaste tu contraseña?</a>
-      </div>
+      <p class="auth-alt">¿No tienes una cuenta?<a routerLink="/auth/register">Crear cuenta</a></p>
 
-      <ion-button expand="block" type="submit" class="btn-main" [disabled]="loginForm.invalid">
-        <ion-icon name="log-in-outline" slot="start"></ion-icon>
-        Iniciar sesión
-      </ion-button>
-    </form>
+      <a class="auth-empresa" routerLink="/auth/empresa-request">
+        <ion-icon name="business" aria-hidden="true"></ion-icon>
+        <span>
+          <strong>¿Tienes una empresa de transporte?</strong>
+          <small>Solicita acceso para tu flota</small>
+        </span>
+        <ion-icon name="chevron-forward" aria-hidden="true"></ion-icon>
+      </a>
 
-    <div class="sep"><div class="sep-line"></div><span>o continúa con</span><div class="sep-line"></div></div>
-
-    <div class="social-row">
-      <ion-button fill="outline" class="btn-social" (click)="onGoogleLogin()">
-        <ion-icon name="logo-google" slot="start"></ion-icon>Google
-      </ion-button>
-      <ion-button fill="outline" class="btn-social" (click)="onFacebookLogin()">
-        <ion-icon name="logo-facebook" slot="start"></ion-icon>Facebook
-      </ion-button>
+      <p class="auth-version">Versión 1.0.0</p>
     </div>
-
-    <p class="bottom-text">¿No tienes una cuenta? <a routerLink="/auth/register">Regístrate</a></p>
-
-    </div><!-- /auth-card -->
-
-    <a routerLink="/auth/empresa-request" class="empresa-link">¿Eres empresa de transporte? Solicita acceso</a>
-
-    <p class="version-text">Versión 1.0.0</p>
-  </div>
+  </app-auth-shell>
 </ion-content>

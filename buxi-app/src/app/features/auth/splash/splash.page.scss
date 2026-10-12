@@ -1,5 +1,5 @@
 .splash-content {
-  --background: radial-gradient(120% 90% at 50% 38%, #0d2036 0%, var(--dash-bg) 60%, #070f1c 100%);
+  --background: radial-gradient(120% 90% at 50% 38%, #0d2036 0%, var(--bx-bg-1) 60%, var(--bx-bg-0) 100%);
 }
 
 .splash-center {
@@ -15,7 +15,7 @@
   width: min(70vw, 380px);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(0, 200, 83, 0.55) 0%, transparent 62%);
+  background: radial-gradient(circle, rgba(47, 139, 255, 0.5) 0%, transparent 62%);
   filter: blur(38px);
   opacity: 0;
   pointer-events: none;
@@ -28,56 +28,66 @@
   gap: clamp(16px, 3vh, 26px);
 }
 
-.arrow {
-  width: 62%; height: auto; display: block; overflow: visible;
+.mark {
+  width: 40%; height: auto; display: block; overflow: visible;
 }
 
 .shaft {
   fill: none;
-  stroke: #00c853;
-  stroke-width: 16;
+  stroke: var(--bx-blue);
+  stroke-width: 5;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 6px rgba(0, 200, 83, 0.35));
 }
 
+// Centro del pin y ondas: entran juntos cuando el trazo termina.
 .head {
-  fill: #00c853;
   transform-box: fill-box;
-  transform-origin: left center;
-  transform: scaleX(0);
-  filter: drop-shadow(0 0 6px rgba(0, 200, 83, 0.35));
+  transform-origin: 30% 45%;
+  transform: scale(0);
+  opacity: 0;
+
+  .eye { fill: var(--bx-blue); }
+  .wave {
+    fill: none;
+    stroke: var(--bx-green-bright);
+    stroke-width: 2.7;
+    stroke-linecap: round;
+  }
 }
 
 .dot {
-  fill: #eafff2;
+  fill: #eaf3ff;
   opacity: 0;
-  filter: drop-shadow(0 0 10px rgba(0, 200, 83, 0.95)) drop-shadow(0 0 18px rgba(0, 200, 83, 0.6));
+  filter: drop-shadow(0 0 2px rgba(47, 139, 255, 0.95)) drop-shadow(0 0 4px rgba(47, 139, 255, 0.6));
 }
 
 .wordmark {
   display: flex; justify-content: center;
-  font-weight: 900;
+  font-weight: 800;
   font-size: clamp(44px, 12vw, 72px);
-  letter-spacing: 0.14em;
-  padding-left: 0.14em;
+  letter-spacing: 0.06em;
+  padding-left: 0.06em;
   line-height: 0.9;
-  color: #f5f7fa;
+  color: var(--bx-text);
 
   span {
     display: inline-block;
     opacity: 0;
     transform: translateY(22px);
     will-change: transform, opacity;
+
+    // La "I" en el azul del pin, como en el logo completo.
+    &.i { color: var(--bx-blue); }
   }
 }
 
 .tagline {
   text-transform: uppercase;
-  letter-spacing: 0.4em;
-  padding-left: 0.4em;
-  font-size: clamp(9px, 2.2vw, 12px);
+  letter-spacing: 0.28em;
+  padding-left: 0.28em;
+  font-size: clamp(11px, 2.4vw, 13px);
   font-weight: 600;
-  color: #7d8a9c;
+  color: var(--bx-text-3);
   opacity: 0;
   transform: translateY(8px);
 }
@@ -97,14 +107,14 @@
 
 .sponsor-label {
   font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
-  color: #ffb020; background: rgba(255,176,32,0.12);
+  color: var(--bx-warning); background: rgba(255,176,32,0.12);
   border: 1px solid rgba(255,176,32,0.3);
   padding: 4px 10px; border-radius: 20px;
 }
 
 .sponsor-skip {
   display: flex; align-items: center; gap: 5px;
-  font-size: 13px; font-weight: 700; color: #5c7091;
+  font-size: 13px; font-weight: 700; color: var(--bx-text-3);
   padding: 6px 4px;
   transition: color 0.15s;
 
@@ -139,7 +149,7 @@
 
 .sponsor-cta {
   display: block; margin: 14px 20px calc(20px + env(safe-area-inset-bottom, 0));
-  background: #00c853; color: #04140b;
+  background: var(--bx-green); color: var(--bx-ink);
   font-size: 14px; font-weight: 800; text-align: center;
   padding: 14px; border-radius: 14px;
   text-decoration: none;
@@ -167,7 +177,7 @@
 @media (prefers-reduced-motion: reduce) {
   .halo { opacity: 0.4; }
   .shaft { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
-  .head { transform: scaleX(1); }
+  .head { transform: scale(1); opacity: 1; }
   .wordmark span { opacity: 1; transform: none; }
   .tagline { opacity: 1; transform: none; }
 }

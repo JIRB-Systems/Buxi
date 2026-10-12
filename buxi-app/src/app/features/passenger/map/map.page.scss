@@ -44,10 +44,10 @@
   flex-shrink: 0;
   border-radius: 14px;
   display: grid; place-items: center;
-  background: rgba(10, 22, 40, 0.55);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.14);
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 4px 20px rgba(0,0,0,0.28);
 
   // Acá la placa sí se conserva: en móvil la marca va sola sobre el mapa y
@@ -67,10 +67,10 @@
   height: 40px;
   padding: 0 15px;
   border-radius: 999px;
-  background: rgba(10, 22, 40, 0.55);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.14);
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 4px 20px rgba(0,0,0,0.28);
   cursor: pointer;
   transition: border-color 0.16s ease, transform 0.16s ease;
@@ -78,14 +78,14 @@
   &:active { transform: scale(0.985); }
   &:hover { border-color: rgba(0,224,106,0.4); }
 
-  ion-icon { font-size: 17px; color: #8ea4c2; flex-shrink: 0; }
+  ion-icon { font-size: 18px; color: var(--bx-text-2); flex-shrink: 0; }
 
   span {
     flex: 1;
     min-width: 0;
-    font-size: 13.5px;
+    font-size: 14px;
     font-weight: 500;
-    color: #93a7c2;
+    color: var(--bx-text-2);
     letter-spacing: -0.2px;
     white-space: nowrap;
     overflow: hidden;
@@ -113,10 +113,10 @@
   border-radius: 50%;
   overflow: hidden;
   display: grid; place-items: center;
-  background: rgba(10, 22, 40, 0.55);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255,255,255,0.18);
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 4px 20px rgba(0,0,0,0.28);
   cursor: pointer;
   transition: transform 0.16s ease;
@@ -124,7 +124,7 @@
   &:active { transform: scale(0.92); }
 
   position: relative;
-  ion-icon { font-size: 19px; color: #e6edf7; }
+  ion-icon { font-size: 20px; color: var(--bx-text); }
   .av-photo {
     position: absolute; inset: 0;
     width: 100%; height: 100%; object-fit: cover;
@@ -136,112 +136,60 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-// ---- ROUTE HEADER ----
+// ---- CABECERA DE RUTA ----
+// Mismo vidrio oscuro que la barra de búsqueda a la que reemplaza mientras
+// hay una ruta elegida. Era una tarjeta blanca, la única pieza clara de toda
+// la pantalla.
 .route-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #fff;
-  border-radius: 18px;
-  padding: 10px 16px;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+  min-height: 52px;
+  padding: 6px 16px 6px 6px;
+  border-radius: var(--bx-r-pill);
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
+  box-shadow: var(--bx-shadow-2);
+  animation: chrome-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 
   .route-back {
-    width: 36px; height: 36px;
+    flex: none;
+    width: 40px; height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
     display: grid; place-items: center;
+    background: rgba(255,255,255,0.08);
+    color: var(--bx-text);
     cursor: pointer;
-    ion-icon { font-size: 20px; color: var(--ion-text-color); }
+    transition: background var(--bx-t-fast) var(--bx-ease), transform var(--bx-t-fast) var(--bx-ease);
+
+    &:active { transform: scale(0.92); background: rgba(255,255,255,0.14); }
+    ion-icon { font-size: 20px; }
+  }
+
+  // El color de la ruta, como una barra: el mismo que tiene su línea en el mapa.
+  .route-color-dot {
+    flex: none;
+    width: 4px; height: 28px;
+    border-radius: 2px;
   }
 
   .route-header-info {
-    flex: 1;
+    flex: 1; min-width: 0;
     display: flex; flex-direction: column;
-    strong { font-size: 14px; color: var(--ion-text-color); letter-spacing: -0.2px; }
-    span { font-size: 11px; color: #8a95a3; margin-top: 1px; }
+
+    strong {
+      font-size: 15px; font-weight: 700; color: var(--bx-text); letter-spacing: -0.01em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    span {
+      font-size: 12px; color: var(--bx-text-2); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
   }
-
-  .route-color-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-  }
-}
-
-// ---- ROUTE CHIP ----
-.route-chip {
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 20px) + 78px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: var(--dash-surface);
-  color: #fff;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-
-  .live-dot {
-    width: 7px; height: 7px;
-    background: #00e676;
-    border-radius: 50%;
-    animation: blink 1.4s infinite;
-  }
-
-  .chip-sep { opacity: 0.4; }
-}
-
-// ---- ROUTE INFO CHIP (precio + horario de hoy) ----
-.route-info-chip {
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 20px) + 114px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  background: rgba(0,200,83,0.14);
-  border: 1px solid rgba(0,200,83,0.3);
-  color: #d7f7e3;
-  padding: 5px 14px;
-  border-radius: 20px;
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  max-width: calc(100vw - 32px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  .chip-sep { opacity: 0.5; }
-}
-
-// ---- COMPRAR BOLETO ----
-.buy-ticket-btn {
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 20px) + 166px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: flex; align-items: center; gap: 7px;
-  background: #00c853;
-  border: none;
-  color: #05170c;
-  padding: 9px 18px;
-  border-radius: 20px;
-  font-size: 12.5px;
-  font-weight: 800;
-  letter-spacing: -0.1px;
-  box-shadow: 0 6px 20px rgba(0,200,83,0.35);
-  cursor: pointer;
-  transition: transform 0.14s ease, opacity 0.2s ease;
-  &:active { transform: translateX(-50%) scale(0.95); }
-  &:disabled { opacity: 0.6; }
-
-  ion-icon { font-size: 15px; }
 }
 
 // ---- LIVE CHIP ----
@@ -253,18 +201,22 @@
   z-index: 1000;
   display: flex;
   align-items: center;
-  gap: 7px;
-  background: var(--dash-surface);
-  color: #fff;
-  padding: 6px 14px;
-  border-radius: 20px;
+  gap: 8px;
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
+  box-shadow: var(--bx-shadow-1);
+  color: var(--bx-text);
+  padding: 7px 14px;
+  border-radius: var(--bx-r-pill);
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  font-weight: 700;
+  white-space: nowrap;
 
   .live-dot {
     width: 7px; height: 7px;
-    background: #00e676;
+    background: var(--bx-green-bright);
     border-radius: 50%;
     animation: blink 1.4s infinite;
   }
@@ -272,10 +224,9 @@
 
 // Mismo chip, pero es un botón: abre la lista de empresas para seguir una.
 .seguir-chip {
-  border: 0;
   font-family: inherit;
   cursor: pointer;
-  ion-icon { font-size: 14px; color: #ffc107; }
+  ion-icon { font-size: 14px; color: var(--bx-warning); }
 }
 
 @keyframes blink {
@@ -283,29 +234,120 @@
   50% { opacity: 0.3; }
 }
 
-// ---- ETA CARD ----
-.eta-card {
+// ---- HOJA DE RUTA ----
+.route-sheet {
   position: absolute;
-  top: calc(env(safe-area-inset-top, 20px) + 100px);
-  left: 14px; right: 14px;
+  left: 12px; right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
   z-index: 1000;
+  padding: 16px;
+  border-radius: var(--bx-r-xl);
+  background: var(--bx-glass-strong);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
+  box-shadow: var(--bx-shadow-3);
+  animation: sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rs-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+// El número es lo que la persona vino a ver: va grande y solo.
+.rs-eta {
+  flex: none;
+  min-width: 68px; height: 68px;
+  padding: 0 10px;
+  border-radius: var(--bx-r-lg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--bx-green);
+  color: var(--bx-ink);
+
+  strong { font-size: 30px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+  span { font-size: 12px; font-weight: 700; margin-top: 2px; }
+
+  // Sin dato todavía (sin ubicación o sin buses cerca): la misma placa,
+  // apagada, para que la hoja no cambie de forma cuando llega el número.
+  &--none {
+    background: var(--bx-bg-4);
+    color: var(--bx-text-2);
+    ion-icon { font-size: 28px; }
+  }
+}
+
+.rs-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+
+  .rs-label { font-size: 12px; font-weight: 600; color: var(--bx-text-3); }
+  strong {
+    font-size: 18px; font-weight: 800; color: var(--bx-text); letter-spacing: -0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rs-sub { font-size: 13px; color: var(--bx-text-2); }
+}
+
+.rs-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.rs-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--bx-r-pill);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--bx-line);
+  font-size: 12px; font-weight: 600; color: var(--bx-text-2);
+  white-space: nowrap;
+
+  &.live {
+    color: var(--bx-green-bright);
+    background: var(--bx-green-soft);
+    border-color: rgba(0, 200, 83, 0.3);
+  }
+  &.warn {
+    color: var(--bx-warning);
+    background: var(--bx-warning-soft);
+    border-color: rgba(255, 176, 32, 0.3);
+    ion-icon { font-size: 14px; }
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--bx-green-bright);
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+  }
+}
+
+.rs-buy {
+  width: 100%;
+  height: 52px;
+  margin-top: 14px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--bx-r-md);
   display: flex; align-items: center; gap: 10px;
-  background: #fff; border-radius: 14px; padding: 12px 16px;
-  box-shadow: 0 2px 14px rgba(0,0,0,0.1);
+  background: var(--bx-green);
+  color: var(--bx-ink);
+  font-family: inherit;
+  font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: transform var(--bx-t-fast) var(--bx-ease), background var(--bx-t-fast) var(--bx-ease);
 
-  > ion-icon { font-size: 22px; color: #00c853; }
+  &:hover { background: var(--bx-green-bright); }
+  &:active { transform: scale(0.985); }
+  &:disabled { opacity: 0.6; }
 
-  .eta-info {
-    flex: 1; display: flex; flex-direction: column;
-    strong { font-size: 14px; color: var(--ion-text-color); }
-    span { font-size: 11px; color: #8a95a3; }
-  }
-
-  .eta-time {
-    text-align: center; background: #00c853; border-radius: 10px; padding: 6px 12px;
-    strong { display: block; font-size: 16px; color: #fff; }
-    span { font-size: 9px; color: rgba(255,255,255,0.7); font-weight: 600; }
-  }
+  ion-icon { font-size: 20px; }
+  span { flex: 1; text-align: left; }
+  b { font-weight: 800; }
 }
 
 // ---- CONTROLES FLOTANTES (derecha) ----
@@ -322,16 +364,20 @@
   transition: bottom 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.lifted { bottom: calc(env(safe-area-inset-bottom, 0px) + 250px); }
+  // Con la hoja de ruta abierta (solo existe en teléfono).
+  @media (max-width: 899px) {
+    &.lifted-route { bottom: calc(env(safe-area-inset-bottom, 0px) + 238px); }
+  }
 }
 
 .mc-btn {
   width: 42px; height: 42px;
   padding: 0;
-  border: 1px solid rgba(255,255,255,0.16);
+  border: 1px solid var(--bx-line-strong);
   border-radius: 14px;
-  background: rgba(10, 22, 40, 0.6);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
   box-shadow: 0 4px 18px rgba(0,0,0,0.3);
   display: grid; place-items: center;
   cursor: pointer;
@@ -339,28 +385,28 @@
 
   &:active { transform: scale(0.9); }
 
-  ion-icon { font-size: 19px; color: #e6edf7; }
+  ion-icon { font-size: 20px; color: var(--bx-text); }
 
   &.mc-text {
-    font-size: 13px; font-weight: 800; color: #e6edf7;
+    font-size: 13px; font-weight: 800; color: var(--bx-text);
     letter-spacing: 0.3px;
   }
 
-  &.mc-locate ion-icon { color: #4da3ff; }
+  &.mc-locate ion-icon { color: var(--bx-blue-bright); }
 
   // Buscando señal: el botón late para que se note que está trabajando y no
   // parezca que el toque se perdió.
   &.mc-locate.searching {
     border-color: rgba(77,163,255,0.5);
     animation: locate-pulse 1.3s ease-in-out infinite;
-    ion-spinner { width: 19px; height: 19px; color: #4da3ff; }
+    ion-spinner { width: 19px; height: 19px; color: var(--bx-blue-bright); }
   }
 
   // Sin ubicación disponible: ámbar, no rojo — es un permiso o una señal que
   // falta, no un error de la app. Sigue siendo tocable para reintentar.
   &.mc-locate.no-fix {
     border-color: rgba(255,167,38,0.45);
-    ion-icon { color: #ffa726; }
+    ion-icon { color: var(--bx-warning); }
   }
 }
 
@@ -373,7 +419,7 @@
 .mc-compass {
   display: grid; place-items: center;
   transition: transform 0.1s linear;
-  ion-icon { color: #ff5c5c; }
+  ion-icon { color: var(--bx-danger); }
 }
 
 // ---- LOADING ----
@@ -381,7 +427,7 @@
   position: absolute;
   inset: 0; z-index: 2000;
   display: grid; place-items: center;
-  background: rgba(245,247,250,0.85);
+  background: rgba(7, 15, 28, 0.72);
   backdrop-filter: blur(4px);
 }
 
@@ -389,12 +435,13 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #fff;
+  background: var(--bx-bg-3);
+  border: 1px solid var(--bx-line-strong);
   padding: 14px 24px;
-  border-radius: 28px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  span { font-size: 14px; color: #5a6677; font-weight: 500; }
-  ion-spinner { width: 20px; height: 20px; --color: #00c853; }
+  border-radius: var(--bx-r-pill);
+  box-shadow: var(--bx-shadow-3);
+  span { font-size: 14px; color: var(--bx-text); font-weight: 600; }
+  ion-spinner { width: 20px; height: 20px; --color: var(--bx-green); }
 }
 
 // ---- FICHA DEL BUS ----
@@ -406,11 +453,11 @@
   bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
   z-index: 1500;
   padding: 8px 16px 16px;
-  border-radius: 26px;
-  background: rgba(11, 26, 46, 0.82);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 24px;
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 14px 44px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
   animation: sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -431,7 +478,7 @@
   inset: 0;
   z-index: 1900;
   display: flex; flex-direction: column;
-  background: var(--dash-bg, #0a1628);
+  background: var(--dash-bg, var(--bx-bg-1));
 
   opacity: 0; visibility: hidden;
   transform: translateX(24px);
@@ -443,10 +490,10 @@
   display: flex; align-items: center; gap: 12px;
   flex-shrink: 0;
   padding: calc(env(safe-area-inset-top, 20px) + 12px) 16px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid var(--bx-line);
 
   .ed-back {
-    font-size: 24px; color: #cfdcec; cursor: pointer;
+    font-size: 24px; color: var(--bx-text-2); cursor: pointer;
     padding: 4px; margin: -4px;
   }
 
@@ -455,14 +502,14 @@
     background: rgba(255,255,255,0.07);
     display: grid; place-items: center; overflow: hidden;
     img { width: 100%; height: 100%; object-fit: cover; }
-    ion-icon { font-size: 18px; color: #7d93b2; }
+    ion-icon { font-size: 18px; color: var(--bx-text-3); }
   }
 
   .ed-info {
     flex: 1; min-width: 0;
     display: flex; flex-direction: column;
     strong { font-size: 16px; color: #fff; letter-spacing: -0.2px; }
-    span { font-size: 12px; color: #7e93b0; margin-top: 1px; }
+    span { font-size: 12px; color: var(--bx-text-3); margin-top: 1px; }
   }
 }
 
@@ -481,7 +528,7 @@
   display: flex; align-items: center; gap: 13px;
   padding: 14px 16px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid var(--bx-line);
   transition: background 0.16s ease;
   &:active { background: rgba(255,255,255,0.05); }
 
@@ -494,23 +541,23 @@
   .ed-ruta-info {
     flex: 1; min-width: 0;
     display: flex; flex-direction: column; gap: 2px;
-    strong { font-size: 14.5px; color: #fff; font-weight: 700; letter-spacing: -0.1px; }
-    span { font-size: 12px; color: #9fb2cc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    strong { font-size: 15px; color: #fff; font-weight: 700; letter-spacing: -0.1px; }
+    span { font-size: 12px; color: var(--bx-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   }
 
   .ed-ruta-salida {
-    font-size: 12px; font-weight: 700; color: #00c853; flex-shrink: 0;
-    &.sin-horario { color: #6f83a0; font-weight: 600; font-style: italic; }
+    font-size: 12px; font-weight: 700; color: var(--bx-green); flex-shrink: 0;
+    &.sin-horario { color: var(--bx-text-3); font-weight: 600; font-style: italic; }
   }
 
-  .ed-chevron { font-size: 16px; color: #56698a; flex-shrink: 0; }
+  .ed-chevron { font-size: 16px; color: var(--bx-text-3); flex-shrink: 0; }
 }
 
 .ed-empty {
   padding: 40px 24px;
   text-align: center;
   font-size: 13px;
-  color: #7e93b0;
+  color: var(--bx-text-3);
 }
 
 .ed-ver-todas {
@@ -519,25 +566,25 @@
   padding: 13px;
   border-radius: 14px;
   background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #cfdcec;
+  border: 1px solid var(--bx-line);
+  color: var(--bx-text-2);
   font-size: 13px; font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.16s ease;
   &:active { background: rgba(255,255,255,0.1); }
 
-  ion-icon { font-size: 16px; color: #00c853; }
+  ion-icon { font-size: 16px; color: var(--bx-green); }
 }
 
 // ---- MIS BOLETOS / DETALLE QR ----
 .boleto-row {
   .boleto-estado-tag {
-    font-size: 10px; font-weight: 700; color: #00c853;
+    font-size: 11px; font-weight: 700; color: var(--bx-green);
     background: rgba(0,200,83,0.14); border: 1px solid rgba(0,200,83,0.3);
     padding: 3px 9px; border-radius: 10px; text-transform: uppercase;
     letter-spacing: 0.3px; flex-shrink: 0; margin-right: 4px;
-    &.usado { color: #7e93b0; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
+    &.usado { color: var(--bx-text-3); background: var(--bx-line); border-color: var(--bx-line); }
   }
 }
 
@@ -560,7 +607,7 @@
   margin: auto;
   display: flex; flex-direction: column; align-items: center; gap: clamp(3px, 1vh, 6px);
   background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bx-line);
   border-radius: 24px;
   padding: clamp(16px, 3.5vh, 28px) 22px calc(clamp(16px, 3.5vh, 24px) + env(safe-area-inset-bottom, 0px));
   text-align: center;
@@ -568,7 +615,7 @@
   &.usado { opacity: 0.55; }
 
   .bd-estado {
-    font-size: 11px; font-weight: 800; color: #00c853;
+    font-size: 11px; font-weight: 800; color: var(--bx-green);
     background: rgba(0,200,83,0.14); border: 1px solid rgba(0,200,83,0.3);
     padding: 4px 12px; border-radius: 12px; text-transform: uppercase;
     letter-spacing: 0.4px; margin-bottom: 4px;
@@ -583,13 +630,13 @@
   }
 
   .bd-ruta { font-size: 18px; color: #fff; font-weight: 800; letter-spacing: -0.2px; }
-  .bd-trayecto { font-size: 13px; color: #9fb2cc; }
-  .bd-precio { font-size: 22px; color: #00c853; font-weight: 800; margin-top: 2px; }
+  .bd-trayecto { font-size: 13px; color: var(--bx-text-2); }
+  .bd-precio { font-size: 22px; color: var(--bx-green); font-weight: 800; margin-top: 2px; }
   .bd-codigo {
-    font-size: 10.5px; color: #56698a; letter-spacing: 0.5px;
+    font-size: 11px; color: var(--bx-text-3); letter-spacing: 0.5px;
     margin-top: 6px; font-family: monospace;
   }
-  .bd-hint { font-size: 12px; color: #7e93b0; margin-top: 10px; line-height: 1.4; }
+  .bd-hint { font-size: 12px; color: var(--bx-text-3); margin-top: 10px; line-height: 1.4; }
 }
 
 .sheet-bar {
@@ -606,11 +653,11 @@
 
   .bus-badge {
     width: 40px; height: 40px;
-    border-radius: 13px;
+    border-radius: 12px;
     display: grid; place-items: center;
     flex-shrink: 0;
     box-shadow: 0 3px 12px rgba(0,0,0,0.3);
-    ion-icon { font-size: 19px; color: #fff; }
+    ion-icon { font-size: 20px; color: #fff; }
   }
 
   .sheet-info {
@@ -618,44 +665,44 @@
     display: flex;
     flex-direction: column;
     strong {
-      font-size: 17px; color: #fff; font-weight: 800; letter-spacing: -0.3px;
+      font-size: 18px; color: #fff; font-weight: 800; letter-spacing: -0.3px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     span {
-      font-size: 12.5px; color: #93a7c2; margin-top: 1px;
+      font-size: 13px; color: var(--bx-text-2); margin-top: 1px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
   }
 
   .estado-chip {
     flex-shrink: 0;
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.2px;
     padding: 5px 10px;
     border-radius: 999px;
-    color: #9fb2cc;
+    color: var(--bx-text-2);
     background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--bx-line);
 
     &.live {
-      color: #4dffa0;
+      color: var(--bx-green-bright);
       background: rgba(0, 224, 106, 0.14);
       border-color: rgba(0, 224, 106, 0.32);
     }
     // Mismos colores que el ícono del bus en el mapa, para que la ficha y el
     // marcador digan lo mismo de un vistazo.
     &.tarde {
-      color: #ffc65c;
+      color: var(--bx-warning);
       background: rgba(245, 166, 35, 0.16);
       border-color: rgba(245, 166, 35, 0.36);
     }
     &.parada {
-      color: #c3ccda;
+      color: var(--bx-text-2);
       background: rgba(154, 163, 178, 0.16);
       border-color: rgba(154, 163, 178, 0.34);
     }
   }
 
-  .sheet-close { font-size: 21px; color: #6f83a0; cursor: pointer; flex-shrink: 0; }
+  .sheet-close { font-size: 20px; color: var(--bx-text-3); cursor: pointer; flex-shrink: 0; }
 }
 
 .sheet-route {
@@ -667,9 +714,9 @@
   border-radius: 12px;
   background: rgba(255,255,255,0.05);
 
-  ion-icon { font-size: 15px; color: #6f83a0; flex-shrink: 0; }
+  ion-icon { font-size: 15px; color: var(--bx-text-3); flex-shrink: 0; }
   span {
-    font-size: 13px; color: #dbe6f5; font-weight: 500;
+    font-size: 13px; color: var(--bx-text); font-weight: 500;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 }
@@ -689,9 +736,9 @@
   border-radius: 12px;
   background: rgba(255,255,255,0.05);
 
-  .sg-label { font-size: 10px; color: #7e93b0; font-weight: 600; letter-spacing: 0.3px; }
+  .sg-label { font-size: 11px; color: var(--bx-text-3); font-weight: 600; letter-spacing: 0.3px; }
   strong { font-size: 15px; color: #fff; font-weight: 700; letter-spacing: -0.2px; }
-  .sg-eta { color: #4dffa0; }
+  .sg-eta { color: var(--bx-green-bright); }
 }
 
 .sheet-updated {
@@ -699,21 +746,21 @@
   align-items: center;
   gap: 7px;
   margin-top: 11px;
-  font-size: 11.5px;
-  color: #8298b6;
+  font-size: 12px;
+  color: var(--bx-text-3);
   font-weight: 500;
 
   .pulse-dot {
     width: 6px; height: 6px;
     border-radius: 50%;
-    background: #00e06a;
+    background: var(--bx-green-bright);
     animation: live-pulse 1.8s ease-out infinite;
-    &.stale { background: #ffa726; animation: none; }
+    &.stale { background: var(--bx-warning); animation: none; }
   }
 
   .sheet-share {
     margin-left: auto;
-    font-size: 17px; color: #4dffa0; cursor: pointer;
+    font-size: 18px; color: var(--bx-green-bright); cursor: pointer;
   }
 }
 
@@ -725,19 +772,20 @@
 .follow-btn {
   width: 100%;
   margin-top: 13px;
-  padding: 13px;
+  height: 52px;
+  padding: 0 16px;
   border: none;
-  border-radius: 15px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 14px; font-weight: 700; letter-spacing: -0.2px;
-  color: #04140b;
-  background: linear-gradient(145deg, #00e06a, #00b552);
-  box-shadow: 0 5px 18px rgba(0, 200, 83, 0.36);
+  font-family: inherit;
+  font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--bx-ink);
+  background: var(--bx-green);
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.2s ease;
+  transition: transform 0.16s ease, background 0.2s ease;
 
   ion-icon { font-size: 18px; }
 
@@ -764,16 +812,26 @@
   align-items: center;
   justify-content: space-around;
   padding: 0 6px;
-  border-radius: 34px;
-  background: rgba(11, 26, 46, 0.62);
-  backdrop-filter: blur(26px) saturate(180%);
-  -webkit-backdrop-filter: blur(26px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 28px;
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
   transition:
     transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
     opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
     filter 0.3s ease;
+
+  // Con una ruta elegida, en teléfono la hoja de ruta ocupa su lugar: es un
+  // modo enfocado y se sale con la flecha de arriba.
+  @media (max-width: 899px) {
+    &.route-mode {
+      transform: translateY(calc(100% + env(safe-area-inset-bottom, 0px) + 26px));
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
 
   // Fuera de pantalla: 70px de alto + 22px de separación + safe area.
   &.hidden {
@@ -798,9 +856,9 @@
 
   &:active { transform: scale(0.92); }
 
-  ion-icon { font-size: 21px; color: rgba(226,236,248,0.62); transition: color 0.2s; }
+  ion-icon { font-size: 20px; color: rgba(226,236,248,0.62); transition: color 0.2s; }
   span {
-    font-size: 9.5px; font-weight: 600; letter-spacing: 0.2px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.2px;
     color: rgba(226,236,248,0.62); transition: color 0.2s;
   }
 
@@ -823,19 +881,20 @@
 
   &:active { transform: translateY(-14px) scale(0.92); }
 
-  span { font-size: 9.5px; font-weight: 700; color: #fff; letter-spacing: 0.2px; }
+  span { font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.2px; }
 }
 
 .dc-orb {
   width: 48px; height: 48px;
   border-radius: 50%;
   display: grid; place-items: center;
-  background: linear-gradient(145deg, #00e06a, #00a844);
-  border: 2.5px solid rgba(11, 26, 46, 0.85);
-  box-shadow: 0 6px 20px rgba(0, 200, 83, 0.5), 0 2px 8px rgba(0,0,0,0.35);
+  background: var(--bx-green);
+  border: 3px solid var(--bx-bg-1);
+  box-shadow: 0 6px 18px rgba(0, 200, 83, 0.38), 0 2px 8px rgba(0,0,0,0.35);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
 
-  ion-icon { font-size: 23px; color: #fff; }
+  // Tinta oscura sobre el verde: el blanco no llegaba al contraste mínimo.
+  ion-icon { font-size: 24px; color: var(--bx-ink); }
 }
 
 // Con el panel de rutas abierto el orbe crece y se enciende, para que se lea
@@ -961,7 +1020,7 @@
   .stop-dot {
     width: 10px; height: 10px;
     background: #fff;
-    border: 2.5px solid #00c853;
+    border: 2.5px solid var(--bx-green);
     border-radius: 50%;
     box-shadow: 0 1px 4px rgba(0,0,0,0.15);
   }
@@ -969,7 +1028,7 @@
   .stop-terminal {
     width: 16px; height: 16px;
     background: #fff;
-    border: 2.5px solid #00c853;
+    border: 2.5px solid var(--bx-green);
     border-radius: 50%;
     display: grid; place-items: center;
     box-shadow: 0 1px 6px rgba(0,0,0,0.18);
@@ -998,14 +1057,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: rgba(11, 26, 46, 0.88);
+    background: var(--bx-glass-strong);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #dbe6f5;
-    border-radius: 7px;
+    border: 1px solid var(--bx-line);
+    color: var(--bx-text);
+    border-radius: 6px;
     padding: 2px 7px;
-    font-size: 9.5px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: -0.1px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.35);
@@ -1042,12 +1101,12 @@
   .tb-profile,
   .mc-btn,
   .dock {
-    background: rgba(9, 20, 36, 0.88);
-    border-color: rgba(255,255,255,0.16);
+    background: var(--bx-glass-strong);
+    border-color: var(--bx-line-strong);
     box-shadow: 0 6px 24px rgba(0,0,0,0.34);
   }
 
-  .tb-search span { color: #b3c3d8; }
+  .tb-search span { color: var(--bx-text-2); }
   .dock-item {
     ion-icon, span { color: rgba(232,240,250,0.72); }
     &.active ion-icon, &.active span { color: #fff; }
@@ -1068,7 +1127,7 @@
   width: 22px; height: 22px;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  background: linear-gradient(145deg, #4da3ff, #2f6fe0);
+  background: linear-gradient(145deg, var(--bx-blue-bright), #2f6fe0);
   border: 2.5px solid #fff;
   box-shadow: 0 3px 10px rgba(0,0,0,0.45);
 }
@@ -1099,33 +1158,33 @@
   z-index: 1000;
   width: 34px; height: 54px;
   padding: 0;
-  border: 1px solid rgba(255,255,255,0.14);
+  border: 1px solid var(--bx-line-strong);
   border-left: none;
   border-radius: 0 16px 16px 0;
-  background: rgba(10, 22, 40, 0.72);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
   box-shadow: 4px 0 18px rgba(0,0,0,0.34);
   display: grid; place-items: center;
   cursor: pointer;
   transition: transform 0.16s ease, background 0.2s ease;
 
   &:active { transform: translateY(-50%) scale(0.94); }
-  ion-icon { font-size: 18px; color: #4dffa0; }
+  ion-icon { font-size: 18px; color: var(--bx-green-bright); }
 }
 
 // Cabecera del panel.
-.ds-close { font-size: 20px; color: #8fa3bd; cursor: pointer; }
+.ds-close { font-size: 20px; color: var(--bx-text-2); cursor: pointer; }
 
 .ds-hint-line {
-  font-size: 11px; color: #7e93b0; line-height: 1.4;
+  font-size: 11px; color: var(--bx-text-3); line-height: 1.4;
   padding: 0 2px 2px;
 }
 
 .ds-clear-row {
   display: flex; justify-content: flex-end;
   span {
-    font-size: 11px; font-weight: 700; color: #ff6659; cursor: pointer;
+    font-size: 11px; font-weight: 700; color: var(--bx-danger); cursor: pointer;
     &:hover { text-decoration: underline; }
   }
 }
@@ -1137,7 +1196,7 @@
 }
 
 .empresa-dist {
-  font-size: 11px; font-weight: 700; color: #cfdcec;
+  font-size: 11px; font-weight: 700; color: var(--bx-text-2);
 }
 
 // En teléfono el panel no puede llevar un ancho fijo: 330px sobre una pantalla
@@ -1166,5 +1225,5 @@
   transition: background 0.16s ease;
 
   &:active { background: rgba(255,255,255,0.09); }
-  ion-icon { font-size: 20px; color: #8fa3bd; pointer-events: none; }
+  ion-icon { font-size: 20px; color: var(--bx-text-2); pointer-events: none; }
 }

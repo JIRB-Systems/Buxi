@@ -70,7 +70,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   private historicalByBus = new Map<string, { lat: number; lng: number; t: number; placa: string; color: string }[]>();
   private historicalMarkers = new Map<string, maplibregl.Marker>();
   private playbackInterval: any = null;
-  sidebarOpen = true;
+  // En teléfono el menú es un cajón encima del contenido: abierto de entrada
+  // tapaba la pantalla y había que cerrarlo antes de ver nada.
+  sidebarOpen = window.innerWidth > 768;
 
   topNavItems = [
     { id: 'overview', icon: 'grid-outline', label: 'Dashboard' },
@@ -240,6 +242,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   switchTab(tab: string) {
+    if (window.innerWidth <= 768) this.sidebarOpen = false;
     this.activeTab = tab;
     if (tab === 'mapa') {
       setTimeout(() => this.initAdminMap('admin-map'), 150);

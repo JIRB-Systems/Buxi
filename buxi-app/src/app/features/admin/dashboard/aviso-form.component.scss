@@ -12,7 +12,7 @@
 
 .form-content {
   --background: var(--dash-bg);
-  --color: #e6edf5;
+  --color: var(--bx-text);
   --padding-start: 16px;
   --padding-end: 16px;
   --padding-top: 16px;
@@ -48,7 +48,7 @@
   flex: 1;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   background: var(--dash-surface);
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid var(--bx-line-strong);
   border-radius: 10px;
   padding: 12px 6px;
   color: var(--dash-text-muted);
@@ -61,7 +61,7 @@
 
   &:hover { border-color: rgba(255,255,255,0.24); }
 
-  &.info.active { color: #2196f3; border-color: #2196f3; background: rgba(33,150,243,0.1); }
-  &.advertencia.active { color: #ff9800; border-color: #ff9800; background: rgba(255,152,0,0.1); }
-  &.urgente.active { color: #f44336; border-color: #f44336; background: rgba(244,67,54,0.1); }
+  &.info.active { color: var(--bx-blue); border-color: var(--bx-blue); background: rgba(33,150,243,0.1); }
+  &.advertencia.active { color: var(--bx-warning); border-color: var(--bx-warning); background: rgba(255,152,0,0.1); }
+  &.urgente.active { color: var(--bx-danger); border-color: var(--bx-danger); background: rgba(244,67,54,0.1); }
 }

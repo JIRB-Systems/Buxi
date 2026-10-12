@@ -21,7 +21,7 @@ const SPONSOR_MAX_MS = 6000;
 })
 export class SplashPage implements AfterViewInit, OnDestroy {
   @ViewChild('shaft') shaftRef!: ElementRef<SVGPathElement>;
-  @ViewChild('head') headRef!: ElementRef<SVGPolygonElement>;
+  @ViewChild('head') headRef!: ElementRef<SVGGElement>;
   @ViewChild('dot') dotRef!: ElementRef<SVGCircleElement>;
   @ViewChild('halo') haloRef!: ElementRef<HTMLDivElement>;
   @ViewChild('tagline') taglineRef!: ElementRef<HTMLDivElement>;
@@ -110,9 +110,9 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     clearTimeout(this.autoNavTimeout);
   }
 
-  // El punto de luz recorre la linea trazandola (como un bus dejando su ruta
-  // en el mapa), se funde en la punta de flecha, y el wordmark sube letra
-  // por letra. Timeline unica con rAF en vez de keyframes CSS porque el punto
+  // El punto de luz recorre el pin trazandolo (como un bus dejando su ruta
+  // en el mapa), al cerrar se encienden el centro y las ondas, y el wordmark
+  // sube letra por letra. Timeline unica con rAF en vez de keyframes CSS porque el punto
   // necesita seguir la geometria real del path (getPointAtLength).
   private playIntro() {
     const shaft = this.shaftRef.nativeElement;
@@ -153,7 +153,8 @@ export class SplashPage implements AfterViewInit, OnDestroy {
       }
 
       const hp = easeOutBack(clamp01((t - HEAD_START) / HEAD_DUR));
-      head.style.transform = `scaleX(${Math.max(0, hp)})`;
+      head.style.transform = `scale(${Math.max(0, hp)})`;
+      head.style.opacity = String(clamp01((t - HEAD_START) / 160));
 
       halo.style.opacity = String(0.42 * easeOutCubic(clamp01((t - SHAFT_START) / 900)));
 

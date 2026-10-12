@@ -33,7 +33,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   profile: UserProfile | null = null;
   activeTab = 'inicio';
   loading = true;
-  sidebarOpen = true;
+  // En teléfono el menú es un cajón encima del contenido: abierto de entrada
+  // tapaba la pantalla y había que cerrarlo antes de ver nada.
+  sidebarOpen = window.innerWidth > 768;
   empresaNombre = '';
 
   menuItems = [
@@ -525,6 +527,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   switchTab(tab: string) {
+    if (window.innerWidth <= 768) this.sidebarOpen = false;
     if (this.editingRuta && tab !== 'mapa') {
       this.exitEditMode();
     }

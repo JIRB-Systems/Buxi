@@ -3,14 +3,20 @@
     <div class="halo" #halo></div>
 
     <div class="lockup">
-      <svg class="arrow" viewBox="0 0 400 140" aria-hidden="true">
-        <path class="shaft" #shaft d="M40 70 L300 70" />
-        <polygon class="head" #head points="296,36 382,70 296,104" />
-        <circle class="dot" #dot cx="40" cy="70" r="11" />
+      <!-- El pin del logo, el mismo de toda la app. Un punto de luz lo traza
+           (como un bus dejando su ruta) y al cerrar se encienden las ondas. -->
+      <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+        <path class="shaft" #shaft d="M19 34C11 27 6.5 22 6.5 16.5a11 11 0 0 1 22 0c0 2.6-1 5.2-2.7 7.8" />
+        <g class="head" #head>
+          <circle class="eye" cx="17.5" cy="16" r="3.4" />
+          <path class="wave" d="M27.5 14.6a5.2 5.2 0 0 0 0-7.2" />
+          <path class="wave" d="M31.8 17.2a9.8 9.8 0 0 0 0-12.4" />
+        </g>
+        <circle class="dot" #dot cx="19" cy="34" r="1.5" />
       </svg>
 
       <div class="wordmark" aria-label="BUXI">
-        <span #letter>B</span><span #letter>U</span><span #letter>X</span><span #letter>I</span>
+        <span #letter>B</span><span #letter>U</span><span #letter>X</span><span #letter class="i">I</span>
       </div>
 
       <div class="tagline" #tagline>Tus buses en tiempo real</div>

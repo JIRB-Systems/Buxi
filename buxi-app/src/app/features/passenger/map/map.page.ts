@@ -627,6 +627,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       if (paradas.length >= 2) {
         this.activeRuta = ruta;
         this.activeParadas = paradas;
+        this.updateETA();
         await this.drawRoute(paradas, ruta.color, ruta.geometria);
         this.loadHorariosFor(ruta.id);
       }
@@ -1612,6 +1613,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
       this.activeRuta = ruta;
       this.activeParadas = paradas;
+      this.updateETA();
       await this.drawRoute(paradas, ruta.color, ruta.geometria);
       this.loadHorariosFor(rutaId);
 
@@ -1722,6 +1724,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.followBusId = null;
     this.activeRuta = null;
     this.activeParadas = [];
+    this.updateETA();
     this.activeSalidas = [];
     this.selectedEmpresaId = null;
 
@@ -1942,6 +1945,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const previo = this.busLocationsMap.get(location.bus_id);
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
+    if (this.activeRuta) this.updateETA();
     if (location.bus?.empresa_id) this.busEmpresa.set(location.bus_id, location.bus.empresa_id);
     this.busIcono.set(
       location.bus_id,
@@ -2166,6 +2170,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     });
   }
 
+  // Se llama al elegir o soltar una ruta, al moverse el usuario y al llegar
+  // una posición de bus. Antes solo corría con una lectura nueva del GPS: quien
+  // esperaba quieto en la parada elegía una ruta y no veía el tiempo de llegada
+  // hasta moverse.
   private updateETA() {
     if (this.activeParadas.length > 0 && this.userLat !== 0) {
       this.nearestStop = this.featuresService.findNearestStop(this.userLat, this.userLng, this.activeParadas);
@@ -2372,6 +2380,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         if (ruta && paradas.length >= 2) {
           this.activeRuta = ruta;
           this.activeParadas = paradas;
+          this.updateETA();
           await this.drawRouteLayer(paradas, ruta.color, ruta.geometria);
         }
       } catch {}

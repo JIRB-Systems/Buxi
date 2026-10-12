@@ -31,7 +31,7 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["node_modules/maplibre-gl/dist/maplibre-gl.css", "src/global.scss", "src/theme/variables.scss"],
+            "styles": ["node_modules/maplibre-gl/dist/maplibre-gl.css", "src/theme/variables.scss", "src/global.scss", "src/theme/auth.scss"],
             "scripts": [],
             "allowedCommonJsDependencies": ["maplibre-gl"]
           },
@@ -145,7 +145,7 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["node_modules/maplibre-gl/dist/maplibre-gl.css", "src/global.scss", "src/theme/variables.scss"],
+            "styles": ["node_modules/maplibre-gl/dist/maplibre-gl.css", "src/theme/variables.scss", "src/global.scss", "src/theme/auth.scss"],
             "scripts": []
           },
           "configurations": {

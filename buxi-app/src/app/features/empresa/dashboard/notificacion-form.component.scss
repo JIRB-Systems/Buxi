@@ -12,7 +12,7 @@
 
 .form-content {
   --background: var(--dash-bg);
-  --color: #e6edf5;
+  --color: var(--bx-text);
   --padding-start: 16px;
   --padding-end: 16px;
   --padding-top: 16px;
@@ -50,7 +50,7 @@
     text-transform: none;
     letter-spacing: 0;
     font-variant-numeric: tabular-nums;
-    &.pasado { color: #f44336; font-weight: 700; }
+    &.pasado { color: var(--bx-danger); font-weight: 700; }
   }
 }
 
@@ -63,7 +63,7 @@
   padding: 12px 14px;
   margin-bottom: 20px;
 
-  ion-icon { font-size: 20px; color: #00c853; flex-shrink: 0; margin-top: 1px; }
+  ion-icon { font-size: 20px; color: var(--bx-green); flex-shrink: 0; margin-top: 1px; }
 
   .al-txt { display: flex; flex-direction: column; gap: 3px; }
   strong { font-size: 13px; color: #fff; }
@@ -74,7 +74,7 @@
   &.vacio {
     background: rgba(255, 152, 0, 0.1);
     border-color: rgba(255, 152, 0, 0.3);
-    ion-icon { color: #ff9800; }
+    ion-icon { color: var(--bx-warning); }
   }
 }
 
@@ -89,14 +89,14 @@
   display: flex; align-items: center; justify-content: center; gap: 7px;
   padding: 11px 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--bx-line-strong);
   background: var(--dash-surface);
   color: var(--dash-text-muted);
   font-size: 13px; font-weight: 600;
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 
-  ion-icon { font-size: 17px; }
+  ion-icon { font-size: 18px; }
 
   &.on {
     border-color: var(--chip);
@@ -109,12 +109,12 @@
 .bus-fijo {
   display: flex; align-items: center; gap: 8px;
   background: var(--dash-surface);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--bx-line-strong);
   border-radius: 10px;
   padding: 11px 12px;
   font-size: 14px; color: #fff;
 
-  ion-icon { font-size: 17px; color: var(--dash-text-muted); }
+  ion-icon { font-size: 18px; color: var(--dash-text-muted); }
 }
 
 // ---- Selector de ruta ----
@@ -124,7 +124,7 @@
 .ruta-select {
   width: 100%;
   background: var(--dash-surface);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--bx-line-strong);
   border-radius: 10px;
   padding: 12px;
   color: #fff;

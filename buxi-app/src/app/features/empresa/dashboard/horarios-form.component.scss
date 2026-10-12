@@ -18,7 +18,7 @@
 
 .form-content {
   --background: var(--dash-bg);
-  --color: #e6edf5;
+  --color: var(--bx-text);
   --padding-start: 16px;
   --padding-end: 16px;
   --padding-top: 16px;
@@ -26,14 +26,14 @@
 }
 
 .hint-top {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--dash-text-muted);
   margin-bottom: 16px;
 }
 
 .dia-card {
   background: var(--dash-surface);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--bx-line);
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 14px;
@@ -56,7 +56,7 @@
   background: rgba(0, 200, 83, 0.12);
   border: 1px solid rgba(0, 200, 83, 0.3);
   color: #d7f7e3;
-  font-size: 12.5px; font-weight: 700;
+  font-size: 13px; font-weight: 700;
   padding: 6px 8px 6px 12px;
   border-radius: 20px;
 
@@ -83,7 +83,7 @@
 .time-input {
   flex: 1;
   background: var(--dash-bg);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--bx-line-strong);
   border-radius: 10px;
   padding: 10px 12px;
   color: #fff;

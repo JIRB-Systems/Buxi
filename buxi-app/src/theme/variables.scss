@@ -1,68 +1,211 @@
+// ============================================================================
+// Sistema de diseño de Buxi
+//
+// Todo color, tamaño de letra, radio y sombra de la app sale de acá. Antes
+// cada pantalla escribía sus propios valores a mano: había 126 colores, 33
+// tamaños de letra y 23 radios distintos, y por eso dos pantallas hechas con
+// el mismo cuidado no terminaban de parecer la misma app.
+//
+// La regla de color, que es la que más se nota:
+//   · VERDE  = en vivo y avanzar. La acción principal de cada pantalla y todo
+//              lo que está transmitiendo ahora mismo. Nada más.
+//   · AZUL   = la marca (el pin del logo) y lo informativo: enlaces, avisos.
+//   · El resto es neutro, para que el color de cada ruta —que es dato, no
+//     decoración— sea lo que resalte sobre el mapa.
+// ============================================================================
+
 :root {
+  // ---------- Marca ----------
+  --bx-green: #00c853;
+  --bx-green-bright: #00e06a; // el mismo verde sobre fondo oscuro, donde #00c853 se apaga
+  --bx-green-deep: #00a844;
+  --bx-green-soft: rgba(0, 200, 83, 0.14);
+  --bx-blue: #2f8bff;
+  --bx-blue-bright: #6cb0ff;  // enlaces sobre fondo oscuro: 7:1 de contraste
+  --bx-blue-soft: rgba(47, 139, 255, 0.14);
+  // Texto sobre verde. Blanco sobre #00c853 da 2.2:1 y no pasa accesibilidad;
+  // esta tinta da 9:1 y es además lo que hace que el botón se lea "sólido".
+  --bx-ink: #04140b;
+
+  // ---------- Superficies, de la más profunda a la más alta ----------
+  --bx-bg-0: #070f1c; // detrás de todo
+  --bx-bg-1: #0a1628; // fondo de pantalla
+  --bx-bg-2: #0f1c2e; // tarjetas, barra lateral, hojas
+  --bx-bg-3: #162238; // campos, filas al pasar el cursor
+  --bx-bg-4: #1e2d47; // presionado, seleccionado
+  --bx-line: rgba(255, 255, 255, 0.08);
+  --bx-line-strong: rgba(255, 255, 255, 0.14);
+
+  // Vidrio: solo para lo que flota sobre el mapa. El desenfoque es de lo más
+  // caro que puede pintar un teléfono de gama baja, así que va contenido y
+  // con un fondo lo bastante opaco para leerse igual donde no hay soporte.
+  --bx-glass: rgba(11, 24, 42, 0.86);
+  --bx-glass-strong: rgba(11, 24, 42, 0.94);
+  --bx-glass-blur: blur(18px) saturate(160%);
+
+  // ---------- Texto ----------
+  --bx-text: #f2f5f9;
+  --bx-text-2: #a9b8cc;   // secundario, 8:1
+  --bx-text-3: #8292aa;   // terciario y metadatos, 5:1 (el mínimo legible)
+  --bx-text-off: #5d6c84; // deshabilitado; no usar para texto que haya que leer
+
+  // ---------- Estados ----------
+  --bx-danger: #ff5a52;
+  --bx-danger-soft: rgba(255, 90, 82, 0.14);
+  --bx-warning: #ffb020;
+  --bx-warning-soft: rgba(255, 176, 32, 0.14);
+  --bx-info: var(--bx-blue-bright);
+  --bx-info-soft: var(--bx-blue-soft);
+
+  // ---------- Tipografía ----------
+  --bx-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  // Escala. Nada por debajo de 11px: es el piso de lo que se lee en un bus en
+  // movimiento, que es donde se usa esta app.
+  --bx-fs-micro: 11px;
+  --bx-fs-caption: 12px;
+  --bx-fs-small: 13px;
+  --bx-fs-body: 14px;
+  --bx-fs-body-lg: 16px;
+  --bx-fs-title: 18px;
+  --bx-fs-h3: 20px;
+  --bx-fs-h2: 24px;
+  --bx-fs-h1: 32px;
+  --bx-fs-display: 40px;
+
+  // ---------- Forma ----------
+  --bx-r-xs: 6px;
+  --bx-r-sm: 10px;
+  --bx-r-md: 14px;
+  --bx-r-lg: 20px;
+  --bx-r-xl: 28px;
+  --bx-r-pill: 999px;
+
+  // ---------- Elevación ----------
+  --bx-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --bx-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.36);
+  --bx-shadow-3: 0 20px 56px rgba(0, 0, 0, 0.52);
+  --bx-focus: 0 0 0 3px rgba(0, 200, 83, 0.28);
+
+  // ---------- Movimiento ----------
+  --bx-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --bx-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --bx-t-fast: 120ms;
+  --bx-t: 200ms;
+  --bx-t-slow: 320ms;
+
+  // Alto mínimo de cualquier cosa que se toque con el dedo.
+  --bx-tap: 48px;
+
+  // ========================================================================
+  // Ionic. Se alimenta de los tokens de arriba para que alertas, hojas de
+  // acción, cargadores y selectores —que Ionic pinta por su cuenta— salgan en
+  // la misma paleta que el resto y no en blanco de sistema.
+  // ========================================================================
+  --ion-font-family: var(--bx-font);
+
+  --ion-background-color: #0a1628;
+  --ion-background-color-rgb: 10, 22, 40;
+  --ion-text-color: #f2f5f9;
+  --ion-text-color-rgb: 242, 245, 249;
+  --ion-toolbar-background: #0a1628;
+  --ion-item-background: #0f1c2e;
+  --ion-card-background: #0f1c2e;
+  --ion-overlay-background-color: #0f1c2e;
+  --ion-border-color: rgba(255, 255, 255, 0.08);
+  --ion-placeholder-color: #8292aa;
+  --ion-backdrop-color: #02060d;
+  --ion-backdrop-opacity: 0.6;
+
+  // Escalones de gris que Ionic usa para bordes, textos secundarios y fondos
+  // de sus componentes: van del fondo hacia el texto.
+  --ion-color-step-50: #0f1c2e;
+  --ion-color-step-100: #132137;
+  --ion-color-step-150: #162238;
+  --ion-color-step-200: #1e2d47;
+  --ion-color-step-250: #263654;
+  --ion-color-step-300: #2f405f;
+  --ion-color-step-350: #3a4b6b;
+  --ion-color-step-400: #485a7a;
+  --ion-color-step-450: #56698a;
+  --ion-color-step-500: #66799a;
+  --ion-color-step-550: #7689a8;
+  --ion-color-step-600: #8292aa;
+  --ion-color-step-650: #94a4bb;
+  --ion-color-step-700: #a9b8cc;
+  --ion-color-step-750: #bcc9d9;
+  --ion-color-step-800: #cdd7e4;
+  --ion-color-step-850: #dbe3ed;
+  --ion-color-step-900: #e6ecf3;
+  --ion-color-step-950: #f2f5f9;
+
   --ion-color-primary: #00c853;
   --ion-color-primary-rgb: 0, 200, 83;
-  --ion-color-primary-contrast: #ffffff;
-  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-contrast: #04140b;
+  --ion-color-primary-contrast-rgb: 4, 20, 11;
   --ion-color-primary-shade: #00a844;
   --ion-color-primary-tint: #1ace64;
 
-  --ion-color-secondary: #0d1b2a;
-  --ion-color-secondary-rgb: 13, 27, 42;
-  --ion-color-secondary-contrast: #ffffff;
-  --ion-color-secondary-contrast-rgb: 255, 255, 255;
-  --ion-color-secondary-shade: #0b1825;
-  --ion-color-secondary-tint: #25323f;
+  --ion-color-secondary: #2f8bff;
+  --ion-color-secondary-rgb: 47, 139, 255;
+  --ion-color-secondary-contrast: #04101f;
+  --ion-color-secondary-contrast-rgb: 4, 16, 31;
+  --ion-color-secondary-shade: #297ae0;
+  --ion-color-secondary-tint: #4497ff;
 
-  --ion-color-tertiary: #1b2e45;
-  --ion-color-tertiary-rgb: 27, 46, 69;
+  --ion-color-tertiary: #1e2d47;
+  --ion-color-tertiary-rgb: 30, 45, 71;
   --ion-color-tertiary-contrast: #ffffff;
   --ion-color-tertiary-contrast-rgb: 255, 255, 255;
-  --ion-color-tertiary-shade: #18283d;
-  --ion-color-tertiary-tint: #324358;
+  --ion-color-tertiary-shade: #1a283e;
+  --ion-color-tertiary-tint: #354259;
 
   --ion-color-success: #00c853;
   --ion-color-success-rgb: 0, 200, 83;
-  --ion-color-success-contrast: #ffffff;
-  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-contrast: #04140b;
+  --ion-color-success-contrast-rgb: 4, 20, 11;
   --ion-color-success-shade: #00a844;
   --ion-color-success-tint: #1ace64;
 
-  --ion-color-warning: #ffc107;
-  --ion-color-warning-rgb: 255, 193, 7;
-  --ion-color-warning-contrast: #000000;
-  --ion-color-warning-contrast-rgb: 0, 0, 0;
-  --ion-color-warning-shade: #e0aa06;
-  --ion-color-warning-tint: #ffc720;
+  --ion-color-warning: #ffb020;
+  --ion-color-warning-rgb: 255, 176, 32;
+  --ion-color-warning-contrast: #1f1400;
+  --ion-color-warning-contrast-rgb: 31, 20, 0;
+  --ion-color-warning-shade: #e09b1c;
+  --ion-color-warning-tint: #ffb836;
 
-  --ion-color-danger: #f44336;
-  --ion-color-danger-rgb: 244, 67, 54;
-  --ion-color-danger-contrast: #ffffff;
-  --ion-color-danger-contrast-rgb: 255, 255, 255;
-  --ion-color-danger-shade: #d32f2f;
-  --ion-color-danger-tint: #f65b50;
+  --ion-color-danger: #ff5a52;
+  --ion-color-danger-rgb: 255, 90, 82;
+  --ion-color-danger-contrast: #240504;
+  --ion-color-danger-contrast-rgb: 36, 5, 4;
+  --ion-color-danger-shade: #e04f48;
+  --ion-color-danger-tint: #ff6b63;
 
-  --ion-color-medium: #6b7a8d;
-  --ion-color-medium-rgb: 107, 122, 141;
-  --ion-color-medium-contrast: #ffffff;
-  --ion-color-medium-contrast-rgb: 255, 255, 255;
-  --ion-color-medium-shade: #5e6b7c;
-  --ion-color-medium-tint: #7a8798;
+  --ion-color-medium: #8292aa;
+  --ion-color-medium-rgb: 130, 146, 170;
+  --ion-color-medium-contrast: #04101f;
+  --ion-color-medium-contrast-rgb: 4, 16, 31;
+  --ion-color-medium-shade: #728096;
+  --ion-color-medium-tint: #8f9db3;
 
-  --ion-color-light: #f5f7fa;
-  --ion-color-light-rgb: 245, 247, 250;
-  --ion-color-light-contrast: #0d1b2a;
-  --ion-color-light-contrast-rgb: 13, 27, 42;
-  --ion-color-light-shade: #d8dadc;
-  --ion-color-light-tint: #f6f8fb;
+  --ion-color-light: #f2f5f9;
+  --ion-color-light-rgb: 242, 245, 249;
+  --ion-color-light-contrast: #0a1628;
+  --ion-color-light-contrast-rgb: 10, 22, 40;
+  --ion-color-light-shade: #d5d8db;
+  --ion-color-light-tint: #f3f6fa;
 
-  --ion-background-color: #f5f7fa;
-  --ion-text-color: #0d1b2a;
-  --ion-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ion-color-dark: #0a1628;
+  --ion-color-dark-rgb: 10, 22, 40;
+  --ion-color-dark-contrast: #f2f5f9;
+  --ion-color-dark-contrast-rgb: 242, 245, 249;
+  --ion-color-dark-shade: #091323;
+  --ion-color-dark-tint: #232d3e;
 
-  /* Paleta oscura compartida (dashboards de empresa/JIRB, splash) */
-  --dash-bg: #0a1628;
-  --dash-bg-elevated: #0e1e32;
-  --dash-bg-main: #0f1c2e;
-  --dash-surface: #162238;
-  --dash-text-muted: #7d93b2;
+  // Nombres anteriores de la paleta de los paneles. Siguen existiendo para no
+  // tener que tocar cada hoja que los usa; ahora apuntan al sistema.
+  --dash-bg: var(--bx-bg-1);
+  --dash-bg-elevated: var(--bx-bg-2);
+  --dash-bg-main: var(--bx-bg-2);
+  --dash-surface: var(--bx-bg-3);
+  --dash-text-muted: var(--bx-text-3);
 }

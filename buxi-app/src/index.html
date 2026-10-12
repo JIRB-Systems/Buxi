@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
   <meta charset="utf-8" />
@@ -7,12 +7,16 @@
 
   <base href="/" />
 
-  <meta name="color-scheme" content="light dark" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0a1628" />
   <meta name="viewport" content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="msapplication-tap-highlight" content="no" />
 
   <link rel="icon" type="image/png" href="assets/icon/favicon.png" />
+  <!-- La fuente se pide junto con el HTML: sin esto el texto pinta primero en
+       la fuente del sistema y salta al llegar Manrope. -->
+  <link rel="preload" href="assets/fonts/manrope-latin-var.woff2" as="font" type="font/woff2" crossorigin />
 
   <!-- add to homescreen for ios -->
   <meta name="mobile-web-app-capable" content="yes" />

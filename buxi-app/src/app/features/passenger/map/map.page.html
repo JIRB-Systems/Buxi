@@ -106,6 +106,10 @@
             <span class="ds-salida-chip" *ngFor="let h of todaySalidas" [class.next]="h === nextSalida">{{ h.hora.slice(0,5) }}</span>
           </div>
         </div>
+        <button class="ds-buy" *ngIf="activeRuta.precio" [disabled]="comprandoBoleto" (click)="comprarBoleto()">
+          <ion-icon name="qr-code-outline" aria-hidden="true"></ion-icon>
+          {{ comprandoBoleto ? 'Generando…' : 'Comprar boleto' }}
+        </button>
       </div>
 
       <div class="ds-card" *ngIf="nearestStop">
@@ -185,19 +189,19 @@
     </div>
 
     <div class="route-header" *ngIf="activeRuta">
-      <div class="route-back" (click)="clearRoute()">
-        <ion-icon name="chevron-back"></ion-icon>
-      </div>
+      <button type="button" class="route-back" (click)="clearRoute()" aria-label="Volver al mapa">
+        <ion-icon name="chevron-back" aria-hidden="true"></ion-icon>
+      </button>
+      <div class="route-color-dot" [style.background]="activeRuta.color"></div>
       <div class="route-header-info">
         <strong>{{ activeRuta.nombre }}</strong>
-        <span>{{ activeRuta.origen }} → {{ activeRuta.destino }}</span>
+        <span>{{ empresaNombre(activeRuta) || (activeRuta.origen + ' → ' + activeRuta.destino) }}</span>
       </div>
-      <div class="route-color-dot" [style.background]="activeRuta.color"></div>
     </div>
   </div>
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
-  <div class="map-controls" [class.lifted]="selectedBus">
+  <div class="map-controls" [class.lifted]="selectedBus" [class.lifted-route]="activeRuta && !selectedBus">
     <button class="mc-btn" (click)="resetNorth()" aria-label="Orientar al norte">
       <span class="mc-compass" #compassNeedle>
         <ion-icon name="navigate"></ion-icon>
@@ -231,42 +235,52 @@
     Seguí una empresa para ver sus buses
   </button>
 
-  <!-- Route info chip -->
-  <div class="route-chip" *ngIf="activeRuta">
-    <span class="live-dot" *ngIf="!rutaActivaSinSeguir"></span>
-    <ng-container *ngIf="!rutaActivaSinSeguir">
-      {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en esta ruta
-    </ng-container>
-    <ng-container *ngIf="rutaActivaSinSeguir">Seguí a la empresa para ver sus buses</ng-container>
-    <span class="chip-sep">·</span>
-    {{ activeParadas.length }} paradas
-  </div>
+  <!-- ====== HOJA DE RUTA (teléfono) ====== -->
+  <!-- Todo lo de la ruta elegida en un solo lugar, abajo, al alcance del
+       pulgar: cuánto falta, en qué parada, cuántos buses hay y el boleto.
+       Antes eran cuatro fichas sueltas arriba del mapa que se pisaban entre
+       sí. En escritorio esta misma información vive en el panel lateral. -->
+  <section class="route-sheet" *ngIf="activeRuta && !selectedBus" aria-label="Ruta seleccionada">
+    <div class="rs-main">
+      <div class="rs-eta" *ngIf="nearestStop && etaMinutes !== null">
+        <strong>{{ etaMinutes }}</strong>
+        <span>min</span>
+      </div>
+      <div class="rs-eta rs-eta--none" *ngIf="!(nearestStop && etaMinutes !== null)">
+        <ion-icon name="bus" aria-hidden="true"></ion-icon>
+      </div>
 
-  <!-- Precio + próxima salida -->
-  <div class="route-info-chip" *ngIf="activeRuta && (activeRuta.precio || nextSalida)">
-    <span *ngIf="activeRuta.precio">₡{{ activeRuta.precio | number:'1.0-0' }}</span>
-    <span class="chip-sep" *ngIf="activeRuta.precio && nextSalida">·</span>
-    <span *ngIf="nextSalida">Próxima salida: {{ nextSalida.hora.slice(0,5) }}</span>
-  </div>
-
-  <!-- Comprar boleto -->
-  <button class="buy-ticket-btn" *ngIf="activeRuta && activeRuta.precio" [disabled]="comprandoBoleto" (click)="comprarBoleto()">
-    <ion-icon name="qr-code-outline"></ion-icon>
-    {{ comprandoBoleto ? 'Generando…' : 'Comprar boleto' }}
-  </button>
-
-  <!-- ETA + nearest stop -->
-  <div class="eta-card" *ngIf="nearestStop && activeRuta">
-    <ion-icon name="location"></ion-icon>
-    <div class="eta-info">
-      <strong>{{ nearestStop.parada.nombre }}</strong>
-      <span>a {{ nearestStop.distanceKm < 1 ? (nearestStop.distanceKm * 1000 | number:'1.0-0') + ' m' : (nearestStop.distanceKm | number:'1.1-1') + ' km' }}</span>
+      <div class="rs-info" *ngIf="nearestStop">
+        <span class="rs-label">{{ etaMinutes !== null ? 'Próximo bus en tu parada' : 'Tu parada más cercana' }}</span>
+        <strong>{{ nearestStop.parada.nombre }}</strong>
+        <span class="rs-sub">
+          a {{ nearestStop.distanceKm < 1 ? (nearestStop.distanceKm * 1000 | number:'1.0-0') + ' m' : (nearestStop.distanceKm | number:'1.1-1') + ' km' }} de vos
+        </span>
+      </div>
+      <div class="rs-info" *ngIf="!nearestStop">
+        <span class="rs-label">Recorrido</span>
+        <strong>{{ activeRuta.origen }} → {{ activeRuta.destino }}</strong>
+        <span class="rs-sub">Activá tu ubicación para ver cuánto falta</span>
+      </div>
     </div>
-    <div class="eta-time" *ngIf="etaMinutes !== null">
-      <strong>~{{ etaMinutes }} min</strong>
-      <span>ETA</span>
+
+    <div class="rs-meta">
+      <span class="rs-pill live" *ngIf="!rutaActivaSinSeguir">
+        <i class="live-dot"></i>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
+      </span>
+      <span class="rs-pill warn" *ngIf="rutaActivaSinSeguir">
+        <ion-icon name="star-outline" aria-hidden="true"></ion-icon>Seguí a la empresa para ver sus buses
+      </span>
+      <span class="rs-pill">{{ activeParadas.length }} paradas</span>
+      <span class="rs-pill" *ngIf="nextSalida">Sale {{ nextSalida.hora.slice(0,5) }}</span>
     </div>
-  </div>
+
+    <button class="rs-buy" *ngIf="activeRuta.precio" [disabled]="comprandoBoleto" (click)="comprarBoleto()">
+      <ion-icon name="qr-code-outline" aria-hidden="true"></ion-icon>
+      <span>{{ comprandoBoleto ? 'Generando…' : 'Comprar boleto' }}</span>
+      <b>₡{{ activeRuta.precio | number:'1.0-0' }}</b>
+    </button>
+  </section>
 
   <!-- Loading -->
   <div class="loading-overlay" *ngIf="loading">
@@ -414,7 +428,7 @@
   </section>
 
   <!-- ====== DOCK FLOTANTE ====== -->
-  <nav class="dock" [class.hidden]="!navVisible || selectedBus">
+  <nav class="dock" [class.hidden]="!navVisible || selectedBus" [class.route-mode]="!!activeRuta">
     <div class="dock-item" [class.active]="!activePanel && !profilePanelOpen" (click)="showMap()">
       <ion-icon name="map"></ion-icon>
       <span>Mapa</span>

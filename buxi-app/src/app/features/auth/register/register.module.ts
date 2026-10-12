@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule } from '@angular/router';
+import { AuthShellComponent } from '../../../shared/auth-shell/auth-shell.component';
 import { RegisterPage } from './register.page';
 
 @NgModule({
@@ -12,6 +13,7 @@ import { RegisterPage } from './register.page';
     ReactiveFormsModule,
     FormsModule,
     IonicModule,
+    AuthShellComponent,
     RouterModule.forChild([{ path: '', component: RegisterPage }]),
   ],
 })

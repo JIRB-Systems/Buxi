@@ -1,0 +1,201 @@
+:host { display: block; }
+
+.shell {
+  // dvh y no %: dentro de ion-content un porcentaje no tiene contra qué
+  // medirse y el panel de marca se quedaba corto.
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--bx-bg-1);
+}
+
+// ---------- Columna del formulario ----------
+.main {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 24px calc(env(safe-area-inset-bottom, 0px) + 28px);
+
+  // Una sola luz arriba, fija. Sustituye a los halos que respiraban: un fondo
+  // que se mueve detrás de un formulario compite con lo que se está escribiendo.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 320px;
+    background: radial-gradient(80% 100% at 50% 0%, rgba(47, 139, 255, 0.13), rgba(47, 139, 255, 0) 70%);
+    pointer-events: none;
+  }
+}
+
+.col {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--bx-tap);
+  margin-bottom: 28px;
+}
+
+.back {
+  display: grid;
+  place-items: center;
+  width: var(--bx-tap);
+  height: var(--bx-tap);
+  margin-left: -14px;
+  border-radius: var(--bx-r-pill);
+  color: var(--bx-text);
+  font-size: 22px;
+  transition: background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: var(--bx-bg-3); }
+}
+
+// ---------- Panel de marca (solo escritorio) ----------
+.brand { display: none; }
+
+@media (min-width: 992px) {
+  .shell { grid-template-columns: minmax(0, 1.15fr) minmax(480px, 0.85fr); }
+
+  .main {
+    align-items: center;
+    padding: 48px;
+    &::before { display: none; }
+  }
+
+  // El logo ya está en el panel de marca; repetirlo sobre el formulario sobra.
+  .top .bx-lockup { display: none; }
+  .top { margin-bottom: 8px; min-height: 0; }
+  .top .back { margin-bottom: 12px; }
+
+  // Alto fijo y pegado arriba: el panel se queda quieto mientras un
+  // formulario largo (crear cuenta, solicitud) se desplaza a su lado.
+  .brand {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 48px 56px 64px;
+    overflow: hidden;
+    background:
+      radial-gradient(90% 70% at 15% 0%, rgba(47, 139, 255, 0.2), rgba(47, 139, 255, 0) 60%),
+      radial-gradient(70% 60% at 100% 100%, rgba(0, 200, 83, 0.13), rgba(0, 200, 83, 0) 65%),
+      var(--bx-bg-0);
+    border-right: 1px solid var(--bx-line);
+  }
+
+}
+
+// Ocupa el espacio que queda entre el logo y el titular. Como es un hijo más
+// de la columna, las líneas nunca pasan por detrás del texto.
+.routes {
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
+  overflow: visible;
+
+  .rt {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 5;
+    // Sin esto el trazo engorda o adelgaza con el tamaño de la pantalla.
+    vector-effect: non-scaling-stroke;
+  }
+
+  .rt-a { stroke: var(--bx-green); opacity: 0.32; }
+  .rt-b { stroke: var(--bx-blue); opacity: 0.32; }
+
+  // Un tramo encendido que avanza sobre la línea verde: la ruta "en vivo".
+  .rt-live {
+    stroke: var(--bx-green-bright);
+    // 2491 es el largo del trazo: el tramo encendido va pegado detrás del bus.
+    stroke-dasharray: 150 2341;
+    animation: route-draw 18s linear infinite;
+  }
+
+  .stop {
+    fill: var(--bx-bg-0);
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+  .sa { stroke: var(--bx-green); }
+  .sb { stroke: var(--bx-blue); }
+  .sx { stroke: var(--bx-text); } // parada de combinación
+
+  // El bus: un punto que recorre la ruta verde de punta a punta.
+  .bus {
+    fill: #fff;
+    stroke: var(--bx-green-bright);
+    stroke-width: 4;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 10px rgba(0, 224, 106, 0.9));
+    offset-path: path('M-900 60 L120 60 L240 180 L420 180 L520 280 L1500 280');
+    offset-rotate: 0deg;
+    animation: bus-run 18s linear infinite;
+  }
+}
+
+.pitch {
+  max-width: 460px;
+
+  h1 {
+    margin: 0 0 28px;
+    font-size: clamp(36px, 3.4vw, 52px);
+    font-weight: 800;
+    line-height: 1.06;
+    letter-spacing: -0.025em;
+    word-spacing: 0.06em;
+    color: var(--bx-text);
+
+    em { font-style: normal; color: var(--bx-green-bright); }
+  }
+
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--bx-fs-body-lg);
+    font-weight: 500;
+    color: var(--bx-text-2);
+
+    ion-icon {
+      flex: none;
+      width: 36px;
+      height: 36px;
+      padding: 9px;
+      border-radius: var(--bx-r-sm);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--bx-line);
+      color: var(--bx-green-bright);
+    }
+  }
+}
+
+@keyframes route-draw {
+  from { stroke-dashoffset: 2641; }
+  to { stroke-dashoffset: 150; }
+}
+
+@keyframes bus-run {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .routes .rt-live { animation: none; opacity: 0; }
+  .routes .bus { animation: none; offset-distance: 52%; }
+}

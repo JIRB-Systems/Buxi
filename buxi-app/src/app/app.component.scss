@@ -3,6 +3,6 @@
   top: 0; left: 0; right: 0;
   z-index: 99999;
   --background: transparent;
-  --progress-background: #00c853;
+  --progress-background: var(--bx-green);
   height: 3px;
 }

@@ -1,0 +1,326 @@
+// ============================================================================
+// Formularios de las pantallas sin sesión.
+//
+// Es global porque el contenido se proyecta dentro de <app-auth-shell> y las
+// cuatro páginas comparten exactamente los mismos campos y botones; antes
+// cada una traía su propia copia, con diferencias que nadie había decidido.
+// ============================================================================
+
+.auth-content {
+  --background: var(--bx-bg-1);
+}
+
+.auth-head {
+  margin-bottom: 28px;
+
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    word-spacing: 0.06em;
+    color: var(--bx-text);
+  }
+
+  p {
+    margin: 8px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--bx-text-2);
+  }
+}
+
+// Ícono de estado (recuperar contraseña, solicitud enviada).
+.auth-badge {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 20px;
+  border-radius: var(--bx-r-lg);
+  background: var(--bx-blue-soft);
+  color: var(--bx-blue-bright);
+  font-size: 26px;
+
+  &.ok {
+    background: var(--bx-green-soft);
+    color: var(--bx-green-bright);
+  }
+}
+
+// ---------- Campos ----------
+.auth-field {
+  margin-bottom: 16px;
+
+  // Solo la clase, nunca la etiqueta <label>: ion-input arma su propio
+  // <label> por dentro y heredaba este tamaño, dejando el texto del campo en 13px.
+  .auth-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: var(--bx-fs-small);
+    font-weight: 600;
+    color: var(--bx-text-2);
+
+    .opt { font-weight: 500; color: var(--bx-text-3); }
+  }
+}
+
+.auth-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  background: var(--bx-bg-3);
+  border: 1px solid var(--bx-line-strong);
+  border-radius: var(--bx-r-md);
+  transition: border-color var(--bx-t-fast) var(--bx-ease), box-shadow var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { border-color: rgba(255, 255, 255, 0.22); }
+
+  &:focus-within {
+    border-color: var(--bx-green);
+    box-shadow: var(--bx-focus);
+  }
+
+  // Íconos neutros. En verde competían con el botón principal, que es lo
+  // único de la pantalla que debe leerse como la acción.
+  > ion-icon {
+    flex: none;
+    font-size: 20px;
+    color: var(--bx-text-3);
+  }
+
+  ion-input,
+  ion-select,
+  ion-textarea {
+    flex: 1;
+    min-width: 0;
+    --padding-start: 0;
+    --padding-end: 0;
+    --padding-top: 14px;
+    --padding-bottom: 14px;
+    --color: var(--bx-text);
+    --placeholder-color: var(--bx-text-3);
+    --placeholder-opacity: 1;
+    // 16px es el mínimo para que iOS no haga zoom al enfocar el campo.
+    font-size: 16px;
+    font-weight: 500;
+    min-height: 0;
+  }
+
+  ion-select {
+    width: 100%;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    min-height: 50px;
+
+    &::part(icon) { color: var(--bx-text-3); opacity: 1; }
+  }
+
+  &.is-textarea { align-items: flex-start; }
+}
+
+// Mostrar/ocultar contraseña. Botón real para que se pueda usar con teclado.
+.auth-eye {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-right: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bx-r-pill);
+  background: transparent;
+  color: var(--bx-text-3);
+  font-size: 20px;
+  cursor: pointer;
+
+  &:hover { color: var(--bx-text); background: rgba(255, 255, 255, 0.06); }
+}
+
+.auth-field.has-error .auth-input { border-color: var(--bx-danger); }
+
+.auth-err {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: var(--bx-fs-caption);
+  font-weight: 600;
+  color: var(--bx-danger);
+}
+
+.auth-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 380px) {
+  .auth-row-2 { grid-template-columns: 1fr; gap: 0; }
+}
+
+.auth-forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 20px;
+
+  a {
+    padding: 6px 0;
+    font-size: var(--bx-fs-small);
+    font-weight: 600;
+    text-decoration: none;
+  }
+}
+
+// ---------- Botones ----------
+// Principal: verde sólido con tinta oscura. Reemplaza al degradado azul→verde,
+// que mezclaba los dos colores de la marca en el único lugar donde tenía que
+// haber uno solo.
+ion-button.auth-btn {
+  width: 100%;
+  height: 52px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  --background: var(--bx-green);
+  --background-hover: var(--bx-green-bright);
+  --background-hover-opacity: 1;
+  --background-activated: var(--bx-green-deep);
+  --background-activated-opacity: 1;
+  --background-focused: var(--bx-green-bright);
+  --background-focused-opacity: 1;
+  --color: var(--bx-ink);
+  --border-radius: var(--bx-r-md);
+  --box-shadow: none;
+  --ripple-color: rgba(4, 20, 11, 0.3);
+  transition: transform var(--bx-t-fast) var(--bx-ease);
+
+  &:active { transform: scale(0.985); }
+
+  &.button-disabled {
+    opacity: 1;
+    --background: var(--bx-bg-3);
+    --color: var(--bx-text-off);
+  }
+
+  ion-icon,
+  svg { font-size: 20px; width: 20px; height: 20px; margin-right: 10px; }
+}
+
+// Secundario: mismo tamaño, sin relleno de color.
+ion-button.auth-btn.auth-btn--ghost {
+  --background: var(--bx-bg-3);
+  --background-hover: var(--bx-bg-4);
+  --background-activated: var(--bx-bg-4);
+  --background-focused: var(--bx-bg-4);
+  --color: var(--bx-text);
+  --border-color: var(--bx-line-strong);
+  --border-style: solid;
+  --border-width: 1px;
+  --ripple-color: rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+}
+
+.auth-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-sep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  font-size: var(--bx-fs-caption);
+  font-weight: 500;
+  color: var(--bx-text-3);
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--bx-line);
+  }
+}
+
+// ---------- Pie ----------
+.auth-alt {
+  margin: 24px 0 0;
+  font-size: var(--bx-fs-body);
+  color: var(--bx-text-2);
+  text-align: center;
+
+  a { font-weight: 700; text-decoration: none; margin-left: 4px; }
+}
+
+// Entrada para empresas. Era una línea subrayada de 11px debajo de todo; es
+// la puerta de quien paga el servicio, así que ahora se ve como una opción.
+.auth-empresa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--bx-line);
+  border-radius: var(--bx-r-md);
+  background: rgba(255, 255, 255, 0.03);
+  text-decoration: none;
+  transition: background var(--bx-t-fast) var(--bx-ease), border-color var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: var(--bx-bg-3); border-color: var(--bx-line-strong); }
+
+  > ion-icon:first-child {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    padding: 8px;
+    border-radius: var(--bx-r-sm);
+    background: var(--bx-blue-soft);
+    color: var(--bx-blue-bright);
+  }
+
+  span { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  strong { font-size: var(--bx-fs-body); font-weight: 700; color: var(--bx-text); }
+  small { font-size: var(--bx-fs-caption); color: var(--bx-text-3); }
+  > ion-icon:last-child { flex: none; font-size: 18px; color: var(--bx-text-3); }
+}
+
+.auth-terms {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 20px;
+  font-size: var(--bx-fs-small);
+  line-height: 1.45;
+  color: var(--bx-text-2);
+
+  ion-checkbox { flex: none; }
+  a { font-weight: 600; text-decoration: none; }
+}
+
+.auth-version {
+  margin: 28px 0 0;
+  font-size: var(--bx-fs-micro);
+  color: var(--bx-text-off);
+  text-align: center;
+}
+
+// Entrada escalonada del formulario: una sola vez, al llegar.
+.auth-in > * {
+  animation: auth-rise var(--bx-t-slow) var(--bx-ease-out) both;
+}
+.auth-in > *:nth-child(2) { animation-delay: 40ms; }
+.auth-in > *:nth-child(3) { animation-delay: 80ms; }
+.auth-in > *:nth-child(4) { animation-delay: 120ms; }
+.auth-in > *:nth-child(n + 5) { animation-delay: 160ms; }
+
+@keyframes auth-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

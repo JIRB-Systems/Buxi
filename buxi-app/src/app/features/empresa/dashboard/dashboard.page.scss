@@ -21,15 +21,15 @@
 // ====== SIDEBAR ======
 .sidebar {
   width: 220px; background: var(--dash-bg-elevated); display: flex; flex-direction: column;
-  transition: width 0.2s; flex-shrink: 0; border-right: 1px solid rgba(255,255,255,0.06);
+  transition: width 0.2s; flex-shrink: 0; border-right: 1px solid var(--bx-line);
 }
 
 .sidebar-header {
   display: flex; align-items: center; gap: 10px; padding: 18px 16px 20px;
-  .logo-mark { width: 36px; height: 36px; background: #00c853; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; }
+  .logo-mark { width: 32px; height: 32px; flex-shrink: 0; }
   .logo-text { display: flex; flex-direction: column;
-    .logo-name { font-size: 17px; font-weight: 800; color: #fff; }
-    .logo-sub { font-size: 9px; color: #00c853; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+    .logo-name { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: 0.02em; line-height: 1.1; i { font-style: normal; color: var(--bx-blue); } }
+    .logo-sub { font-size: 11px; color: var(--bx-text-3); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
   }
 }
 
@@ -37,11 +37,12 @@
 .sidebar-footer { padding: 10px 8px 18px; border-top: 1px solid rgba(255,255,255,0.05); }
 
 .nav-link {
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;
-  color: var(--dash-text-muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.12s;
+  display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 8px 12px; border-radius: 10px;
+  color: var(--bx-text-2); font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease), color var(--bx-t-fast) var(--bx-ease);
   ion-icon { font-size: 18px; flex-shrink: 0; }
-  &:hover { background: rgba(255,255,255,0.04); color: #8fa8c8; }
-  &.active { background: rgba(0,200,83,0.1); color: #00c853; }
+  &:hover { background: rgba(255,255,255,0.05); color: var(--bx-text); }
+  &.active { background: var(--bx-green-soft); color: var(--bx-green-bright); }
   &.logout { color: var(--ion-color-danger); }
 }
 
@@ -51,31 +52,34 @@
 // tiempo, cuando solo una lo está.
 .nav-badge {
   margin-left: auto;
-  background: #ff5449;
+  background: var(--bx-danger);
   color: #fff;
-  font-size: 10.5px; font-weight: 800;
+  font-size: 11px; font-weight: 800;
   min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 9px;
+  border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
 
-  &.warn { background: #ff9800; }
-  &.info { background: #2196f3; }
+  &.warn { background: var(--bx-warning); }
+  &.info { background: var(--bx-blue); }
 }
+
+// Solo existe en teléfono, donde el menú es un cajón (ver el @media de abajo).
+.sidebar-backdrop { display: none; }
 
 // ====== MAIN ======
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--dash-bg-main); }
 
 .topbar {
   display: flex; align-items: center; gap: 14px; padding: 16px 24px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  .toggle { font-size: 22px; color: var(--dash-text-muted); cursor: pointer; }
+  border-bottom: 1px solid var(--bx-line);
+  .toggle { font-size: 24px; color: var(--bx-text-2); cursor: pointer; padding: 8px; margin: -8px; border-radius: 10px; box-sizing: content-box; &:hover { color: #fff; background: rgba(255,255,255,0.06); } }
   .topbar-info { flex: 1;
-    h1 { font-size: 18px; font-weight: 700; color: #fff; margin: 0; }
-    p { font-size: 12px; color: var(--dash-text-muted); margin: 2px 0 0; }
+    h1 { font-size: 20px; font-weight: 800; color: #fff; margin: 0; letter-spacing: -0.02em; }
+    p { font-size: 13px; color: var(--bx-text-2); margin: 2px 0 0; }
   }
   .user-avatar {
-    width: 34px; height: 34px; background: #00c853; border-radius: 50%;
-    display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #fff;
+    width: 34px; height: 34px; background: var(--bx-green); border-radius: 50%;
+    display: grid; place-items: center; font-size: 14px; font-weight: 800; color: var(--bx-ink);
   }
 }
 
@@ -94,16 +98,14 @@
 
   .stat-icon {
     width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
-    ion-icon { font-size: 20px; color: #fff; }
-    &.green { background: rgba(0,200,83,0.15); ion-icon { color: #00c853; } }
-    &.blue { background: rgba(33,150,243,0.15); ion-icon { color: #2196f3; } }
-    &.purple { background: rgba(156,39,176,0.15); ion-icon { color: #9c27b0; } }
-    &.orange { background: rgba(255,152,0,0.15); ion-icon { color: #ff9800; } }
+    // Un solo tratamiento: el color de cada tarjeta no quería decir nada.
+    background: var(--bx-blue-soft);
+    ion-icon { font-size: 20px; color: var(--bx-blue-bright); }
   }
 
   .stat-data { display: flex; flex-direction: column;
-    .stat-val { font-size: 24px; font-weight: 800; color: #fff; }
-    .stat-lbl { font-size: 11px; color: var(--dash-text-muted); font-weight: 500; }
+    .stat-val { font-size: 28px; font-weight: 800; color: #fff; line-height: 1.1; letter-spacing: -0.02em; }
+    .stat-lbl { font-size: 12px; color: var(--bx-text-2); font-weight: 600; margin-top: 2px; }
   }
 }
 
@@ -140,7 +142,7 @@
 
   // ---- Buses en vivo ----
   .emp-bus-icon {
-    width: 26px; height: 26px; background: #00c853; border-radius: 50%;
+    width: 26px; height: 26px; background: var(--bx-green); border-radius: 50%;
     border: 2px solid #fff; display: grid; place-items: center;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   }
@@ -151,7 +153,7 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.15); pointer-events: none;
     opacity: 0; visibility: hidden; transition: opacity 0.12s ease;
 
-    &.stale { background: #4a3418; color: #ffc107; }
+    &.stale { background: #4a3418; color: var(--bx-warning); }
   }
   .emp-bus-marker:hover .emp-bus-label { opacity: 1; visibility: visible; }
 }
@@ -163,7 +165,7 @@
 
 .edit-ruta-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: var(--dash-surface); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+  background: var(--dash-surface); border: 1px solid var(--bx-line); border-radius: 14px;
   padding: 12px 16px; margin-bottom: 12px; flex-wrap: wrap;
 
   strong { display: block; }
@@ -181,19 +183,20 @@
 .card-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px 10px;
-  h3 { font-size: 14px; font-weight: 700; color: #fff; margin: 0; }
+  h3 { font-size: 15px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -0.01em; }
+  .muted { font-size: 12px; font-weight: 600; color: var(--bx-text-3); }
 }
 
 .live-badge {
-  display: flex; align-items: center; gap: 6px; font-size: 11px; color: #00c853; font-weight: 600;
-  .pulse-dot { width: 6px; height: 6px; background: #00c853; border-radius: 50%; animation: pulse 1.4s infinite; }
+  display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--bx-green); font-weight: 600;
+  .pulse-dot { width: 6px; height: 6px; background: var(--bx-green); border-radius: 50%; animation: pulse 1.4s infinite; }
 }
 
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 .alert-card {
   border-color: rgba(255, 193, 7, 0.35); margin-bottom: 14px;
-  .card-header h3 { display: flex; align-items: center; gap: 6px; color: #ffc107; }
+  .card-header h3 { display: flex; align-items: center; gap: 6px; color: var(--bx-warning); }
 }
 
 .map-card { flex: 1.2; display: flex; flex-direction: column; }
@@ -201,8 +204,8 @@
 .map-footer {
   display: flex; align-items: center; justify-content: center; gap: 6px;
   padding: 10px; cursor: pointer; border-top: 1px solid rgba(255,255,255,0.04);
-  span { font-size: 12px; color: #00c853; font-weight: 600; }
-  ion-icon { font-size: 14px; color: #00c853; }
+  span { font-size: 12px; color: var(--bx-green); font-weight: 600; }
+  ion-icon { font-size: 14px; color: var(--bx-green); }
   &:hover { background: rgba(0,200,83,0.04); }
 }
 
@@ -217,11 +220,11 @@
   &.empty { justify-content: center; color: var(--dash-text-muted); padding: 16px; }
   .color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .flex1 { flex: 1; color: #c0cfe0; }
+  .flex1 { flex: 1; color: var(--bx-text-2); }
   strong { color: #fff; font-size: 13px; }
   .muted { color: var(--dash-text-muted); font-size: 11px; }
-  .badge { font-size: 10px; font-weight: 600; text-transform: capitalize; }
-  .status-tag { font-size: 10px; font-weight: 700; color: #fff; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .badge { font-size: 11px; font-weight: 600; text-transform: capitalize; }
+  .status-tag { font-size: 11px; font-weight: 700; color: #fff; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
 }
 
 // ====== TABLE ROWS ======
@@ -236,16 +239,16 @@
     strong { color: #fff; font-size: 13px; .unit-tag { color: var(--dash-text-muted); font-weight: 400; font-size: 11px; margin-left: 4px; } }
     .muted { color: var(--dash-text-muted); font-size: 11px; margin-top: 1px; }
   }
-  .badge { font-size: 10px; font-weight: 600; text-transform: capitalize; }
-  .status-tag { font-size: 10px; font-weight: 700; color: #fff; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+  .badge { font-size: 11px; font-weight: 600; text-transform: capitalize; }
+  .status-tag { font-size: 11px; font-weight: 700; color: #fff; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
   .avatar-sm {
-    width: 32px; height: 32px; background: #1e3350; border-radius: 50%;
+    width: 32px; height: 32px; background: var(--bx-bg-4); border-radius: 50%;
     display: grid; place-items: center; flex-shrink: 0;
     ion-icon { font-size: 16px; color: var(--dash-text-muted); }
   }
 }
 
-.act-icon { font-size: 18px; color: var(--dash-text-muted); cursor: pointer; &.danger { color: var(--ion-color-danger); } &.warn { color: #ff9800; } &:hover { color: #8fa8c8; } }
+.act-icon { font-size: 18px; color: var(--dash-text-muted); cursor: pointer; &.danger { color: var(--ion-color-danger); } &.warn { color: var(--bx-warning); } &:hover { color: var(--bx-text-2); } }
 
 // ====== NOTIFICACIONES A PASAJEROS ======
 // Distinto de .aviso-row (lo que JIRB manda a la empresa): acá la empresa es
@@ -258,8 +261,8 @@
   display: inline-block; vertical-align: middle;
   margin-left: 8px; padding: 2px 8px;
   border-radius: 999px;
-  font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
-  color: #04121f;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--bx-bg-0);
 }
 
 // Cuántos pasajeros siguen a la empresa. Va en la barra de la sección, al lado
@@ -267,7 +270,7 @@
 .seguidores-tag {
   display: flex; align-items: center; gap: 6px;
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bx-line);
   border-radius: 12px;
   padding: 8px 14px;
   font-size: 13px; color: var(--dash-text-muted);
@@ -279,12 +282,12 @@
 // ====== AVISOS Y REPORTES ======
 .aviso-row { align-items: flex-start; }
 .aviso-icon { font-size: 22px; margin-top: 1px; flex-shrink: 0; }
-.reporte-row .row-main .muted.small { font-size: 10px; opacity: 0.7; }
+.reporte-row .row-main .muted.small { font-size: 11px; opacity: 0.7; }
 .reporte-respuesta {
   display: flex; align-items: flex-start; gap: 6px; margin-top: 8px;
-  background: rgba(0,200,83,0.08); border-left: 2px solid #00c853;
-  border-radius: 6px; padding: 8px 10px; font-size: 12px; color: #c0cfe0;
-  ion-icon { color: #00c853; font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+  background: rgba(0,200,83,0.08); border-left: 2px solid var(--bx-green);
+  border-radius: 6px; padding: 8px 10px; font-size: 12px; color: var(--bx-text-2);
+  ion-icon { color: var(--bx-green); font-size: 15px; margin-top: 1px; flex-shrink: 0; }
 }
 
 .emergencia-row {
@@ -293,11 +296,11 @@
   border-radius: 10px;
   &.resuelto { background: none; opacity: 0.6; }
 }
-.emergencia-icon { font-size: 22px; color: #ff5449; margin-top: 1px; flex-shrink: 0; }
+.emergencia-icon { font-size: 22px; color: var(--bx-danger); margin-top: 1px; flex-shrink: 0; }
 .emergencia-ubicacion {
   display: inline-flex; align-items: center; gap: 4px;
   margin-top: 6px; font-size: 12px; font-weight: 600;
-  color: #4da3ff; text-decoration: none; cursor: pointer;
+  color: var(--bx-blue-bright); text-decoration: none; cursor: pointer;
   ion-icon { font-size: 14px; }
   &:hover { text-decoration: underline; }
 }
@@ -311,7 +314,7 @@
 .resolver-btn {
   display: flex; align-items: center; gap: 6px;
   background: rgba(0,200,83,0.12); border: 1px solid rgba(0,200,83,0.35);
-  color: #00e676; font-size: 12.5px; font-weight: 700;
+  color: var(--bx-green-bright); font-size: 13px; font-weight: 700;
   padding: 7px 14px; border-radius: 10px; cursor: pointer;
   transition: background 0.14s ease;
 
@@ -321,16 +324,16 @@
 }
 
 .factura-row { align-items: flex-start; }
-.factura-icon { font-size: 20px; color: #00c853; margin-top: 1px; flex-shrink: 0; }
+.factura-icon { font-size: 20px; color: var(--bx-green); margin-top: 1px; flex-shrink: 0; }
 .factura-monto { font-size: 13px; font-weight: 700; color: #fff; margin-right: 4px; font-variant-numeric: tabular-nums; }
 
 .btn-action {
-  --background: #00c853; --border-radius: 12px; --box-shadow: none;
+  --background: var(--bx-green); --border-radius: 12px; --box-shadow: none;
   font-weight: 600; font-size: 13px; height: 40px; text-transform: none; margin-bottom: 14px;
 
   &.ghost {
-    --background: transparent; --color: #c0cfe0;
-    border: 1px solid rgba(255,255,255,0.14);
+    --background: transparent; --color: var(--bx-text-2);
+    border: 1px solid var(--bx-line-strong);
   }
 }
 
@@ -344,7 +347,7 @@
 .search-bar {
   display: flex; align-items: center; gap: 8px;
   background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bx-line);
   border-radius: 12px;
   padding: 0 12px;
   height: 40px;
@@ -364,12 +367,12 @@
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   text-align: center; padding: 40px 24px;
 
-  ion-icon { font-size: 30px; color: var(--dash-text-muted); margin-bottom: 6px; opacity: 0.7; }
-  strong { font-size: 14px; color: #dbe3ee; }
-  span { font-size: 12.5px; color: var(--dash-text-muted); margin-bottom: 10px; }
+  ion-icon { font-size: 32px; color: var(--dash-text-muted); margin-bottom: 6px; opacity: 0.7; }
+  strong { font-size: 14px; color: var(--bx-text); }
+  span { font-size: 13px; color: var(--dash-text-muted); margin-bottom: 10px; }
   ion-button {
-    --background: rgba(0,200,83,0.12); --color: #00c853; --box-shadow: none;
-    --border-radius: 10px; font-weight: 600; font-size: 12.5px; text-transform: none;
+    --background: rgba(0,200,83,0.12); --color: var(--bx-green); --box-shadow: none;
+    --border-radius: 10px; font-weight: 600; font-size: 13px; text-transform: none;
   }
 }
 
@@ -396,19 +399,31 @@
 // ====== VIAJES POR DÍA (gráfico de barras) ======
 .trips-card { margin-bottom: 14px; }
 .trips-chart {
-  width: 100%; height: 130px; display: block;
-  padding: 0 16px 10px;
+  display: flex; align-items: flex-end; gap: 8px;
+  height: 168px;
+  padding: 4px 16px 14px;
 }
-.tc-baseline { stroke: rgba(255,255,255,0.1); stroke-width: 1; }
+.tc-col {
+  flex: 1; min-width: 0; height: 100%;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.tc-val { font-size: 12px; font-weight: 700; color: var(--bx-text-2); min-height: 16px; }
+.tc-track {
+  flex: 1; width: 100%; max-width: 44px;
+  display: flex; align-items: flex-end;
+  border-bottom: 1px solid var(--bx-line-strong);
+}
 .tc-bar {
-  fill: #00c853; fill-opacity: 0.85;
-  transition: fill-opacity 0.15s ease;
-  &:hover { fill-opacity: 1; }
+  width: 100%; min-height: 2px;
+  border-radius: 6px 6px 0 0;
+  background: var(--bx-green);
+  transition: height var(--bx-t-slow) var(--bx-ease-out), background var(--bx-t-fast) var(--bx-ease);
 }
-.tc-label { fill: var(--dash-text-muted); font-size: 8.5px; font-weight: 600; }
+.tc-col:hover .tc-bar { background: var(--bx-green-bright); }
+.tc-label { font-size: 12px; font-weight: 600; color: var(--bx-text-3); }
 .tc-empty {
   text-align: center; padding: 30px 16px 24px;
-  color: var(--dash-text-muted); font-size: 12.5px;
+  color: var(--dash-text-muted); font-size: 13px;
 }
 
 // ---- REPORTE MENSUAL ----
@@ -420,7 +435,7 @@
 
   input[type="month"] {
     background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--bx-line);
     border-radius: 10px;
     color: #fff;
     font-size: 13px;
@@ -430,13 +445,13 @@
   }
 
   ion-button {
-    --background: #00c853; --border-radius: 10px; --box-shadow: none;
+    --background: var(--bx-green); --border-radius: 10px; --box-shadow: none;
     font-weight: 600; font-size: 13px; height: 40px; text-transform: none; margin: 0;
   }
 }
 
 .page-hint {
-  font-size: 13px; color: var(--dash-text-muted, #8a95a3);
+  font-size: 13px; color: var(--dash-text-muted, var(--bx-text-3));
   margin: 0 0 14px;
 }
 
@@ -448,8 +463,8 @@
   position: relative;
   width: 260px;
   display: flex; flex-direction: column; gap: 12px;
-  background: var(--dash-surface, #101d31);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: var(--dash-surface, var(--bx-bg-2));
+  border: 1px solid var(--bx-line);
   border-radius: 16px;
   padding: 20px;
 
@@ -458,22 +473,22 @@
     background: rgba(0,200,83,0.06);
   }
 
-  h3 { margin: 4px 0 0; font-size: 17px; color: #fff; }
+  h3 { margin: 4px 0 0; font-size: 18px; color: #fff; }
 
   .plan-tag-actual {
     position: absolute; top: -10px; left: 16px;
-    background: #00c853; color: #04140b;
-    font-size: 10.5px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
+    background: var(--bx-green); color: var(--bx-ink);
+    font-size: 11px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
     padding: 3px 10px; border-radius: 20px;
   }
 
-  .plan-desc { margin: 0; font-size: 12.5px; color: var(--dash-text-muted); min-height: 32px; }
+  .plan-desc { margin: 0; font-size: 13px; color: var(--dash-text-muted); min-height: 32px; }
 
   .plan-limits { display: flex; flex-direction: column; gap: 6px; }
   .plan-row {
     display: flex; align-items: center; gap: 8px;
-    font-size: 12.5px; color: #cfdcec;
-    ion-icon { font-size: 15px; color: #00c853; flex-shrink: 0; }
+    font-size: 13px; color: var(--bx-text-2);
+    ion-icon { font-size: 15px; color: var(--bx-green); flex-shrink: 0; }
   }
 
   .plan-price-tag {
@@ -481,11 +496,15 @@
     span { font-size: 12px; font-weight: 500; color: var(--dash-text-muted); }
   }
 
-  ion-button { --border-radius: 10px; margin: 0; font-size: 12.5px; font-weight: 600; text-transform: none; }
+  ion-button { --border-radius: 10px; margin: 0; font-size: 13px; font-weight: 600; text-transform: none; }
 }
 
 @media (max-width: 768px) {
-  .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; }
+  .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; box-shadow: var(--bx-shadow-3); }
+  // Tocar fuera del cajón lo cierra.
+  .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 90; background: rgba(2, 6, 13, 0.6); }
+  .topbar { padding: 14px 16px; }
+  .content { padding: 16px; }
   .layout.sidebar-closed .sidebar { width: 0; overflow: hidden; }
   .stats-row { flex-wrap: wrap; }
   .stat-card { min-width: calc(50% - 6px); }
@@ -508,7 +527,7 @@
   margin: 6px 16px 0;
   padding: 14px 8px;
   border-radius: 12px;
-  background: #0d1622;
+  background: var(--bx-bg-1);
   border: 1px solid rgba(255,255,255,0.05);
 
   canvas { width: 78px; height: 78px; }
@@ -529,9 +548,9 @@
   button {
     flex: 1;
     padding: 9px 10px;
-    border: none; border-radius: 9px;
+    border: none; border-radius: 8px;
     background: transparent;
-    color: #8298b6; font-size: 12.5px; font-weight: 700;
+    color: var(--bx-text-3); font-size: 13px; font-weight: 700;
     cursor: pointer;
     transition: background 0.16s ease, color 0.16s ease;
 
@@ -575,13 +594,13 @@
   ion-spinner { width: 16px; height: 16px; }
 }
 
-.perso-sucio { font-size: 12px; color: #f5a623; font-weight: 600; }
+.perso-sucio { font-size: 12px; color: var(--bx-warning); font-weight: 600; }
 
 .perso-proximo {
   display: flex; align-items: flex-start; gap: 12px;
   margin-top: 14px; padding: 16px;
   ion-icon { font-size: 22px; color: var(--dash-text-muted); flex-shrink: 0; }
   div { display: flex; flex-direction: column; gap: 3px; }
-  strong { font-size: 13.5px; color: #dbe3ee; }
-  span { font-size: 12.5px; color: var(--dash-text-muted); line-height: 1.45; }
+  strong { font-size: 14px; color: var(--bx-text); }
+  span { font-size: 13px; color: var(--dash-text-muted); line-height: 1.45; }
 }

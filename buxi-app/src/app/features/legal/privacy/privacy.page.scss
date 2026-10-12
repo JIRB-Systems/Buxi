@@ -8,14 +8,14 @@
 
 h1 { font-size: 22px; font-weight: 800; color: var(--ion-text-color); margin: 0 0 4px; letter-spacing: -0.3px; }
 
-.updated { font-size: 12px; color: #8a95a3; margin: 0 0 24px; }
+.updated { font-size: 12px; color: var(--bx-text-3); margin: 0 0 24px; }
 
 section {
   margin-bottom: 22px;
 
   h2 { font-size: 15px; font-weight: 700; color: var(--ion-text-color); margin: 0 0 8px; }
 
-  p, li { font-size: 13.5px; color: #8a95a3; line-height: 1.6; }
+  p, li { font-size: 14px; color: var(--bx-text-3); line-height: 1.6; }
 
   p { margin: 0 0 8px; }
 
@@ -23,5 +23,5 @@ section {
 
   strong { color: var(--ion-text-color); }
 
-  a { color: #00c853; text-decoration: none; }
+  a { color: var(--bx-green); text-decoration: none; }
 }

@@ -28,10 +28,10 @@
   align-items: center; gap: 18px;
   height: 56px; padding: 0 14px;
   border-radius: 20px;
-  background: rgba(11, 26, 46, 0.62);
-  backdrop-filter: blur(26px) saturate(180%);
-  -webkit-backdrop-filter: blur(26px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.13);
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
 
   .dt-logo {
@@ -65,7 +65,7 @@
     display: flex; align-items: center; gap: 10px;
     height: 38px; padding: 0 16px;
     background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.13);
+    border: 1px solid var(--bx-line-strong);
     border-radius: 999px; cursor: pointer;
     transition: background 0.16s ease, border-color 0.16s ease;
 
@@ -74,10 +74,10 @@
       border-color: rgba(0,224,106,0.45);
     }
 
-    ion-icon { font-size: 16px; color: #8ea4c2; flex-shrink: 0; }
+    ion-icon { font-size: 16px; color: var(--bx-text-2); flex-shrink: 0; }
     span {
       flex: 1; min-width: 0;
-      font-size: 13px; color: #93a7c2; font-weight: 500;
+      font-size: 13px; color: var(--bx-text-2); font-weight: 500;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
   }
@@ -98,14 +98,14 @@
     overflow: hidden;
     display: grid; place-items: center;
     background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.14);
+    border: 1px solid var(--bx-line-strong);
     cursor: pointer;
     transition: border-color 0.16s ease, transform 0.16s ease;
 
     &:hover { border-color: rgba(0,224,106,0.5); }
     &:active { transform: scale(0.94); }
 
-    ion-icon { font-size: 17px; color: #cfdcec; }
+    ion-icon { font-size: 18px; color: var(--bx-text-2); }
     .av-photo {
       position: absolute; inset: 0;
       width: 100%; height: 100%; object-fit: cover;
@@ -145,11 +145,11 @@
 
   &.open { transform: translateX(0); opacity: 1; visibility: visible; }
   padding: 16px; overflow-y: auto;
-  border-radius: 22px;
-  background: rgba(11, 26, 46, 0.62);
-  backdrop-filter: blur(26px) saturate(180%);
-  -webkit-backdrop-filter: blur(26px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 20px;
+  background: var(--bx-glass);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  border: 1px solid var(--bx-line-strong);
   box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
 
   // Scrollbar discreta: la barra nativa de Windows sobre glass se ve pésimo.
@@ -170,13 +170,13 @@
   h3 { font-size: 13px; font-weight: 700; color: #fff; margin: 0; }
 
   .ds-clear-empresa {
-    font-size: 11px; font-weight: 600; color: #ff6659; cursor: pointer;
+    font-size: 11px; font-weight: 600; color: var(--bx-danger); cursor: pointer;
     &:hover { text-decoration: underline; }
   }
 }
 
 .ds-label {
-  font-size: 11px; font-weight: 700; color: #7d93b2;
+  font-size: 11px; font-weight: 700; color: var(--bx-text-3);
   text-transform: uppercase; letter-spacing: 0.4px;
 }
 
@@ -193,25 +193,25 @@
     background: rgba(255,255,255,0.06);
     display: grid; place-items: center; overflow: hidden;
     img { width: 100%; height: 100%; object-fit: cover; }
-    ion-icon { font-size: 16px; color: #7d93b2; }
+    ion-icon { font-size: 16px; color: var(--bx-text-3); }
   }
 
   .empresa-info {
     flex: 1; min-width: 0; display: flex; flex-direction: column;
     strong { font-size: 13px; color: #fff; font-weight: 600; }
-    span { font-size: 11px; color: #7d93b2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    span { font-size: 11px; color: var(--bx-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
 
   .empresa-freq {
-    font-size: 10px; font-weight: 700; color: #00c853; white-space: nowrap;
+    font-size: 11px; font-weight: 700; color: var(--bx-green); white-space: nowrap;
   }
 }
 
-.ds-empty { font-size: 12px; color: #7d93b2; padding: 8px; text-align: center; }
+.ds-empty { font-size: 12px; color: var(--bx-text-3); padding: 8px; text-align: center; }
 
 .ds-link {
   display: flex; align-items: center; justify-content: center; gap: 4px;
-  font-size: 12px; font-weight: 600; color: #00c853; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--bx-green); cursor: pointer;
   padding: 8px; border-radius: 8px;
   ion-icon { font-size: 13px; }
   &:hover { background: rgba(0,200,83,0.08); }
@@ -221,13 +221,13 @@
 // un parche pegado encima.
 .ds-card {
   background: rgba(255,255,255,0.055); border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid var(--bx-line);
   padding: 12px; display: flex; flex-direction: column; gap: 8px;
 }
 
 .ds-card-header {
   display: flex; align-items: center; justify-content: space-between;
-  .ds-clear { font-size: 16px; color: #7d93b2; cursor: pointer; &:hover { color: #fff; } }
+  .ds-clear { font-size: 16px; color: var(--bx-text-3); cursor: pointer; &:hover { color: #fff; } }
 }
 
 .ds-route-row {
@@ -236,26 +236,26 @@
   .ds-route-info {
     display: flex; flex-direction: column;
     strong { font-size: 14px; color: #fff; }
-    span { font-size: 11px; color: #7d93b2; margin-top: 1px; }
+    span { font-size: 11px; color: var(--bx-text-3); margin-top: 1px; }
   }
 }
 
 .ds-route-extra {
   display: flex; flex-wrap: wrap; gap: 6px 14px;
   padding-top: 8px; margin-top: 2px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid var(--bx-line);
 
   .ds-extra-item {
     display: flex; align-items: center; gap: 5px;
-    font-size: 11.5px; color: #b7c4d9; font-weight: 600;
-    ion-icon { font-size: 14px; color: #00c853; }
+    font-size: 12px; color: var(--bx-text-2); font-weight: 600;
+    ion-icon { font-size: 14px; color: var(--bx-green); }
   }
 }
 
 .ds-salidas {
   display: flex; flex-direction: column; gap: 6px;
   padding-top: 8px; margin-top: 2px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid var(--bx-line);
 }
 
 .ds-salidas-chips {
@@ -263,9 +263,9 @@
 }
 
 .ds-salida-chip {
-  font-size: 11px; font-weight: 700; color: #b7c4d9;
+  font-size: 11px; font-weight: 700; color: var(--bx-text-2);
   background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--bx-line);
   border-radius: 8px;
   padding: 3px 8px;
 
@@ -278,14 +278,14 @@
 
 .ds-eta-row {
   display: flex; align-items: center; gap: 10px;
-  > ion-icon { font-size: 20px; color: #00c853; }
+  > ion-icon { font-size: 20px; color: var(--bx-green); }
   .ds-eta-info {
     flex: 1; display: flex; flex-direction: column;
     strong { font-size: 13px; color: #fff; }
-    span { font-size: 11px; color: #7d93b2; }
+    span { font-size: 11px; color: var(--bx-text-3); }
   }
   .ds-eta-time {
-    background: #00c853; border-radius: 8px; padding: 5px 10px;
+    background: var(--bx-green); border-radius: 8px; padding: 5px 10px;
     strong { font-size: 13px; color: #fff; }
   }
 }
@@ -294,17 +294,17 @@
   display: flex; align-items: center; gap: 8px; padding: 6px 0;
   border-top: 1px solid rgba(255,255,255,0.05);
   &:first-of-type { border-top: none; }
-  ion-icon { font-size: 15px; color: #00c853; flex-shrink: 0; }
+  ion-icon { font-size: 15px; color: var(--bx-green); flex-shrink: 0; }
   strong { font-size: 12px; color: #fff; }
-  .ds-bus-dist { flex: 1; font-size: 11px; color: #7d93b2; }
-  .ds-bus-eta { font-size: 11px; font-weight: 700; color: #00c853; }
+  .ds-bus-dist { flex: 1; font-size: 11px; color: var(--bx-text-3); }
+  .ds-bus-eta { font-size: 11px; font-weight: 700; color: var(--bx-green); }
 }
 
 .ds-hint {
   flex-direction: row; align-items: center; gap: 10px;
-  ion-icon { font-size: 24px; color: #00c853; flex-shrink: 0; }
+  ion-icon { font-size: 24px; color: var(--bx-green); flex-shrink: 0; }
   strong { display: block; font-size: 13px; color: #fff; }
-  span { font-size: 11px; color: #7d93b2; }
+  span { font-size: 11px; color: var(--bx-text-3); }
 }
 
 // ---- DESKTOP LAYOUT OVERRIDES ----
@@ -317,7 +317,7 @@
   .empresas-sidebar { display: flex; }
 
   // Mobile-only overlays hidden at this width.
-  .top-overlay, .live-chip, .route-chip, .eta-card { display: none; }
+  .top-overlay, .live-chip, .route-sheet { display: none; }
 
   // Centrado respecto a la pantalla completa: ahora que el panel lateral
   // flota (no ocupa ancho en el layout), el mapa se ve de punta a punta y el
@@ -351,18 +351,38 @@
   .light-map {
     .desktop-topbar,
     .empresas-sidebar {
-      background: rgba(9, 20, 36, 0.9);
-      border-color: rgba(255,255,255,0.16);
+      background: var(--bx-glass-strong);
+      border-color: var(--bx-line-strong);
       box-shadow: 0 10px 34px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
     }
 
-    // Los secundarios del panel eran #7d93b2 sobre vidrio translúcido: sobre
+    // Los secundarios del panel eran var(--bx-text-3) sobre vidrio translúcido: sobre
     // mapa claro se perdían del todo.
     .empresa-info span,
     .ds-empty,
     .ds-label,
-    .empresa-logo ion-icon { color: #9db2ce; }
+    .empresa-logo ion-icon { color: var(--bx-text-2); }
 
-    .dt-search span { color: #b3c3d8; }
+    .dt-search span { color: var(--bx-text-2); }
   }
+}
+
+// Comprar boleto, dentro de la tarjeta de la ruta actual.
+.ds-buy {
+  width: 100%;
+  height: 44px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: var(--bx-r-sm);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--bx-green);
+  color: var(--bx-ink);
+  font-family: inherit;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: var(--bx-green-bright); }
+  &:disabled { opacity: 0.6; }
+  ion-icon { font-size: 18px; }
 }

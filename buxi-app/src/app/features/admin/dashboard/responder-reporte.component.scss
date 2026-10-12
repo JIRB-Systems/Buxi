@@ -12,7 +12,7 @@
 
 .form-content {
   --background: var(--dash-bg);
-  --color: #e6edf5;
+  --color: var(--bx-text);
   --padding-start: 16px;
   --padding-end: 16px;
   --padding-top: 16px;
@@ -31,7 +31,7 @@
 
 .original {
   background: var(--dash-surface);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--bx-line);
   border-radius: 12px;
   padding: 14px;
   margin-bottom: 20px;
@@ -39,7 +39,7 @@
 
   strong { color: #fff; font-size: 15px; }
   .muted { color: var(--dash-text-muted); font-size: 11px; }
-  p { color: #c0cfe0; font-size: 13px; margin: 6px 0 0; }
+  p { color: var(--bx-text-2); font-size: 13px; margin: 6px 0 0; }
 }
 
 .field {
@@ -60,7 +60,7 @@
 .tipo-btn {
   flex: 1;
   background: var(--dash-surface);
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid var(--bx-line-strong);
   border-radius: 10px;
   padding: 10px 6px;
   color: var(--dash-text-muted);
@@ -71,7 +71,7 @@
 
   &:hover { border-color: rgba(255,255,255,0.24); }
 
-  &.pendiente.active { color: #ff9800; border-color: #ff9800; background: rgba(255,152,0,0.1); }
-  &.en_revision.active { color: #2196f3; border-color: #2196f3; background: rgba(33,150,243,0.1); }
-  &.resuelto.active { color: #00c853; border-color: #00c853; background: rgba(0,200,83,0.1); }
+  &.pendiente.active { color: var(--bx-warning); border-color: var(--bx-warning); background: rgba(255,152,0,0.1); }
+  &.en_revision.active { color: var(--bx-blue); border-color: var(--bx-blue); background: rgba(33,150,243,0.1); }
+  &.resuelto.active { color: var(--bx-green); border-color: var(--bx-green); background: rgba(0,200,83,0.1); }
 }
