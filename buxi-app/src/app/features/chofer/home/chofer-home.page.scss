@@ -258,7 +258,9 @@
 // ---- PRÓXIMA PARADA ----
 .next-stop-card {
   position: absolute;
-  left: 14px; right: 14px;
+  // A la derecha deja libre la columna de controles del mapa (42px + márgenes):
+  // con `right: 14px` la distancia a la parada quedaba tapada por los botones.
+  left: 14px; right: 68px;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 190px);
   z-index: 1000;
   display: flex; align-items: center; gap: 10px;
@@ -505,10 +507,13 @@
   .pp-chev { font-size: 15px; color: var(--bx-text-3); }
 }
 
-.pp-badge {
-  flex-shrink: 0;
-  min-width: 19px; height: 19px;
-  padding: 0 5px;
+// Anidado bajo .pp-link a propósito: el globo es un <span>, y la regla
+// `.pp-link span` (flex: 1, texto de 14px) le ganaba a un `.pp-badge` suelto
+// y lo estiraba hasta ocupar media fila.
+.pp-link .pp-badge {
+  flex: none;
+  min-width: 20px; height: 20px;
+  padding: 0 6px;
   border-radius: 10px;
   background: var(--bx-danger);
   display: grid; place-items: center;
@@ -824,4 +829,183 @@
   font-size: 14px; font-weight: 700;
   cursor: pointer;
   ion-icon { font-size: 18px; color: var(--bx-green-bright); }
+}
+
+// El bloque del viaje dentro del panel solo existe en pantalla ancha.
+.pp-viaje { display: none; }
+
+// ============================================================================
+// ESCRITORIO Y TABLETA APAISADA
+//
+// En pantalla ancha —un escritorio, o la tableta apaisada en el tablero del
+// bus— se veía la pantalla del teléfono estirada: el botón de iniciar ruta de
+// lado a lado y los datos del viaje en fichas sueltas sobre el mapa.
+//
+// Ahora son dos zonas: un panel fijo con todo lo del viaje y el mapa en el
+// resto. El panel es el mismo `.profile-panel` del teléfono, que acá deja de
+// ser un cajón y queda siempre a la vista.
+//
+//   |        panel 400        |              mapa              |
+//
+// Los tamaños son más grandes que en el teléfono a propósito: esta pantalla se
+// lee de un vistazo, manejando.
+// ============================================================================
+@media (min-width: 900px) {
+  $panel: 400px;
+
+  #chofer-map { left: $panel; width: auto; }
+
+  // Las piezas que en el teléfono flotan sobre el mapa viven acá en el panel
+  // (son las mismas plantillas); sus copias sobre el mapa sobran.
+  .top-overlay,
+  .panel-scrim,
+  .pp-close,
+  .pp-info-row,
+  .chofer-content > .status-chip,
+  .chofer-content > .boletos-chip,
+  .chofer-content > .next-stop-card,
+  .chofer-content > .bottom-control { display: none; }
+
+  // ---------- Panel ----------
+  .profile-panel {
+    left: 0; right: auto;
+    width: $panel;
+    padding: 24px 0 18px;
+    border-left: 0; border-right: 1px solid var(--bx-line);
+    background: var(--bx-bg-2);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: none;
+    transform: none;
+    z-index: 1001;
+    overflow-y: auto;
+  }
+
+  .pp-head { padding-bottom: 20px; }
+  .pp-id strong { font-size: 18px; }
+
+  // ---------- El viaje ----------
+  .pp-viaje {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 18px 16px;
+    border-bottom: 1px solid var(--bx-line);
+  }
+
+  .pv-bus {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px;
+    border-radius: var(--bx-r-lg);
+    background: rgba(255,255,255,0.055);
+    border: 1px solid var(--bx-line);
+
+    .pv-bus-icono {
+      flex: none;
+      width: 52px; height: 52px;
+      border-radius: var(--bx-r-md);
+      display: grid; place-items: center;
+      background: var(--bx-blue-soft);
+      color: var(--bx-blue-bright);
+      font-size: 26px;
+    }
+
+    .pv-bus-info {
+      min-width: 0;
+      display: flex; flex-direction: column; gap: 2px;
+      strong {
+        font-size: 24px; font-weight: 800; color: var(--bx-text);
+        line-height: 1.1; letter-spacing: -0.02em;
+      }
+      span {
+        font-size: 14px; color: var(--bx-text-2);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+    }
+
+    // Sin bus no hay viaje posible: se avisa en ámbar, no en rojo, porque no
+    // es un error de la app sino algo que resuelve la empresa.
+    &.sin-bus {
+      border-color: rgba(255, 176, 32, 0.3);
+      .pv-bus-icono { background: var(--bx-warning-soft); color: var(--bx-warning); }
+      .pv-bus-info strong { font-size: 18px; }
+    }
+  }
+
+  .pv-estado { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  // Dentro del panel dejan de flotar: siguen el flujo y crecen.
+  .pp-viaje .status-chip,
+  .pp-viaje .boletos-chip {
+    position: static;
+    padding: 8px 14px;
+    font-size: 14px;
+    box-shadow: none;
+  }
+
+  .pp-viaje .next-stop-card {
+    position: static;
+    padding: 16px;
+    border-radius: var(--bx-r-lg);
+    background: var(--bx-green-soft);
+    border-color: rgba(0, 200, 83, 0.3);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: none;
+
+    > ion-icon { font-size: 28px; }
+    .ns-info {
+      strong { font-size: 20px; line-height: 1.15; }
+      span { font-size: 13px; }
+    }
+    .ns-dist { font-size: 22px; }
+  }
+
+  .pp-viaje .bottom-control {
+    position: static;
+    padding: 0;
+    margin-top: 4px;
+    display: flex; align-items: stretch; gap: 10px;
+  }
+
+  .pp-viaje .track-btn { height: 64px; font-size: 18px; }
+  .pp-viaje .pause-btn { width: 64px; height: 64px; }
+
+  // ---------- Enlaces ----------
+  .pp-links { padding-top: 10px; }
+  .pp-link {
+    min-height: 52px;
+    > span:not(.pp-badge) { font-size: 15px; }
+  }
+
+  // ---------- Sobre el mapa ----------
+  // Las alertas de manejo sí se quedan sobre el mapa, arriba y grandes: es
+  // donde está mirando quien maneja.
+  .speed-warning {
+    left: $panel + 16px; top: 18px;
+    padding: 10px 18px;
+    font-size: 16px;
+    ion-icon { font-size: 20px; }
+
+    &.off-route.stacked { top: 72px; }
+  }
+
+  .panic-btn { left: $panel + 16px; bottom: 24px; }
+  .map-controls { right: 16px; bottom: 24px; }
+
+  // ---------- Viajes, calificaciones y mensajes: sobre el panel ----------
+  // En el teléfono suben como hoja; acá ocupan el panel y se cierran con la X.
+  .historial-sheet {
+    left: 0; right: auto; top: 0; bottom: 0;
+    width: $panel;
+    max-height: none;
+    padding: 22px 0 16px;
+    border-radius: 0;
+    border: 0; border-right: 1px solid var(--bx-line);
+    background: var(--bx-bg-2);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: none;
+    transform: translateX(-10px);
+
+    &.open { transform: none; }
+    .sheet-bar { display: none; }
+  }
+
+  .hs-head strong { font-size: 20px; }
 }

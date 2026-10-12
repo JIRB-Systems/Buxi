@@ -26,19 +26,25 @@
 
   <!-- Estado de transmisión. Tres estados y no dos: "transmitiendo" y "los
        envíos se están cayendo" no son lo mismo, y antes se veían igual. -->
-  <div class="status-chip"
-       [class.active]="tracking && !paused && !transmisionCaida"
-       [class.paused]="paused"
-       [class.caida]="tracking && !paused && transmisionCaida">
-    <span class="live-dot"></span>
-    {{ estadoTransmisionTexto }}
-  </div>
+  <ng-template #tplEstado>
+    <div class="status-chip"
+         [class.active]="tracking && !paused && !transmisionCaida"
+         [class.paused]="paused"
+         [class.caida]="tracking && !paused && transmisionCaida">
+      <span class="live-dot"></span>
+      {{ estadoTransmisionTexto }}
+    </div>
+  </ng-template>
+  <ng-container *ngTemplateOutlet="tplEstado"></ng-container>
 
   <!-- Boletos escaneados en este viaje -->
-  <div class="boletos-chip" *ngIf="tracking">
-    <ion-icon name="qr-code-outline"></ion-icon>
-    {{ boletosEscaneados }} {{ boletosEscaneados === 1 ? 'boleto' : 'boletos' }}
-  </div>
+  <ng-template #tplBoletos>
+    <div class="boletos-chip" *ngIf="tracking">
+      <ion-icon name="qr-code-outline"></ion-icon>
+      {{ boletosEscaneados }} {{ boletosEscaneados === 1 ? 'boleto' : 'boletos' }}
+    </div>
+  </ng-template>
+  <ng-container *ngTemplateOutlet="tplBoletos"></ng-container>
 
   <!-- Exceso de velocidad -->
   <div class="speed-warning" *ngIf="speedWarning">
@@ -53,16 +59,19 @@
   </div>
 
   <!-- Próxima parada -->
-  <div class="next-stop-card" *ngIf="nextParada && tracking">
-    <ion-icon name="location"></ion-icon>
-    <div class="ns-info">
-      <strong>{{ nextParada.nombre }}</strong>
-      <span>Próxima parada</span>
+  <ng-template #tplParada>
+    <div class="next-stop-card" *ngIf="nextParada && tracking">
+      <ion-icon name="location"></ion-icon>
+      <div class="ns-info">
+        <strong>{{ nextParada.nombre }}</strong>
+        <span>Próxima parada</span>
+      </div>
+      <div class="ns-dist" *ngIf="nextParadaDistanceKm !== null">
+        {{ nextParadaDistanceKm! < 1 ? (nextParadaDistanceKm! * 1000 | number:'1.0-0') + ' m' : (nextParadaDistanceKm! | number:'1.1-1') + ' km' }}
+      </div>
     </div>
-    <div class="ns-dist" *ngIf="nextParadaDistanceKm !== null">
-      {{ nextParadaDistanceKm! < 1 ? (nextParadaDistanceKm! * 1000 | number:'1.0-0') + ' m' : (nextParadaDistanceKm! | number:'1.1-1') + ' km' }}
-    </div>
-  </div>
+  </ng-template>
+  <ng-container *ngTemplateOutlet="tplParada"></ng-container>
 
   <!-- Loading -->
   <div class="loading-overlay" *ngIf="loading">
@@ -97,30 +106,33 @@
   </button>
 
   <!-- ====== CONTROL INFERIOR ====== -->
-  <div class="bottom-control" [class.with-pause]="tracking">
-    <ion-button
-      class="pause-btn"
-      *ngIf="tracking"
-      [class.on]="paused"
-      (click)="togglePause()"
-    >
-      <ion-icon [name]="paused ? 'play-outline' : 'pause-outline'" slot="icon-only"></ion-icon>
-    </ion-button>
-    <ion-button
-      expand="block"
-      class="track-btn"
-      [class.btn-start]="!tracking"
-      [class.btn-stop]="tracking"
-      (click)="toggleTracking()"
-      [disabled]="!assignedBus"
-    >
-      <ion-icon [name]="tracking ? 'stop-circle-outline' : 'play-circle-outline'" slot="start"></ion-icon>
-      {{ tracking ? 'Detener transmisión' : 'Iniciar ruta' }}
-    </ion-button>
-  </div>
+  <ng-template #tplControl>
+    <div class="bottom-control" [class.with-pause]="tracking">
+      <ion-button
+        class="pause-btn"
+        *ngIf="tracking"
+        [class.on]="paused"
+        (click)="togglePause()"
+      >
+        <ion-icon [name]="paused ? 'play-outline' : 'pause-outline'" slot="icon-only"></ion-icon>
+      </ion-button>
+      <ion-button
+        expand="block"
+        class="track-btn"
+        [class.btn-start]="!tracking"
+        [class.btn-stop]="tracking"
+        (click)="toggleTracking()"
+        [disabled]="!assignedBus"
+      >
+        <ion-icon [name]="tracking ? 'stop-circle-outline' : 'play-circle-outline'" slot="start"></ion-icon>
+        {{ tracking ? 'Detener transmisión' : 'Iniciar ruta' }}
+      </ion-button>
+    </div>
+  </ng-template>
+  <ng-container *ngTemplateOutlet="tplControl"></ng-container>
 
   <!-- ====== PANEL LATERAL DE PERFIL ====== -->
-  <div class="panel-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>
+  <div class="panel-scrim pp-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>
 
   <aside class="profile-panel" [class.open]="profilePanelOpen">
     <div class="pp-head">
@@ -133,6 +145,31 @@
         <span>{{ profile?.correo }}</span>
       </div>
       <ion-icon name="close" class="pp-close" (click)="toggleProfilePanel()"></ion-icon>
+    </div>
+
+    <!-- ====== EL VIAJE, EN EL PANEL ======
+         Solo en pantalla ancha: escritorio o la tableta apaisada del tablero
+         del bus. En el teléfono estas mismas piezas flotan sobre el mapa. -->
+    <div class="pp-viaje">
+      <div class="pv-bus" [class.sin-bus]="!assignedBus">
+        <div class="pv-bus-icono"><ion-icon name="bus" aria-hidden="true"></ion-icon></div>
+        <div class="pv-bus-info" *ngIf="assignedBus">
+          <strong>{{ assignedBus.placa }}</strong>
+          <span>{{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
+        </div>
+        <div class="pv-bus-info" *ngIf="!assignedBus">
+          <strong>{{ sinBusTexto }}</strong>
+          <span>Tu empresa te lo asigna desde su panel</span>
+        </div>
+      </div>
+
+      <div class="pv-estado">
+        <ng-container *ngTemplateOutlet="tplEstado"></ng-container>
+        <ng-container *ngTemplateOutlet="tplBoletos"></ng-container>
+      </div>
+
+      <ng-container *ngTemplateOutlet="tplParada"></ng-container>
+      <ng-container *ngTemplateOutlet="tplControl"></ng-container>
     </div>
 
     <div class="pp-links">
