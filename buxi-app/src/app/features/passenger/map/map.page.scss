@@ -52,7 +52,7 @@
 
   // Acá la placa sí se conserva: en móvil la marca va sola sobre el mapa y
   // necesita ese fondo para separarse de un terreno claro.
-  svg { width: 26px; height: 26px; display: block; }
+  img { height: 24px; width: auto; display: block; }
 }
 
 // Vidrio oscuro como el resto del chrome. Antes era una píldora blanca sólida:

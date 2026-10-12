@@ -20,12 +20,11 @@ const SPONSOR_MAX_MS = 6000;
   standalone: false,
 })
 export class SplashPage implements AfterViewInit, OnDestroy {
-  @ViewChild('shaft') shaftRef!: ElementRef<SVGPathElement>;
-  @ViewChild('head') headRef!: ElementRef<SVGGElement>;
-  @ViewChild('dot') dotRef!: ElementRef<SVGCircleElement>;
+  @ViewChildren('franja') franjaRefs!: QueryList<ElementRef<SVGPathElement>>;
+  @ViewChild('panza') panzaRef!: ElementRef<SVGPathElement>;
   @ViewChild('halo') haloRef!: ElementRef<HTMLDivElement>;
   @ViewChild('tagline') taglineRef!: ElementRef<HTMLDivElement>;
-  @ViewChildren('letter') letterRefs!: QueryList<ElementRef<HTMLSpanElement>>;
+  @ViewChildren('letter') letterRefs!: QueryList<ElementRef<SVGGraphicsElement>>;
 
   private raf: number | null = null;
   private pendingTarget: string[] = ['/auth/login'];
@@ -110,58 +109,47 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     clearTimeout(this.autoNavTimeout);
   }
 
-  // El punto de luz recorre el pin trazandolo (como un bus dejando su ruta
-  // en el mapa), al cerrar se encienden el centro y las ondas, y el wordmark
-  // sube letra por letra. Timeline unica con rAF en vez de keyframes CSS porque el punto
-  // necesita seguir la geometria real del path (getPointAtLength).
+  // Las tres franjas del asta entran desde la izquierda, una tras otra, como
+  // líneas de velocidad; la panza cierra la B; el nombre sube letra por letra.
+  // Timeline única con rAF para que las cuatro fases compartan un solo reloj.
   private playIntro() {
-    const shaft = this.shaftRef.nativeElement;
-    const head = this.headRef.nativeElement;
-    const dot = this.dotRef.nativeElement;
+    const franjas = this.franjaRefs.map(r => r.nativeElement);
+    const panza = this.panzaRef.nativeElement;
     const halo = this.haloRef.nativeElement;
     const tagline = this.taglineRef.nativeElement;
     const letters = this.letterRefs.map(r => r.nativeElement);
 
-    const LEN = shaft.getTotalLength();
-    shaft.style.strokeDasharray = String(LEN);
-    shaft.style.strokeDashoffset = String(LEN);
-
-    const SHAFT_START = 260, SHAFT_DUR = 880;
-    const HEAD_START = SHAFT_START + SHAFT_DUR - 40, HEAD_DUR = 300;
-    const LET_START = HEAD_START + HEAD_DUR - 60, LET_STAG = 95, LET_DUR = 470;
+    // Las distancias de las piezas del logo van en unidades de su viewBox.
+    const FR_START = 220, FR_STAG = 120, FR_DUR = 380, FR_DESDE = 70;
+    const PZ_START = FR_START + 2 * FR_STAG + FR_DUR - 180, PZ_DUR = 460, PZ_DESDE = 22;
+    const LET_START = PZ_START + PZ_DUR - 160, LET_STAG = 95, LET_DUR = 470, LET_DESDE = 16;
     const TAG_START = LET_START + letters.length * LET_STAG + 140, TAG_DUR = 600;
     const END = TAG_START + TAG_DUR;
 
     const clamp01 = (x: number) => x < 0 ? 0 : x > 1 ? 1 : x;
     const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
-    const easeOutBack = (x: number) => { const c = 1.9; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+    const easeOutBack = (x: number) => { const c = 1.4; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
 
     const t0 = performance.now();
     const frame = (now: number) => {
       const t = now - t0;
 
-      const sp = easeOutCubic(clamp01((t - SHAFT_START) / SHAFT_DUR));
-      shaft.style.strokeDashoffset = String(LEN * (1 - sp));
-      if (t >= SHAFT_START && sp < 1) {
-        const pt = shaft.getPointAtLength(sp * LEN);
-        dot.setAttribute('cx', String(pt.x));
-        dot.setAttribute('cy', String(pt.y));
-        dot.style.opacity = '1';
-      } else if (sp >= 1) {
-        const f = clamp01((t - (SHAFT_START + SHAFT_DUR)) / 220);
-        dot.style.opacity = String(1 - f);
-      }
+      franjas.forEach((el, i) => {
+        const lineal = clamp01((t - (FR_START + i * FR_STAG)) / FR_DUR);
+        el.style.opacity = String(clamp01(lineal * 2.5));
+        el.style.transform = `translateX(${-FR_DESDE * (1 - easeOutCubic(lineal))}px)`;
+      });
 
-      const hp = easeOutBack(clamp01((t - HEAD_START) / HEAD_DUR));
-      head.style.transform = `scale(${Math.max(0, hp)})`;
-      head.style.opacity = String(clamp01((t - HEAD_START) / 160));
+      const pl = clamp01((t - PZ_START) / PZ_DUR);
+      panza.style.opacity = String(clamp01(pl * 2.2));
+      panza.style.transform = `translateX(${-PZ_DESDE * (1 - easeOutBack(pl))}px)`;
 
-      halo.style.opacity = String(0.42 * easeOutCubic(clamp01((t - SHAFT_START) / 900)));
+      halo.style.opacity = String(0.42 * easeOutCubic(clamp01((t - FR_START) / 900)));
 
       letters.forEach((el, i) => {
         const lp = easeOutCubic(clamp01((t - (LET_START + i * LET_STAG)) / LET_DUR));
         el.style.opacity = String(lp);
-        el.style.transform = `translateY(${22 * (1 - lp)}px)`;
+        el.style.transform = `translateY(${LET_DESDE * (1 - lp)}px)`;
       });
 
       const tp = easeOutCubic(clamp01((t - TAG_START) / TAG_DUR));

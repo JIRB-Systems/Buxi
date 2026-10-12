@@ -36,11 +36,11 @@
   gap: 12px;
   padding: 20px 18px 22px;
 
-  .logo-mark { width: 32px; height: 32px; flex-shrink: 0; }
+  .logo-mark { height: 34px; width: auto; flex-shrink: 0; }
 
   .logo-text {
     display: flex; flex-direction: column;
-    .logo-name { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: 0.02em; line-height: 1.1; i { font-style: normal; color: var(--bx-blue); } }
+    .logo-name { height: 15px; width: auto; align-self: flex-start; margin-bottom: 2px; }
     .logo-sub { font-size: 11px; font-weight: 700; color: var(--bx-text-3); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 1px; }
   }
 }

@@ -42,18 +42,8 @@
     overflow: hidden;
   }
 
-  // La marca vectorial ya tiene forma propia y contraste; no necesita la placa
-  // de fondo que sí hacía falta para tapar el rectángulo negro del PNG.
-  .dt-mark {
-    width: 32px; height: 32px;
-    flex-shrink: 0;
-    display: block;
-  }
-
-  .dt-word {
-    font-size: 16px; font-weight: 800; color: #fff;
-    letter-spacing: -0.2px; white-space: nowrap;
-  }
+  .dt-mark { height: 32px; width: auto; flex-shrink: 0; display: block; }
+  .dt-word { height: 21px; width: auto; flex-shrink: 0; display: block; }
 
   // Mismo vidrio oscuro que el buscador móvil. Era una píldora blanca sólida
   // dentro de una barra oscura: el único elemento claro de todo el chrome.

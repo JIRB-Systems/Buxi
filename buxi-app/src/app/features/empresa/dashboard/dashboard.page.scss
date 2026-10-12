@@ -26,9 +26,9 @@
 
 .sidebar-header {
   display: flex; align-items: center; gap: 10px; padding: 18px 16px 20px;
-  .logo-mark { width: 32px; height: 32px; flex-shrink: 0; }
-  .logo-text { display: flex; flex-direction: column;
-    .logo-name { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: 0.02em; line-height: 1.1; i { font-style: normal; color: var(--bx-blue); } }
+  .logo-mark { height: 34px; width: auto; flex-shrink: 0; }
+  .logo-text { display: flex; flex-direction: column; min-width: 0;
+    .logo-name { height: 15px; width: auto; align-self: flex-start; margin-bottom: 3px; }
     .logo-sub { font-size: 11px; color: var(--bx-text-3); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
   }
 }

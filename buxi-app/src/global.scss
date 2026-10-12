@@ -168,36 +168,23 @@ ion-modal {
 }
 
 // ====== Marca ======
-// El logo, igual en todas partes: el pin azul con las ondas verdes y la
-// palabra al lado. Había cuatro versiones distintas según la pantalla (la
-// flecha, el bus ilustrado, este mismo pin y un cuadrado verde con un bus).
+// El logo, igual en todas partes: la B en movimiento (asta azul de tres
+// franjas, panza verde) y el nombre al lado, con el punto de la «i» en el
+// verde de "en vivo". Las dos piezas son SVG de assets/brand; el nombre ya
+// viene en trazos, así que no depende de que la fuente haya cargado.
+// Las proporciones son las del logo: el nombre mide 2/3 del alto de la marca.
 .bx-lockup {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 
-  img,
-  svg {
-    width: 30px;
-    height: 30px;
-    flex: none;
-  }
-
-  .bx-word {
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    line-height: 1;
-    color: var(--bx-text);
-
-    // La "I" lleva el azul del pin, como en el logo completo.
-    i { font-style: normal; color: var(--bx-blue); }
-  }
+  .bx-mark { height: 32px; width: auto; flex: none; }
+  .bx-name { height: 21px; width: auto; flex: none; }
 
   &--lg {
-    gap: 12px;
-    img, svg { width: 44px; height: 44px; }
-    .bx-word { font-size: 30px; }
+    gap: 13px;
+    .bx-mark { height: 48px; }
+    .bx-name { height: 32px; }
   }
 }
 

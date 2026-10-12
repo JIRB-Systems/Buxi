@@ -9,7 +9,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "iconos": "npx @capacitor/assets generate --android --assetPath resources --iconBackgroundColor \"#0a1628\" --iconBackgroundColorDark \"#0a1628\" --splashBackgroundColor \"#0a1628\" --splashBackgroundColorDark \"#0a1628\""
   },
   "private": true,
   "dependencies": {

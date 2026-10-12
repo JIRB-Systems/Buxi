@@ -37,3 +37,18 @@ python construir.py ../../buxi-app/src/assets/fonts/manrope-latin-var.woff2 .
 ```
 
 Para cambiar una proporción se toca el número en `MARCA` y se regenera todo; no se edita un SVG a mano.
+
+## En la app
+
+`app.py` genera las piezas que usa la app (mismo comando, cambiando el script): la marca y el nombre de `buxi-app/src/assets/brand/`, el bloque de la pantalla de arranque y las fuentes de los íconos nativos.
+
+- **En pantalla:** la marca y el nombre son dos imágenes dentro de `.bx-lockup` (ver `global.scss`). El nombre mide dos tercios del alto de la marca.
+- **Ícono instalable de Android:** la carpeta `android/` se genera en cada máquina y no está en el repositorio, así que el ícono se regenera al compilar. Las fuentes están en `buxi-app/resources/`. Después de `npx cap add android` o `npx cap sync`:
+
+  ```
+  cd buxi-app
+  npm run iconos
+  ```
+
+  Eso escribe los `mipmap-*` y la pantalla de arranque nativa. `icon-foreground.png` deja la marca dentro de la zona segura del ícono adaptable, que Android recorta a un círculo.
+
