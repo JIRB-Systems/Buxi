@@ -1193,7 +1193,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         // maxZoom: la caja se siembra con un punto, asi que una ruta con
         // todas sus paradas casi en el mismo lugar la deja de area cero y
         // fitBounds se va al zoom maximo, bajo el terreno 3D.
-        this.map.fitBounds(bounds, { padding: 60, duration: 300, maxZoom: 16 });
+        this.map.fitBounds(bounds, { padding: this.margenDeEncuadre(), duration: 300, maxZoom: 16 });
       } else {
         // Rutas registradas pero sin paradas suficientes para trazarlas.
         await this.toast(`${empresa.nombre} aun no tiene paradas cargadas.`, 'warning');
@@ -1640,7 +1640,18 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     );
     // Mismo motivo que el otro fitBounds de esta pantalla: sin tope, una
     // caja de area cero manda la camara al zoom maximo.
-    this.map.fitBounds(bounds, { padding: 60, duration: 0, maxZoom: 16 });
+    this.map.fitBounds(bounds, { padding: this.margenDeEncuadre(), duration: 0, maxZoom: 16 });
+  }
+
+  // fitBounds calcula el encuadre como si el mapa se viera desde arriba. Con la
+  // vista inclinada, lo que queda cerca de la cámara se agranda y en un mapa
+  // ancho el final de la ruta se salía de la pantalla. El margen lateral crece
+  // con el ancho del mapa; en el teléfono sigue siendo el de siempre.
+  private margenDeEncuadre(): number | { top: number; bottom: number; left: number; right: number } {
+    const ancho = this.map?.getContainer().clientWidth ?? 0;
+    const lateral = Math.round(ancho * 0.13);
+    if (lateral <= 60) return 60;
+    return { top: 70, bottom: 70, left: lateral, right: lateral };
   }
 
   // Dibuja una ruta (línea + paradas) sin encuadrar el mapa, para poder
@@ -1781,8 +1792,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   private startRealtimeTracking() {
     this.locationSub = this.tracking.subscribeToLocations().subscribe((locations) => {
-      this.activeBusCount = locations.size;
       locations.forEach((loc) => this.addOrUpdateBusMarker(loc));
+      // El conteo sale de los buses que hay en el mapa, no de `locations`: ese
+      // Map solo trae los que mandaron un punto desde que se abrió la pantalla,
+      // y su primera emisión llega vacía. Con eso el contador decía "0 buses en
+      // vivo" con los buses ya dibujados, hasta que alguno mandaba otro punto.
+      this.activeBusCount = this.busLocationsMap.size;
     });
   }
 

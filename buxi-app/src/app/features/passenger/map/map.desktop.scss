@@ -1,7 +1,7 @@
-// ====== DESKTOP LAYOUT (tablet/desktop width) ======
-// Mobile keeps the floating-overlay UX above unchanged; on wider screens the
-// map stays full-bleed underneath and a fixed sidebar + topbar sit on top,
-// like a native web app shell instead of stretched phone chrome.
+// ====== PANEL Y BARRA DEL MAPA ======
+// Arriba van los estilos base, que también usa el teléfono (ahí el panel de
+// empresas es un cajón que entra desde la izquierda). La versión de
+// escritorio está al final del archivo.
 .desktop-topbar { display: none; }
 
 // Barra y panel flotan sobre el mapa en vez de recortarlo: el mapa se ve de
@@ -100,17 +100,6 @@
       position: absolute; inset: 0;
       width: 100%; height: 100%; object-fit: cover;
     }
-  }
-}
-
-// Pantallas angostas de escritorio. Se sueltan cosas en orden de importancia:
-// primero el nombre junto al logo (la marca ya se identifica sola), y después
-// el texto largo del buscador, que si no se corta a media palabra.
-@media (min-width: 900px) and (max-width: 1180px) {
-  .desktop-topbar {
-    .dt-word { display: none; }
-    .dt-ph-full { display: none; }
-    .dt-ph-short { display: block; }
   }
 }
 
@@ -215,39 +204,6 @@
   padding: 12px; display: flex; flex-direction: column; gap: 8px;
 }
 
-.ds-card-header {
-  display: flex; align-items: center; justify-content: space-between;
-  .ds-clear { font-size: 16px; color: var(--bx-text-3); cursor: pointer; &:hover { color: #fff; } }
-}
-
-.ds-route-row {
-  display: flex; align-items: center; gap: 10px;
-  .route-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .ds-route-info {
-    display: flex; flex-direction: column;
-    strong { font-size: 14px; color: #fff; }
-    span { font-size: 11px; color: var(--bx-text-3); margin-top: 1px; }
-  }
-}
-
-.ds-route-extra {
-  display: flex; flex-wrap: wrap; gap: 6px 14px;
-  padding-top: 8px; margin-top: 2px;
-  border-top: 1px solid var(--bx-line);
-
-  .ds-extra-item {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 12px; color: var(--bx-text-2); font-weight: 600;
-    ion-icon { font-size: 14px; color: var(--bx-green); }
-  }
-}
-
-.ds-salidas {
-  display: flex; flex-direction: column; gap: 6px;
-  padding-top: 8px; margin-top: 2px;
-  border-top: 1px solid var(--bx-line);
-}
-
 .ds-salidas-chips {
   display: flex; flex-wrap: wrap; gap: 6px;
 }
@@ -263,20 +219,6 @@
     color: #d7f7e3;
     background: rgba(0,200,83,0.16);
     border-color: rgba(0,200,83,0.35);
-  }
-}
-
-.ds-eta-row {
-  display: flex; align-items: center; gap: 10px;
-  > ion-icon { font-size: 20px; color: var(--bx-green); }
-  .ds-eta-info {
-    flex: 1; display: flex; flex-direction: column;
-    strong { font-size: 13px; color: #fff; }
-    span { font-size: 11px; color: var(--bx-text-3); }
-  }
-  .ds-eta-time {
-    background: var(--bx-green); border-radius: 8px; padding: 5px 10px;
-    strong { font-size: 13px; color: #fff; }
   }
 }
 
@@ -297,82 +239,285 @@
   span { font-size: 11px; color: var(--bx-text-3); }
 }
 
-// ---- DESKTOP LAYOUT OVERRIDES ----
-// Placed last so these win the cascade against the mobile rules above
-// (same specificity, later source order).
-@media (min-width: 900px) {
-  // La barra es grid (tres columnas, buscador centrado); el panel sigue siendo
-  // flex. Antes ambas se reactivaban como flex y eso le pisaba el grid.
-  .desktop-topbar { display: grid; }
-  .empresas-sidebar { display: flex; }
+// ---- DETALLE DE RUTA DENTRO DEL PANEL ----
+// Cabecera con volver y, debajo, la misma hoja que el teléfono muestra abajo
+// (minutos en grande, parada, buses en vivo y boleto): una sola definición en
+// la plantilla, dos lugares donde aparece.
+.ds-route-head {
+  display: flex; align-items: center; gap: 10px;
 
-  // Mobile-only overlays hidden at this width.
-  .top-overlay, .live-chip, .route-sheet { display: none; }
+  .ds-back {
+    flex: none;
+    width: 40px; height: 40px;
+    margin-left: -6px;
+    padding: 0; border: 0;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(255,255,255,0.06);
+    color: var(--bx-text);
+    cursor: pointer;
+    transition: background var(--bx-t-fast) var(--bx-ease);
 
-  // Centrado respecto a la pantalla completa: ahora que el panel lateral
-  // flota (no ocupa ancho en el layout), el mapa se ve de punta a punta y el
-  // dock tiene que quedar centrado sobre él, no desplazado a un costado.
-  .dock {
-    left: 0; right: 0;
-    width: 460px;
-    margin: 0 auto;
+    &:hover { background: rgba(255,255,255,0.12); }
+    ion-icon { font-size: 20px; }
   }
 
-  .map-controls { bottom: calc(env(safe-area-inset-bottom, 0px) + 116px); }
+  // El color de la ruta, como barra: el mismo de su línea en el mapa.
+  .route-color-dot { flex: none; width: 4px; height: 30px; border-radius: 2px; }
 
-  // Ficha y panel de listas se centran igual que el dock y se apoyan justo
-  // encima de él. Antes se anclaban al ancho del sidebar sólido, que ya no
-  // ocupa espacio en el layout.
-  .bus-sheet {
-    left: 0; right: 0;
-    width: 420px; margin: 0 auto;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
-  }
-
-  .list-panel {
-    left: 0; right: 0;
-    width: 460px; margin: 0 auto;
-    max-height: min(56vh, 460px);
+  .ds-route-info {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
+    strong {
+      font-size: 16px; font-weight: 800; color: var(--bx-text); letter-spacing: -0.01em;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    span {
+      font-size: 13px; color: var(--bx-text-2); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
   }
 }
 
-// Mismo ajuste para el chrome de escritorio sobre mapa claro.
+.ds-hoja {
+  padding: 14px;
+  border-radius: var(--bx-r-lg);
+  background: rgba(255,255,255,0.055);
+  border: 1px solid var(--bx-line);
+}
+
+// En el teléfono la cabecera y la hoja ya están en pantalla (arriba y abajo del
+// mapa); dentro del cajón de empresas serían una repetición.
+@media (max-width: 899px) {
+  .ds-route-head, .ds-hoja { display: none; }
+}
+
+// El logo del dock solo existe en escritorio, donde el dock es la barra lateral.
+.dock-logo { display: none; }
+
+// ============================================================================
+// ESCRITORIO
+//
+// Una app de escritorio de verdad, no la del teléfono estirada: barra lateral
+// de navegación, panel fijo con el contenido y el mapa ocupando el resto.
+// Antes el contenido flotaba en tarjetas sueltas sobre el mapa y la navegación
+// era la misma cápsula inferior del teléfono, centrada en una pantalla de 1900
+// píxeles.
+//
+//   | barra |      panel       |               mapa               |
+//   |  72   |       360        |             el resto             |
+//
+// Va al final del archivo para ganarle en cascada a las reglas de teléfono,
+// que tienen la misma especificidad.
+// ============================================================================
 @media (min-width: 900px) {
-  .light-map {
-    .desktop-topbar,
-    .empresas-sidebar {
-      background: var(--bx-glass-strong);
-      border-color: var(--bx-line-strong);
-      box-shadow: 0 10px 34px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+  $barra: 72px;
+  $panel: 360px;
+  $shell: $barra + $panel;
+
+  // El mapa empieza donde termina el panel: lo que se ve es lo que hay, y
+  // "centrar en mi ubicación" centra en la parte visible, no detrás del panel.
+  #map { left: $shell; width: auto; }
+
+  // Solo de teléfono.
+  .top-overlay, .route-sheet, .sheet-scrim, .sidebar-handle, .ds-close, .lp-grip { display: none; }
+
+  // ---------- Barra lateral: el dock, en vertical ----------
+  .dock {
+    left: 0; right: auto; top: 0; bottom: 0;
+    width: $barra; height: auto; margin: 0;
+    flex-direction: column; justify-content: flex-start; align-items: center;
+    gap: 4px;
+    padding: 16px 0 14px;
+    border-radius: 0;
+    border: 0; border-right: 1px solid var(--bx-line);
+    background: var(--bx-bg-1);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: none;
+    z-index: 1500;
+
+    // En el teléfono el dock se esconde al mover el mapa o al elegir un bus;
+    // acá es la navegación fija y no se va nunca.
+    &.hidden, &.route-mode {
+      transform: none; opacity: 1; filter: none; pointer-events: auto;
+    }
+  }
+
+  .dock-logo { display: block; height: 30px; width: auto; margin-bottom: 18px; }
+
+  .dock-item, .dock-center {
+    flex: none;
+    width: 58px; height: 56px;
+    padding: 0; gap: 4px;
+    justify-content: center;
+    border-radius: var(--bx-r-md);
+    transform: none;
+    transition: background var(--bx-t-fast) var(--bx-ease);
+
+    &:hover { background: rgba(255,255,255,0.06); }
+    &:active { transform: none; }
+
+    ion-icon { font-size: 22px; color: var(--bx-text-2); }
+    span { font-size: 11px; font-weight: 600; letter-spacing: 0; color: var(--bx-text-2); }
+
+    &.active {
+      background: var(--bx-green-soft);
+      ion-icon, span { color: var(--bx-green-bright); }
+    }
+  }
+
+  // El botón central deja de ser un orbe: en una barra vertical es un ítem más.
+  .dc-orb, .dock-center.active .dc-orb {
+    width: auto; height: auto;
+    background: none; border: 0; box-shadow: none; transform: none;
+  }
+
+  // Ajustes, al fondo de la barra.
+  .dock-item:last-child { margin-top: auto; }
+
+  // ---------- Cabecera: buscador sobre el panel, perfil sobre el mapa ----------
+  .desktop-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    top: 0; left: $barra; right: 0;
+    height: 76px; padding: 0 16px;
+    border: 0; border-radius: 0;
+    background: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: none;
+    // La barra en sí no atrapa el ratón: debajo de su parte derecha está el mapa.
+    pointer-events: none;
+    z-index: 1003;
+
+    .dt-logo { display: none; }
+
+    .dt-search {
+      pointer-events: auto;
+      width: $panel - 32px; max-width: none; margin: 0;
+      height: 44px;
+      border-radius: var(--bx-r-md);
+      background: var(--bx-bg-3);
+      span { font-size: 14px; }
+      ion-icon { font-size: 18px; }
     }
 
-    // Los secundarios del panel eran var(--bx-text-3) sobre vidrio translúcido: sobre
-    // mapa claro se perdían del todo.
-    .empresa-info span,
-    .ds-empty,
-    .ds-label,
-    .empresa-logo ion-icon { color: var(--bx-text-2); }
+    .dt-actions { pointer-events: auto; }
 
-    .dt-search span { color: var(--bx-text-2); }
+    .dt-profile {
+      width: 44px; height: 44px;
+      background: var(--bx-glass);
+      backdrop-filter: var(--bx-glass-blur); -webkit-backdrop-filter: var(--bx-glass-blur);
+      box-shadow: var(--bx-shadow-2);
+      ion-icon { font-size: 20px; color: var(--bx-text); }
+    }
   }
+
+  // ---------- Panel fijo ----------
+  // Siempre a la vista: no depende de `sidebarOpen`, que es cosa del teléfono.
+  .empresas-sidebar {
+    display: flex;
+    top: 0; left: $barra; bottom: 0;
+    width: $panel;
+    padding: 84px 16px 20px;
+    gap: 18px;
+    border-radius: 0;
+    border: 0; border-right: 1px solid var(--bx-line);
+    background: var(--bx-bg-2);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: none;
+    transform: none; opacity: 1; visibility: visible;
+
+    // Con una ruta elegida el panel es de esa ruta: la lista de empresas se
+    // aparta y se vuelve con la flecha.
+    &.has-route .ds-empresas { display: none; }
+  }
+
+  .ds-section { gap: 10px; }
+  .ds-section-header h3 { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+  .ds-hint-line { font-size: 13px; }
+
+  .empresa-row {
+    padding: 10px; gap: 12px;
+    border-radius: var(--bx-r-md);
+
+    .empresa-logo { width: 42px; height: 42px; border-radius: 12px; ion-icon { font-size: 18px; } }
+    .empresa-info {
+      strong { font-size: 15px; font-weight: 700; }
+      span { font-size: 13px; }
+    }
+    .empresa-freq, .empresa-dist { font-size: 12px; }
+  }
+
+  .ds-link { font-size: 14px; padding: 10px; }
+  .ds-hint {
+    padding: 14px;
+    strong { font-size: 15px; }
+    span { font-size: 13px; }
+  }
+  .ds-label { font-size: 12px; }
+  .ds-salida-chip { font-size: 13px; padding: 4px 10px; }
+  .ds-bus-row {
+    padding: 8px 0;
+    strong { font-size: 14px; }
+    .ds-bus-dist, .ds-bus-eta { font-size: 13px; }
+  }
+
+  // ---------- Rutas, favoritos, alertas y lugares: sobre el panel ----------
+  // Eran una hoja inferior centrada; acá ocupan el panel entero.
+  .list-panel {
+    left: $barra; right: auto; top: 0; bottom: 0;
+    width: $panel; margin: 0;
+    max-height: none;
+    padding: 22px 0 8px;
+    border-radius: 0;
+    border: 0; border-right: 1px solid var(--bx-line);
+    background: var(--bx-bg-2);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    box-shadow: none;
+    transform: translateX(-10px);
+
+    &.open { transform: none; }
+  }
+
+  .lp-head { padding: 0 20px 14px; h2 { font-size: 20px; } }
+  .lp-search { height: 44px; border-radius: var(--bx-r-md); margin: 0 16px 12px; }
+  .lp-tabs { margin-left: 16px; margin-right: 16px; }
+
+  // ---------- Empresa y boletos: dentro del panel, no a pantalla completa ----------
+  .empresa-detail-screen {
+    left: $barra; right: auto;
+    width: $panel;
+    border-right: 1px solid var(--bx-line);
+    background: var(--bx-bg-2);
+    transform: translateX(-10px);
+    &.open { transform: none; }
+  }
+  .ed-topbar { padding-top: 22px; }
+
+  // ---------- Sobre el mapa ----------
+  .live-chip { left: $shell + 16px; top: 18px; transform: none; }
+
+  .map-controls, .map-controls.lifted { right: 16px; bottom: 24px; }
+  .mc-btn { width: 44px; height: 44px; }
+
+  // La ficha del bus se apoya abajo a la izquierda del mapa, junto al panel.
+  .bus-sheet {
+    left: $shell + 16px; right: auto;
+    width: 380px; margin: 0;
+    bottom: 24px;
+  }
+
+  // Perfil y ajustes: cajón derecho, un poco más ancho que en el teléfono.
+  .profile-panel { width: 380px; }
 }
 
-// Comprar boleto, dentro de la tarjeta de la ruta actual.
-.ds-buy {
-  width: 100%;
-  height: 44px;
-  margin-top: 12px;
-  border: 0;
-  border-radius: var(--bx-r-sm);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--bx-green);
-  color: var(--bx-ink);
-  font-family: inherit;
-  font-size: 14px; font-weight: 700;
-  cursor: pointer;
-  transition: background var(--bx-t-fast) var(--bx-ease);
+// Pantallas anchas: el panel gana aire.
+@media (min-width: 1400px) {
+  $barra: 72px;
+  $panel: 400px;
+  $shell: $barra + $panel;
 
-  &:hover { background: var(--bx-green-bright); }
-  &:disabled { opacity: 0.6; }
-  ion-icon { font-size: 18px; }
+  #map { left: $shell; }
+  .desktop-topbar .dt-search { width: $panel - 32px; }
+  .empresas-sidebar, .list-panel, .empresa-detail-screen { width: $panel; }
+  .live-chip, .bus-sheet { left: $shell + 16px; }
 }
