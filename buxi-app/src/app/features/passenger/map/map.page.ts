@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, ViewChild, ViewChildren, QueryList, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ViewWillEnter, ViewDidEnter, AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -9,12 +9,13 @@ import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Anuncio, HorarioSalida, Boleto, NotificacionEmpresa } from '../../../core/models/features.model';
-import { FeaturesService } from '../../../core/services/features.service';
+import { FeaturesService, PuntoGeo } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import {
   TrazadoRuta, LatLng, Sentido, Llegada, estimarLlegada, sentidoSegunRumbo, suavizarVelocidad,
 } from '../../../core/utils/eta';
+import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
 import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
@@ -57,12 +58,33 @@ interface BusProximo {
   detalle: string;
 }
 
+// Una opción de viaje, con lo que hace falta para mostrarla.
+interface OpcionVista extends OpcionViaje {
+  ruta: Ruta;
+  subir: Parada;
+  bajar: Parada;
+  // Hacia dónde va el bus de este viaje ("Cartago").
+  hacia: string;
+}
+
+// El viaje que el pasajero está armando: a dónde va y cómo puede llegar.
+interface Viaje {
+  destino: { nombre: string; detalle: string; lat: number; lng: number };
+  // Desde dónde se calculó; null mientras no hay ubicación.
+  desde: PuntoGeo | null;
+  opciones: OpcionVista[];
+  aPie: { metros: number; minutos: number };
+  motivo: SinViaje | 'sin_ubicacion' | null;
+  paradaOrigenKm: number | null;
+  paradaDestinoKm: number | null;
+}
+
 @Component({
   selector: 'app-map',
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -183,7 +205,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       case 'rutas': return 'Rutas y empresas';
       case 'favoritos': return 'Tus favoritos';
       case 'alertas': return 'Alertas';
-      case 'lugares': return 'Buscar un lugar';
+      case 'lugares': return '¿A dónde vas?';
       default: return '';
     }
   }
@@ -426,11 +448,18 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.placeSearching = false;
   }
 
-  // Un lugar no es una ruta: no hay trazo que dibujar, asi que la accion es
-  // llevar el mapa hasta ahi y dejar una marca para no perderlo de vista.
+  // Elegir un lugar es decir a dónde se va: se marca en el mapa y se arma el
+  // viaje hasta ahí. Antes solo movía el mapa y dejaba al pasajero deducir
+  // qué bus le servía.
   selectPlace(p: { label: string; lat: number; lng: number }) {
     this.closePanel();
     if (!this.mapReady) return;
+
+    // Un destino nuevo reemplaza lo que hubiera en pantalla.
+    if (this.activeRuta) this.clearRoute();
+    this.quitarCaminata();
+    this.quitarTramoViaje();
+    this.viajeElegido = null;
 
     this.placeMarker?.remove();
     const el = htmlMarkerEl('place-marker', '<div class="place-pin"></div>');
@@ -438,7 +467,18 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       .setLngLat([p.lng, p.lat])
       .addTo(this.map);
 
-    this.map.flyTo({ center: [p.lng, p.lat], zoom: 15.5, duration: 1200 });
+    this.viaje = {
+      destino: { nombre: p.label.split(',')[0].trim() || p.label, detalle: p.label, lat: p.lat, lng: p.lng },
+      desde: null,
+      opciones: [],
+      aPie: { metros: 0, minutos: 0 },
+      motivo: 'sin_ubicacion',
+      paradaOrigenKm: null,
+      paradaDestinoKm: null,
+    };
+    this.planificar();
+    // Con la hoja ya dibujada, para encuadrar por encima de ella.
+    setTimeout(() => this.encuadrarViaje(), 60);
   }
 
   async openPanel(panel: 'rutas' | 'favoritos' | 'alertas' | 'lugares') {
@@ -628,12 +668,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // Dibuja la ruta elegida y cierra el panel: la acción termina en el mapa,
   // no en otra lista.
-  async selectRutaFromPanel(ruta: Ruta) {
+  async selectRutaFromPanel(ruta: Ruta, opcion: OpcionVista | null = null) {
     this.closePanel();
     if (!this.mapReady) return;
 
     this.loading = true;
     this.clearRoute(false);
+    // Elegir una ruta a mano deja de lado el viaje que se estaba armando.
+    if (opcion) this.viajeElegido = opcion; else this.cerrarViaje();
     try {
       const paradas = await this.tracking.getParadas(ruta.id);
       if (paradas.length >= 2) {
@@ -648,6 +690,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       for (const loc of locations) this.addOrUpdateBusMarker(loc);
     } catch {}
     this.loading = false;
+
+    if (!opcion || this.viajeElegido !== opcion) return;
+    if (this.activeRuta?.id === ruta.id) this.mostrarViajeElegido();
+    else this.viajeElegido = null; // la ruta no se pudo cargar
   }
 
   activeRuta: Ruta | null = null;
@@ -1234,6 +1280,31 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   ngAfterViewInit() {
     this.fixContentOffset();
     setTimeout(() => this.initMap(), 150);
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this.hojaObs = new ResizeObserver(() => this.medirHoja());
+      this.hojas.changes.subscribe(() => this.observarHoja());
+      this.observarHoja();
+    }
+  }
+
+  // La hoja de abajo (ruta o viaje) cambia de alto según lo que muestra. Los
+  // controles del mapa se apoyan justo encima, así que su posición sale de
+  // medirla: con un número fijo, cada cosa nueva en la hoja los tapaba.
+  @ViewChildren('hoja') private hojas!: QueryList<ElementRef<HTMLElement>>;
+  private hojaObs: ResizeObserver | null = null;
+  private hojaAlto = 0;
+
+  private observarHoja() {
+    this.hojaObs?.disconnect();
+    const el = this.hojas.first?.nativeElement;
+    if (el) this.hojaObs?.observe(el);
+    this.medirHoja();
+  }
+
+  private medirHoja() {
+    this.hojaAlto = this.hojas.first?.nativeElement.offsetHeight ?? 0;
+    this.elRef.nativeElement.style.setProperty('--bx-hoja-alto', `${this.hojaAlto}px`);
   }
 
   ionViewDidEnter() {
@@ -1536,6 +1607,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
       // El camino a pie, si había uno dibujado.
       try { this.dibujarCaminata(); } catch {}
+      try { this.dibujarTramoViaje(); } catch {}
 
       // setStyle destruye fuentes, capas Y las imágenes registradas con
       // addImage. Sin esto la capa de buses quedaba marcada como "lista"
@@ -1772,6 +1844,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   clearRoute(navigate = true) {
     this.quitarCaminata();
+    // El viaje sigue armado (se vuelve a la lista de opciones); lo que se va
+    // es la opción elegida, que era de esta ruta.
+    this.quitarTramoViaje();
+    this.viajeElegido = null;
     this.routeLayerIds.forEach(id => {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     });
@@ -1839,6 +1915,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         if (arr) arr.push(p); else this.paradasPorRuta.set(p.ruta_id, [p]);
       }
       this.recalcularParadaCercana();
+      if (this.viaje && !this.viajeElegido) this.planificar();
     } catch {}
 
     try {
@@ -2150,6 +2227,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.updateETA();
     this.recalcularParadaCercana();
     this.seguirCaminata();
+    this.seguirViaje();
   }
 
   // Sólo la figura, sin chapa. El disco blanco no era adorno: daba el contraste
@@ -2369,9 +2447,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Se llama al elegir o soltar una ruta, al moverse el pasajero, al llegar un
   // punto de un bus y cada 10 s (para notar al bus que se quedó sin señal).
   private updateETA() {
-    this.nearestStop = this.activeParadas.length > 0 && this.userLat !== 0
-      ? this.featuresService.findNearestStop(this.userLat, this.userLng, this.activeParadas)
-      : null;
+    // Con un viaje elegido la parada que importa es donde hay que subir, que
+    // no siempre es la más cercana: puede convenir caminar un poco más para
+    // quedar mejor del otro lado.
+    const viaje = this.viajeElegido && this.viajeElegido.rutaId === this.activeRuta?.id ? this.viajeElegido : null;
+    const subir = viaje ? this.activeParadas.find(p => p.id === viaje.subirId) ?? viaje.subir : null;
+    if (subir && this.userLat !== 0) {
+      this.nearestStop = {
+        parada: subir,
+        distanceKm: this.featuresService.distanceKm(this.userLat, this.userLng, subir.latitud, subir.longitud),
+      };
+    } else {
+      this.nearestStop = this.activeParadas.length > 0 && this.userLat !== 0
+        ? this.featuresService.findNearestStop(this.userLat, this.userLng, this.activeParadas)
+        : null;
+    }
 
     this.etaMinutes = null;
     this.etaHacia = null;
@@ -2403,6 +2493,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         detalle = 'Sin señal';
       } else if (!r) {
         detalle = 'Sin datos del recorrido';
+      } else if (viaje && r.sentido !== viaje.sentido) {
+        // Pasa por la parada, pero para el otro lado: no es el bus del viaje.
+        detalle = `Va hacia ${hacia}`;
       } else if (r.llegada.estado === 'llegando') {
         etaMinutes = 0;
         detalle = 'Llegando a tu parada';
@@ -2431,6 +2524,286 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // puede decir que ninguno viene.
       this.sinBusEnCamino = ubicados > 0;
     }
+  }
+
+  // ====== ¿A DÓNDE VAS? ======
+  // El pasajero elige un destino en el buscador y la app le dice qué ruta
+  // tomar, en qué parada subir, en cuál bajar y cuánto caminar. El cálculo es
+  // de core/utils/viaje.ts; acá va lo que toca pantalla y mapa.
+  viaje: Viaje | null = null;
+  // La opción que eligió: mientras está, la ruta en pantalla es la del viaje.
+  viajeElegido: OpcionVista | null = null;
+  // El camino a pie del final (de la parada de bajada al destino) o, si el
+  // destino queda cerca, el camino directo. Null mientras no se pidió.
+  viajeTramo: { metros: number; minutos: number; exacta: boolean } | null = null;
+  viajeTramoCargando = false;
+
+  private viajeTramoCoords: [number, number][] | null = null;
+  private viajeMarkers: maplibregl.Marker[] = [];
+  private readonly VIAJE_SRC = 'viaje-tramo-src';
+
+  // Arma (o rehace) las opciones desde donde está el pasajero ahora.
+  private planificar() {
+    const v = this.viaje;
+    if (!v) return;
+    if (this.userLat === 0) {
+      this.viaje = { ...v, desde: null, opciones: [], motivo: 'sin_ubicacion' };
+      return;
+    }
+
+    // Las paradas agrupadas llegan con los buses; si el pasajero buscó antes
+    // de que terminara esa carga, se arman con las que ya trajo el inicio.
+    if (this.paradasPorRuta.size === 0) {
+      for (const p of this.allParadas) {
+        const arr = this.paradasPorRuta.get(p.ruta_id);
+        if (arr) arr.push(p); else this.paradasPorRuta.set(p.ruta_id, [p]);
+      }
+    }
+
+    const rutas: RutaParaViaje[] = [];
+    for (const r of this.allRutas) {
+      const paradas = this.paradasPorRuta.get(r.id);
+      const t = paradas?.length ? this.trazadoDe(r.id) : null;
+      if (!paradas || !t) continue;
+      rutas.push({
+        id: r.id,
+        paradas: paradas.map(p => ({ id: p.id, lat: p.latitud, lng: p.longitud, km: t.kmParadas.get(p.id) ?? 0 })),
+      });
+    }
+
+    const plan = planificarViaje([this.userLat, this.userLng], [v.destino.lat, v.destino.lng], rutas);
+    const opciones: OpcionVista[] = [];
+    for (const o of plan.opciones) {
+      const ruta = this.allRutas.find(r => r.id === o.rutaId);
+      const paradas = this.paradasPorRuta.get(o.rutaId) ?? [];
+      const subir = paradas.find(p => p.id === o.subirId);
+      const bajar = paradas.find(p => p.id === o.bajarId);
+      if (!ruta || !subir || !bajar) continue;
+      opciones.push({ ...o, ruta, subir, bajar, hacia: o.sentido === 1 ? ruta.destino : ruta.origen });
+    }
+
+    this.viaje = {
+      ...v,
+      desde: { lat: this.userLat, lng: this.userLng },
+      opciones,
+      aPie: plan.aPie,
+      // Si alguna opción no se pudo armar con los datos en memoria, no se
+      // inventa un motivo: el del plan solo vale cuando no devolvió ninguna.
+      motivo: opciones.length ? null : (plan.motivo ?? 'sin_ruta_directa'),
+      paradaOrigenKm: plan.paradaOrigenKm,
+      paradaDestinoKm: plan.paradaDestinoKm,
+    };
+  }
+
+  // Con el pasajero en movimiento: mientras elige, las opciones se rehacen si
+  // se alejó de donde se calcularon (o si recién ahora llegó la ubicación).
+  // Con una opción ya elegida no se le cambia el viaje bajo los pies.
+  private seguirViaje() {
+    const v = this.viaje;
+    if (!v || this.viajeElegido) return;
+    if (!v.desde) {
+      this.planificar();
+      setTimeout(() => this.encuadrarViaje(), 60);
+      return;
+    }
+    if (this.featuresService.distanceKm(this.userLat, this.userLng, v.desde.lat, v.desde.lng) >= 0.15) {
+      this.planificar();
+    }
+  }
+
+  async elegirOpcion(o: OpcionVista) {
+    await this.selectRutaFromPanel(o.ruta, o);
+  }
+
+  // Deja el viaje: se va el destino del mapa y, si había una ruta en pantalla,
+  // vuelve a ser una ruta cualquiera (su parada es otra vez la más cercana).
+  cerrarViaje() {
+    if (!this.viaje && !this.viajeElegido) return;
+    this.quitarTramoViaje();
+    this.viaje = null;
+    this.viajeElegido = null;
+    this.placeMarker?.remove();
+    this.placeMarker = null;
+    if (this.activeRuta) this.updateETA();
+  }
+
+  // Lo que falta decir cuando no hay ningún bus que ofrecer.
+  get viajeAviso(): { icono: string; titulo: string; texto: string } | null {
+    const v = this.viaje;
+    if (!v?.motivo) return null;
+    const km = (n: number | null) => (n === null ? '' : this.metrosTexto(n * 1000));
+    switch (v.motivo) {
+      case 'sin_ubicacion':
+        return { icono: 'locate-outline', titulo: 'Falta tu ubicación', texto: 'Para armar el viaje necesito saber desde dónde salís.' };
+      case 'cerca': {
+        const c = this.viajeTramo ?? v.aPie;
+        return {
+          icono: 'walk',
+          titulo: `Queda cerca: ${c.minutos} min a pie`,
+          texto: `Son ${this.metrosTexto(c.metros)}${this.viajeTramo?.exacta ? '' : ' aprox'}. No hace falta tomar un bus.`,
+        };
+      }
+      case 'sin_parada_destino':
+        return {
+          icono: 'flag-outline',
+          titulo: 'Ninguna ruta llega cerca de ahí',
+          texto: v.paradaDestinoKm === null ? 'Todavía no hay paradas cargadas.' : `La parada más cercana a ese lugar queda a ${km(v.paradaDestinoKm)}.`,
+        };
+      case 'sin_parada_origen':
+        return {
+          icono: 'location-outline',
+          titulo: 'No hay paradas cerca tuyo',
+          texto: v.paradaOrigenKm === null ? 'Todavía no hay paradas cargadas.' : `La más cercana queda a ${km(v.paradaOrigenKm)}.`,
+        };
+      default:
+        return {
+          icono: 'git-branch-outline',
+          titulo: 'No hay un bus directo',
+          texto: 'Hay paradas cerca tuyo y cerca de ese lugar, pero ninguna ruta las une. Buxi todavía no arma viajes con trasbordo.',
+        };
+    }
+  }
+
+  // Minutos del último tramo a pie: los del enrutador si ya llegaron.
+  get viajeMinutosAlDestino(): number {
+    return this.viajeTramo?.minutos ?? this.viajeElegido?.minutosAlDestino ?? 0;
+  }
+
+  // El viaje completo, sin la espera del bus.
+  get viajeMinutosTotal(): number {
+    const o = this.viajeElegido;
+    if (!o) return 0;
+    const alSubir = this.caminataActiva && this.caminata ? this.caminata.minutos : o.minutosAlSubir;
+    return alSubir + o.minutosEnBus + this.viajeMinutosAlDestino;
+  }
+
+  // Qué hacer al bajar. Si la parada está pegada al destino no se manda a
+  // "caminar 1 minuto hasta" un lugar que se llama igual que la parada.
+  get viajeFinalTexto(): string {
+    const v = this.viaje, o = this.viajeElegido;
+    if (!v || !o) return '';
+    const metros = this.viajeTramo?.metros ?? this.featuresService.estimarCaminata(o.alDestinoKm).metros;
+    if (metros < 40) return 'Tu destino queda ahí mismo';
+    if (metros <= 250) return `Tu destino queda a ${this.metrosTexto(metros)}`;
+    return `y caminá ${this.viajeMinutosAlDestino} min hasta ${v.destino.nombre}`;
+  }
+
+  paradasDelViaje(o: OpcionVista): string {
+    const n = o.paradasEnMedio + 1;
+    return n === 1 ? 'es la parada siguiente' : `${n} paradas`;
+  }
+
+  // Con la ruta del viaje ya dibujada: marca dónde subir y dónde bajar, y pide
+  // los dos caminos a pie (a la parada, y de la bajada al destino).
+  private mostrarViajeElegido() {
+    const o = this.viajeElegido, v = this.viaje;
+    if (!o || !v || !this.map) return;
+
+    this.viajeMarkers.forEach(m => m.remove());
+    this.viajeMarkers = [
+      this.marcaDeViaje(o.subir, 'subir', 'Subí acá'),
+      this.marcaDeViaje(o.bajar, 'bajar', 'Bajá acá'),
+    ];
+
+    setTimeout(() => this.encuadrarViaje(), 60);
+    this.comoLlegar(false);
+    this.pedirTramoViaje({ lat: o.bajar.latitud, lng: o.bajar.longitud }, v.destino);
+  }
+
+  private marcaDeViaje(parada: Parada, tipo: 'subir' | 'bajar', texto: string): maplibregl.Marker {
+    const el = htmlMarkerEl('viaje-marker', `<div class="vjm vjm--${tipo}" title="${esc(parada.nombre)}">${texto}</div>`);
+    // Debajo de la parada y centrada: arriba va el pin del camino a pie, y a
+    // los costados se salía de pantalla cuando la parada quedaba en un borde.
+    return new maplibregl.Marker({ element: el, anchor: 'top', offset: [0, 9] })
+      .setLngLat([parada.longitud, parada.latitud])
+      .addTo(this.map);
+  }
+
+  // El destino queda cerca: el camino directo, sin bus.
+  async verCaminoDirecto() {
+    const v = this.viaje;
+    if (!v || this.userLat === 0) return;
+    if (this.viajeTramo) { this.quitarTramoViaje(); return; }
+    await this.pedirTramoViaje({ lat: this.userLat, lng: this.userLng }, v.destino);
+    this.encuadrarViaje();
+  }
+
+  private async pedirTramoViaje(desde: PuntoGeo, hasta: PuntoGeo) {
+    const destino = this.viaje?.destino, elegido = this.viajeElegido;
+    this.viajeTramoCargando = true;
+    const camino = await this.featuresService.rutaAPie(desde, hasta);
+    this.viajeTramoCargando = false;
+
+    // Mientras llegaba, el pasajero pudo cerrar el viaje o elegir otra opción.
+    if (this.destroyed || !destino || this.viaje?.destino !== destino || this.viajeElegido !== elegido) return;
+
+    this.viajeTramoCoords = camino.coords;
+    this.viajeTramo = { metros: camino.metros, minutos: camino.minutos, exacta: camino.exacta };
+    this.dibujarTramoViaje();
+  }
+
+  // Mismo trazo de guiones que el camino a la parada: en el mapa, guiones
+  // azules siempre quieren decir "esto se camina".
+  private dibujarTramoViaje() {
+    if (!this.viajeTramoCoords || !this.map) return;
+    const data = {
+      type: 'Feature' as const, properties: {},
+      geometry: { type: 'LineString' as const, coordinates: this.viajeTramoCoords },
+    };
+    const src = this.map.getSource(this.VIAJE_SRC) as maplibregl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData(data);
+    } else {
+      this.map.addSource(this.VIAJE_SRC, { type: 'geojson', data });
+      this.map.addLayer({
+        id: `${this.VIAJE_SRC}-borde`, type: 'line', source: this.VIAJE_SRC,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#04101f', 'line-width': 9, 'line-opacity': 0.6 },
+      });
+      this.map.addLayer({
+        id: `${this.VIAJE_SRC}-puntos`, type: 'line', source: this.VIAJE_SRC,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#6cb0ff', 'line-width': 5, 'line-dasharray': [0.5, 2] },
+      });
+      if (this.map.getLayer(this.BUSES_LAYER)) this.map.moveLayer(this.BUSES_LAYER);
+    }
+    this.atenuarEdificios(true);
+  }
+
+  private quitarTramoViaje() {
+    this.viajeTramo = null;
+    this.viajeTramoCoords = null;
+    this.viajeTramoCargando = false;
+    this.viajeMarkers.forEach(m => m.remove());
+    this.viajeMarkers = [];
+    if (!this.map) return;
+    for (const id of [`${this.VIAJE_SRC}-puntos`, `${this.VIAJE_SRC}-borde`]) {
+      if (this.map.getLayer(id)) this.map.removeLayer(id);
+    }
+    if (this.map.getSource(this.VIAJE_SRC)) this.map.removeSource(this.VIAJE_SRC);
+    this.atenuarEdificios(false);
+  }
+
+  // Todo el viaje a la vista: el pasajero, dónde sube, dónde baja y el destino.
+  private encuadrarViaje() {
+    const v = this.viaje;
+    if (!v || !this.map) return;
+    const puntos: [number, number][] = [[v.destino.lng, v.destino.lat]];
+    if (this.userLat !== 0) puntos.push([this.userLng, this.userLat]);
+    const o = this.viajeElegido;
+    if (o) puntos.push([o.subir.longitud, o.subir.latitud], [o.bajar.longitud, o.bajar.latitud]);
+    if (this.viajeTramoCoords) puntos.push(...this.viajeTramoCoords);
+
+    if (puntos.length === 1) {
+      this.map.flyTo({ center: puntos[0], zoom: 15.5, duration: 900 });
+      return;
+    }
+    const bounds = puntos.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(puntos[0], puntos[0]));
+    const escritorio = window.innerWidth >= 900;
+    const padding = escritorio
+      ? { top: 100, bottom: 110, left: 120, right: 120 }
+      : { top: 110, bottom: (this.hojaAlto || 300) + 56, left: 56, right: 76 };
+    this.map.fitBounds(bounds, { padding, duration: 700, maxZoom: 16 });
   }
 
   // ====== PARADA MÁS CERCANA Y CÓMO LLEGAR ======
@@ -2630,7 +3003,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private atenuarEdificios(atenuar: boolean) {
     const id = 'buxi-buildings-3d';
     if (!this.map?.getLayer(id)) return;
-    this.map.setPaintProperty(id, 'fill-extrusion-opacity', atenuar ? 0.25 : (this.darkMode ? 0.85 : 0.92));
+    // Hay dos caminos posibles (a la parada y el último tramo del viaje):
+    // quitar uno no devuelve los edificios si el otro sigue dibujado.
+    const hayCamino = atenuar || !!this.caminataCoords || !!this.viajeTramoCoords;
+    this.map.setPaintProperty(id, 'fill-extrusion-opacity', hayCamino ? 0.25 : (this.darkMode ? 0.85 : 0.92));
   }
 
   // En el teléfono el camino tiene que caber entre la barra de arriba y la
@@ -2903,6 +3279,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       window.removeEventListener('deviceorientationabsolute', this.compassHandler, true);
       window.removeEventListener('deviceorientation', this.compassHandler, true);
     }
+    this.hojaObs?.disconnect();
     if (this.map) { try { this.map.remove(); } catch {} }
   }
 }

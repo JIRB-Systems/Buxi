@@ -93,14 +93,7 @@
   }
 }
 
-// Sólo uno de los dos textos a la vez. El corte está donde el completo deja de
-// entrar sin recortarse, no en un ancho de dispositivo concreto.
-.tb-ph-short { display: none; }
-
 @media (max-width: 430px) {
-  .tb-ph-full { display: none; }
-  .tb-ph-short { display: block; }
-
   // Menos aire alrededor para que el buscador se quede con el ancho que sobra.
   .topbar { gap: 8px; }
   .top-overlay { padding-left: 12px; padding-right: 12px; }

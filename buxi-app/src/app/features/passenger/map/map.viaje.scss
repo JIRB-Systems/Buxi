@@ -1,0 +1,235 @@
+// ====== ¿A DÓNDE VAS? ======
+// El viaje que arma el pasajero: las opciones para llegar a un destino y, con
+// una elegida, los pasos que faltan. Hoja aparte por el mismo motivo que
+// map.llegar.scss: map.page.scss está al borde del presupuesto de estilos.
+
+// ---- Cabecera: a dónde va ----
+.vj-head {
+  display: flex; align-items: center; gap: 12px;
+}
+
+// Azul, como el pin del destino en el mapa.
+.vj-pin {
+  flex: none;
+  width: 44px; height: 44px;
+  border-radius: var(--bx-r-md);
+  display: grid; place-items: center;
+  background: var(--bx-blue-soft);
+  color: var(--bx-blue-bright);
+  font-size: 22px;
+}
+
+.vj-dest {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+
+  .vj-label { font-size: 12px; font-weight: 600; color: var(--bx-text-3); }
+  strong {
+    font-size: 18px; font-weight: 800; color: var(--bx-text); letter-spacing: -0.02em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+.vj-cerrar {
+  flex: none;
+  width: 44px; height: 44px;
+  margin-right: -6px;
+  padding: 0; border: 0;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: transparent;
+  color: var(--bx-text-2);
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: rgba(255,255,255,0.08); }
+  ion-icon { font-size: 22px; }
+}
+
+// ---- Una opción: qué ruta, entre qué paradas y cuánto se tarda ----
+.vj-op {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 12px 12px 10px;
+  border: 1px solid var(--bx-line);
+  border-radius: var(--bx-r-md);
+  background: rgba(255,255,255,0.055);
+  color: var(--bx-text);
+  font-family: inherit; text-align: left;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease), border-color var(--bx-t-fast) var(--bx-ease), transform var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: rgba(255,255,255,0.09); border-color: var(--bx-line-strong); }
+  &:active { transform: scale(0.985); }
+
+  // El color de la ruta, como en su línea del mapa.
+  .vj-color { flex: none; align-self: stretch; width: 4px; border-radius: 2px; }
+}
+
+.vj-op-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+
+  // Alto de línea explícito: dentro de un <button> se hereda el del control,
+  // que es más chico que la letra y encimaba el nombre con la línea de abajo.
+  strong {
+    font-size: 16px; font-weight: 800; line-height: 1.3; letter-spacing: -0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .vj-paradas {
+    font-size: 13px; line-height: 1.35; color: var(--bx-text-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+// A pie · en bus · a pie: el viaje de un vistazo.
+.vj-tramos {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 5px;
+  font-size: 13px; font-weight: 700; line-height: 1.3; color: var(--bx-text-2);
+  font-variant-numeric: tabular-nums;
+
+  ion-icon { font-size: 15px; color: var(--bx-text-3); }
+  ion-icon[name="bus"] { color: var(--bx-green-bright); }
+  // El separador entre tramos.
+  i { width: 10px; height: 2px; margin: 0 3px; border-radius: 1px; background: var(--bx-line-strong); }
+  b { margin-left: auto; padding-left: 8px; font-weight: 700; color: var(--bx-text-3); }
+}
+
+// El total es lo que se compara entre opciones: va grande, como los minutos
+// del próximo bus en la hoja de ruta, pero sin el verde (no es un dato en vivo).
+.vj-total {
+  flex: none;
+  min-width: 52px;
+  display: flex; flex-direction: column; align-items: center;
+  font-variant-numeric: tabular-nums;
+
+  strong { font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+  span { font-size: 12px; font-weight: 700; color: var(--bx-text-2); margin-top: 2px; }
+}
+
+.vj-nota {
+  margin: 10px 2px 0;
+  font-size: 12px; color: var(--bx-text-3);
+}
+
+// ---- Cuando no hay bus que ofrecer ----
+.vj-aviso {
+  display: flex; align-items: flex-start; gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--bx-r-md);
+  background: rgba(255,255,255,0.055);
+  border: 1px solid var(--bx-line);
+
+  > ion-icon { flex: none; font-size: 24px; color: var(--bx-blue-bright); margin-top: 1px; }
+  div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  strong { font-size: 15px; font-weight: 700; color: var(--bx-text); }
+  span { font-size: 13px; line-height: 1.4; color: var(--bx-text-2); }
+}
+
+.vj-btn {
+  width: 100%; height: 48px;
+  margin-top: 10px;
+  border: 0; border-radius: var(--bx-r-md);
+  background: var(--bx-blue);
+  color: #04101f;
+  font-family: inherit; font-size: 15px; font-weight: 700;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease), transform var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: var(--bx-blue-bright); }
+  &:active { transform: scale(0.985); }
+  &:disabled { opacity: 0.6; }
+
+  &--suave {
+    background: rgba(255,255,255,0.08);
+    color: var(--bx-text);
+    &:hover { background: rgba(255,255,255,0.13); }
+  }
+}
+
+// ---- En la hoja de ruta: lo que queda del viaje ----
+.vj-pasos {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bx-line);
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.vj-paso {
+  display: flex; align-items: center; gap: 12px;
+
+  > ion-icon {
+    flex: none;
+    width: 24px; margin-left: 12px;
+    font-size: 20px; color: var(--bx-text-2);
+  }
+  div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  strong {
+    font-size: 15px; font-weight: 700; color: var(--bx-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  span {
+    font-size: 12px; color: var(--bx-text-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
+.vj-resumen {
+  margin: 0;
+  font-size: 12px; color: var(--bx-text-3);
+  b { font-weight: 700; color: var(--bx-text-2); }
+}
+
+// ---- Buscador con el destino elegido ----
+.tb-search span.con-destino,
+.desktop-topbar .dt-search span.con-destino { color: var(--bx-text); font-weight: 700; }
+
+// ---- Teléfono ----
+@media (max-width: 899px) {
+  // En el cajón de empresas el viaje sería una repetición: ya está en la hoja.
+  .ds-viaje { display: none; }
+
+  // Los controles del mapa se apoyan sobre la hoja, mida lo que mida (el alto
+  // lo publica el componente al medirla).
+  .map-controls.lifted-route {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bx-hoja-alto, 224px) + 26px);
+  }
+}
+
+// ---- Escritorio ----
+@media (min-width: 900px) {
+  // Con un viaje armándose el panel es del viaje, igual que con una ruta.
+  .empresas-sidebar.has-viaje .ds-empresas { display: none; }
+
+  .ds-viaje { gap: 0; }
+  .vj-dest strong { font-size: 20px; }
+}
+
+// ---- Marcas en el mapa: dónde subir y dónde bajar ----
+:host ::ng-deep {
+  // Como el resto de marcadores HTML, la posición se repone a mano.
+  .viaje-marker {
+    position: absolute; top: 0; left: 0;
+    will-change: transform;
+  }
+
+  .vjm {
+    padding: 4px 9px;
+    border-radius: 999px;
+    font: 700 12px/1.2 var(--bx-font, inherit);
+    white-space: nowrap;
+    border: 2px solid #fff;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+
+    // Subir es la acción: verde. Bajar es un aviso para más tarde: azul.
+    &--subir { background: #00c853; color: #04101f; }
+    &--bajar { background: #2f8bff; color: #04101f; }
+  }
+
+  // De cerca las terminales muestran su nombre justo debajo del punto: la
+  // marca baja un renglón para no taparlo.
+  .map-zoomed-in .vjm { transform: translateY(22px); }
+}

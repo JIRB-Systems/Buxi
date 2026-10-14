@@ -14,8 +14,7 @@
 
     <div class="dt-search" (click)="openSearch()">
       <ion-icon name="search-outline"></ion-icon>
-      <span class="dt-ph-full">Buscar un lugar o destino</span>
-      <span class="dt-ph-short">Buscar un lugar</span>
+      <span [class.con-destino]="!!viaje">{{ viaje ? viaje.destino.nombre : '¿A dónde vas?' }}</span>
     </div>
 
     <div class="dt-actions">
@@ -28,7 +27,7 @@
 
   <div class="sidebar-scrim" [class.open]="sidebarOpen" (click)="toggleSidebar()"></div>
 
-  <aside class="empresas-sidebar" [class.open]="sidebarOpen" [class.has-route]="!!activeRuta">
+  <aside class="empresas-sidebar" [class.open]="sidebarOpen" [class.has-route]="!!activeRuta" [class.has-viaje]="!!viaje">
     <div class="ds-section ds-empresas">
       <div class="ds-section-header">
         <h3>{{ hayEmpresasCerca ? 'Empresas en tu zona' : 'Empresas disponibles' }}</h3>
@@ -108,7 +107,12 @@
       </div>
     </div>
 
-    <div class="ds-section ds-inicio" *ngIf="!activeRuta">
+    <!-- El viaje que se está armando: las opciones para llegar al destino. -->
+    <div class="ds-section ds-viaje" *ngIf="viaje && !activeRuta">
+      <ng-container *ngTemplateOutlet="tplViaje"></ng-container>
+    </div>
+
+    <div class="ds-section ds-inicio" *ngIf="!activeRuta && !viaje">
       <div class="ds-card pc-card" *ngIf="paradaCercana as pc">
         <span class="ds-label">Tu parada más cercana</span>
         <div class="pc-main">
@@ -158,12 +162,11 @@
       <div class="tb-logo">
         <img src="assets/brand/buxi-mark.svg" alt="Buxi" />
       </div>
-      <!-- Dos textos en vez de uno recortado: en pantallas angostas el completo
-           se cortaba a media palabra ("...para..."), que se lee como un error. -->
+      <!-- La pregunta es corta a propósito: entra entera en cualquier teléfono.
+           Con un destino elegido, el buscador lo muestra. -->
       <div class="tb-search" (click)="openSearch()">
         <ion-icon name="search-outline"></ion-icon>
-        <span class="tb-ph-full">Buscar un lugar o destino</span>
-        <span class="tb-ph-short">Buscar un lugar</span>
+        <span [class.con-destino]="!!viaje">{{ viaje ? viaje.destino.nombre : '¿A dónde vas?' }}</span>
       </div>
       <!-- El ícono va siempre debajo y la foto encima: si la foto no carga,
            queda el ícono en vez de un círculo vacío. -->
@@ -186,7 +189,7 @@
   </div>
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
-  <div class="map-controls" [class.lifted]="selectedBus" [class.lifted-route]="activeRuta && !selectedBus">
+  <div class="map-controls" [class.lifted]="selectedBus" [class.lifted-route]="(activeRuta || viaje) && !selectedBus">
     <button class="mc-btn" (click)="resetNorth()" aria-label="Orientar al norte">
       <span class="mc-compass" #compassNeedle>
         <ion-icon name="navigate"></ion-icon>
@@ -256,7 +259,8 @@
         </div>
 
         <div class="rs-info" *ngIf="nearestStop">
-          <span class="rs-label">{{ etaMinutes !== null ? ('Próximo bus' + (etaHacia ? ' · hacia ' + etaHacia : '')) : 'Tu parada más cercana' }}</span>
+          <span class="rs-label" *ngIf="!viajeElegido">{{ etaMinutes !== null ? ('Próximo bus' + (etaHacia ? ' · hacia ' + etaHacia : '')) : 'Tu parada más cercana' }}</span>
+          <span class="rs-label" *ngIf="viajeElegido">{{ etaMinutes !== null ? 'Subí acá · próximo bus' : 'Subí acá' }}</span>
           <strong>{{ nearestStop.parada.nombre }}</strong>
           <span class="rs-sub">
             a {{ nearestStop.distanceKm < 1 ? (nearestStop.distanceKm * 1000 | number:'1.0-0') + ' m' : (nearestStop.distanceKm | number:'1.1-1') + ' km' }} de vos
@@ -273,6 +277,26 @@
         <ng-container *ngTemplateOutlet="tplLlegar"></ng-container>
       </ng-container>
 
+      <!-- El resto del viaje: el tramo en bus y dónde bajar. Subir y caminar
+           hasta la parada ya lo dicen las dos filas de arriba. -->
+      <div class="vj-pasos" *ngIf="viajeElegido as o">
+        <div class="vj-paso">
+          <ion-icon name="bus" aria-hidden="true"></ion-icon>
+          <div>
+            <strong>{{ o.minutosEnBus }} min en el bus</strong>
+            <span>Hacia {{ o.hacia }} · {{ paradasDelViaje(o) }}</span>
+          </div>
+        </div>
+        <div class="vj-paso">
+          <ion-icon name="flag" aria-hidden="true"></ion-icon>
+          <div>
+            <strong>Bajá en {{ nombreCorto(o.bajar) }}</strong>
+            <span>{{ viajeFinalTexto }}</span>
+          </div>
+        </div>
+        <p class="vj-resumen">Unos <b>{{ viajeMinutosTotal }} min</b> en total, sin contar la espera del bus</p>
+      </div>
+
       <div class="rs-meta">
         <span class="rs-pill live" *ngIf="!rutaActivaSinSeguir">
           <i class="live-dot"></i>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
@@ -283,7 +307,7 @@
         <span class="rs-pill" *ngIf="sinBusEnCamino && !rutaActivaSinSeguir">
           Ninguno viene hacia tu parada ahora
         </span>
-        <span class="rs-pill">{{ activeParadas.length }} paradas</span>
+        <span class="rs-pill" *ngIf="!viajeElegido">{{ activeParadas.length }} paradas</span>
         <span class="rs-pill" *ngIf="nextSalida">Sale {{ nextSalida.hora.slice(0,5) }}</span>
       </div>
 
@@ -295,8 +319,68 @@
     </ng-container>
   </ng-template>
 
-  <section class="route-sheet" *ngIf="activeRuta && !selectedBus" aria-label="Ruta seleccionada">
+  <section class="route-sheet" #hoja *ngIf="activeRuta && !selectedBus" aria-label="Ruta seleccionada">
     <ng-container *ngTemplateOutlet="hojaRuta"></ng-container>
+  </section>
+
+  <!-- ====== ¿A DÓNDE VAS? ======
+       Las opciones para llegar al destino elegido. En el teléfono es esta
+       hoja; en escritorio va dentro del panel. Al elegir una, la pantalla
+       pasa a ser la de esa ruta, con el viaje marcado. -->
+  <ng-template #tplViaje>
+    <ng-container *ngIf="viaje as v">
+      <div class="vj-head">
+        <div class="vj-pin"><ion-icon name="location" aria-hidden="true"></ion-icon></div>
+        <div class="vj-dest">
+          <span class="vj-label">Tu viaje a</span>
+          <strong [title]="v.destino.detalle">{{ v.destino.nombre }}</strong>
+        </div>
+        <button type="button" class="vj-cerrar" (click)="cerrarViaje()" aria-label="Cerrar el viaje">
+          <ion-icon name="close" aria-hidden="true"></ion-icon>
+        </button>
+      </div>
+
+      <ng-container *ngIf="v.opciones.length">
+        <button type="button" class="vj-op" *ngFor="let o of v.opciones" (click)="elegirOpcion(o)">
+          <i class="vj-color" [style.background]="o.ruta.color"></i>
+          <span class="vj-op-info">
+            <strong>{{ o.ruta.nombre }}</strong>
+            <span class="vj-paradas">{{ nombreCorto(o.subir) }} → {{ nombreCorto(o.bajar) }}</span>
+            <span class="vj-tramos" [attr.aria-label]="o.minutosAlSubir + ' minutos a pie, ' + o.minutosEnBus + ' en bus y ' + o.minutosAlDestino + ' a pie'">
+              <ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlSubir }}
+              <i aria-hidden="true"></i>
+              <ion-icon name="bus" aria-hidden="true"></ion-icon>{{ o.minutosEnBus }}
+              <i aria-hidden="true"></i>
+              <ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlDestino }} min
+              <b *ngIf="o.ruta.precio">₡{{ o.ruta.precio | number:'1.0-0' }}</b>
+            </span>
+          </span>
+          <span class="vj-total"><strong>{{ o.minutosTotal }}</strong><span>min</span></span>
+        </button>
+        <p class="vj-nota">Tiempos aproximados, sin contar la espera del bus.</p>
+      </ng-container>
+
+      <div class="vj-aviso" *ngIf="viajeAviso as a">
+        <ion-icon [name]="a.icono" aria-hidden="true"></ion-icon>
+        <div>
+          <strong>{{ a.titulo }}</strong>
+          <span>{{ a.texto }}</span>
+        </div>
+      </div>
+      <button type="button" class="vj-btn" *ngIf="v.motivo === 'sin_ubicacion'" [disabled]="locating" (click)="centerOnUser()">
+        {{ locating ? 'Buscando…' : 'Activar mi ubicación' }}
+      </button>
+      <button type="button" class="vj-btn" *ngIf="v.motivo === 'cerca'" [disabled]="viajeTramoCargando" (click)="verCaminoDirecto()">
+        {{ viajeTramoCargando ? 'Buscando…' : (viajeTramo ? 'Ocultar el camino' : 'Ver el camino') }}
+      </button>
+      <button type="button" class="vj-btn vj-btn--suave" *ngIf="v.motivo && v.motivo !== 'sin_ubicacion' && v.motivo !== 'cerca'" (click)="openSearch()">
+        Buscar otro lugar
+      </button>
+    </ng-container>
+  </ng-template>
+
+  <section class="route-sheet viaje-sheet" #hoja *ngIf="viaje && !activeRuta && !selectedBus" aria-label="Tu viaje">
+    <ng-container *ngTemplateOutlet="tplViaje"></ng-container>
   </section>
 
   <!-- Loading -->
@@ -448,7 +532,7 @@
        En escritorio esto mismo vive en el panel. Acá va encima del dock, y
        se aparta con él cuando el pasajero mueve el mapa. -->
   <section class="pc-flotante" *ngIf="paradaCercana as pc"
-           [class.oculta]="!navVisible || !!activeRuta || !!selectedBus || !!activePanel || sidebarOpen || profilePanelOpen || settingsPanelOpen"
+           [class.oculta]="!navVisible || !!activeRuta || !!viaje || !!selectedBus || !!activePanel || sidebarOpen || profilePanelOpen || settingsPanelOpen"
            aria-label="Tu parada más cercana">
     <div class="pc-icono"><ion-icon name="location" aria-hidden="true"></ion-icon></div>
     <div class="pc-info">
@@ -465,7 +549,7 @@
   </section>
 
   <!-- ====== DOCK FLOTANTE ====== -->
-  <nav class="dock" [class.hidden]="!navVisible || selectedBus" [class.route-mode]="!!activeRuta">
+  <nav class="dock" [class.hidden]="!navVisible || selectedBus" [class.route-mode]="!!activeRuta || !!viaje">
     <!-- Solo se ve en escritorio, donde este mismo nav es la barra lateral. -->
     <img class="dock-logo" src="assets/brand/buxi-mark.svg" alt="Buxi" />
 
@@ -637,8 +721,8 @@
 
         <div class="lp-empty" *ngIf="placeQuery.length <= 1">
           <ion-icon name="location-outline"></ion-icon>
-          <strong>¿A dónde vas?</strong>
-          <span>Escribí un lugar y te llevo el mapa hasta ahí.</span>
+          <strong>Escribí tu destino</strong>
+          <span>Te digo qué bus tomar, dónde subir, dónde bajar y cuánto hay que caminar.</span>
         </div>
       </ng-container>
 

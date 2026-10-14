@@ -4,6 +4,7 @@ import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { Favorito, FavoritoEmpresa, NotificacionEmpresa, Horario, Calificacion, UserPreferences, Anuncio, Boleto } from '../models/features.model';
 import { Parada, Ruta } from '../models/transport.model';
+import { caminataEstimada } from '../utils/viaje';
 
 export interface PuntoGeo { lat: number; lng: number; }
 
@@ -383,8 +384,7 @@ export class FeaturesService {
   // calles alargan el camino cerca de un 30 %, y se camina a unos 4,5 km/h
   // (75 m por minuto), que es también lo que asume el enrutador.
   estimarCaminata(lineaRectaKm: number): { metros: number; minutos: number } {
-    const metros = Math.round(lineaRectaKm * 1000 * 1.3);
-    return { metros, minutos: Math.max(1, Math.round(metros / 75)) };
+    return caminataEstimada(lineaRectaKm);
   }
 
   distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

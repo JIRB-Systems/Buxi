@@ -46,7 +46,7 @@ const YA_PASO_KM = 0.05;
 // A menos de esto, está llegando.
 const LLEGANDO_KM = 0.06;
 // Lo que un bus pierde en cada parada intermedia, en segundos.
-const DEMORA_POR_PARADA_S = 25;
+export const DEMORA_POR_PARADA_S = 25;
 // La velocidad que reporta un bus puede ser un pico (bajando una cuesta) o
 // casi cero (saliendo de una parada). Se acota a lo que un bus sostiene.
 const VEL_MIN_KMH = 12;
