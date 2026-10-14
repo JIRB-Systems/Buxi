@@ -924,6 +924,23 @@
   // ---- UBICACIÓN DEL USUARIO ----
   // Dos marcadores: el cono va acostado en el suelo, la chapa siempre derecha.
 
+  // Color de la figura, su resplandor, el halo y el cono. Verde neón sobre el
+  // mapa oscuro; sobre el claro el verde se confundía con el terreno, que es
+  // verde también, así que ahí va en azul neón.
+  .user-marker,
+  .user-cone-marker {
+    --um-neon: #00ff88;
+    --um-brillo: 0, 255, 136;
+    --um-halo: 0, 224, 106;
+  }
+
+  .light-map .user-marker,
+  .light-map .user-cone-marker {
+    --um-neon: #00a8ff;
+    --um-brillo: 0, 168, 255;
+    --um-halo: 0, 150, 255;
+  }
+
   // OJO: no se le toca `position` ni `transform` a la raíz de un marcador.
   // MapLibre le escribe ambos para clavarlo a su coordenada, y como estas
   // reglas viven bajo ::ng-deep le ganan en especificidad: al forzar
@@ -941,15 +958,18 @@
     transform: translate(calc(-50% + 1.5px), -50%);
     display: block;
     z-index: 3;
-    // Sombra para despegarla del mapa + resplandor verde: es lo que le da el
-    // aspecto de neón sin engordar el trazo.
+    // Sombra para despegarla del mapa + resplandor del color neón: es lo que
+    // le da el aspecto de neón sin engordar el trazo.
     // Resplandor contenido. Uno amplio se derrama entre brazos y piernas y
     // engorda la silueta; en movil ademas el drop-shadow se renderiza mas
     // pesado, que es donde peor se notaba.
     filter:
       drop-shadow(0 2px 3px rgba(0,0,0,0.5))
-      drop-shadow(0 0 3px rgba(0, 255, 136, 0.55));
+      drop-shadow(0 0 3px rgba(var(--um-brillo), 0.55));
   }
+
+  .up-cabeza { fill: var(--um-neon); }
+  .up-trazo { stroke: var(--um-neon); }
 
   // Halo difuso, no anillo: un borde circular volvería a leerse como la chapa
   // que se quitó. Sólo marca presencia detrás de la figura.
@@ -959,14 +979,14 @@
     width: 34px; height: 34px;
     margin: -17px 0 0 -17px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(0,224,106,0.3) 0%, rgba(0,224,106,0) 70%);
+    background: radial-gradient(circle, rgba(var(--um-halo), 0.3) 0%, rgba(var(--um-halo), 0) 70%);
     animation: pulsate 2s ease-out infinite;
     z-index: 1;
   }
 
   // Lectura por red con kilómetros de error: se apaga y pierde el borde sólido
   // para que no se lea como una posición confirmada.
-  // La figura se queda SIEMPRE en verde neón, también con una lectura poco
+  // La figura se queda SIEMPRE en su color neón, también con una lectura poco
   // fiable. Antes se agrisaba para avisarlo, pero eso apagaba lo único que
   // representa al usuario en pantalla. La advertencia sigue estando donde no
   // estorba: el botón de ubicación se pone ámbar y el aviso lo explica.
@@ -975,7 +995,7 @@
   // posición dudosa afirmaba una certeza que no había.
   .user-marker.coarse .user-pulse {
     animation: none;
-    background: radial-gradient(circle, rgba(0,224,106,0.16) 0%, rgba(0,224,106,0) 70%);
+    background: radial-gradient(circle, rgba(var(--um-halo), 0.16) 0%, rgba(var(--um-halo), 0) 70%);
   }
 
   // Haz de luz sobre el suelo. El degradado se apaga hacia afuera y los bordes
@@ -989,10 +1009,10 @@
     margin-left: -46px;
     background: radial-gradient(
       ellipse 62% 100% at 50% 100%,
-      rgba(0,224,106,0.6) 0%,
-      rgba(0,224,106,0.28) 42%,
-      rgba(0,224,106,0.06) 78%,
-      rgba(0,224,106,0) 100%
+      rgba(var(--um-halo), 0.6) 0%,
+      rgba(var(--um-halo), 0.28) 42%,
+      rgba(var(--um-halo), 0.06) 78%,
+      rgba(var(--um-halo), 0) 100%
     );
     clip-path: polygon(50% 100%, 14% 0%, 86% 0%);
     filter: blur(1.5px);

@@ -2238,6 +2238,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   //
   // La foto de perfil ya no va acá: sin marco circular no hay dónde recortarla.
   // Sigue estando en la barra superior y en el panel de perfil.
+  //
+  // El color no va fijo en el SVG: lo pone el CSS (verde neón en el mapa
+  // oscuro, azul neón en el claro), así cambia con el modo sin rehacer el
+  // marcador.
   private userPuckHtml(): string {
     const figura = `
       <path d="M11 8.4v6"/>
@@ -2250,9 +2254,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       <svg class="up-person" viewBox="0 0 24 24" width="34" height="34" fill="none"
            stroke-linecap="round" stroke-linejoin="round">
         <g stroke="rgba(3,18,10,0.85)" stroke-width="4.2">${figura}</g>
-        <circle cx="11" cy="5" r="3.1" fill="#00ff88"
+        <circle class="up-cabeza" cx="11" cy="5" r="3.1"
                 stroke="rgba(3,18,10,0.85)" stroke-width="1.5"/>
-        <g stroke="#00ff88" stroke-width="2.9">${figura}</g>
+        <g class="up-trazo" stroke-width="2.9">${figura}</g>
       </svg>`;
   }
 
@@ -2311,18 +2315,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       return;
     }
 
+    // Del mismo color que el muñequito. No hace falta cambiarlo al pasar de
+    // modo: setStyle borra el círculo y se vuelve a crear con el color nuevo.
+    const color = this.darkMode ? '#00e06a' : '#00a8ff';
     this.map.addSource('user-accuracy', { type: 'geojson', data });
     this.map.addLayer({
       id: 'user-accuracy-fill',
       type: 'fill',
       source: 'user-accuracy',
-      paint: { 'fill-color': '#00e06a', 'fill-opacity': 0.13 },
+      paint: { 'fill-color': color, 'fill-opacity': 0.13 },
     });
     this.map.addLayer({
       id: 'user-accuracy-line',
       type: 'line',
       source: 'user-accuracy',
-      paint: { 'line-color': '#00e06a', 'line-width': 1.2, 'line-opacity': 0.45 },
+      paint: { 'line-color': color, 'line-width': 1.2, 'line-opacity': 0.45 },
     });
   }
 
