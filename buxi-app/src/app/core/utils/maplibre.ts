@@ -5,9 +5,11 @@ import { environment } from '../../../environments/environment';
 // `dataviz-dark` es plano y minimal: sirve para paneles donde el mapa es sólo
 // un fondo de datos. `streets-v2-dark` trae edificios, relieve y agua, que es
 // lo que necesita el mapa del pasajero para verse 3D.
-// `outdoor-v2` para el modo claro: terreno verde apagado y agua azul suave,
-// el look de mapa de seguimiento. `streets-v2` era un callejero urbano, con
-// demasiado color y detalle compitiendo con los buses.
+// `outdoor-v2` para el modo claro, repintado al estilo Google Maps por
+// tintLightMap (sin relieve, verde claro y vías gris azulado). Se parte de él
+// y no de `streets-v2` porque es el que trae los parques nacionales como área
+// verde con nombre; `streets-v2` era un callejero urbano, con demasiado color y
+// detalle compitiendo con los buses.
 export type MapStyleName = 'dataviz-dark' | 'streets-v2-dark' | 'outdoor-v2';
 
 export function isDarkStyle(style: MapStyleName): boolean {
@@ -163,15 +165,14 @@ export function enable3D(map: maplibregl.Map, dark = true): void {
                 50, '#243248',
                 200, '#2e3f5c',
               ]
-            // Grises fríos y con salto real entre alturas. Antes eran beiges
-            // pálidos (#d9d7cd…) sobre un suelo también pálido: los edificios
-            // se fundían con el terreno y la ciudad se veía lavada y vacía.
-            // El tono frío además los despega del verde y del beige del mapa.
+            // Grises fríos claros, con salto real entre alturas. El tono frío
+            // los despega del verde del terreno; más oscuros (como antes) se
+            // veían como bloques pesados sobre la paleta clara tipo Google.
             : [
                 'interpolate', ['linear'], ['get', 'render_height'],
-                0, '#b6bcc4',
-                50, '#9aa2ad',
-                200, '#7d8794',
+                0, '#dfe2e7',
+                50, '#cfd3da',
+                200, '#bcc2cb',
               ],
           'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
           'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
@@ -183,9 +184,57 @@ export function enable3D(map: maplibregl.Map, dark = true): void {
   }
 }
 
-// Repinta el estilo claro con una paleta propia, al estilo Google Maps: verdes
-// más vivos, agua celeste y carreteras azules. MapTiler no ofrece un estilo así,
-// pero sus capas se pueden repintar en caliente una vez cargado el estilo.
+// Paleta del modo claro, tomada píxel a píxel de una captura de Google Maps
+// (Guanacaste, zoom ~10): el look que los pasajeros ya conocen, plano y sin
+// relieve, donde lo que resalta son las carreteras y los buses.
+const CLARO = {
+  terreno: '#d3f7e0',
+  bosque: '#c8f3d8',
+  parque: '#bdf0d1',
+  agua: '#90d9ed',
+  ciudad: '#f6f6f6',
+  arido: '#f4efe3',
+  viaPrincipal: '#aabcd4',
+  viaLocal: '#ffffff',
+  bordeViaLocal: '#cdd4dd',
+  edificio: '#e8e9ed',
+  textoLugar: '#3c4043',
+  textoSecundario: '#5f6368',
+  textoParque: '#158860',
+  textoAgua: '#1c8c9f',
+  textoAeropuerto: '#1769d2',
+};
+
+// Clases de vía que van en gris azulado; el resto va en blanco con borde, como
+// las calles de barrio de Google.
+const VIAS_PRINCIPALES = ['motorway', 'trunk', 'primary', 'secondary'];
+
+// Ancho por jerarquía y zoom, más `extra` píxeles (para el borde). El estilo
+// original adelgaza mucho las vías a zoom medio, que es justo donde se mira
+// una ciudad entera.
+function anchoVia(extra = 0): any {
+  const w = (mt: number, p: number, st: number, resto: number) =>
+    ['match', ['get', 'class'],
+      ['motorway', 'trunk'], mt + extra,
+      ['primary'], p + extra,
+      ['secondary', 'tertiary'], st + extra,
+      resto + extra];
+  return ['interpolate', ['linear'], ['zoom'],
+    6, w(2.4, 1.7, 0.9, 0.9),
+    10, w(5.4, 4, 2.8, 1.8),
+    14, w(9.5, 7.2, 5.2, 3.4),
+    18, w(21, 16, 12, 7.5),
+  ];
+}
+
+// Repinta `outdoor-v2` para que se vea como Google Maps. MapTiler no ofrece un
+// estilo así, pero sus capas se pueden repintar en caliente una vez cargado.
+//
+// `outdoor-v2` es un estilo de montaña: trae sombreado del relieve, curvas de
+// nivel, acantilados, una veintena de capas de senderos y la altura de cada
+// cerro. Eso es lo que lo hacía verse "en relieve" y recargado. Se apaga, y se
+// conserva lo que sí suma: los parques nacionales como área verde con nombre,
+// que es justo como los muestra Google.
 //
 // Cada asignación va protegida: si MapTiler renombra o quita una capa, esa
 // línea se ignora y el mapa sigue funcionando con su color original en vez de
@@ -196,82 +245,151 @@ export function tintLightMap(map: maplibregl.Map): void {
       if (map.getLayer(id)) map.setPaintProperty(id, prop as any, value);
     } catch { /* capa ausente o propiedad no aplicable a este tipo */ }
   };
+  const ocultar = (id: string) => {
+    try {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+    } catch {}
+  };
 
-  // ---- Vegetación ----
-  paint('Forest', 'fill-color', '#a9d6a0');
-  paint('Wood', 'fill-color', '#a9d6a0');
-  paint('Park', 'fill-color', '#c3e6b4');
-  paint('Grass', 'fill-color', '#c8e8b8');
-  paint('Scrub', 'fill-color', '#cfe6bb');
-  for (const id of ['Forest', 'Wood', 'Park', 'Grass', 'Scrub']) {
-    paint(id, 'fill-opacity', 0.9);
+  // ---- Relieve y montaña: fuera ----
+  // Por fuente y no por nombre: así caen también los senderos de colores
+  // (`Red trail`, `Via ferrata`…) que MapTiler va agregando.
+  for (const layer of map.getStyle().layers || []) {
+    const fuente = (layer as any)['source-layer'];
+    if (
+      layer.type === 'hillshade'
+      || fuente === 'contour'
+      || fuente === 'trail'
+      || fuente === 'outdoor_poi'
+      || (fuente === 'mountain_peak' && layer.type === 'line')
+    ) {
+      ocultar(layer.id);
+    }
+  }
+  // Los cerros con su altura ("Cerro Pelón 300 m") son de mapa de senderismo.
+  for (const id of ['Peak labels', 'Peak labels (US)', 'Volcano labels (US)', 'Outdoor shop', 'Park outline']) {
+    ocultar(id);
   }
 
+  // ---- Suelo ----
+  try {
+    const bg = (map.getStyle().layers || []).find(l => l.type === 'background');
+    if (bg) map.setPaintProperty(bg.id, 'background-color', CLARO.terreno);
+  } catch {}
+  // Google pinta el campo de un solo verde: el matorral y el pasto del estilo
+  // original lo llenaban de manchas sin información.
+  ocultar('Scrub');
+  ocultar('Grass');
+  for (const id of ['Forest', 'Tree', 'Wood']) {
+    paint(id, 'fill-color', CLARO.bosque);
+    paint(id, 'fill-opacity', 1);
+  }
+  // Parques y áreas protegidas, verdes a todo zoom. El original los desvanecía
+  // hasta 0.1 al acercarse, justo cuando uno está adentro de uno.
+  paint('Park', 'fill-color', CLARO.parque);
+  paint('Park', 'fill-opacity', 1);
+  paint('Sand', 'fill-color', CLARO.arido);
+  paint('Residential', 'fill-color', CLARO.ciudad);
+  paint('Residential', 'fill-opacity', 1);
+  for (const id of ['Industrial', 'Commercial']) {
+    paint(id, 'fill-color', '#f1f3f4');
+    paint(id, 'fill-opacity', 1);
+  }
+  paint('Aeroway', 'fill-color', '#e8eaed');
+  paint('Building', 'fill-color', CLARO.edificio);
+  paint('Building', 'fill-outline-color', '#d7d9de');
+
   // ---- Agua ----
-  // Azul saturado, no el celeste pálido del estilo original: el agua es el
-  // rasgo geográfico que más orienta de un vistazo (costa, golfo, ríos), y
-  // desvaída se perdía contra el terreno claro. `Water` cubre mar y lagos.
-  paint('Water', 'fill-color', '#2e90e0');
+  paint('Water', 'fill-color', CLARO.agua);
   paint('Water', 'fill-opacity', 1);
-  // El río va más suave que el mar a propósito: con el mismo azul saturado, una
-  // línea fina compite con las carreteras y satura la escena. Un tono más claro
-  // lo mantiene reconocible como agua sin robarle protagonismo a las vías.
-  paint('River', 'line-color', '#93c8e8');
-  paint('River', 'line-opacity', 0.85);
-  // Un río de 1px a este zoom desaparece; se le da cuerpo creciente con el zoom.
+  paint('River', 'line-color', CLARO.agua);
+  // A escala de provincia, las líneas de río llenaban el mapa de rayitas
+  // celestes. No se pueden separar ríos de quebradas: a zoom bajo MapTiler
+  // marca todo con class "river". Se hace como Google: aparecen al acercarse,
+  // donde sí sirven para ubicarse. Los cauces anchos (el Tempisque, los
+  // esteros) siguen visibles a todo zoom porque vienen como polígono de `Water`.
+  paint('River', 'line-opacity', [
+    'interpolate', ['linear'], ['zoom'],
+    11, 0,
+    12.5, 1,
+  ]);
   paint('River', 'line-width', [
     'interpolate', ['linear'], ['zoom'],
-    8, 1.2,
-    12, 2.4,
+    8, 1,
+    12, 2,
     16, 4,
   ]);
 
-  // ---- Suelo ----
-  // Un punto más oscuro y cálido que el original. El fondo casi blanco era la
-  // razón de fondo por la que las calles no se veían: no hay color de vía que
-  // resalte contra un lienzo del mismo valor.
-  paint('Sand', 'fill-color', '#ece0c4');
-  paint('Residential', 'fill-color', '#e9e7e0');
-  try {
-    const bg = (map.getStyle().layers || []).find(l => l.type === 'background');
-    if (bg) map.setPaintProperty(bg.id, 'background-color', '#eef0e6');
-  } catch {}
-
   // ---- Carreteras ----
   // `Road network` es UNA sola capa para toda la red, así que un color plano
-  // pintaría de azul hasta el último callejón. Se usa el atributo `class` del
-  // esquema OpenMapTiles para conservar la jerarquía: azul sólo en las vías
-  // importantes, blanco en las calles de barrio, como en la referencia.
-  // Prueba en gris. Se conserva la jerarquía por `class` para poder juzgar el
-  // resultado: un gris plano en toda la red no diría nada.
-  //
-  // Los valores arrancan oscuros a propósito. En gris no hay tono que ayude a
-  // separar la vía del terreno —como sí hacían el azul o el naranja—, así que
-  // todo el contraste tiene que salir de la luminosidad.
+  // pintaría igual hasta el último callejón. Se usa el atributo `class` del
+  // esquema OpenMapTiles para conservar la jerarquía: gris azulado en las vías
+  // importantes, blanco en las calles de barrio.
   paint('Road network', 'line-color', [
     'match', ['get', 'class'],
-    ['motorway', 'trunk'], '#4a4f57',
-    ['primary'], '#666c75',
-    ['secondary', 'tertiary'], '#868d97',
-    '#a5abb3',
+    VIAS_PRINCIPALES, CLARO.viaPrincipal,
+    CLARO.viaLocal,
   ]);
+  paint('Road network', 'line-width', anchoVia());
+  paint('Bridge', 'fill-color', '#e8ecf1');
 
-  // Ancho explícito por jerarquía y zoom. El estilo original adelgaza mucho las
-  // vías a zoom medio, que es justo donde se mira una ciudad entera.
-  paint('Road network', 'line-width', [
-    'interpolate', ['linear'], ['zoom'],
-    6, ['match', ['get', 'class'], ['motorway', 'trunk'], 2.4, ['primary'], 1.7, 0.9],
-    10, ['match', ['get', 'class'], ['motorway', 'trunk'], 5.4, ['primary'], 4, ['secondary', 'tertiary'], 2.8, 1.8],
-    14, ['match', ['get', 'class'], ['motorway', 'trunk'], 9.5, ['primary'], 7.2, ['secondary', 'tertiary'], 5.2, 3.4],
-    18, ['match', ['get', 'class'], ['motorway', 'trunk'], 21, ['primary'], 16, ['secondary', 'tertiary'], 12, 7.5],
-  ]);
-
-  paint('Bridge', 'fill-color', '#cfd8e6');
-
-  // Contorno bajo las vías principales. Es lo que en cartografía les da
-  // presencia: sin él, una línea de color plano sobre terreno claro se lee
-  // como un trazo suelto y no como una carretera.
+  // Las calles blancas necesitan un borde para separarse del terreno claro; las
+  // principales no, su gris azulado ya contrasta (Google tampoco se lo pone).
   addRoadCasing(map);
+
+  // ---- Etiquetas ----
+  etiquetasEnEspanol(map);
+  const texto = (id: string, color: string, halo = '#ffffff') => {
+    paint(id, 'text-color', color);
+    paint(id, 'text-halo-color', halo);
+  };
+  for (const id of ['City labels', 'Town labels', 'Village labels']) {
+    texto(id, CLARO.textoLugar);
+    paint(id, 'text-halo-width', 1.5);
+    // Sin el puntito al lado del nombre del pueblo, como en Google.
+    paint(id, 'icon-opacity', 0);
+  }
+  texto('Place labels', CLARO.textoSecundario);
+  texto('Road labels', CLARO.textoSecundario);
+  for (const id of ['National park labels', 'Protected area labels', 'Park labels']) {
+    texto(id, CLARO.textoParque);
+    paint(id, 'icon-color', CLARO.textoParque);
+  }
+  for (const id of ['Ocean labels', 'Sea labels', 'Lake labels', 'Lakeline labels', 'River labels']) {
+    texto(id, CLARO.textoAgua, 'rgba(255, 255, 255, 0)');
+  }
+  texto('Airport labels', CLARO.textoAeropuerto);
+  paint('Airport labels', 'icon-color', CLARO.textoAeropuerto);
+  // El volcán se queda (en Costa Rica orienta), pero sin la altura.
+  texto('Volcano labels', CLARO.textoSecundario);
+  try {
+    if (map.getLayer('Volcano labels')) {
+      map.setLayoutProperty('Volcano labels', 'text-field', ['coalesce', ['get', 'name:es'], ['get', 'name']]);
+    }
+  } catch {}
+}
+
+// MapTiler etiqueta en inglés ("Gulf of Papagayo", "Santa Rosa National Park").
+// Se pide el nombre en español y, si el lugar no lo tiene, el nombre local, que
+// en Costa Rica ya es español. Se reescribe la expresión de cada capa en vez de
+// una lista fija de ids para que sirva con cualquier estilo de MapTiler.
+export function etiquetasEnEspanol(map: maplibregl.Map): void {
+  for (const layer of map.getStyle().layers || []) {
+    if (layer.type !== 'symbol') continue;
+    try {
+      const campo = map.getLayoutProperty(layer.id, 'text-field');
+      if (campo == null) continue;
+      let nuevo: any;
+      if (campo === '{name:en}') {
+        nuevo = ['coalesce', ['get', 'name:es'], ['get', 'name']];
+      } else {
+        const json = JSON.stringify(campo);
+        if (!json.includes('"name:en"')) continue;
+        nuevo = JSON.parse(json.split('"name:en"').join('"name:es"'));
+      }
+      map.setLayoutProperty(layer.id, 'text-field', nuevo);
+    } catch { /* capa sin texto o expresión que no se pudo reescribir */ }
+  }
 }
 
 function addRoadCasing(map: maplibregl.Map): void {
@@ -288,23 +406,14 @@ function addRoadCasing(map: maplibregl.Map): void {
         type: 'line',
         source: road.source,
         'source-layer': road['source-layer'],
-        // Incluye también secundarias y terciarias: son las que estructuran una
-        // ciudad como Liberia, y sin contorno se perdían junto a las de barrio.
-        filter: ['match', ['get', 'class'],
-          ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false],
+        // Solo las calles que van en blanco: sin borde, blanco sobre verde claro
+        // se lee como una mancha y no como una calle.
+        filter: ['match', ['get', 'class'], ['tertiary', 'minor', 'service'], true, false],
+        minzoom: 11,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          // El contorno acompaña al color de la vía; con otro tono se vería como
-          // un halo sucio alrededor de la línea.
-          'line-color': '#23262b',
-          'line-opacity': 0.45,
-          'line-width': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 4,
-            10, 8,
-            14, 13.5,
-            18, 28,
-          ],
+          'line-color': CLARO.bordeViaLocal,
+          'line-width': anchoVia(1.6),
         },
       },
       'Road network',
