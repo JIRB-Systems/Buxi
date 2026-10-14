@@ -790,8 +790,22 @@
         <div class="pp-switch" [class.on]="darkMode"><i></i></div>
       </div>
 
+      <!-- Los nombres son los del menú Capas de Google Maps, que es la
+           referencia que el pasajero ya conoce. -->
+      <div class="pp-link pp-tipo-mapa">
+        <ion-icon name="layers-outline"></ion-icon><span>Tipo de mapa</span>
+        <div class="pp-segmento" role="group" aria-label="Tipo de mapa">
+          <button type="button" [class.on]="tipoMapa === 'predeterminado'"
+                  [attr.aria-pressed]="tipoMapa === 'predeterminado'"
+                  (click)="setTipoMapa('predeterminado')">Predeterminado</button>
+          <button type="button" [class.on]="tipoMapa === 'relieve'"
+                  [attr.aria-pressed]="tipoMapa === 'relieve'"
+                  (click)="setTipoMapa('relieve')">Relieve</button>
+        </div>
+      </div>
+
       <div class="pp-link" (click)="toggle3D()">
-        <ion-icon name="cube-outline"></ion-icon><span>Relieve y edificios 3D</span>
+        <ion-icon name="cube-outline"></ion-icon><span>Vista en 3D</span>
         <div class="pp-switch" [class.on]="is3D"><i></i></div>
       </div>
 

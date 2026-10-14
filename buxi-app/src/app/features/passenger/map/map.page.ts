@@ -15,7 +15,7 @@ import { Capacitor } from '@capacitor/core';
 import {
   TrazadoRuta, LatLng, Sentido, Llegada, estimarLlegada, sentidoSegunRumbo, suavizarVelocidad,
 } from '../../../core/utils/eta';
-import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap } from '../../../core/utils/maplibre';
+import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
 import {
@@ -1274,6 +1274,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
     this.mapReady = true;
+    setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
 
     const rutaId = this.route.snapshot.queryParams['ruta'] || null;
     if (rutaId) {
@@ -1360,6 +1361,24 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Por defecto oscuro: es la identidad de la app. Sólo cambia si el usuario
   // guardó lo contrario.
   darkMode = true;
+
+  // Predeterminado (plano, como Google) o Relieve. Se guarda en el teléfono y
+  // no en user_preferences: es cómo prefiere ver el mapa en ESTE dispositivo,
+  // y así el ajuste no depende de una migración.
+  tipoMapa: TipoMapa = (() => {
+    try {
+      return localStorage.getItem('buxi.tipoMapa') === 'relieve' ? 'relieve' : 'predeterminado';
+    } catch {
+      return 'predeterminado';
+    }
+  })();
+
+  setTipoMapa(tipo: TipoMapa) {
+    if (this.tipoMapa === tipo) return;
+    this.tipoMapa = tipo;
+    try { localStorage.setItem('buxi.tipoMapa', tipo); } catch {}
+    if (this.mapReady) setRelieve(this.map, tipo === 'relieve', this.darkMode);
+  }
   readonly provincias = [
     'San José', 'Alajuela', 'Cartago', 'Heredia', 'Guanacaste', 'Puntarenas', 'Limón',
   ];
@@ -1494,10 +1513,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
       if (this.is3D) {
         try { enable3D(this.map, this.darkMode); } catch {}
-        // El repintado va DESPUÉS del 3D: enable3D inserta la capa de edificios
-        // y este paso ajusta el resto de la paleta del estilo claro.
-        if (!this.darkMode) { try { tintLightMap(this.map); } catch {} }
       }
+      // El repintado va DESPUÉS del 3D (enable3D inserta la capa de edificios y
+      // este paso ajusta el resto de la paleta), y va SIEMPRE: estaba adentro
+      // del if de arriba, así que en 2D el modo claro quedaba con el estilo de
+      // montaña crudo de MapTiler, con relieve y nombres en inglés.
+      if (!this.darkMode) { try { tintLightMap(this.map); } catch {} }
+      setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
 
       // El círculo se redibuja desde la última posición conocida.
       if (this.userLat !== 0) {

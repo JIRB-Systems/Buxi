@@ -71,11 +71,14 @@ export function createMap(opts: {
     };
 
     map.on('load', () => {
+      const dark = isDarkStyle(opts.style ?? (opts.threeD ? 'streets-v2-dark' : 'dataviz-dark'));
       if (opts.threeD) {
-        const dark = isDarkStyle(opts.style ?? "streets-v2-dark");
         try { enable3D(map, dark); } catch { /* el mapa sigue siendo usable en 2D */ }
-        if (!dark) { try { tintLightMap(map); } catch {} }
       }
+      // El repintado del claro va siempre, no solo con 3D: sin él queda el
+      // estilo de montaña crudo de MapTiler (relieve, curvas de nivel, nombres
+      // en inglés).
+      if (!dark) { try { tintLightMap(map); } catch {} }
       done();
     });
 
@@ -419,6 +422,66 @@ function addRoadCasing(map: maplibregl.Map): void {
       'Road network',
     );
   } catch { /* si el estilo cambia de estructura, el mapa sigue sin el contorno */ }
+}
+
+// "Tipo de mapa" del pasajero, con los nombres del menú Capas de Google Maps:
+// Predeterminado (plano) o Relieve (sombreado del terreno y curvas de nivel).
+export type TipoMapa = 'predeterminado' | 'relieve';
+
+const RELIEVE_SOURCE = 'buxi-relieve-dem';
+const RELIEVE_LAYER = 'buxi-relieve';
+
+// Prende o apaga el relieve sin recargar el estilo. Va después de tintLightMap,
+// que es el que lo apaga por defecto en el modo claro.
+//
+// El sombreado es propio y no el `Hillshade` de outdoor-v2 para que funcione
+// igual en el modo oscuro, cuyo estilo no trae relieve. Usa su propio DEM, y no
+// 'terrain-dem' del 3D, porque compartir la fuente entre el terreno 3D y el
+// sombreado baja la calidad del render (es lo que recomienda MapLibre).
+//
+// setStyle borra fuentes y capas propias: quien cambia de tema tiene que
+// volver a llamarla.
+export function setRelieve(map: maplibregl.Map, on: boolean, dark: boolean): void {
+  try {
+    if (on) {
+      if (!map.getSource(RELIEVE_SOURCE)) {
+        map.addSource(RELIEVE_SOURCE, { type: 'raster-dem', url: TERRAIN_DEM_URL(), tileSize: 256 });
+      }
+      if (!map.getLayer(RELIEVE_LAYER)) {
+        // Debajo de parques y agua: el sombreado tiñe el terreno, no el mar.
+        const antes = ['Park', 'Water'].find(id => map.getLayer(id));
+        map.addLayer({
+          id: RELIEVE_LAYER,
+          type: 'hillshade',
+          source: RELIEVE_SOURCE,
+          paint: dark
+            ? {
+                'hillshade-exaggeration': 0.45,
+                'hillshade-shadow-color': '#000000',
+                'hillshade-highlight-color': '#2c3e5c',
+                'hillshade-accent-color': '#0d1726',
+              }
+            // Sombras verde grisáceo: con negro, el verde menta se ensucia.
+            : {
+                'hillshade-exaggeration': 0.35,
+                'hillshade-shadow-color': '#4f6b5a',
+                'hillshade-highlight-color': '#ffffff',
+                'hillshade-accent-color': '#6f8a78',
+              },
+        }, antes);
+      }
+    } else if (map.getLayer(RELIEVE_LAYER)) {
+      map.removeLayer(RELIEVE_LAYER);
+    }
+  } catch { /* sin DEM el mapa sigue funcionando, solo que plano */ }
+
+  // Curvas de nivel y cerros con su altura: solo existen en outdoor-v2 (modo
+  // claro). En el oscuro este bucle no encuentra nada.
+  for (const layer of map.getStyle().layers || []) {
+    if ((layer as any)['source-layer'] === 'contour' || layer.id === 'Peak labels') {
+      try { map.setLayoutProperty(layer.id, 'visibility', on ? 'visible' : 'none'); } catch {}
+    }
+  }
 }
 
 export function set3DEnabled(map: maplibregl.Map, enabled: boolean, dark = true): void {
