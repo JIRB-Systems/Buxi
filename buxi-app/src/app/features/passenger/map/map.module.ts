@@ -4,6 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { MapPage } from './map.page';
+import { PlacaComponent, RutaInsigniaComponent } from '../../../shared/transporte/transporte';
 
 @NgModule({
   declarations: [MapPage],
@@ -12,6 +13,8 @@ import { MapPage } from './map.page';
     IonicModule,
     FormsModule,
     RouterModule.forChild([{ path: '', component: MapPage }]),
+    RutaInsigniaComponent,
+    PlacaComponent,
   ],
 })
 export class MapPageModule {}

@@ -87,6 +87,27 @@
   .no-bus { color: var(--bx-danger); }
 }
 
+// Con bus asignado: la placa y, al lado, la ruta y el nombre del chofer.
+.tb-bus {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.tb-bus-ruta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+
+  span {
+    max-width: 40vw;
+    font-size: 12px; color: var(--bx-text-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+}
+
 // Unica pista visible de que hay un menu detras. El avatar tambien abre el
 // panel, pero un avatar no se lee como boton: al mover cerrar sesion adentro
 // del panel, el chofer se quedaba sin forma evidente de salir.
@@ -234,57 +255,117 @@
   }
 }
 
-// ---- BOTÓN DE PÁNICO ----
-.panic-btn {
+// ---- BOTÓN DE EMERGENCIA ----
+// Se envía manteniéndolo presionado: el anillo blanco se llena en
+// --panico-ms. Un toque corto no envía nada.
+.panic-wrap {
   position: absolute;
   left: 14px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 116px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 112px);
   z-index: 1000;
-  width: 52px; height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.panic-btn {
+  position: relative;
+  width: 60px; height: 60px;
+  padding: 0;
   border: none;
   border-radius: 50%;
   background: var(--bx-danger);
-  box-shadow: 0 6px 20px rgba(255, 84, 73, 0.5);
+  box-shadow: 0 6px 20px rgba(255, 84, 73, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   display: grid; place-items: center;
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   transition: transform 0.14s ease;
 
-  &:active { transform: scale(0.9); }
+  &:active { transform: scale(0.94); }
   &[disabled] { opacity: 0.6; }
 
-  ion-icon { font-size: 28px; color: #fff; }
+  ion-icon { position: relative; font-size: 30px; color: #fff; }
+}
+
+.panic-anillo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+
+  circle {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-dasharray: 182.2;
+    stroke-dashoffset: 182.2;
+  }
+}
+
+.panic-btn.cargando .panic-anillo circle {
+  animation: panico-llena var(--panico-ms, 1200ms) linear forwards;
+}
+
+@keyframes panico-llena { to { stroke-dashoffset: 0; } }
+
+.panic-ayuda {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(10, 22, 40, 0.86);
+  color: #ffb3ae;
+  font: 800 10px/1 var(--bx-font);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  // Sin animación igual se ve que está "cargando": el anillo aparece entero.
+  .panic-btn.cargando .panic-anillo circle { animation: none; stroke-dashoffset: 0; }
 }
 
 // ---- PRÓXIMA PARADA ----
+// Se lee de reojo manejando: nombre grande, distancia y velocidad en cifras
+// de pizarra.
 .next-stop-card {
   position: absolute;
-  // A la derecha deja libre la columna de controles del mapa (42px + márgenes):
-  // con `right: 14px` la distancia a la parada quedaba tapada por los botones.
+  // A la derecha deja libre la columna de controles del mapa.
   left: 14px; right: 68px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 190px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 196px);
   z-index: 1000;
-  display: flex; align-items: center; gap: 10px;
-  background: var(--bx-glass);
+  // El nombre arriba, en su propia línea (no se corta), y abajo las cifras.
+  display: flex; flex-wrap: wrap; align-items: flex-end; column-gap: 18px; row-gap: 8px;
+  background: var(--bx-glass-strong);
   backdrop-filter: var(--bx-glass-blur);
   -webkit-backdrop-filter: var(--bx-glass-blur);
   border: 1px solid var(--bx-line-strong);
-  border-radius: 16px;
-  padding: 12px 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-
-  > ion-icon { font-size: 20px; color: var(--bx-green); flex-shrink: 0; }
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.38);
 
   .ns-info {
-    flex: 1; min-width: 0;
-    display: flex; flex-direction: column;
-    strong { font-size: 14px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    span { font-size: 11px; color: var(--bx-text-2); }
+    flex: 1 0 100%; min-width: 0;
+    display: flex; flex-direction: column; gap: 6px;
+    span { font-size: 12px; font-weight: 700; color: var(--bx-text-3); }
+    strong {
+      font-size: 22px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; color: var(--bx-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
   }
 
-  .ns-dist {
-    flex-shrink: 0;
-    font-size: 13px; font-weight: 700; color: var(--bx-green-bright);
+  .ns-dato {
+    flex: none;
+    display: flex; align-items: baseline; gap: 3px;
+    b { font-size: 24px; font-weight: 700; line-height: 1; color: var(--bx-green-bright); }
+    span { font-size: 12px; font-weight: 700; color: var(--bx-text-2); }
   }
+
+  .ns-vel b { color: var(--bx-text); }
 }
 
 // ---- LOADING ----
@@ -361,47 +442,18 @@
   }
 }
 
-.track-btn {
-  --border-radius: 14px;
-  font-weight: 700;
+// Los botones son .bx-btn; acá solo el tamaño, más grande que en el resto de
+// la app: se tocan con el bus encendido.
+.bottom-control .bx-btn {
+  --bx-btn-h: 56px;
   font-size: 17px;
-  letter-spacing: -0.01em;
-  height: 56px;
-  text-transform: none;
-  margin: 0;
-  flex: 1;
-
-  &.btn-start {
-    --background: var(--bx-green);
-    --color: var(--bx-ink);
-    --box-shadow: 0 8px 24px rgba(0, 200, 83, 0.35);
-  }
-
-  &.btn-stop {
-    --background: var(--bx-danger);
-    --color: #240604;
-    --box-shadow: 0 8px 24px rgba(255, 84, 73, 0.35);
-  }
+  border-radius: 14px;
 }
 
-.pause-btn {
-  --border-radius: 14px;
-  --background: var(--bx-glass);
-  --color: var(--bx-text);
-  --box-shadow: none;
-  width: 56px; height: 56px;
-  flex-shrink: 0;
-  margin: 0;
-  border: 1px solid var(--bx-line-strong);
-  border-radius: 14px;
-
-  ion-icon { font-size: 22px; }
-
-  &.on {
-    --background: rgba(255, 209, 102, 0.22);
-    --color: var(--bx-warning);
-    border-color: rgba(255, 209, 102, 0.4);
-  }
+.pause-btn.on {
+  background: rgba(255, 209, 102, 0.22);
+  color: var(--bx-warning);
+  border-color: rgba(255, 209, 102, 0.4);
 }
 
 // ---- PANEL LATERAL DE PERFIL ----
@@ -564,30 +616,6 @@
   display: flex; gap: 8px; margin-top: 14px;
 }
 
-.pp-btn {
-  flex: 1;
-  padding: 11px;
-  border-radius: 12px;
-  font-size: 13px; font-weight: 700; font-family: inherit;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: transform 0.14s ease, opacity 0.16s ease;
-
-  &:active { transform: scale(0.97); }
-  &[disabled] { opacity: 0.6; cursor: default; }
-
-  &.ghost {
-    color: var(--bx-text-2);
-    background: rgba(255,255,255,0.06);
-    border-color: var(--bx-line);
-  }
-
-  &.solid {
-    color: var(--bx-ink);
-    background: linear-gradient(145deg, var(--bx-green-bright), var(--bx-green-deep));
-    box-shadow: 0 4px 14px rgba(0, 200, 83, 0.3);
-  }
-}
 
 .pp-logout {
   display: flex;
@@ -819,17 +847,7 @@
   }
 }
 
-.sc-again {
-  display: flex; align-items: center; gap: 8px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid var(--bx-line-strong);
-  color: #fff;
-  padding: 12px 22px;
-  border-radius: 14px;
-  font-size: 14px; font-weight: 700;
-  cursor: pointer;
-  ion-icon { font-size: 18px; color: var(--bx-green-bright); }
-}
+.sc-again ion-icon { color: var(--bx-green-bright); }
 
 // El bloque del viaje dentro del panel solo existe en pantalla ancha.
 .pp-viaje { display: none; }
@@ -909,9 +927,9 @@
 
     .pv-bus-info {
       min-width: 0;
-      display: flex; flex-direction: column; gap: 2px;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
       strong {
-        font-size: 24px; font-weight: 800; color: var(--bx-text);
+        font-size: 18px; font-weight: 800; color: var(--bx-text);
         line-height: 1.1; letter-spacing: -0.02em;
       }
       span {
@@ -986,7 +1004,7 @@
     &.off-route.stacked { top: 72px; }
   }
 
-  .panic-btn { left: $panel + 16px; bottom: 24px; }
+  .panic-wrap { left: $panel + 16px; bottom: 24px; }
   .map-controls { right: 16px; bottom: 24px; }
 
   // ---------- Viajes, calificaciones y mensajes: sobre el panel ----------
@@ -1009,3 +1027,6 @@
 
   .hs-head strong { font-size: 20px; }
 }
+
+// Los dos botones del formulario de perfil, del mismo ancho.
+.pp-form-actions .bx-btn { flex: 1; }

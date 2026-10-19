@@ -1,4 +1,6 @@
 .map-content {
+  // Alto de la barra inferior del teléfono, sin el área segura.
+  --bx-dock-alto: 64px;
   --padding-top: 0;
   --padding-bottom: 0;
   --padding-start: 0;
@@ -163,21 +165,10 @@
     ion-icon { font-size: 20px; }
   }
 
-  // El color de la ruta, como una barra: el mismo que tiene su línea en el mapa.
-  .route-color-dot {
-    flex: none;
-    width: 4px; height: 28px;
-    border-radius: 2px;
-  }
-
   .route-header-info {
     flex: 1; min-width: 0;
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
 
-    strong {
-      font-size: 15px; font-weight: 700; color: var(--bx-text); letter-spacing: -0.01em;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
     span {
       font-size: 12px; color: var(--bx-text-2); margin-top: 1px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -249,28 +240,6 @@
   gap: 14px;
 }
 
-// El número es lo que la persona vino a ver: va grande y solo.
-.rs-eta {
-  flex: none;
-  min-width: 68px; height: 68px;
-  padding: 0 10px;
-  border-radius: var(--bx-r-lg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: var(--bx-green);
-  color: var(--bx-ink);
-
-  strong { font-size: 30px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
-  span { font-size: 12px; font-weight: 700; margin-top: 2px; }
-
-  // Sin dato todavía (sin ubicación o sin buses cerca): la misma placa,
-  // apagada, para que la hoja no cambie de forma cuando llega el número.
-  &--none {
-    background: var(--bx-bg-4);
-    color: var(--bx-text-2);
-    ion-icon { font-size: 28px; }
-  }
-}
-
 .rs-info {
   flex: 1; min-width: 0;
   display: flex; flex-direction: column; gap: 2px;
@@ -281,6 +250,12 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .rs-sub { font-size: 13px; color: var(--bx-text-2); }
+
+  // Placa del próximo bus y hacia dónde va.
+  .rs-proximo {
+    display: flex; align-items: center; gap: 8px; margin-top: 4px;
+    span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  }
 }
 
 .rs-meta {
@@ -319,27 +294,9 @@
   }
 }
 
-.rs-buy {
-  width: 100%;
-  height: 52px;
+.rs-comprar {
   margin-top: 14px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: var(--bx-r-md);
-  display: flex; align-items: center; gap: 10px;
-  background: var(--bx-green);
-  color: var(--bx-ink);
-  font-family: inherit;
-  font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
-  cursor: pointer;
-  transition: transform var(--bx-t-fast) var(--bx-ease), background var(--bx-t-fast) var(--bx-ease);
-
-  &:hover { background: var(--bx-green-bright); }
-  &:active { transform: scale(0.985); }
-  &:disabled { opacity: 0.6; }
-
-  ion-icon { font-size: 20px; }
-  span { flex: 1; text-align: left; }
+  .rs-comprar-txt { flex: 1; text-align: left; }
   b { font-weight: 800; }
 }
 
@@ -589,49 +546,6 @@
   overflow-y: auto;
 }
 
-// Con align-items:center + overflow:auto, si la tarjeta no cabe en la
-// pantalla el navegador la deja pegada arriba (se ve "descentrada" en
-// celulares chicos) en vez de repartir el sobrante arriba y abajo. El
-// margin:auto en el hijo es lo que realmente centra bien en ese caso; los
-// tamaños en clamp() además la achican solos para que en la mayoría de
-// celulares ni siquiera haga falta scrollear.
-.bd-card {
-  width: 100%; max-width: 340px;
-  margin: auto;
-  display: flex; flex-direction: column; align-items: center; gap: clamp(3px, 1vh, 6px);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--bx-line);
-  border-radius: 24px;
-  padding: clamp(16px, 3.5vh, 28px) 22px calc(clamp(16px, 3.5vh, 24px) + env(safe-area-inset-bottom, 0px));
-  text-align: center;
-
-  &.usado { opacity: 0.55; }
-
-  .bd-estado {
-    font-size: 11px; font-weight: 800; color: var(--bx-green);
-    background: rgba(0,200,83,0.14); border: 1px solid rgba(0,200,83,0.3);
-    padding: 4px 12px; border-radius: 12px; text-transform: uppercase;
-    letter-spacing: 0.4px; margin-bottom: 4px;
-  }
-
-  .bd-qr {
-    width: clamp(140px, 42vh, 220px); height: clamp(140px, 42vh, 220px);
-    border-radius: 16px;
-    background: #fff;
-    padding: 10px;
-    margin-bottom: 6px;
-  }
-
-  .bd-ruta { font-size: 18px; color: #fff; font-weight: 800; letter-spacing: -0.2px; }
-  .bd-trayecto { font-size: 13px; color: var(--bx-text-2); }
-  .bd-precio { font-size: 22px; color: var(--bx-green); font-weight: 800; margin-top: 2px; }
-  .bd-codigo {
-    font-size: 11px; color: var(--bx-text-3); letter-spacing: 0.5px;
-    margin-top: 6px; font-family: monospace;
-  }
-  .bd-hint { font-size: 12px; color: var(--bx-text-3); margin-top: 10px; line-height: 1.4; }
-}
-
 .sheet-bar {
   width: 36px; height: 4px;
   background: rgba(255,255,255,0.22);
@@ -644,58 +558,19 @@
   align-items: center;
   gap: 11px;
 
-  .bus-badge {
-    width: 40px; height: 40px;
-    border-radius: 12px;
-    display: grid; place-items: center;
-    flex-shrink: 0;
-    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
-    ion-icon { font-size: 20px; color: #fff; }
-  }
-
   .sheet-info {
     flex: 1; min-width: 0;
     display: flex;
     flex-direction: column;
-    strong {
-      font-size: 18px; color: #fff; font-weight: 800; letter-spacing: -0.3px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    span {
-      font-size: 13px; color: var(--bx-text-2); margin-top: 1px;
+    gap: 6px;
+    // Sin el :not, esta regla le pisaría el color al estado (que es dato).
+    span:not(.bx-estado) {
+      font-size: 13px; color: var(--bx-text-2);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
   }
 
-  .estado-chip {
-    flex-shrink: 0;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.2px;
-    padding: 5px 10px;
-    border-radius: 999px;
-    color: var(--bx-text-2);
-    background: rgba(255,255,255,0.08);
-    border: 1px solid var(--bx-line);
-
-    &.live {
-      color: var(--bx-green-bright);
-      background: rgba(0, 224, 106, 0.14);
-      border-color: rgba(0, 224, 106, 0.32);
-    }
-    // Mismos colores que el ícono del bus en el mapa, para que la ficha y el
-    // marcador digan lo mismo de un vistazo.
-    &.tarde {
-      color: var(--bx-warning);
-      background: rgba(245, 166, 35, 0.16);
-      border-color: rgba(245, 166, 35, 0.36);
-    }
-    &.parada {
-      color: var(--bx-text-2);
-      background: rgba(154, 163, 178, 0.16);
-      border-color: rgba(154, 163, 178, 0.34);
-    }
-  }
-
-  .sheet-close { font-size: 20px; color: var(--bx-text-3); cursor: pointer; flex-shrink: 0; }
+  .sheet-close { flex: none; margin-right: -6px; }
 }
 
 .sheet-route {
@@ -707,9 +582,8 @@
   border-radius: 12px;
   background: rgba(255,255,255,0.05);
 
-  ion-icon { font-size: 15px; color: var(--bx-text-3); flex-shrink: 0; }
   span {
-    font-size: 13px; color: var(--bx-text); font-weight: 500;
+    font-size: 13px; color: var(--bx-text-2); font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 }
@@ -762,140 +636,79 @@
   100% { box-shadow: 0 0 0 8px rgba(0, 224, 106, 0); }
 }
 
-.follow-btn {
-  width: 100%;
-  margin-top: 13px;
-  height: 52px;
-  padding: 0 16px;
-  border: none;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-family: inherit;
-  font-size: 16px; font-weight: 700; letter-spacing: -0.01em;
-  color: var(--bx-ink);
-  background: var(--bx-green);
-  cursor: pointer;
-  transition: transform 0.16s ease, background 0.2s ease;
+.follow-btn { margin-top: 13px; }
 
-  ion-icon { font-size: 18px; }
-
-  &:active { transform: scale(0.975); }
-
-  &.on {
-    color: #ffd9d9;
-    background: rgba(255, 82, 82, 0.16);
-    border: 1px solid rgba(255, 82, 82, 0.35);
-    box-shadow: none;
-  }
-}
-
-// ---- DOCK FLOTANTE ----
-// Cápsula glass separada del borde: nunca pegada, siempre respetando el safe
-// area. Se desliza hacia abajo cuando el usuario manipula el mapa.
+// ---- BARRA INFERIOR ----
+// Pegada abajo, como en las apps de transporte de referencia: cuatro
+// destinos con su nombre. Era una cápsula flotante con un orbe verde en el
+// centro, un recurso muy de plantilla que además competía con el botón verde
+// de cada pantalla. Se esconde cuando el pasajero mueve el mapa.
 .dock {
   position: absolute;
-  left: 18px; right: 18px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+  left: 0; right: 0; bottom: 0;
   z-index: 1000;
-  height: 70px;
+  height: calc(var(--bx-dock-alto) + env(safe-area-inset-bottom, 0px));
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-around;
-  padding: 0 6px;
-  border-radius: 28px;
-  background: var(--bx-glass);
-  backdrop-filter: var(--bx-glass-blur);
-  -webkit-backdrop-filter: var(--bx-glass-blur);
-  border: 1px solid var(--bx-line-strong);
-  box-shadow: 0 10px 34px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.09);
+  gap: 4px;
+  padding: 5px 10px env(safe-area-inset-bottom, 0px);
+  background: rgba(7, 15, 28, 0.97);
+  border-top: 1px solid var(--bx-line);
   transition:
     transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    filter 0.3s ease;
+    opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 
-  // Con una ruta elegida, en teléfono la hoja de ruta ocupa su lugar: es un
-  // modo enfocado y se sale con la flecha de arriba.
+  // Con una ruta o un viaje en pantalla, en el teléfono la hoja ocupa su
+  // lugar: es un modo enfocado y se sale con la flecha de arriba.
   @media (max-width: 899px) {
     &.route-mode {
-      transform: translateY(calc(100% + env(safe-area-inset-bottom, 0px) + 26px));
+      transform: translateY(100%);
       opacity: 0;
       pointer-events: none;
     }
   }
 
-  // Fuera de pantalla: 70px de alto + 22px de separación + safe area.
   &.hidden {
-    transform: translateY(calc(100% + env(safe-area-inset-bottom, 0px) + 26px));
+    transform: translateY(100%);
     opacity: 0;
-    filter: blur(6px);
     pointer-events: none;
   }
 }
 
 .dock-item {
   flex: 1;
+  position: relative; // para el globito de no leídas
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 6px 0;
+  justify-content: center;
+  gap: 4px;
+  height: 54px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--bx-text-3);
+  font: 700 11px/1 var(--bx-font);
   cursor: pointer;
-  // Bloque contenedor del globito de no leidas (.dock-badge, en map.panels.scss).
-  position: relative;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s ease, transform 0.12s ease;
 
-  &:active { transform: scale(0.92); }
+  ion-icon { font-size: 22px; color: inherit; }
+  span { color: inherit; }
 
-  ion-icon { font-size: 20px; color: rgba(226,236,248,0.62); transition: color 0.2s; }
-  span {
-    font-size: 11px; font-weight: 600; letter-spacing: 0.2px;
-    color: rgba(226,236,248,0.62); transition: color 0.2s;
-  }
+  &:active { transform: scale(0.94); }
 
   &.active {
-    ion-icon { color: #fff; }
-    span { color: #fff; }
+    color: var(--bx-text);
+    ion-icon { color: var(--bx-green-bright); }
   }
 }
 
-// Botón central: la marca de Buxi. Sobresale de la cápsula.
-.dock-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
-  transform: translateY(-14px);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-
-  &:active { transform: translateY(-14px) scale(0.92); }
-
-  span { font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.2px; }
-}
-
-.dc-orb {
-  width: 48px; height: 48px;
-  border-radius: 50%;
-  display: grid; place-items: center;
-  background: var(--bx-green);
-  border: 3px solid var(--bx-bg-1);
-  box-shadow: 0 6px 18px rgba(0, 200, 83, 0.38), 0 2px 8px rgba(0,0,0,0.35);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
-
-  // Tinta oscura sobre el verde: el blanco no llegaba al contraste mínimo.
-  ion-icon { font-size: 24px; color: var(--bx-ink); }
-}
-
-// Con el panel de rutas abierto el orbe crece y se enciende, para que se lea
-// como "estás acá" y no como un botón más.
-.dock-center.active .dc-orb {
-  transform: scale(1.08);
-  box-shadow: 0 8px 26px rgba(0, 224, 106, 0.7), 0 2px 8px rgba(0,0,0,0.35);
-}
+// Ajustes solo vive en la barra lateral del escritorio; en el teléfono se
+// llega desde el perfil.
+.dock-item--ajustes { display: none; }
 
 // ---- MARKERS ----
 :host ::ng-deep {
@@ -1112,18 +925,13 @@
   .tb-logo,
   .tb-search,
   .tb-profile,
-  .mc-btn,
-  .dock {
+  .mc-btn {
     background: var(--bx-glass-strong);
     border-color: var(--bx-line-strong);
     box-shadow: 0 6px 24px rgba(0,0,0,0.34);
   }
 
   .tb-search span { color: var(--bx-text-2); }
-  .dock-item {
-    ion-icon, span { color: rgba(232,240,250,0.72); }
-    &.active ion-icon, &.active span { color: #fff; }
-  }
 }
 
 // ---- Marca del lugar buscado ----

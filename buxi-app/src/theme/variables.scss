@@ -1,5 +1,5 @@
 // ============================================================================
-// Sistema de diseño de Buxi
+// Sistema de diseño de Buxmap
 //
 // Todo color, tamaño de letra, radio y sombra de la app sale de acá. Antes
 // cada pantalla escribía sus propios valores a mano: había 126 colores, 33
@@ -35,6 +35,9 @@
   --bx-bg-4: #1e2d47; // presionado, seleccionado
   --bx-line: rgba(255, 255, 255, 0.08);
   --bx-line-strong: rgba(255, 255, 255, 0.14);
+  // Fondo del botón secundario: un escalón arriba de las tarjetas.
+  --bx-btn-sec: #17243a;
+  --bx-btn-sec-hover: #1d2c46;
 
   // Vidrio: solo para lo que flota sobre el mapa. El desenfoque es de lo más
   // caro que puede pintar un teléfono de gama baja, así que va contenido y
@@ -59,6 +62,8 @@
 
   // ---------- Tipografía ----------
   --bx-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  // Placas, horas y cifras: monoespaciada, como en una pizarra de salidas.
+  --bx-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
   // Escala. Nada por debajo de 11px: es el piso de lo que se lee en un bus en
   // movimiento, que es donde se usa esta app.
   --bx-fs-micro: 11px;

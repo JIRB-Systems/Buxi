@@ -8,8 +8,8 @@
        flota arriba a la derecha del mapa. -->
   <div class="desktop-topbar">
     <div class="dt-logo">
-      <img class="dt-mark" src="assets/brand/buxi-mark.svg" alt="" />
-      <img class="dt-word" src="assets/brand/buxi-nombre.svg" alt="Buxi" />
+      <img class="dt-mark" src="assets/brand/buxmap-mark.svg" alt="" />
+      <img class="dt-word" src="assets/brand/buxmap-nombre.svg" alt="Buxmap" />
     </div>
 
     <div class="dt-search" (click)="openSearch()">
@@ -78,10 +78,9 @@
         <button type="button" class="ds-back" (click)="clearRoute()" aria-label="Volver a las empresas">
           <ion-icon name="chevron-back" aria-hidden="true"></ion-icon>
         </button>
-        <div class="route-color-dot" [style.background]="activeRuta.color"></div>
         <div class="ds-route-info">
-          <strong>{{ activeRuta.nombre }}</strong>
-          <span>{{ empresaNombre(activeRuta) || (activeRuta.origen + ' → ' + activeRuta.destino) }}</span>
+          <bx-ruta [nombre]="activeRuta.nombre" [color]="activeRuta.color" [grande]="true"></bx-ruta>
+          <span>{{ activeRuta.origen }} → {{ activeRuta.destino }}{{ empresaNombre(activeRuta) ? ' · ' + empresaNombre(activeRuta) : '' }}</span>
         </div>
       </div>
 
@@ -96,15 +95,6 @@
         </div>
       </div>
 
-      <div class="ds-card" *ngIf="nearbyBuses.length > 0">
-        <span class="ds-label">Próximos buses a tu parada</span>
-        <div class="ds-bus-row" *ngFor="let b of nearbyBuses">
-          <ion-icon name="bus"></ion-icon>
-          <strong>{{ b.placa }}</strong>
-          <span class="ds-bus-dist">{{ b.detalle }}</span>
-          <span class="ds-bus-eta" *ngIf="b.etaMinutes !== null">{{ b.etaMinutes === 0 ? 'Ya' : b.etaMinutes + ' min' }}</span>
-        </div>
-      </div>
     </div>
 
     <!-- El viaje que se está armando: las opciones para llegar al destino. -->
@@ -113,32 +103,8 @@
     </div>
 
     <div class="ds-section ds-inicio" *ngIf="!activeRuta && !viaje">
-      <div class="ds-card pc-card" *ngIf="paradaCercana as pc">
-        <span class="ds-label">Tu parada más cercana</span>
-        <div class="pc-main">
-          <div class="pc-icono"><ion-icon name="location" aria-hidden="true"></ion-icon></div>
-          <div class="pc-info">
-            <strong>{{ nombreCorto(pc.parada) }}</strong>
-            <span>a {{ metrosTexto(pc.distanceKm * 1000) }} de vos</span>
-          </div>
-        </div>
-        <ng-container *ngTemplateOutlet="tplLlegar"></ng-container>
-        <div class="pc-rutas" *ngIf="pc.rutas.length">
-          <span class="ds-label">Pasan por acá</span>
-          <button type="button" class="pc-ruta" *ngFor="let r of pc.rutas | slice:0:5" (click)="selectRutaFromPanel(r)">
-            <i [style.background]="r.color"></i>
-            <span>{{ r.nombre }}</span>
-            <ion-icon name="chevron-forward" aria-hidden="true"></ion-icon>
-          </button>
-        </div>
-      </div>
-
-      <div class="ds-card ds-hint" *ngIf="!sinEmpresasSeguidas">
-        <ion-icon name="navigate-circle-outline"></ion-icon>
-        <div>
-          <strong>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo</strong>
-          <span>Elegí una ruta para ver el próximo bus a tu parada</span>
-        </div>
+      <div class="ds-card cerca-card">
+        <ng-container *ngTemplateOutlet="tplCerca"></ng-container>
       </div>
       <div class="ds-card ds-hint" *ngIf="sinEmpresasSeguidas">
         <ion-icon name="star-outline"></ion-icon>
@@ -160,7 +126,7 @@
   <div class="top-overlay">
     <div class="topbar" *ngIf="!activeRuta">
       <div class="tb-logo">
-        <img src="assets/brand/buxi-mark.svg" alt="Buxi" />
+        <img src="assets/brand/buxmap-mark.svg" alt="Buxmap" />
       </div>
       <!-- La pregunta es corta a propósito: entra entera en cualquier teléfono.
            Con un destino elegido, el buscador lo muestra. -->
@@ -180,16 +146,15 @@
       <button type="button" class="route-back" (click)="clearRoute()" aria-label="Volver al mapa">
         <ion-icon name="chevron-back" aria-hidden="true"></ion-icon>
       </button>
-      <div class="route-color-dot" [style.background]="activeRuta.color"></div>
       <div class="route-header-info">
-        <strong>{{ activeRuta.nombre }}</strong>
+        <bx-ruta [nombre]="activeRuta.nombre" [color]="activeRuta.color"></bx-ruta>
         <span>{{ empresaNombre(activeRuta) || (activeRuta.origen + ' → ' + activeRuta.destino) }}</span>
       </div>
     </div>
   </div>
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
-  <div class="map-controls" [class.lifted]="selectedBus" [class.lifted-route]="(activeRuta || viaje) && !selectedBus">
+  <div class="map-controls" [class.lifted]="selectedBus" [class.lifted-route]="(activeRuta || viaje) && !selectedBus" [class.lifted-cerca]="cercaVisible">
     <button class="mc-btn" (click)="resetNorth()" aria-label="Orientar al norte">
       <span class="mc-compass" #compassNeedle>
         <ion-icon name="navigate"></ion-icon>
@@ -240,7 +205,8 @@
         <strong>{{ c.minutos }} min a pie<ng-container *ngIf="!c.exacta"> aprox.</ng-container></strong>
         <span>{{ metrosTexto(c.metros) }}<ng-container *ngIf="caminataActiva && !c.exacta"> en línea recta</ng-container></span>
       </div>
-      <button type="button" class="llegar-btn" *ngIf="sePuedeCaminar"
+      <button type="button" class="bx-btn bx-btn--sm" *ngIf="sePuedeCaminar"
+              [class.bx-btn--info]="!caminataActiva" [class.bx-btn--sec]="caminataActiva"
               [disabled]="caminataCargando" (click)="caminataActiva ? quitarCaminata() : comoLlegar()">
         {{ caminataCargando ? 'Buscando…' : (caminataActiva ? 'Ocultar' : 'Cómo llegar') }}
       </button>
@@ -250,20 +216,22 @@
   <ng-template #hojaRuta>
     <ng-container *ngIf="activeRuta as ruta">
       <div class="rs-main">
-        <div class="rs-eta" *ngIf="nearestStop && etaMinutes !== null">
-          <strong>{{ etaMinutes === 0 ? '&lt;1' : etaMinutes }}</strong>
-          <span>min</span>
-        </div>
-        <div class="rs-eta rs-eta--none" *ngIf="!(nearestStop && etaMinutes !== null)">
-          <ion-icon name="bus" aria-hidden="true"></ion-icon>
+        <!-- Los minutos, como en la pizarra de una terminal. -->
+        <div class="bx-pizarra" [class.bx-pizarra--apagada]="etaMinutes === null" role="img"
+             [attr.aria-label]="etaMinutes === null ? 'Sin próximo bus por ahora' : (etaMinutes === 0 ? 'El bus está llegando' : 'Próximo bus en ' + etaMinutes + ' minutos')">
+          <span class="bx-flap gira" *ngFor="let d of etaDigitos; let i = index; trackBy: trackDigito">{{ d }}</span>
+          <span class="bx-pizarra__unidad">min</span>
         </div>
 
         <div class="rs-info" *ngIf="nearestStop">
-          <span class="rs-label" *ngIf="!viajeElegido">{{ etaMinutes !== null ? ('Próximo bus' + (etaHacia ? ' · hacia ' + etaHacia : '')) : 'Tu parada más cercana' }}</span>
-          <span class="rs-label" *ngIf="viajeElegido">{{ etaMinutes !== null ? 'Subí acá · próximo bus' : 'Subí acá' }}</span>
-          <strong>{{ nearestStop.parada.nombre }}</strong>
-          <span class="rs-sub">
-            a {{ nearestStop.distanceKm < 1 ? (nearestStop.distanceKm * 1000 | number:'1.0-0') + ' m' : (nearestStop.distanceKm | number:'1.1-1') + ' km' }} de vos
+          <span class="rs-label">{{ viajeElegido ? 'Subí acá' : (etaMinutes !== null ? 'Próximo bus a tu parada' : 'Tu parada más cercana') }}</span>
+          <strong [title]="nearestStop.parada.nombre">{{ nombreCorto(nearestStop.parada) }}</strong>
+          <span class="rs-sub rs-proximo" *ngIf="proximoPlaca">
+            <bx-placa [placa]="proximoPlaca"></bx-placa>
+            <span>{{ etaHacia ? 'hacia ' + etaHacia : proximoDetalle }}</span>
+          </span>
+          <span class="rs-sub" *ngIf="!proximoPlaca">
+            {{ sinBusEnCamino && !rutaActivaSinSeguir && !viajeElegido ? 'Ningún bus viene hacia tu parada ahora' : 'a ' + metrosTexto(nearestStop.distanceKm * 1000) + ' de vos' }}
           </span>
         </div>
         <div class="rs-info" *ngIf="!nearestStop">
@@ -281,20 +249,45 @@
            hasta la parada ya lo dicen las dos filas de arriba. -->
       <div class="vj-pasos" *ngIf="viajeElegido as o">
         <div class="vj-paso">
-          <ion-icon name="bus" aria-hidden="true"></ion-icon>
+          <span class="vj-ic vj-ic--bus" [style.background]="colorRuta(o.ruta.color)" [style.color]="tintaRuta(o.ruta.color)"><ion-icon name="bus" aria-hidden="true"></ion-icon></span>
           <div>
             <strong>{{ o.minutosEnBus }} min en el bus</strong>
             <span>Hacia {{ o.hacia }} · {{ paradasDelViaje(o) }}</span>
+            <span class="vj-vivo" *ngIf="etaMinutes === null && sinBusEnCamino">Ningún bus viene hacia {{ o.hacia }} ahora</span>
           </div>
         </div>
         <div class="vj-paso">
-          <ion-icon name="flag" aria-hidden="true"></ion-icon>
+          <span class="vj-ic"><ion-icon name="flag" aria-hidden="true"></ion-icon></span>
           <div>
             <strong>Bajá en {{ nombreCorto(o.bajar) }}</strong>
             <span>{{ viajeFinalTexto }}</span>
           </div>
         </div>
         <p class="vj-resumen">Unos <b>{{ viajeMinutosTotal }} min</b> en total, sin contar la espera del bus</p>
+      </div>
+
+      <!-- El recorrido: las paradas en orden y los buses entre ellas. -->
+      <div class="rec" *ngIf="recorrido.length">
+        <button type="button" class="rec-toggle" (click)="recorridoAbierto = !recorridoAbierto" [attr.aria-expanded]="recorridoAbierto">
+          <span>Recorrido</span>
+          <span class="bx-mono rec-cuenta">{{ activeParadas.length }} paradas</span>
+          <ion-icon [name]="recorridoAbierto ? 'chevron-up' : 'chevron-down'" aria-hidden="true"></ion-icon>
+        </button>
+        <ol class="rec-lista" *ngIf="recorridoAbierto" [style.--ruta]="colorRuta(ruta.color)">
+          <li *ngFor="let it of recorrido; trackBy: trackRecorrido"
+              [class.rec-parada]="it.tipo === 'parada'" [class.rec-bus]="it.tipo === 'bus'"
+              [class.tu]="it.tuParada" [class.viene]="it.viene" [class.apagado]="it.apagado">
+            <ng-container *ngIf="it.tipo === 'parada'">
+              <span class="rec-nombre">{{ it.nombre }}</span>
+              <span class="rec-tu" *ngIf="it.tuParada">Tu parada</span>
+            </ng-container>
+            <ng-container *ngIf="it.tipo === 'bus'">
+              <span class="rec-ic" aria-hidden="true"><ion-icon [name]="it.sentido === 1 ? 'arrow-down' : 'arrow-up'"></ion-icon></span>
+              <span class="bx-mono rec-placa">{{ it.nombre }}</span>
+              <span class="rec-nota">{{ it.nota }}</span>
+            </ng-container>
+          </li>
+        </ol>
       </div>
 
       <div class="rs-meta">
@@ -304,17 +297,15 @@
         <span class="rs-pill warn" *ngIf="rutaActivaSinSeguir">
           <ion-icon name="star-outline" aria-hidden="true"></ion-icon>Seguí a la empresa para ver sus buses
         </span>
-        <span class="rs-pill" *ngIf="sinBusEnCamino && !rutaActivaSinSeguir">
-          Ninguno viene hacia tu parada ahora
-        </span>
-        <span class="rs-pill" *ngIf="!viajeElegido">{{ activeParadas.length }} paradas</span>
         <span class="rs-pill" *ngIf="nextSalida">Sale {{ nextSalida.hora.slice(0,5) }}</span>
       </div>
 
-      <button class="rs-buy" *ngIf="ruta.precio" [disabled]="comprandoBoleto" (click)="comprarBoleto()">
-        <ion-icon name="qr-code-outline" aria-hidden="true"></ion-icon>
-        <span>{{ comprandoBoleto ? 'Generando…' : 'Comprar boleto' }}</span>
-        <b>₡{{ ruta.precio | number:'1.0-0' }}</b>
+      <button class="bx-btn bx-btn--pri bx-btn--lg bx-btn--bloque rs-comprar" *ngIf="ruta.precio"
+              [disabled]="comprandoBoleto" [attr.aria-busy]="comprandoBoleto" (click)="comprarBoleto()">
+        <span class="bx-btn__giro" *ngIf="comprandoBoleto" aria-hidden="true"></span>
+        <ion-icon name="qr-code-outline" aria-hidden="true" *ngIf="!comprandoBoleto"></ion-icon>
+        <span class="rs-comprar-txt">{{ comprandoBoleto ? 'Generando…' : 'Comprar boleto' }}</span>
+        <b class="bx-mono">₡{{ ruta.precio | number:'1.0-0' }}</b>
       </button>
     </ng-container>
   </ng-template>
@@ -342,20 +333,18 @@
 
       <ng-container *ngIf="v.opciones.length">
         <button type="button" class="vj-op" *ngFor="let o of v.opciones" (click)="elegirOpcion(o)">
-          <i class="vj-color" [style.background]="o.ruta.color"></i>
-          <span class="vj-op-info">
-            <strong>{{ o.ruta.nombre }}</strong>
-            <span class="vj-paradas">{{ nombreCorto(o.subir) }} → {{ nombreCorto(o.bajar) }}</span>
-            <span class="vj-tramos" [attr.aria-label]="o.minutosAlSubir + ' minutos a pie, ' + o.minutosEnBus + ' en bus y ' + o.minutosAlDestino + ' a pie'">
-              <ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlSubir }}
-              <i aria-hidden="true"></i>
-              <ion-icon name="bus" aria-hidden="true"></ion-icon>{{ o.minutosEnBus }}
-              <i aria-hidden="true"></i>
-              <ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlDestino }} min
-              <b *ngIf="o.ruta.precio">₡{{ o.ruta.precio | number:'1.0-0' }}</b>
-            </span>
+          <span class="vj-op-cabeza">
+            <bx-ruta [nombre]="o.ruta.nombre" [color]="o.ruta.color"></bx-ruta>
+            <span class="vj-op-empresa">{{ empresaNombre(o.ruta) }}<ng-container *ngIf="o.ruta.precio"> · <span class="bx-mono">₡{{ o.ruta.precio | number:'1.0-0' }}</span></ng-container></span>
+            <span class="vj-total"><strong class="bx-mono">{{ o.minutosTotal }}</strong><span>min</span></span>
           </span>
-          <span class="vj-total"><strong>{{ o.minutosTotal }}</strong><span>min</span></span>
+          <!-- El viaje entero en una barra: cada tramo mide lo que dura. -->
+          <span class="vj-barra" role="img" [attr.aria-label]="o.minutosAlSubir + ' minutos a pie, ' + o.minutosEnBus + ' en bus y ' + o.minutosAlDestino + ' a pie'">
+            <span class="vj-tramo vj-tramo--pie" [style.flex-grow]="o.minutosAlSubir"><ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlSubir }}</span>
+            <span class="vj-tramo vj-tramo--bus" [style.flex-grow]="o.minutosEnBus" [style.background]="colorRuta(o.ruta.color)" [style.color]="tintaRuta(o.ruta.color)"><ion-icon name="bus" aria-hidden="true"></ion-icon>{{ o.minutosEnBus }}</span>
+            <span class="vj-tramo vj-tramo--pie" [style.flex-grow]="o.minutosAlDestino"><ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlDestino }}</span>
+          </span>
+          <span class="vj-paradas">Subí en {{ nombreCorto(o.subir) }} · bajá en {{ nombreCorto(o.bajar) }}</span>
         </button>
         <p class="vj-nota">Tiempos aproximados, sin contar la espera del bus.</p>
       </ng-container>
@@ -367,13 +356,13 @@
           <span>{{ a.texto }}</span>
         </div>
       </div>
-      <button type="button" class="vj-btn" *ngIf="v.motivo === 'sin_ubicacion'" [disabled]="locating" (click)="centerOnUser()">
+      <button type="button" class="bx-btn bx-btn--info bx-btn--bloque vj-btn" *ngIf="v.motivo === 'sin_ubicacion'" [disabled]="locating" (click)="centerOnUser()">
         {{ locating ? 'Buscando…' : 'Activar mi ubicación' }}
       </button>
-      <button type="button" class="vj-btn" *ngIf="v.motivo === 'cerca'" [disabled]="viajeTramoCargando" (click)="verCaminoDirecto()">
+      <button type="button" class="bx-btn bx-btn--bloque vj-btn" [class.bx-btn--info]="!viajeTramo" [class.bx-btn--sec]="!!viajeTramo" *ngIf="v.motivo === 'cerca'" [disabled]="viajeTramoCargando" (click)="verCaminoDirecto()">
         {{ viajeTramoCargando ? 'Buscando…' : (viajeTramo ? 'Ocultar el camino' : 'Ver el camino') }}
       </button>
-      <button type="button" class="vj-btn vj-btn--suave" *ngIf="v.motivo && v.motivo !== 'sin_ubicacion' && v.motivo !== 'cerca'" (click)="openSearch()">
+      <button type="button" class="bx-btn bx-btn--sec bx-btn--bloque vj-btn" *ngIf="v.motivo && v.motivo !== 'sin_ubicacion' && v.motivo !== 'cerca'" (click)="openSearch()">
         Buscar otro lugar
       </button>
     </ng-container>
@@ -396,24 +385,21 @@
     <div class="sheet-bar"></div>
 
     <div class="sheet-row">
-      <div class="bus-badge" [style.background]="selectedBus.bus?.ruta?.color || '#00c853'">
-        <ion-icon name="bus"></ion-icon>
-      </div>
+      <bx-placa [placa]="selectedBusPlaca" [grande]="true"></bx-placa>
       <div class="sheet-info">
-        <strong>{{ selectedBusPlaca }}</strong>
+        <span class="bx-estado"
+              [class.bx-estado--ruta]="selectedBusEstadoVivo === 'en_ruta'"
+              [class.bx-estado--detenido]="selectedBusEstadoVivo === 'en_parada'"
+              [class.bx-estado--alerta]="selectedBusEstadoVivo === 'retrasado'">{{ selectedBusEstado }}</span>
         <span>{{ selectedBusEmpresa }}</span>
       </div>
-      <div class="estado-chip"
-           [class.live]="selectedBusEstadoVivo === 'en_ruta'"
-           [class.tarde]="selectedBusEstadoVivo === 'retrasado'"
-           [class.parada]="selectedBusEstadoVivo === 'en_parada'">
-        {{ selectedBusEstado }}
-      </div>
-      <ion-icon name="close" class="sheet-close" (click)="closeBusInfo()"></ion-icon>
+      <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono sheet-close" (click)="closeBusInfo()" aria-label="Cerrar la ficha del bus">
+        <ion-icon name="close" aria-hidden="true"></ion-icon>
+      </button>
     </div>
 
     <div class="sheet-route">
-      <ion-icon name="git-branch-outline"></ion-icon>
+      <bx-ruta [nombre]="selectedBusRuta" [color]="selectedBus.bus?.ruta?.color"></bx-ruta>
       <span>{{ selectedBusRuta }}</span>
     </div>
 
@@ -442,7 +428,7 @@
       <ion-icon name="share-social-outline" class="sheet-share" (click)="shareBusLocation()"></ion-icon>
     </div>
 
-    <button class="follow-btn" [class.on]="followingBus" (click)="toggleFollow()">
+    <button class="bx-btn bx-btn--lg bx-btn--bloque follow-btn" [class.bx-btn--pri]="!followingBus" [class.bx-btn--sec]="followingBus" (click)="toggleFollow()">
       <ion-icon [name]="followingBus ? 'close-circle-outline' : 'navigate-circle-outline'"></ion-icon>
       {{ followingBus ? 'Dejar de seguir' : 'Seguir recorrido' }}
     </button>
@@ -467,11 +453,8 @@
 
     <div class="ed-list">
       <div class="ed-ruta-row" *ngFor="let r of empresaDetailRutas" (click)="selectRutaFromEmpresaDetail(r)">
-        <div class="ed-ruta-icon" [style.background]="r.color">
-          <ion-icon name="bus"></ion-icon>
-        </div>
         <div class="ed-ruta-info">
-          <strong>{{ r.nombre }}</strong>
+          <bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta>
           <span>{{ r.origen }} → {{ r.destino }}{{ r.precio ? ' · ₡' + (r.precio | number:'1.0-0') : '' }}</span>
         </div>
         <span class="ed-ruta-salida" *ngIf="r.proximaSalidaTexto">{{ r.proximaSalidaTexto }}</span>
@@ -481,7 +464,7 @@
       <div class="ed-empty" *ngIf="!empresaDetailRutas.length">Sin rutas activas</div>
     </div>
 
-    <button class="ed-ver-todas" (click)="verTodasEnMapa()">
+    <button class="bx-btn bx-btn--sec bx-btn--bloque ed-ver-todas" (click)="verTodasEnMapa()">
       <ion-icon name="map-outline"></ion-icon> Ver todas en el mapa
     </button>
   </section>
@@ -500,25 +483,34 @@
 
     <!-- Detalle: el QR grande que escanea el chofer -->
     <div class="boleto-detalle" *ngIf="boletoDetalle">
-      <div class="bd-card" [class.usado]="boletoDetalle.estado !== 'pagado'">
-        <span class="bd-estado">{{ boletoEstadoLabel(boletoDetalle) }}</span>
-        <img *ngIf="boletoQrUrl" [src]="boletoQrUrl" alt="Código QR del boleto" class="bd-qr" />
-        <strong class="bd-ruta">{{ $any(boletoDetalle.ruta)?.nombre }}</strong>
-        <span class="bd-trayecto" *ngIf="$any(boletoDetalle.ruta)?.origen">{{ $any(boletoDetalle.ruta)?.origen }} → {{ $any(boletoDetalle.ruta)?.destino }}</span>
-        <span class="bd-precio">₡{{ boletoDetalle.precio | number:'1.0-0' }}</span>
-        <span class="bd-codigo">{{ boletoDetalle.codigo }}</span>
-        <p class="bd-hint">Mostrale esta pantalla al chofer para que la escanee al subir.</p>
-      </div>
+      <article class="boleto" [class.usado]="boletoDetalle.estado !== 'pagado'" aria-label="Boleto">
+        <div class="boleto-arriba">
+          <div class="boleto-marca">
+            <img src="assets/brand/buxmap-mark.svg" alt="" />
+            <span class="bx-etq">Boleto</span>
+            <span class="boleto-estado">{{ boletoEstadoLabel(boletoDetalle) }}</span>
+          </div>
+          <bx-ruta *ngIf="$any(boletoDetalle.ruta)?.nombre" [nombre]="$any(boletoDetalle.ruta)?.nombre" [color]="$any(boletoDetalle.ruta)?.color" [grande]="true"></bx-ruta>
+          <strong class="boleto-nombre">{{ $any(boletoDetalle.ruta)?.nombre }}</strong>
+          <div class="boleto-datos">
+            <div><span>Precio</span><strong class="bx-mono">₡{{ boletoDetalle.precio | number:'1.0-0' }}</strong></div>
+            <div><span>Comprado</span><strong class="bx-mono">{{ $any(boletoDetalle).creado_at | date:'d MMM · HH:mm' }}</strong></div>
+          </div>
+        </div>
+        <div class="boleto-corte" aria-hidden="true"></div>
+        <div class="boleto-abajo">
+          <div class="boleto-qr"><img *ngIf="boletoQrUrl" [src]="boletoQrUrl" alt="Código QR del boleto" /></div>
+          <span class="bx-mono boleto-codigo">{{ boletoDetalle.codigo }}</span>
+          <p class="boleto-ayuda">Mostrale este código al chofer al subir. Si no lo lee, subí el brillo de la pantalla.</p>
+        </div>
+      </article>
     </div>
 
     <!-- Lista de boletos comprados -->
     <div class="ed-list" *ngIf="!boletoDetalle">
       <div class="ed-ruta-row boleto-row" *ngFor="let b of misBoletos" (click)="verBoletoDetalle(b)">
-        <div class="ed-ruta-icon" [style.background]="$any(b.ruta)?.color || '#00c853'">
-          <ion-icon name="qr-code-outline"></ion-icon>
-        </div>
         <div class="ed-ruta-info">
-          <strong>{{ $any(b.ruta)?.nombre }}</strong>
+          <bx-ruta [nombre]="$any(b.ruta)?.nombre" [color]="$any(b.ruta)?.color"></bx-ruta>
           <span>{{ b.creado_at | date:'d MMM, h:mm a' }} · ₡{{ b.precio | number:'1.0-0' }}</span>
         </div>
         <span class="boleto-estado-tag" [class.usado]="b.estado !== 'pagado'">{{ boletoEstadoLabel(b) }}</span>
@@ -528,59 +520,84 @@
     </div>
   </section>
 
-  <!-- ====== PARADA MÁS CERCANA (teléfono) ======
-       En escritorio esto mismo vive en el panel. Acá va encima del dock, y
-       se aparta con él cuando el pasajero mueve el mapa. -->
-  <section class="pc-flotante" *ngIf="paradaCercana as pc"
-           [class.oculta]="!navVisible || !!activeRuta || !!viaje || !!selectedBus || !!activePanel || sidebarOpen || profilePanelOpen || settingsPanelOpen"
-           aria-label="Tu parada más cercana">
-    <div class="pc-icono"><ion-icon name="location" aria-hidden="true"></ion-icon></div>
-    <div class="pc-info">
-      <span class="pc-label">Parada más cercana</span>
-      <strong>{{ nombreCorto(pc.parada) }}</strong>
-      <span *ngIf="caminataInfo as c">{{ metrosTexto(pc.distanceKm * 1000) }} · {{ c.minutos }} min a pie<ng-container *ngIf="!c.exacta"> aprox.</ng-container></span>
+  <!-- ====== CERCA TUYO ======
+       La respuesta a "¿cuándo pasa mi bus?" sin tocar nada: las rutas con
+       una parada cerca y el próximo bus de cada una. En escritorio esto mismo
+       va en el panel. -->
+  <ng-template #tplCerca>
+    <div class="cerca-cabeza">
+      <h2 class="cerca-titulo">Cerca tuyo</h2>
+      <span class="cerca-vivo" *ngIf="cercanas.length"><i></i>en vivo</span>
     </div>
-    <button type="button" class="pc-ir" *ngIf="sePuedeCaminar" [disabled]="caminataCargando"
-            (click)="caminataActiva ? quitarCaminata() : comoLlegar()"
-            [attr.aria-label]="caminataActiva ? 'Ocultar el camino' : 'Cómo llegar a la parada'">
-      <ion-icon [name]="caminataActiva ? 'close' : 'walk'" aria-hidden="true"></ion-icon>
-      <span>{{ caminataCargando ? '…' : (caminataActiva ? 'Ocultar' : 'Ir') }}</span>
+
+    <button type="button" class="cerca-fila" *ngFor="let c of cercanas; trackBy: trackCercana" (click)="selectRutaFromPanel(c.ruta)">
+      <span class="cerca-ruta">
+        <bx-ruta [nombre]="c.ruta.nombre" [color]="c.ruta.color"></bx-ruta>
+        <span class="cerca-parada">{{ nombreCorto(c.parada) }} · {{ metrosTexto(c.distanciaKm * 1000) }}</span>
+      </span>
+      <span class="cerca-eta" *ngIf="c.minutos !== null">
+        <span class="cerca-min"><b class="bx-mono">{{ c.minutos === 0 ? '&lt;1' : c.minutos }}</b>min</span>
+        <span class="cerca-hacia">hacia {{ c.hacia }}</span>
+      </span>
+      <span class="cerca-nada" *ngIf="c.minutos === null && c.siguiendo">Ninguno<br>en camino</span>
+      <span class="cerca-nada cerca-seguir" *ngIf="c.minutos === null && !c.siguiendo">Seguí a la<br>empresa</span>
     </button>
+
+    <p class="cerca-vacio" *ngIf="!cercanas.length && !tieneUbicacion">Activá tu ubicación para ver qué buses pasan cerca tuyo.</p>
+    <p class="cerca-vacio" *ngIf="!cercanas.length && tieneUbicacion">No hay paradas a menos de 2 km. Buscá a dónde vas y te armo el viaje.</p>
+
+    <div class="cerca-pie" *ngIf="paradaCercana as pc">
+      <ion-icon name="walk" aria-hidden="true"></ion-icon>
+      <div class="cerca-pie-info">
+        <strong>Parada más cercana: {{ nombreCorto(pc.parada) }}</strong>
+        <span *ngIf="caminataInfo as c"><span class="bx-mono">{{ c.minutos }} min</span> a pie<ng-container *ngIf="!c.exacta"> aprox.</ng-container></span>
+      </div>
+      <button type="button" class="bx-btn bx-btn--sm" *ngIf="sePuedeCaminar"
+              [class.bx-btn--info]="!caminataActiva" [class.bx-btn--sec]="caminataActiva"
+              [disabled]="caminataCargando" (click)="caminataActiva ? quitarCaminata() : comoLlegar()">
+        {{ caminataCargando ? 'Buscando…' : (caminataActiva ? 'Ocultar' : 'Ir') }}
+      </button>
+    </div>
+  </ng-template>
+
+  <section class="cerca-hoja" #hoja *ngIf="!activeRuta && !viaje && (cercanas.length || paradaCercana || tieneUbicacion)"
+           [class.oculta]="!cercaVisible" aria-label="Cerca tuyo">
+    <div class="cerca-grip" aria-hidden="true"></div>
+    <ng-container *ngTemplateOutlet="tplCerca"></ng-container>
   </section>
 
   <!-- ====== DOCK FLOTANTE ====== -->
   <nav class="dock" [class.hidden]="!navVisible || selectedBus" [class.route-mode]="!!activeRuta || !!viaje">
     <!-- Solo se ve en escritorio, donde este mismo nav es la barra lateral. -->
-    <img class="dock-logo" src="assets/brand/buxi-mark.svg" alt="Buxi" />
+    <img class="dock-logo" src="assets/brand/buxmap-mark.svg" alt="Buxmap" />
 
-    <div class="dock-item" [class.active]="!activePanel && !profilePanelOpen" (click)="showMap()">
-      <ion-icon name="map"></ion-icon>
-      <span>Mapa</span>
-    </div>
+    <button type="button" class="dock-item" [class.active]="!activePanel && !profilePanelOpen && !settingsPanelOpen" (click)="showMap()">
+      <ion-icon name="map" aria-hidden="true"></ion-icon>
+      <span>Explorar</span>
+    </button>
 
-    <div class="dock-item" [class.active]="activePanel === 'favoritos'" (click)="openPanel('favoritos')">
-      <ion-icon [name]="activePanel === 'favoritos' ? 'star' : 'star-outline'"></ion-icon>
-      <span>Favoritos</span>
-    </div>
-
-    <!-- Botón central: la identidad de Buxi -->
-    <div class="dock-center" [class.active]="activePanel === 'rutas'" (click)="openPanel('rutas')">
-      <div class="dc-orb">
-        <ion-icon name="bus"></ion-icon>
-      </div>
+    <button type="button" class="dock-item" [class.active]="activePanel === 'rutas'" (click)="openPanel('rutas')">
+      <ion-icon name="git-branch-outline" aria-hidden="true"></ion-icon>
       <span>Rutas</span>
-    </div>
+    </button>
 
-    <div class="dock-item" [class.active]="activePanel === 'alertas'" (click)="openPanel('alertas')">
-      <ion-icon [name]="activePanel === 'alertas' ? 'notifications' : 'notifications-outline'"></ion-icon>
+    <button type="button" class="dock-item" [class.active]="activePanel === 'favoritos'" (click)="openPanel('favoritos')">
+      <ion-icon [name]="activePanel === 'favoritos' ? 'star' : 'star-outline'" aria-hidden="true"></ion-icon>
+      <span>Favoritos</span>
+    </button>
+
+    <button type="button" class="dock-item" [class.active]="activePanel === 'alertas'" (click)="openPanel('alertas')">
+      <ion-icon [name]="activePanel === 'alertas' ? 'notifications' : 'notifications-outline'" aria-hidden="true"></ion-icon>
       <span class="dock-badge" *ngIf="notificacionesNoLeidas > 0">{{ notificacionesNoLeidas > 9 ? '9+' : notificacionesNoLeidas }}</span>
       <span>Alertas</span>
-    </div>
+    </button>
 
-    <div class="dock-item" [class.active]="settingsPanelOpen" (click)="toggleSettingsPanel()">
-      <ion-icon name="settings-outline"></ion-icon>
+    <!-- En el teléfono Ajustes se abre desde el perfil; en la barra lateral
+         del escritorio queda al fondo, donde se busca por costumbre. -->
+    <button type="button" class="dock-item dock-item--ajustes" [class.active]="settingsPanelOpen" (click)="toggleSettingsPanel()">
+      <ion-icon name="settings-outline" aria-hidden="true"></ion-icon>
       <span>Ajustes</span>
-    </div>
+    </button>
   </nav>
 
   <!-- ====== PANEL FLOTANTE: RUTAS / FAVORITOS / ALERTAS ====== -->
@@ -645,10 +662,9 @@
         </a>
 
         <div class="lp-row" *ngFor="let r of panelRutas" (click)="selectRutaFromPanel(r)">
-          <div class="lp-stripe" [style.background]="r.color"></div>
           <div class="lp-info">
-            <strong>{{ r.nombre }}</strong>
-            <span class="lp-trip">{{ r.origen }} → {{ r.destino }}</span>
+            <bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta>
+            <strong>{{ r.origen }} → {{ r.destino }}</strong>
             <span class="lp-empresa" *ngIf="empresaNombre(r)">{{ empresaNombre(r) }}</span>
           </div>
           <ion-icon
@@ -822,8 +838,8 @@
         </div>
 
         <div class="pp-form-actions">
-          <button class="pp-btn ghost" (click)="cancelEditProfile()">Cancelar</button>
-          <button class="pp-btn solid" [disabled]="savingProfile" (click)="saveProfile()">
+          <button class="bx-btn bx-btn--ghost" (click)="cancelEditProfile()">Cancelar</button>
+          <button class="bx-btn bx-btn--pri" [disabled]="savingProfile" [attr.aria-busy]="savingProfile" (click)="saveProfile()">
             {{ savingProfile ? 'Guardando…' : 'Guardar' }}
           </button>
         </div>
@@ -836,6 +852,11 @@
 
       <div class="pp-link" (click)="openMisBoletos()">
         <ion-icon name="qr-code-outline"></ion-icon><span>Mis boletos</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+
+      <div class="pp-link" (click)="abrirAjustesDesdePerfil()">
+        <ion-icon name="settings-outline"></ion-icon><span>Ajustes</span>
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
@@ -903,7 +924,7 @@
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
-      <div class="pp-version">Buxi · versión 1.0.0</div>
+      <div class="pp-version">Buxmap · versión 1.0.0</div>
     </div>
   </aside>
 

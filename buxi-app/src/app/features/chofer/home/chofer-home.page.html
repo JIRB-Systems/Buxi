@@ -9,10 +9,17 @@
         <ion-icon name="person"></ion-icon>
         <img *ngIf="profile?.foto_url as url" [src]="url" alt="" class="av-photo" />
       </div>
-      <div class="tb-info">
+      <!-- El bus se reconoce por su placa y su ruta, como en la calle. -->
+      <div class="tb-info tb-bus" *ngIf="assignedBus">
+        <bx-placa [placa]="assignedBus.placa"></bx-placa>
+        <div class="tb-bus-ruta">
+          <bx-ruta *ngIf="assignedBus.ruta?.nombre" [nombre]="assignedBus.ruta?.nombre || ''" [color]="assignedBus.ruta?.color"></bx-ruta>
+          <span>{{ profile?.nombre_completo || 'Chofer' }}</span>
+        </div>
+      </div>
+      <div class="tb-info" *ngIf="!assignedBus">
         <strong>{{ profile?.nombre_completo || 'Chofer' }}</strong>
-        <span *ngIf="assignedBus">{{ assignedBus.placa }} · {{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
-        <span *ngIf="!assignedBus" class="no-bus">{{ sinBusTexto }}</span>
+        <span class="no-bus">{{ sinBusTexto }}</span>
       </div>
       <!-- El chofer no tiene dock (el pasajero llega al perfil por ahi), asi
            que sin este boton el panel -- y con el, cerrar sesion -- solo se
@@ -60,14 +67,19 @@
 
   <!-- Próxima parada -->
   <ng-template #tplParada>
+    <!-- Lo que se mira de reojo manejando: va en grande. -->
     <div class="next-stop-card" *ngIf="nextParada && tracking">
-      <ion-icon name="location"></ion-icon>
       <div class="ns-info">
-        <strong>{{ nextParada.nombre }}</strong>
         <span>Próxima parada</span>
+        <strong [title]="nextParada.nombre">{{ nextParada.nombre }}</strong>
       </div>
-      <div class="ns-dist" *ngIf="nextParadaDistanceKm !== null">
-        {{ nextParadaDistanceKm! < 1 ? (nextParadaDistanceKm! * 1000 | number:'1.0-0') + ' m' : (nextParadaDistanceKm! | number:'1.1-1') + ' km' }}
+      <div class="ns-dato" *ngIf="nextParadaDistanceKm !== null">
+        <b class="bx-mono">{{ nextParadaDistanceKm! < 1 ? (nextParadaDistanceKm! * 1000 | number:'1.0-0') : (nextParadaDistanceKm! | number:'1.1-1') }}</b>
+        <span>{{ nextParadaDistanceKm! < 1 ? 'm' : 'km' }}</span>
+      </div>
+      <div class="ns-dato ns-vel">
+        <b class="bx-mono">{{ velocidadKmh }}</b>
+        <span>km/h</span>
       </div>
     </div>
   </ng-template>
@@ -101,32 +113,35 @@
   <!-- Aparte de los controles de la derecha a propósito: una emergencia real
        no debería estar mezclada con zoom/ubicación, y necesita ser fácil de
        encontrar sin pensar. -->
-  <button class="panic-btn" (click)="panicButton()" [disabled]="sendingPanic" aria-label="Botón de pánico">
-    <ion-icon name="alert-circle"></ion-icon>
-  </button>
+  <!-- Se envía manteniéndolo presionado: el anillo se llena mientras tanto. -->
+  <div class="panic-wrap">
+    <button type="button" class="panic-btn" [class.cargando]="panicoCargando" [disabled]="sendingPanic"
+            (pointerdown)="panicoInicio($event)" (pointerup)="panicoFin()" (pointerleave)="panicoFin()" (pointercancel)="panicoFin()"
+            (keydown.enter)="panicoInicio($event)" (keyup.enter)="panicoFin()"
+            (keydown.space)="panicoInicio($event)" (keyup.space)="panicoFin()"
+            (contextmenu)="$event.preventDefault()"
+            [style.--panico-ms]="PANICO_MS + 'ms'"
+            aria-label="Emergencia: mantené presionado para avisar a tu empresa">
+      <svg class="panic-anillo" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"></circle></svg>
+      <ion-icon name="alert-circle" aria-hidden="true"></ion-icon>
+    </button>
+    <span class="panic-ayuda" aria-hidden="true">{{ sendingPanic ? 'Enviando…' : 'SOS · mantené' }}</span>
+  </div>
 
   <!-- ====== CONTROL INFERIOR ====== -->
   <ng-template #tplControl>
     <div class="bottom-control" [class.with-pause]="tracking">
-      <ion-button
-        class="pause-btn"
-        *ngIf="tracking"
-        [class.on]="paused"
-        (click)="togglePause()"
-      >
-        <ion-icon [name]="paused ? 'play-outline' : 'pause-outline'" slot="icon-only"></ion-icon>
-      </ion-button>
-      <ion-button
-        expand="block"
-        class="track-btn"
-        [class.btn-start]="!tracking"
-        [class.btn-stop]="tracking"
-        (click)="toggleTracking()"
-        [disabled]="!assignedBus"
-      >
-        <ion-icon [name]="tracking ? 'stop-circle-outline' : 'play-circle-outline'" slot="start"></ion-icon>
-        {{ tracking ? 'Detener transmisión' : 'Iniciar ruta' }}
-      </ion-button>
+      <button type="button" class="bx-btn bx-btn--lg bx-btn--icono pause-btn" *ngIf="tracking"
+              [class.bx-btn--sec]="!paused" [class.on]="paused" (click)="togglePause()"
+              [attr.aria-label]="paused ? 'Seguir transmitiendo' : 'Pausar la transmisión'">
+        <ion-icon [name]="paused ? 'play' : 'pause'" aria-hidden="true"></ion-icon>
+      </button>
+      <button type="button" class="bx-btn bx-btn--lg bx-btn--bloque track-btn"
+              [class.bx-btn--pri]="!tracking" [class.bx-btn--peligro]="tracking"
+              (click)="toggleTracking()" [disabled]="!assignedBus">
+        <ion-icon [name]="tracking ? 'stop-circle-outline' : 'play-circle-outline'" aria-hidden="true"></ion-icon>
+        {{ tracking ? 'Terminar ruta' : 'Iniciar ruta' }}
+      </button>
     </div>
   </ng-template>
   <ng-container *ngTemplateOutlet="tplControl"></ng-container>
@@ -152,9 +167,10 @@
          del bus. En el teléfono estas mismas piezas flotan sobre el mapa. -->
     <div class="pp-viaje">
       <div class="pv-bus" [class.sin-bus]="!assignedBus">
-        <div class="pv-bus-icono"><ion-icon name="bus" aria-hidden="true"></ion-icon></div>
+        <div class="pv-bus-icono" *ngIf="!assignedBus"><ion-icon name="bus" aria-hidden="true"></ion-icon></div>
+        <bx-placa *ngIf="assignedBus" [placa]="assignedBus.placa" [grande]="true"></bx-placa>
         <div class="pv-bus-info" *ngIf="assignedBus">
-          <strong>{{ assignedBus.placa }}</strong>
+          <bx-ruta *ngIf="assignedBus.ruta?.nombre" [nombre]="assignedBus.ruta?.nombre || ''" [color]="assignedBus.ruta?.color" [grande]="true"></bx-ruta>
           <span>{{ assignedBus.ruta?.nombre || 'Sin ruta' }}</span>
         </div>
         <div class="pv-bus-info" *ngIf="!assignedBus">
@@ -186,8 +202,8 @@
         <input type="tel" [(ngModel)]="editPhone" placeholder="8888-8888" />
 
         <div class="pp-form-actions">
-          <button class="pp-btn ghost" (click)="cancelEditProfile()">Cancelar</button>
-          <button class="pp-btn solid" [disabled]="savingProfile" (click)="saveProfile()">
+          <button class="bx-btn bx-btn--ghost" (click)="cancelEditProfile()">Cancelar</button>
+          <button class="bx-btn bx-btn--pri" [disabled]="savingProfile" [attr.aria-busy]="savingProfile" (click)="saveProfile()">
             {{ savingProfile ? 'Guardando…' : 'Guardar' }}
           </button>
         </div>
@@ -340,7 +356,7 @@
         <span *ngIf="scanResult.ok">{{ scanResult.nombre || 'Pasajero' }} · {{ scanResult.ruta }}</span>
         <span *ngIf="!scanResult.ok">{{ scanResult.motivo }}</span>
       </div>
-      <button class="sc-again" (click)="escanearOtro()">
+      <button class="bx-btn bx-btn--sec bx-btn--lg sc-again" (click)="escanearOtro()">
         <ion-icon name="qr-code-outline"></ion-icon> Escanear otro
       </button>
     </div>

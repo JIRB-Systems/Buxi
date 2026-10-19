@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule } from '@angular/router';
 import { ChoferHomePage } from './chofer-home.page';
+import { PlacaComponent, RutaInsigniaComponent } from '../../../shared/transporte/transporte';
 
 @NgModule({
   declarations: [ChoferHomePage],
@@ -12,6 +13,8 @@ import { ChoferHomePage } from './chofer-home.page';
     FormsModule,
     IonicModule,
     RouterModule.forChild([{ path: '', component: ChoferHomePage }]),
+    RutaInsigniaComponent,
+    PlacaComponent,
   ],
 })
 export class ChoferHomePageModule {}

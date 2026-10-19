@@ -1,0 +1,447 @@
+// ============================================================================
+// Componentes base de Buxmap
+//
+// Piezas que salen del transporte y no de una plantilla: la insignia de ruta
+// con el color de la línea (como en la señalética), la placa del bus como el
+// objeto real, los números de pizarra de las terminales y un solo sistema de
+// botones para toda la app.
+//
+// Van globales a propósito: se usan en las cinco superficies (acceso,
+// pasajero, chofer, empresa, JIRB) y una hoja por pantalla volvería a abrir
+// la puerta a que cada una invente sus propios botones, que es justo lo que
+// las hacía parecer de plantilla.
+// ============================================================================
+
+// ---------- Letra monoespaciada: placas, horas y cifras ----------
+.bx-mono {
+  font-family: var(--bx-font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+// Rótulo pequeño en mayúsculas, del tipo de las pizarras ("UNIDAD", "SEÑAL").
+.bx-etq {
+  font: 600 10px/1 var(--bx-font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bx-text-off);
+}
+
+// ============================================================================
+// BOTONES
+//
+// Uno solo verde por pantalla. Relieve arriba (una línea de luz) y labio
+// abajo (una línea de sombra): al presionarlo se hunde un píxel. Es la
+// diferencia entre un botón que se ve tocable y un rectángulo de color.
+// ============================================================================
+.bx-btn {
+  --bx-btn-h: 40px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--bx-btn-h);
+  min-height: var(--bx-btn-h);
+  padding: 0 16px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--bx-text);
+  font: 700 14px/1 var(--bx-font);
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--bx-t-fast) var(--bx-ease),
+    border-color var(--bx-t-fast) var(--bx-ease),
+    box-shadow var(--bx-t-fast) var(--bx-ease),
+    color var(--bx-t-fast) var(--bx-ease),
+    transform 80ms var(--bx-ease);
+
+  ion-icon, svg { flex: none; font-size: 18px; width: 18px; height: 18px; }
+
+  &:active:not(:disabled):not([aria-disabled='true']) { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 2px; }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  &[aria-busy='true'] { cursor: progress; }
+}
+
+// Principal: avanzar, confirmar, comprar.
+.bx-btn--pri {
+  background: var(--bx-green);
+  color: var(--bx-ink);
+  border-color: var(--bx-green-deep);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 1px 0 rgba(0, 0, 0, 0.45),
+    0 4px 14px rgba(0, 200, 83, 0.18);
+
+  &:hover:not(:disabled) { background: #00d85c; }
+  &:active:not(:disabled) { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25); }
+}
+
+// Secundario: la alternativa que va al lado.
+.bx-btn--sec {
+  background: var(--bx-btn-sec);
+  color: var(--bx-text);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.4);
+
+  &:hover:not(:disabled) { background: var(--bx-btn-sec-hover); border-color: rgba(255, 255, 255, 0.18); }
+}
+
+// Fantasma: acciones menores, rechazar, ver más.
+.bx-btn--ghost {
+  color: var(--bx-text-2);
+
+  &:hover:not(:disabled) { background: var(--bx-bg-3); color: var(--bx-text); }
+}
+
+// Información: caminar, cómo llegar. Azul, nunca verde: el verde es la acción.
+.bx-btn--info {
+  background: var(--bx-blue);
+  color: #04101f;
+  border-color: #1f6fd6;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 0 rgba(0, 0, 0, 0.45);
+
+  &:hover:not(:disabled) { background: #4a9bff; }
+}
+
+// Peligro: emergencia, suspender, borrar.
+.bx-btn--peligro {
+  background: var(--bx-danger-soft);
+  color: #ff8f88;
+  border-color: rgba(255, 90, 82, 0.38);
+
+  &:hover:not(:disabled) { background: rgba(255, 90, 82, 0.22); }
+}
+
+.bx-btn--sm {
+  --bx-btn-h: 32px;
+  padding: 0 11px;
+  gap: 6px;
+  border-radius: 8px;
+  font-size: 12px;
+  ion-icon, svg { font-size: 15px; width: 15px; height: 15px; }
+}
+
+// Grande: lo que se toca dentro de un bus en movimiento.
+.bx-btn--lg {
+  --bx-btn-h: 52px;
+  padding: 0 22px;
+  gap: 10px;
+  border-radius: 12px;
+  font-size: 16px;
+  ion-icon, svg { font-size: 20px; width: 20px; height: 20px; }
+}
+
+.bx-btn--bloque { display: flex; width: 100%; }
+.bx-btn--icono { width: var(--bx-btn-h); padding: 0; }
+
+// Girador de "cargando": hereda el color del texto del botón.
+.bx-btn__giro {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: bx-giro 0.7s linear infinite;
+}
+
+@keyframes bx-giro { to { transform: rotate(360deg); } }
+
+// Atajo de teclado dentro de un botón ("Ctrl K").
+.bx-kbd {
+  padding: 3px 5px;
+  border-radius: 5px;
+  background: rgba(4, 20, 11, 0.18);
+  font: 600 11px/1 var(--bx-font-mono);
+  opacity: 0.85;
+
+  .bx-btn--sec &, .bx-btn--ghost & { background: rgba(255, 255, 255, 0.08); }
+}
+
+// ============================================================================
+// Los ion-button de Ionic, vestidos igual
+//
+// Hay unos sesenta repartidos por formularios y paneles. En vez de reescribir
+// cada uno, se les pone el mismo relieve y las mismas variantes: sólido =
+// principal, outline = secundario, clear = fantasma, danger = peligro.
+// ============================================================================
+ion-button {
+  --border-radius: 10px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  min-height: 40px;
+  font-size: 14px;
+  transition: transform 80ms var(--bx-ease);
+
+  &:active { transform: translateY(1px); }
+}
+
+ion-button.button-solid {
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: rgba(0, 0, 0, 0.22);
+  --box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36), 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+
+ion-button.button-outline {
+  --background: var(--bx-btn-sec);
+  --background-hover: var(--bx-btn-sec-hover);
+  --background-hover-opacity: 1;
+  --color: var(--bx-text);
+  --border-width: 1px;
+  --border-color: rgba(255, 255, 255, 0.12);
+  --box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+ion-button.button-outline.ion-color-danger,
+ion-button.button-solid.ion-color-danger {
+  --background: var(--bx-danger-soft);
+  --background-hover: rgba(255, 90, 82, 0.22);
+  --color: #ff8f88;
+  --border-color: rgba(255, 90, 82, 0.38);
+  --border-width: 1px;
+  --border-style: solid;
+  --box-shadow: none;
+}
+
+ion-button.button-clear {
+  --color: var(--bx-text-2);
+  --background-hover: var(--bx-bg-3);
+  --background-hover-opacity: 1;
+}
+
+ion-button.button-small {
+  --border-radius: 8px;
+  --padding-start: 11px;
+  --padding-end: 11px;
+  min-height: 32px;
+  font-size: 12px;
+}
+
+ion-button.button-large {
+  --border-radius: 12px;
+  min-height: 52px;
+  font-size: 16px;
+}
+
+// ============================================================================
+// INSIGNIA DE RUTA
+//
+// El color que la empresa eligió para la línea, como el de las líneas en la
+// señalética de una terminal. La tinta (oscura o clara) la calcula
+// `tintaSobre()` para que el texto pase 4,5:1 sobre cualquier color.
+// Uso: <span class="bx-ruta" [style.--ruta]="color" [style.--ruta-tinta]="tinta">SJ · Cartago</span>
+// ============================================================================
+.bx-ruta {
+  --ruta: var(--bx-text-3);
+  --ruta-tinta: #04101f;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--ruta);
+  color: var(--ruta-tinta);
+  font: 800 11px/1 var(--bx-font);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  flex: none;
+}
+
+.bx-ruta--lg { height: 26px; padding: 0 10px; border-radius: 7px; font-size: 13px; }
+.bx-ruta--apagada { opacity: 0.55; }
+
+// ============================================================================
+// PLACA
+//
+// Cada bus se identifica por su placa, igual que en la calle. Es el único
+// objeto claro de la interfaz: se reconoce de un vistazo en una lista.
+// ============================================================================
+.bx-placa {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex: none;
+  min-width: 84px;
+  border-radius: 5px;
+  background: #eef2f7;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(10, 22, 40, 0.25);
+  line-height: 1;
+  vertical-align: middle;
+
+  &__pais {
+    display: block;
+    padding: 2px 0 1.5px;
+    border-radius: 4px 4px 0 0;
+    background: #1c4fa0;
+    color: #eef2f7;
+    font: 700 7px/1 var(--bx-font);
+    letter-spacing: 0.18em;
+    text-align: center;
+  }
+
+  &__num {
+    display: block;
+    padding: 4px 7px 5px;
+    color: var(--bx-bg-1);
+    font: 700 13px/1 var(--bx-font-mono);
+    letter-spacing: 0.02em;
+    text-align: center;
+  }
+}
+
+.bx-placa--lg {
+  min-width: 96px;
+  border-radius: 6px;
+  .bx-placa__pais { font-size: 8px; padding: 2px 0; border-radius: 5px 5px 0 0; }
+  .bx-placa__num { font-size: 16px; padding: 5px 8px 6px; }
+}
+
+.bx-placa--apagada { opacity: 0.55; }
+
+// ============================================================================
+// ESTADO DE UN BUS
+//
+// Color más palabra, nunca solo color: verde transmite, ámbar pide una
+// mirada, gris no está.
+// ============================================================================
+.bx-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 13px/1.2 var(--bx-font);
+  color: var(--bx-text-2);
+
+  &::before {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bx-text-off);
+  }
+
+  &--ruta { color: var(--bx-green-bright); }
+  &--ruta::before { background: var(--bx-green-bright); box-shadow: 0 0 0 3px rgba(0, 224, 106, 0.18); }
+
+  &--detenido { color: #ffcf73; }
+  &--detenido::before { border-radius: 2px; background: var(--bx-warning); }
+
+  &--taller { color: #ffcf73; }
+  &--taller::before { border-radius: 2px; background: transparent; box-shadow: inset 0 0 0 2px var(--bx-warning); }
+
+  &--inactivo { color: var(--bx-text-3); }
+  &--inactivo::before { background: transparent; box-shadow: inset 0 0 0 2px var(--bx-text-off); }
+
+  &--alerta { color: #ff8f88; }
+  &--alerta::before { border-radius: 2px; background: var(--bx-danger); }
+}
+
+// ============================================================================
+// NÚMEROS DE PIZARRA
+//
+// Los minutos que faltan se leen como en la pizarra de una terminal: cada
+// cifra en su paleta, partida al medio.
+// ============================================================================
+.bx-pizarra {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.bx-flap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 52px;
+  border-radius: 7px;
+  background: linear-gradient(#18263d 0 50%, #132036 50% 100%);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--bx-green-bright);
+  font: 700 34px/1 var(--bx-font-mono);
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  // Cuando la cifra cambia, gira como una paleta.
+  &.gira { animation: bx-paleta 360ms var(--bx-ease-out); }
+}
+
+.bx-pizarra__unidad {
+  padding: 0 0 4px 4px;
+  color: var(--bx-green-bright);
+  font: 800 13px/1 var(--bx-font);
+}
+
+// Sin dato: la misma forma, apagada, para que la hoja no cambie de alto.
+.bx-pizarra--apagada .bx-flap,
+.bx-pizarra--apagada .bx-pizarra__unidad { color: var(--bx-text-3); }
+
+@keyframes bx-paleta {
+  0% { transform: perspective(200px) rotateX(-70deg); opacity: 0.4; }
+  100% { transform: perspective(200px) rotateX(0); opacity: 1; }
+}
+
+// ============================================================================
+// Tira de "Requiere tu atención" (paneles)
+// ============================================================================
+.bx-atencion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--bx-r-md);
+  background: var(--bx-bg-2);
+  border: 1px solid rgba(255, 176, 32, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  &--grave { border-color: rgba(255, 90, 82, 0.34); }
+
+  &__tipo {
+    font: 700 10px/1 var(--bx-font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #ffcf73;
+  }
+  &--grave &__tipo { color: #ff8f88; }
+
+  &__cuando { margin-left: auto; font: 500 11px/1 var(--bx-font-mono); color: var(--bx-text-3); }
+  &__titulo { margin: 0; font: 800 16px/1.25 var(--bx-font); letter-spacing: -0.01em; color: var(--bx-text); }
+  &__texto { margin: 0; font: 500 13px/1.45 var(--bx-font); color: var(--bx-text-2); }
+  &__acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bx-btn, ion-button { transition: none; }
+  .bx-btn__giro { animation-duration: 2s; }
+  .bx-flap.gira { animation: none; }
+}

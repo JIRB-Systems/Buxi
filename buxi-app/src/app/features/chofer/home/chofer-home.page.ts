@@ -4,6 +4,7 @@ import { AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
@@ -1068,40 +1069,79 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // ---- BOTÓN DE PÁNICO ----
   // Distinto de "reportar incidente": esto es para una emergencia real, un
   // solo paso de confirmación y manda la ubicación actual, no un formulario.
-  async panicButton() {
-    if (!this.profile?.empresa_id || this.sendingPanic) return;
+  // ---- EMERGENCIA: se envía manteniendo presionado ----
+  // Antes era tocar el botón y después buscar "Enviar ahora" en un diálogo:
+  // dos gestos en el peor momento, y el primero se podía disparar sin querer
+  // con el bus en movimiento. Ahora es uno solo, sostenido 1,2 s: un toque
+  // accidental no envía nada (solo explica cómo se usa) y en una emergencia
+  // real no hay que leer ni apuntar a un segundo botón.
+  readonly PANICO_MS = 1200;
+  panicoCargando = false;
+  private panicoTimer: any = null;
 
-    const alert = await this.alertCtrl.create({
-      cssClass: 'buxi-alert',
-      header: '¿Enviar alerta de emergencia?',
-      message: 'Se le avisa de inmediato a tu empresa con tu ubicación actual.',
-      buttons: [
-        { text: 'Cancelar', role: 'cancel' },
-        { text: 'Enviar ahora', cssClass: 'ba-confirm', handler: async () => {
-          this.sendingPanic = true;
-          try {
-            const ubicacion = this.currentLat && this.currentLng
-              ? `https://maps.google.com/?q=${this.currentLat},${this.currentLng}`
-              : 'ubicación no disponible';
-            await this.choferService.createReporte(
-              this.profile!.empresa_id!,
-              this.profile!.id,
-              'Emergencia',
-              `Botón de pánico activado. Ubicación: ${ubicacion}`,
-            );
-            const toast = await this.toastCtrl.create({ message: 'Alerta enviada a tu empresa', duration: 3000, color: 'danger', position: 'top' });
-            await toast.present();
-          } catch {
-            const toast = await this.toastCtrl.create({ message: 'No se pudo enviar la alerta', duration: 3000, color: 'danger', position: 'top' });
-            await toast.present();
-          } finally {
-            this.sendingPanic = false;
-          }
-          return true;
-        }},
-      ],
+  panicoInicio(ev?: Event) {
+    if (this.sendingPanic || this.panicoTimer || !this.profile?.empresa_id) return;
+    ev?.preventDefault();
+    this.panicoCargando = true;
+    this.vibrar(ImpactStyle.Light);
+    this.panicoTimer = setTimeout(() => {
+      this.panicoTimer = null;
+      this.panicoCargando = false;
+      this.enviarEmergencia();
+    }, this.PANICO_MS);
+  }
+
+  // Se soltó antes de tiempo: no se envía nada.
+  async panicoFin() {
+    if (!this.panicoTimer) return;
+    clearTimeout(this.panicoTimer);
+    this.panicoTimer = null;
+    this.panicoCargando = false;
+    const toast = await this.toastCtrl.create({
+      message: 'Para enviar la alerta, mantené presionado el botón',
+      duration: 2500,
+      position: 'top',
     });
-    await alert.present();
+    await toast.present();
+  }
+
+  private async enviarEmergencia() {
+    if (!this.profile?.empresa_id || this.sendingPanic) return;
+    this.sendingPanic = true;
+    try {
+      const ubicacion = this.currentLat && this.currentLng
+        ? `https://maps.google.com/?q=${this.currentLat},${this.currentLng}`
+        : 'ubicación no disponible';
+      await this.choferService.createReporte(
+        this.profile.empresa_id,
+        this.profile.id,
+        'Emergencia',
+        `Botón de pánico activado. Ubicación: ${ubicacion}`,
+      );
+      this.notificar(NotificationType.Success);
+      const toast = await this.toastCtrl.create({ message: 'Alerta enviada a tu empresa', duration: 3000, color: 'danger', position: 'top' });
+      await toast.present();
+    } catch {
+      this.notificar(NotificationType.Error);
+      const toast = await this.toastCtrl.create({ message: 'No se pudo enviar la alerta', duration: 3000, color: 'danger', position: 'top' });
+      await toast.present();
+    } finally {
+      this.sendingPanic = false;
+    }
+  }
+
+  // La vibración confirma sin mirar la pantalla. En la web no hace nada.
+  private vibrar(estilo: ImpactStyle) {
+    Haptics.impact({ style: estilo }).catch(() => {});
+  }
+
+  private notificar(tipo: NotificationType) {
+    Haptics.notification({ type: tipo }).catch(() => {});
+  }
+
+  // Velocidad para mostrar, redondeada; 0 con el bus quieto.
+  get velocidadKmh(): number {
+    return Math.round(this.currentSpeedKmh);
   }
 
   // ---- MIS CALIFICACIONES ----
@@ -1344,6 +1384,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyed = true;
+    if (this.panicoTimer) clearTimeout(this.panicoTimer);
     if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
     if (this.flotaChannel) supabaseClient().removeChannel(this.flotaChannel);
     if (this.flotaInterval) clearInterval(this.flotaInterval);

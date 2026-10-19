@@ -19,6 +19,7 @@ import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../
 import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
+import { tintaSobre } from '../../../core/utils/marca';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
@@ -58,6 +59,32 @@ interface BusProximo {
   detalle: string;
 }
 
+// Una fila de "Cerca tuyo": una ruta con parada cerca y su próximo bus.
+interface Cercana {
+  ruta: Ruta;
+  parada: Parada;
+  distanciaKm: number;
+  // El pasajero sigue a la empresa (si no, sus buses no le llegan: RLS).
+  siguiendo: boolean;
+  // Minutos del próximo bus hacia esa parada; null = ninguno viene.
+  minutos: number | null;
+  hacia: string | null;
+}
+
+// Una fila del recorrido de la ruta elegida: una parada, o un bus entre dos.
+interface ItemRecorrido {
+  tipo: 'parada' | 'bus';
+  clave: string;
+  nombre: string;
+  tuParada?: boolean;
+  // Bus: 1 = baja hacia el final de la lista (destino), -1 = sube.
+  sentido?: Sentido;
+  nota?: string;
+  // Bus que viene hacia la parada del pasajero.
+  viene?: boolean;
+  apagado?: boolean;
+}
+
 // Una opción de viaje, con lo que hace falta para mostrarla.
 interface OpcionVista extends OpcionViaje {
   ruta: Ruta;
@@ -84,7 +111,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -538,6 +565,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.favoritoEmpresaIds = new Set(empresas.value.map(f => f.empresa_id));
       this.favoritosEmpresaError = false;
       this.favoritosEmpresaCargados = true;
+      this.programarCercanas();
     } else {
       // Le importa sobre todo al panel de Alertas: sin esta lista,
       // favoritoEmpresaIds queda vacío y el panel le diría "todavía no seguís
@@ -571,6 +599,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       else await this.featuresService.addFavoritoEmpresa(this.profile.id, empresa.id);
       if (seguia) this.quitarBusesDeEmpresa(empresa.id);
       else this.recargarBusesVisibles();
+      this.programarCercanas();
       await this.toast(seguia
         ? `Dejaste de seguir a ${empresa.nombre}: ya no ves sus buses ni recibís sus avisos`
         : `Ahora ves los buses de ${empresa.nombre} y recibís sus avisos`);
@@ -751,7 +780,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const alert = await this.alertCtrl.create({
       cssClass: 'buxi-alert',
       header: 'Comprar boleto',
-      message: `Ruta ${ruta.nombre}: ₡${precio.toLocaleString('es-CR')}. El cobro todavía es simulado — no se te va a cobrar de verdad hasta que Buxi tenga un método de pago conectado.`,
+      message: `Ruta ${ruta.nombre}: ₡${precio.toLocaleString('es-CR')}. El cobro todavía es simulado — no se te va a cobrar de verdad hasta que Buxmap tenga un método de pago conectado.`,
       buttons: [
         { text: 'Cancelar', role: 'cancel', cssClass: 'ba-cancel' },
         {
@@ -1716,6 +1745,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // Un bus que deja de transmitir no manda ningún punto que dispare el
       // recálculo: sin esto su "llega en 4 min" se quedaba congelado.
       if (this.activeRuta) this.zone.run(() => this.updateETA());
+      else this.zone.run(() => this.programarCercanas());
     }, 10000);
   }
 
@@ -2099,6 +2129,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.busLocationsMap.set(location.bus_id, location);
     this.actualizarMarcha(location);
     if (this.activeRuta) this.updateETA();
+    else this.programarCercanas();
     if (location.bus?.empresa_id) this.busEmpresa.set(location.bus_id, location.bus.empresa_id);
     this.busIcono.set(
       location.bus_id,
@@ -2451,6 +2482,57 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     };
   }
 
+  // Placa y detalle del próximo bus, para la línea bajo los minutos.
+  proximoPlaca: string | null = null;
+  proximoDetalle: string | null = null;
+
+  // Cifras para la pizarra: "19" → ["1","9"]; llegando → ["<","1"]; sin dato,
+  // dos guiones (la pizarra no cambia de ancho cuando llega el número).
+  get etaDigitos(): string[] {
+    if (this.etaMinutes === null) return ['–', '–'];
+    if (this.etaMinutes === 0) return ['<', '1'];
+    return String(Math.min(this.etaMinutes, 999)).split('');
+  }
+
+  // Clave por posición y cifra: cuando una cifra cambia, Angular rehace solo
+  // esa paleta y la animación de giro corre solo en ella.
+  trackDigito = (i: number, d: string) => `${i}${d}`;
+
+  // Las paradas de la ruta elegida, en orden, con los buses intercalados
+  // donde van. En el teléfono arranca cerrado (la hoja ya es alta); en
+  // escritorio, abierto.
+  recorrido: ItemRecorrido[] = [];
+  recorridoAbierto = typeof window !== 'undefined' && window.innerWidth >= 900;
+  trackRecorrido = (_: number, it: ItemRecorrido) => it.clave;
+
+  private armarRecorrido(
+    ruta: Ruta,
+    parada: Parada | null,
+    buses: { id: string; placa: string; nota: string; viene: boolean; apagado: boolean }[],
+  ) {
+    const t = this.trazadoDe(ruta.id);
+    if (!t) { this.recorrido = []; return; }
+    const items: (ItemRecorrido & { km: number; orden: number })[] = [...this.activeParadas]
+      .sort((a, b) => a.orden - b.orden)
+      .map((p, i) => ({
+        tipo: 'parada' as const,
+        clave: 'p' + p.id,
+        nombre: this.nombreParadaCorto(p.nombre),
+        tuParada: p.id === parada?.id,
+        km: t.kmParadas.get(p.id) ?? 0,
+        orden: i,
+      }));
+    for (const b of buses) {
+      const m = this.busMarcha.get(b.id);
+      if (!m) continue;
+      // Un bus va después de la parada en la que está, nunca antes: así se lee
+      // "salió de Tres Ríos", no "llega a Tres Ríos".
+      items.push({ tipo: 'bus', clave: 'b' + b.id, nombre: b.placa, sentido: m.sentido, nota: b.nota, viene: b.viene, apagado: b.apagado, km: m.km + 1e-6, orden: 1e6 });
+    }
+    items.sort((a, b) => a.km - b.km || a.orden - b.orden);
+    this.recorrido = items.map(({ km, orden, ...it }) => it);
+  }
+
   // Se llama al elegir o soltar una ruta, al moverse el pasajero, al llegar un
   // punto de un bus y cada 10 s (para notar al bus que se quedó sin señal).
   private updateETA() {
@@ -2474,12 +2556,22 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.etaHacia = null;
     this.sinBusEnCamino = false;
     this.proximos = [];
-    if (!this.nearestStop || !this.activeRuta) return;
+    this.proximoPlaca = null;
+    this.proximoDetalle = null;
+    if (!this.activeRuta) { this.recorrido = []; return; }
+    if (!this.nearestStop) {
+      // Sin ubicación igual se muestra el recorrido con los buses.
+      this.armarRecorrido(this.activeRuta, null, [...this.busLocationsMap.values()].map(loc => ({
+        id: loc.bus_id, placa: (loc.bus as any)?.placa || 'Bus', nota: '', viene: false, apagado: false,
+      })));
+      return;
+    }
 
     const ruta = this.activeRuta;
     const parada = this.nearestStop.parada;
     const ahora = Date.now();
     const filas: (BusProximo & { hacia: string })[] = [];
+    const enRecorrido: { id: string; placa: string; nota: string; viene: boolean; apagado: boolean }[] = [];
     // Buses de los que se sabe dónde van, aunque no vengan hacia la parada.
     let ubicados = 0;
 
@@ -2516,7 +2608,18 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       }
       if (!sinSenal && r) ubicados++;
       filas.push({ placa, etaMinutes, detalle, hacia });
+      const vel = (loc.velocidad ?? 0) > 5 ? ` · ${Math.round(loc.velocidad!)} km/h` : '';
+      enRecorrido.push({
+        id: loc.bus_id,
+        placa,
+        nota: etaMinutes !== null
+          ? `hacia ${hacia} · ${etaMinutes === 0 ? 'llegando' : etaMinutes + ' min'} a tu parada`
+          : sinSenal || !r ? detalle : `hacia ${hacia}${vel}${r.llegada.estado === 'ya_paso' ? ' · ya pasó' : ''}`,
+        viene: etaMinutes !== null,
+        apagado: sinSenal,
+      });
     }
+    this.armarRecorrido(ruta, parada, enRecorrido);
 
     // Primero los que vienen, del más cercano al más lejano; después el resto.
     filas.sort((x, y) => (x.etaMinutes ?? Infinity) - (y.etaMinutes ?? Infinity));
@@ -2526,6 +2629,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (proximo) {
       this.etaMinutes = proximo.etaMinutes;
       this.etaHacia = proximo.hacia;
+      this.proximoPlaca = proximo.placa;
+      this.proximoDetalle = proximo.detalle;
     } else {
       // Solo se afirma si se sabe: con todos los buses sin señal no se
       // puede decir que ninguno viene.
@@ -2666,7 +2771,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         return {
           icono: 'git-branch-outline',
           titulo: 'No hay un bus directo',
-          texto: 'Hay paradas cerca tuyo y cerca de ese lugar, pero ninguna ruta las une. Buxi todavía no arma viajes con trasbordo.',
+          texto: 'Hay paradas cerca tuyo y cerca de ese lugar, pero ninguna ruta las une. Buxmap todavía no arma viajes con trasbordo.',
         };
     }
   }
@@ -2813,6 +2918,106 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.map.fitBounds(bounds, { padding, duration: 700, maxZoom: 16 });
   }
 
+  // ====== CERCA TUYO ======
+  // La pantalla de inicio responde "¿cuándo pasa mi bus?" sin tocar nada: las
+  // rutas con una parada cerca y, para cada una, el próximo bus que viene
+  // hacia esa parada. Antes mostraba solo la parada más cercana y cuánto se
+  // caminaba, y para saber si venía algún bus había que elegir la ruta.
+  cercanas: Cercana[] = [];
+  private cercanasEn = 0;
+  private cercanasTimer: any = null;
+  // Más lejos que esto la ruta no está "cerca": para llegar a la parada
+  // habría que tomar otra cosa.
+  private readonly CERCANA_MAX_KM = 2;
+
+  trackCercana = (_: number, c: Cercana) => c.ruta.id;
+
+  get tieneUbicacion(): boolean {
+    return this.userLat !== 0;
+  }
+
+  // La hoja de inicio está a la vista (y los controles del mapa van encima).
+  get cercaVisible(): boolean {
+    return !this.activeRuta && !this.viaje && !this.selectedBus && this.navVisible
+      && !this.activePanel && !this.sidebarOpen && !this.profilePanelOpen && !this.settingsPanelOpen
+      && (this.cercanas.length > 0 || !!this.paradaCercana || this.tieneUbicacion);
+  }
+
+  // Los puntos de los buses llegan seguido y el cálculo recorre rutas y
+  // buses: se hace como mucho cada 2 s, con una última pasada al final para
+  // no quedarse con un dato viejo.
+  private programarCercanas() {
+    if (this.activeRuta) return;
+    const espera = 2000 - (Date.now() - this.cercanasEn);
+    if (espera <= 0) {
+      this.recalcularCercanas();
+      return;
+    }
+    if (this.cercanasTimer) return;
+    this.cercanasTimer = setTimeout(() => {
+      this.cercanasTimer = null;
+      this.zone.run(() => this.recalcularCercanas());
+    }, espera);
+  }
+
+  private recalcularCercanas() {
+    this.cercanasEn = Date.now();
+    if (!this.tieneUbicacion || this.paradasPorRuta.size === 0) {
+      this.cercanas = [];
+      return;
+    }
+    const ahora = Date.now();
+    const filas: Cercana[] = [];
+    for (const ruta of this.allRutas) {
+      const paradas = this.paradasPorRuta.get(ruta.id);
+      if (!paradas?.length) continue;
+      const cerca = this.featuresService.findNearestStop(this.userLat, this.userLng, paradas);
+      if (!cerca || cerca.distanceKm > this.CERCANA_MAX_KM) continue;
+
+      // Mismo cálculo que la hoja de ruta: sobre el recorrido, con el sentido
+      // del bus. Un bus sin señal no promete nada.
+      let mejor: { minutos: number; hacia: string } | null = null;
+      for (const loc of this.busLocationsMap.values()) {
+        if (this.busRuta.get(loc.bus_id) !== ruta.id) continue;
+        if (ahora - (this.busLastSeen.get(loc.bus_id) ?? ahora) > this.STALE_MS) continue;
+        const r = this.llegadaDe(loc, cerca.parada);
+        if (!r || r.llegada.minutos === null) continue;
+        if (!mejor || r.llegada.minutos < mejor.minutos) {
+          mejor = { minutos: r.llegada.minutos, hacia: r.sentido === -1 ? ruta.origen : ruta.destino };
+        }
+      }
+      filas.push({
+        ruta,
+        parada: cerca.parada,
+        distanciaKm: cerca.distanceKm,
+        siguiendo: !this.favoritosEmpresaCargados || this.favoritoEmpresaIds.has(ruta.empresa_id),
+        minutos: mejor?.minutos ?? null,
+        hacia: mejor?.hacia ?? null,
+      });
+    }
+    // Primero las que tienen un bus en camino, del que llega antes; después
+    // el resto, de la parada más cercana a la más lejana.
+    filas.sort((a, b) => (a.minutos ?? Infinity) - (b.minutos ?? Infinity) || a.distanciaKm - b.distanciaKm);
+    this.cercanas = filas.slice(0, 3);
+  }
+
+  // Color del texto sobre el color de una ruta (barra del planificador).
+  tintaRuta(color: string | null | undefined): string {
+    return tintaSobre(colorSeguro(color, '#8292aa'));
+  }
+
+  colorRuta(color: string | null | undefined): string {
+    return colorSeguro(color, '#8292aa');
+  }
+
+  // En el teléfono Ajustes ya no está en la barra inferior (cuatro destinos
+  // en vez de cinco): se llega desde el perfil.
+  async abrirAjustesDesdePerfil() {
+    this.profilePanelOpen = false;
+    this.editingProfile = false;
+    await this.toggleSettingsPanel();
+  }
+
   // ====== PARADA MÁS CERCANA Y CÓMO LLEGAR ======
   // Sin ruta elegida, la parada más cercana de todas las rutas activas, con
   // las rutas que pasan por ahí. Con una ruta elegida el objetivo es la parada
@@ -2866,6 +3071,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // Se llama al cargar las paradas y cada vez que el pasajero se mueve.
   private recalcularParadaCercana() {
+    this.programarCercanas();
     if (this.userLat === 0 || this.paradasPorRuta.size === 0) {
       this.paradaCercana = null;
       return;
@@ -3114,7 +3320,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // se carga en paralelo al mapa: si la ubicación llegaba primero, la
   // comprobación se desactivaba sola y la lectura falsa pasaba como válida.
   //
-  // Esto no depende de nada que pueda no haber cargado: Buxi opera únicamente
+  // Esto no depende de nada que pueda no haber cargado: Buxmap opera únicamente
   // en Costa Rica, así que una posición fuera del país es inservible para la
   // app aunque fuera cierta — no hay ningún bus que mostrar ahí.
   private static readonly CR_BOUNDS = { minLat: 7.9, maxLat: 11.4, minLng: -86.1, maxLng: -82.4 };
@@ -3281,6 +3487,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (this.navIdleTimer) clearTimeout(this.navIdleTimer);
     if (this.clockInterval) clearInterval(this.clockInterval);
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
+    if (this.cercanasTimer) clearTimeout(this.cercanasTimer);
     if (this.watchId) Geolocation.clearWatch({ id: this.watchId });
     if (this.compassHandler) {
       window.removeEventListener('deviceorientationabsolute', this.compassHandler, true);

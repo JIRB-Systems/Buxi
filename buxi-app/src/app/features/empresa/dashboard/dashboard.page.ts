@@ -23,6 +23,23 @@ import { createMap, htmlMarkerEl, animateMarkerTo } from '../../../core/utils/ma
 import { descargarFacturaPDF } from '../../../core/utils/factura-pdf';
 import { descargarReporteMensualPDF } from '../../../core/utils/reporte-mensual-pdf';
 
+interface Senal { ts: number; kmh: number; lat: number; lng: number; }
+
+interface AccionAtencion { texto: string; estilo: 'pri' | 'sec' | 'ghost'; hacer: () => void; }
+
+// Una tarjeta de "Requiere tu atención". Si trae ruta, el título se lee con la
+// insignia de la ruta adelante ("[SJ · Cartago] no tiene precio").
+interface Atencion {
+  clave: string;
+  tipo: string;
+  grave?: boolean;
+  cuando?: string | null;
+  ruta?: Ruta | null;
+  titulo: string;
+  texto: string;
+  acciones: AccionAtencion[];
+}
+
 @Component({
   selector: 'app-empresa-dashboard',
   templateUrl: './dashboard.page.html',
@@ -38,22 +55,56 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   sidebarOpen = window.innerWidth > 768;
   empresaNombre = '';
 
-  menuItems = [
-    { id: 'inicio', icon: 'home-outline', label: 'Inicio' },
-    { id: 'emergencias', icon: 'alert-circle-outline', label: 'Emergencias' },
-    { id: 'rutas', icon: 'git-branch-outline', label: 'Mis rutas' },
-    { id: 'horarios', icon: 'time-outline', label: 'Horarios' },
-    { id: 'buses', icon: 'bus-outline', label: 'Buses' },
-    { id: 'personalizacion', icon: 'color-palette-outline', label: 'Personalización' },
-    { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
-    { id: 'mapa', icon: 'location-outline', label: 'Seguimiento en vivo' },
-    { id: 'notificaciones', icon: 'notifications-outline', label: 'Notificaciones' },
-    { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
-    { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
-    { id: 'planes', icon: 'card-outline', label: 'Planes' },
-    { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
-    { id: 'equipo', icon: 'people-circle-outline', label: 'Mi equipo' },
+  // Agrupado por lo que la empresa viene a hacer: mover la flota, hablarle a
+  // sus pasajeros o resolver cosas de su cuenta con JIRB. Antes eran catorce
+  // entradas sueltas en una sola lista, y "Avisos" y "Notificaciones" se
+  // confundían: uno es lo que manda JIRB y el otro lo que manda la empresa.
+  readonly menuGrupos = [
+    { titulo: 'Operación', items: [
+      { id: 'inicio', icon: 'grid-outline', label: 'Resumen' },
+      { id: 'mapa', icon: 'map-outline', label: 'Seguimiento en vivo' },
+      { id: 'emergencias', icon: 'alert-circle-outline', label: 'Emergencias' },
+      { id: 'buses', icon: 'bus-outline', label: 'Buses' },
+      { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
+      { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
+      { id: 'horarios', icon: 'time-outline', label: 'Horarios' },
+    ]},
+    { titulo: 'Pasajeros', items: [
+      { id: 'notificaciones', icon: 'notifications-outline', label: 'Avisos a pasajeros' },
+      { id: 'personalizacion', icon: 'color-palette-outline', label: 'Personalización' },
+    ]},
+    { titulo: 'Cuenta', items: [
+      { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos de JIRB' },
+      { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
+      { id: 'planes', icon: 'card-outline', label: 'Planes' },
+      { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
+      { id: 'equipo', icon: 'people-circle-outline', label: 'Mi equipo' },
+    ]},
   ];
+  readonly menuItems = this.menuGrupos.flatMap(g => g.items);
+
+  get tituloTab(): string {
+    return this.menuItems.find(i => i.id === this.activeTab)?.label || '';
+  }
+
+  // El número gris al lado de cada entrada: cuántos hay. Las alarmas (rojo,
+  // ámbar) van aparte, en nav-badge.
+  cuentaNav(id: string): number | null {
+    switch (id) {
+      case 'mapa': return this.activeBusCount;
+      case 'buses': return this.buses.length;
+      case 'choferes': return this.choferes.length;
+      case 'rutas': return this.rutas.length;
+      default: return null;
+    }
+  }
+
+  // En teléfono, la barra de abajo lleva los tres destinos de todos los días
+  // y "Más" abre el menú completo.
+  readonly TABS_TELEFONO = ['inicio', 'buses', 'rutas'];
+  get enMas(): boolean { return !this.TABS_TELEFONO.includes(this.activeTab); }
+
+  abrirMas() { this.sidebarOpen = true; }
 
   // ---- PERSONALIZACIÓN DEL BUS ----
   // Primer ajuste: el color de la flota. El modelo y el diseño del bus van a
@@ -120,6 +171,285 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   get planesBadge(): number {
     return this.solicitudPlanPendiente ? 1 : 0;
+  }
+
+  // ---- RESUMEN ----
+  calificaciones: { estrellas: number }[] = [];
+  // Última señal de cada bus propio. La siembra getUltimasSenales al cargar y
+  // la mantiene al día el canal de Realtime del mapa.
+  senales: Record<string, Senal> = {};
+  // Reloj de la pantalla: con él avanzan "hace 12 s" y la hora del encabezado
+  // sin esperar a que llegue un dato nuevo.
+  ahora = Date.now();
+  private relojTimer: any = null;
+  verAnomalias = false;
+  atencion: Atencion[] = [];
+
+  private readonly ORDEN_ESTADO: Record<string, number> = { en_ruta: 0, activo: 1, mantenimiento: 2, inactivo: 3 };
+  readonly FLOTA_MAX = 8;
+  readonly RUTAS_MAX = 6;
+
+  get flota(): Bus[] {
+    return [...this.buses].sort((a, b) =>
+      (this.ORDEN_ESTADO[a.estado] ?? 4) - (this.ORDEN_ESTADO[b.estado] ?? 4) || a.placa.localeCompare(b.placa));
+  }
+
+  private senalFresca(b: Bus) {
+    const s = this.senales[b.id];
+    return s && this.ahora - s.ts <= this.STALE_MS ? s : null;
+  }
+
+  // Color más palabra (ver .bx-estado). Un bus "en ruta" que dejó de mandar
+  // posición no se pinta verde: es justo el que hay que mirar.
+  estadoClase(b: Bus): string {
+    switch (b.estado) {
+      case 'en_ruta': {
+        const s = this.senalFresca(b);
+        if (!s) return 'bx-estado--alerta';
+        return s.kmh < 3 ? 'bx-estado--detenido' : 'bx-estado--ruta';
+      }
+      case 'mantenimiento': return 'bx-estado--taller';
+      case 'inactivo': return 'bx-estado--inactivo';
+      default: return '';
+    }
+  }
+
+  estadoTexto(b: Bus): string {
+    switch (b.estado) {
+      case 'en_ruta': {
+        const s = this.senalFresca(b);
+        if (!s) return 'Sin señal';
+        return s.kmh < 3 ? 'Detenido' : 'En ruta';
+      }
+      case 'activo': return 'Disponible';
+      case 'mantenimiento': return 'En taller';
+      case 'inactivo': return 'Inactivo';
+      default: return b.estado;
+    }
+  }
+
+  velocidadDe(b: Bus): number | null {
+    if (b.estado !== 'en_ruta') return null;
+    const s = this.senalFresca(b);
+    return s ? Math.round(s.kmh) : null;
+  }
+
+  senalDe(b: Bus): string {
+    const s = this.senales[b.id];
+    return s ? this.edad(s.ts) : '—';
+  }
+
+  get ultimaSenal(): string | null {
+    const ts = Object.values(this.senales).map(s => s.ts);
+    return ts.length ? this.edad(Math.max(...ts)) : null;
+  }
+
+  get fechaHora(): string {
+    const d = new Date(this.ahora);
+    const dia = new Intl.DateTimeFormat('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+      .format(d).replace(/\./g, '').replace(',', '');
+    const hora = new Intl.DateTimeFormat('es-CR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    return `${dia} · ${hora}`.toUpperCase();
+  }
+
+  // "12 s", "4 min", "3 h", "2 d": la edad de algo, corta, para columnas.
+  private edad(ts: number): string {
+    const seg = Math.max(0, Math.round((this.ahora - ts) / 1000));
+    if (seg < 60) return `${seg} s`;
+    const min = Math.round(seg / 60);
+    if (min < 60) return `${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 48) return `${h} h`;
+    return `${Math.round(h / 24)} d`;
+  }
+
+  private hace(iso: string | null | undefined): string | null {
+    const ts = iso ? Date.parse(iso) : NaN;
+    return isNaN(ts) ? null : 'hace ' + this.edad(ts);
+  }
+
+  private listaNatural(partes: string[]): string {
+    if (partes.length <= 1) return partes[0] || '';
+    return partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1];
+  }
+
+  // ---- Indicadores ----
+  get segmentosFlota(): string[] {
+    return this.flota.map(b => b.estado);
+  }
+
+  get restoFlota(): string {
+    const n = (e: string) => this.buses.filter(b => b.estado === e).length;
+    const partes = [
+      [n('activo'), 'disponible', 'disponibles'],
+      [n('mantenimiento'), 'en taller', 'en taller'],
+      [n('inactivo'), 'inactivo', 'inactivos'],
+    ].filter(([c]) => (c as number) > 0).map(([c, uno, varios]) => `${c} ${c === 1 ? uno : varios}`);
+    if (this.buses.length === 0) return 'Todavía no tenés buses';
+    return partes.length ? partes.join(' · ') : 'Toda la flota está en ruta';
+  }
+
+  get promedioCalificacion(): string | null {
+    if (!this.calificaciones.length) return null;
+    const p = this.calificaciones.reduce((s, c) => s + c.estrellas, 0) / this.calificaciones.length;
+    return p.toLocaleString('es-CR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  // Cuántas reseñas de 5, 4, 3... estrellas: el ancho de cada barrita.
+  get repartoCalificacion(): { estrellas: number; n: number }[] {
+    return [5, 4, 3, 2, 1]
+      .map(e => ({ estrellas: e, n: this.calificaciones.filter(c => c.estrellas === e).length }))
+      .filter(r => r.n > 0);
+  }
+
+  get hallazgoViajes(): string {
+    const dias = this.tripsChartData;
+    if (this.tripsChartTotal === 0) return 'Ninguno en los últimos 7 días';
+    const hoy = dias[dias.length - 1];
+    const mejor = dias.reduce((m, d) => d.count > m.count ? d : m, dias[0]);
+    if (mejor === hoy) return `Hoy es el mejor día, con ${hoy.count}`;
+    return `Hoy ${hoy.count} · el mejor día, ${mejor.label.toLowerCase()} con ${mejor.count}`;
+  }
+
+  get notaCalificacion(): string {
+    const n = this.calificaciones.length;
+    if (!n) return 'Todavía sin reseñas';
+    const reparto = this.repartoCalificacion.map(r => `${r.n} de ${r.estrellas}★`).join(', ');
+    return `${n} ${n === 1 ? 'reseña' : 'reseñas'} · ${reparto}`;
+  }
+
+  get ariaSemana(): string {
+    return 'Viajes por día en los últimos 7 días: ' +
+      this.tripsChartData.map(d => `${d.label} ${d.count}`).join(', ');
+  }
+
+  // Lo que está en orden, dicho una vez debajo de las tarjetas: que no haya
+  // emergencias también es información.
+  get lineaEnOrden(): string {
+    const partes: string[] = [];
+    if (!this.emergenciasPendientes) partes.push('Sin emergencias abiertas');
+    if (!this.anomalias.length) partes.push('sin alertas de GPS');
+    if (!this.atencion.some(a => a.clave === 'ruta-sin-bus') && this.rutas.length) partes.push('todas tus rutas activas tienen bus');
+    const t = partes.join(' · ');
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  get iniciales(): string {
+    const p = (this.profile?.nombre_completo || '').trim().split(/\s+/).filter(Boolean);
+    return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '·';
+  }
+
+  busesDeRuta(r: Ruta): number {
+    return this.buses.filter(b => b.ruta_id === r.id).length;
+  }
+
+  // ---- Requiere tu atención ----
+  // Solo lo que pide una decisión de la empresa, de lo más grave a lo menos.
+  // Se arma después de cada carga y no en un getter: las acciones son
+  // funciones y no tiene sentido rehacerlas en cada ciclo de Angular.
+  private armarAtencion() {
+    const lista: Atencion[] = [];
+
+    const pend = this.emergencias.filter(e => e.estado === 'pendiente');
+    if (pend.length) {
+      const e = pend[0];
+      const quien = (e as any).autor?.nombre_completo || 'Un chofer';
+      const acciones: AccionAtencion[] = [];
+      if (this.getEmergenciaCoords(e)) acciones.push({ texto: 'Ver en el mapa', estilo: 'pri', hacer: () => this.verEmergenciaEnMapa(e) });
+      acciones.push(pend.length === 1
+        ? { texto: 'Marcar resuelta', estilo: 'sec', hacer: () => this.resolverEmergencia(e) }
+        : { texto: `Ver las ${pend.length}`, estilo: 'sec', hacer: () => this.switchTab('emergencias') });
+      lista.push({
+        clave: 'emergencia', tipo: 'Emergencia', grave: true, cuando: this.hace(e.created_at),
+        titulo: pend.length === 1 ? `${quien} activó el botón de pánico` : `${pend.length} emergencias sin resolver`,
+        texto: pend.length === 1 ? 'Queda abierta hasta que la marqués como resuelta.' : `La última es de ${quien}.`,
+        acciones,
+      });
+    }
+
+    const disponible = (b: Bus) => b.estado === 'activo' || b.estado === 'en_ruta';
+    const sinBus = this.rutas.filter(r => r.estado === 'activa' && !this.buses.some(b => b.ruta_id === r.id && disponible(b)));
+    if (sinBus.length) {
+      const r = sinBus[0];
+      const asignados = this.buses.filter(b => b.ruta_id === r.id);
+      lista.push({
+        clave: 'ruta-sin-bus', tipo: 'Ruta sin bus', ruta: sinBus.length === 1 ? r : null,
+        titulo: sinBus.length === 1 ? 'no tiene ningún bus disponible' : `${sinBus.length} rutas activas sin bus disponible`,
+        texto: sinBus.length === 1
+          ? (asignados.length
+              ? this.listaNatural(asignados.map(b => `${b.placa} está ${b.estado === 'mantenimiento' ? 'en taller' : 'inactivo'}`)) + '.'
+              : 'Ningún bus tiene asignada esta ruta, así que los pasajeros no van a ver ninguno.')
+          : this.listaNatural(sinBus.slice(0, 3).map(x => x.nombre)) + (sinBus.length > 3 ? ' y otras.' : '.'),
+        acciones: [{ texto: 'Asignar un bus', estilo: 'sec', hacer: () => this.switchTab('buses') }],
+      });
+    }
+
+    const sinChofer = this.buses.filter(b => disponible(b) && !b.chofer_id);
+    if (sinChofer.length) {
+      const b = sinChofer[0];
+      lista.push({
+        clave: 'bus-sin-chofer', tipo: 'Bus sin chofer',
+        titulo: sinChofer.length === 1 ? `${b.placa} no tiene chofer` : `${sinChofer.length} buses sin chofer`,
+        texto: sinChofer.length === 1
+          ? 'Sin chofer asignado, nadie puede iniciar su ruta desde la app.'
+          : this.listaNatural(sinChofer.slice(0, 3).map(x => x.placa)) + (sinChofer.length > 3 ? ' y otros.' : '.'),
+        acciones: [sinChofer.length === 1
+          ? { texto: 'Asignar chofer', estilo: 'sec', hacer: () => this.assignBusChofer(b) }
+          : { texto: 'Ver los buses', estilo: 'sec', hacer: () => this.switchTab('buses') }],
+      });
+    }
+
+    if (this.anomalias.length) {
+      const a = this.anomalias[0];
+      const placa = (a.bus as any)?.placa || 'un bus';
+      lista.push({
+        clave: 'gps', tipo: 'Alerta de GPS', cuando: this.hace(a.timestamp),
+        titulo: this.anomalias.length === 1 ? `Un salto raro en el GPS de ${placa}` : `${this.anomalias.length} saltos de GPS sin revisar`,
+        texto: 'Posiciones que implican más de 200 km/h desde la anterior: señal mala o un GPS falseado.',
+        acciones: [{ texto: this.verAnomalias ? 'Ocultar' : 'Revisar', estilo: 'sec', hacer: () => { this.verAnomalias = !this.verAnomalias; this.armarAtencion(); } }],
+      });
+    }
+
+    const sinPrecio = this.rutas.filter(r => r.estado === 'activa' && !r.precio);
+    if (sinPrecio.length) {
+      const r = sinPrecio[0];
+      lista.push({
+        clave: 'sin-precio', tipo: 'Ruta sin precio', ruta: sinPrecio.length === 1 ? r : null,
+        titulo: sinPrecio.length === 1 ? 'no tiene precio' : `${sinPrecio.length} rutas sin precio`,
+        texto: 'Sin precio, tus pasajeros no pueden comprar el boleto en la app.',
+        acciones: [sinPrecio.length === 1
+          ? { texto: 'Ponerle precio', estilo: 'sec', hacer: () => this.editRutaDetails(r) }
+          : { texto: 'Ver las rutas', estilo: 'sec', hacer: () => this.switchTab('rutas') }],
+      });
+    }
+
+    this.atencion = lista;
+  }
+
+  trackAtencion = (_: number, a: Atencion) => a.clave;
+  trackBus = (_: number, b: Bus) => b.id;
+
+  private async cargarSenales() {
+    const ids = this.buses.map(b => b.id);
+    const locs = await this.admin.getUltimasSenales(ids);
+    const nuevas: Record<string, Senal> = {};
+    for (const l of locs) {
+      const ts = Date.parse(l.timestamp);
+      if (isNaN(ts)) continue;
+      nuevas[l.bus_id] = { ts, kmh: l.velocidad || 0, lat: l.latitud, lng: l.longitud };
+    }
+    // Un punto que llegó por Realtime mientras tanto puede ser más nuevo que
+    // el de la consulta: se queda el más reciente.
+    for (const [id, s] of Object.entries(this.senales)) {
+      if (ids.includes(id) && (!nuevas[id] || nuevas[id].ts < s.ts)) nuevas[id] = s;
+    }
+    this.senales = nuevas;
+  }
+
+  private registrarSenal(loc: BusLocation) {
+    if (!this.buses.some(b => b.id === loc.bus_id)) return;
+    const ts = Date.parse(loc.timestamp) || Date.now();
+    this.senales = { ...this.senales, [loc.bus_id]: { ts, kmh: loc.velocidad || 0, lat: loc.latitud, lng: loc.longitud } };
   }
 
   // ---- BUSCADOR (choferes/buses) ----
@@ -220,6 +550,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.fixContentOffset();
+    this.relojTimer = setInterval(() => this.ahora = Date.now(), 5000);
     try {
       this.profile = await this.supabase.getProfile();
       if (this.profile?.empresa_id) {
@@ -277,6 +608,15 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.equipo = equipo;
     this.notificaciones = notificaciones;
     this.seguidores = seguidores;
+    // Dependen de las rutas y los buses recién cargados. Ninguna de las dos
+    // debe tumbar el panel si falla.
+    await Promise.all([
+      this.admin.getCalificacionesDeRutas(rutas.map(r => r.id))
+        .then(c => this.calificaciones = c)
+        .catch(e => logError('Empresa: calificaciones', e)),
+      this.cargarSenales().catch(e => logError('Empresa: última señal de los buses', e)),
+    ]);
+    this.armarAtencion();
   }
 
   // ---- NOTIFICACIONES A LOS PASAJEROS ----
@@ -493,6 +833,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     try {
       await this.admin.resolverEmergencia(r.id);
       r.estado = 'resuelto';
+      this.armarAtencion();
       this.showToast('Marcada como resuelta');
     } catch (e: any) {
       this.showToast(e?.message || 'No se pudo actualizar', 'danger');
@@ -515,7 +856,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   getReporteEstadoLabel(e: string) { return { pendiente: 'Pendiente', en_revision: 'En revisión', resuelto: 'Resuelto' }[e] || e; }
-  getReporteEstadoColor(e: string) { return { pendiente: '#ff9800', en_revision: '#2196f3', resuelto: '#00c853' }[e] || '#9aa5b4'; }
+  // Ámbar mientras espera a JIRB, neutro en revisión, hueco cuando ya cerró.
+  reporteEstadoClase(e: string) { return { pendiente: 'bx-estado--detenido', resuelto: 'bx-estado--inactivo' }[e] || ''; }
   getAvisoColor(t: string) { return { info: '#2196f3', advertencia: '#ff9800', urgente: '#f44336' }[t] || '#2196f3'; }
   getAvisoIcon(t: string) { return { info: 'information-circle-outline', advertencia: 'warning-outline', urgente: 'alert-circle-outline' }[t] || 'information-circle-outline'; }
 
@@ -523,6 +865,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     try {
       await this.admin.dismissAnomaly(loc.id);
       this.anomalias = this.anomalias.filter(a => a.id !== loc.id);
+      if (!this.anomalias.length) this.verAnomalias = false;
+      this.armarAtencion();
     } catch { this.showToast('Error al descartar la alerta', 'danger'); }
   }
 
@@ -681,12 +1025,18 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.realtimeChannel = sb.channel('emp-live')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bus_locations' }, (payload) => {
           const loc = payload.new as BusLocation;
+          this.registrarSenal(loc);
           this.updateMapMarker(loc.bus_id, loc.latitud, loc.longitud, loc.timestamp);
         })
         .subscribe();
     }
 
     if (!this.staleCheckInterval) this.startStaleBusWatcher();
+
+    // Los buses que ya venían transmitiendo, sin esperar su próximo punto.
+    for (const [busId, s] of Object.entries(this.senales)) {
+      if (this.ahora - s.ts < this.REMOVE_MS) this.updateMapMarker(busId, s.lat, s.lng, new Date(s.ts).toISOString());
+    }
 
     if (this.editingRuta) {
       this.mapClickHandler = (e) => this.onMapClickAddParada(e);
@@ -1461,9 +1811,6 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     await alert.present();
   }
 
-  getBusStatus(e: string) { return { activo: 'Activo', inactivo: 'Inactivo', en_ruta: 'En ruta', mantenimiento: 'Mant.' }[e] || e; }
-  getBusColor(e: string) { return { activo: '#00c853', inactivo: '#9aa5b4', en_ruta: '#2196f3', mantenimiento: '#ff9800' }[e] || '#9aa5b4'; }
-
   async onLogout() { await this.supabase.signOut(); this.router.navigate(['/auth/login'], { replaceUrl: true }); }
   private async showToast(m: string, c = 'success') { const t = await this.toastCtrl.create({ message: m, duration: 2000, color: c, position: 'top' }); await t.present(); }
 
@@ -1488,6 +1835,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
+    if (this.relojTimer) clearInterval(this.relojTimer);
     if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
     if (this.liveMap) this.liveMap.remove();
     if (this.realtimeChannel) {

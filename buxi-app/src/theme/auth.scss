@@ -195,12 +195,17 @@ ion-button.auth-btn {
   --background-focused: var(--bx-green-bright);
   --background-focused-opacity: 1;
   --color: var(--bx-ink);
-  --border-radius: var(--bx-r-md);
-  --box-shadow: none;
+  --border-radius: 12px;
+  // El mismo relieve que .bx-btn--pri (theme/componentes.scss): línea de luz
+  // arriba, labio abajo, y se hunde un píxel al tocarlo.
+  --border-width: 1px;
+  --border-style: solid;
+  --border-color: var(--bx-green-deep);
+  --box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 1px 0 rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 200, 83, 0.2);
   --ripple-color: rgba(4, 20, 11, 0.3);
-  transition: transform var(--bx-t-fast) var(--bx-ease);
+  transition: transform 80ms var(--bx-ease);
 
-  &:active { transform: scale(0.985); }
+  &:active { transform: translateY(1px); }
 
   &.button-disabled {
     opacity: 1;
@@ -214,16 +219,17 @@ ion-button.auth-btn {
 
 // Secundario: mismo tamaño, sin relleno de color.
 ion-button.auth-btn.auth-btn--ghost {
-  --background: var(--bx-bg-3);
-  --background-hover: var(--bx-bg-4);
-  --background-activated: var(--bx-bg-4);
-  --background-focused: var(--bx-bg-4);
+  --background: var(--bx-btn-sec);
+  --background-hover: var(--bx-btn-sec-hover);
+  --background-activated: var(--bx-btn-sec-hover);
+  --background-focused: var(--bx-btn-sec-hover);
   --color: var(--bx-text);
-  --border-color: var(--bx-line-strong);
+  --border-color: rgba(255, 255, 255, 0.12);
   --border-style: solid;
   --border-width: 1px;
+  --box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.4);
   --ripple-color: rgba(255, 255, 255, 0.2);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .auth-stack {

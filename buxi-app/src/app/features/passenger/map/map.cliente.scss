@@ -1,0 +1,582 @@
+// ====== Pasajero: piezas del rediseño de Buxmap ======
+// "Cerca tuyo", el recorrido con los buses encima, la opción de viaje como
+// barra proporcional y el boleto con forma de boleto. Hoja aparte porque
+// map.page.scss ya está al borde del presupuesto de estilos por componente.
+
+// ============================================================================
+// CERCA TUYO
+// ============================================================================
+
+// Teléfono: hoja sobre la barra inferior. Se aparta, igual que la barra,
+// cuando el pasajero mueve el mapa.
+.cerca-hoja {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bx-dock-alto) + 8px);
+  z-index: 1000;
+  overflow: hidden;
+  border-radius: 22px;
+  background: rgba(11, 24, 42, 0.97);
+  border: 1px solid var(--bx-line-strong);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.45);
+  transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s;
+  animation: sheet-in 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.oculta { opacity: 0; visibility: hidden; transform: translateY(14px); pointer-events: none; }
+}
+
+.cerca-grip {
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+// Escritorio: la misma lista, en una tarjeta del panel.
+.cerca-card { padding: 0; gap: 0; overflow: hidden; }
+
+.cerca-cabeza {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 16px 10px;
+}
+
+.cerca-titulo {
+  margin: 0;
+  font: 800 18px/1 var(--bx-font);
+  letter-spacing: -0.02em;
+  color: var(--bx-text);
+}
+
+.cerca-vivo {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 11px/1 var(--bx-font-mono);
+  color: var(--bx-text-3);
+
+  i {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--bx-green-bright);
+    animation: blink 1.4s infinite;
+  }
+}
+
+.cerca-fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 62px;
+  padding: 10px 16px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  color: var(--bx-text);
+  font-family: var(--bx-font);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { background: rgba(255, 255, 255, 0.04); }
+  &:active { background: rgba(255, 255, 255, 0.07); }
+}
+
+.cerca-ruta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.cerca-parada {
+  max-width: 100%;
+  font: 600 12px/1.2 var(--bx-font);
+  color: var(--bx-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cerca-eta {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.cerca-min {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--bx-green-bright);
+  font: 700 12px/1 var(--bx-font);
+
+  b { font-size: 26px; font-weight: 700; line-height: 1; }
+}
+
+.cerca-hacia {
+  max-width: 120px;
+  font: 600 11px/1 var(--bx-font);
+  color: var(--bx-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cerca-nada {
+  flex: none;
+  font: 600 12px/1.3 var(--bx-font);
+  color: var(--bx-text-3);
+  text-align: right;
+}
+
+.cerca-seguir { color: #ffcf73; }
+
+.cerca-vacio {
+  margin: 0;
+  padding: 4px 16px 14px;
+  font: 500 13px/1.45 var(--bx-font);
+  color: var(--bx-text-2);
+}
+
+// La parada más cercana y el camino a pie, al pie de la lista.
+.cerca-pie {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(47, 139, 255, 0.08);
+
+  > ion-icon { flex: none; font-size: 22px; color: var(--bx-blue-bright); }
+}
+
+.cerca-pie-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  strong {
+    font: 700 13px/1.25 var(--bx-font);
+    color: var(--bx-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  span { font: 500 12px/1 var(--bx-font); color: var(--bx-text-2); }
+}
+
+// Los controles del mapa se apoyan sobre la hoja, mida lo que mida.
+@media (max-width: 899px) {
+  .map-controls.lifted-cerca {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bx-dock-alto) + var(--bx-hoja-alto, 260px) + 20px);
+  }
+}
+
+@media (min-width: 900px) {
+  .cerca-hoja { display: none; }
+  // La respuesta primero: "Cerca tuyo" arriba de la lista de empresas.
+  .empresas-sidebar .ds-inicio { order: -1; }
+}
+
+// ============================================================================
+// HOJA DE RUTA: pizarra y recorrido
+// ============================================================================
+.rs-main .bx-pizarra { flex: none; }
+
+.rec {
+  margin-top: 12px;
+  border-top: 1px solid var(--bx-line);
+}
+
+.rec-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bx-text);
+  font: 800 14px/1 var(--bx-font);
+  cursor: pointer;
+
+  .rec-cuenta { font-size: 11px; font-weight: 600; color: var(--bx-text-3); }
+  ion-icon { margin-left: auto; font-size: 18px; color: var(--bx-text-3); }
+}
+
+// La línea de la ruta, con su color, y las paradas como estaciones.
+.rec-lista {
+  --ruta: var(--bx-green);
+  position: relative;
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 2px 0;
+  max-height: 340px;
+  overflow-y: auto;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 14px;
+    bottom: 14px;
+    width: 4px;
+    border-radius: 2px;
+    background: var(--ruta);
+  }
+
+  li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+    padding-left: 34px;
+  }
+}
+
+.rec-parada {
+  font: 600 13px/1.2 var(--bx-font);
+  color: var(--bx-text-2);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin-top: -5px;
+    border-radius: 50%;
+    background: var(--bx-bg-2);
+    box-shadow: 0 0 0 3px var(--ruta);
+  }
+
+  &.tu { color: var(--bx-text); font-weight: 800; }
+  &.tu::before { background: var(--bx-text); }
+}
+
+.rec-nombre { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.rec-tu {
+  flex: none;
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: var(--bx-text);
+  color: var(--bx-bg-1);
+  font: 800 10px/1 var(--bx-font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+// Un bus entre dos paradas: la flecha dice hacia dónde va.
+.rec-bus {
+  font: 600 12px/1.25 var(--bx-font);
+  color: var(--bx-text-3);
+
+  .rec-ic {
+    position: absolute;
+    left: 3px;
+    top: 50%;
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    background: var(--bx-bg-4);
+    color: var(--bx-text-2);
+    font-size: 12px;
+  }
+
+  .rec-placa { flex: none; font-size: 12px; font-weight: 700; color: var(--bx-text-2); }
+  .rec-nota { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  &.viene {
+    color: var(--bx-text-2);
+    .rec-ic { background: var(--bx-green); color: var(--bx-ink); }
+    .rec-placa { color: var(--bx-green-bright); }
+  }
+
+  &.apagado { opacity: 0.55; }
+}
+
+// ============================================================================
+// PLANIFICADOR: la opción como una barra proporcional
+// ============================================================================
+.vj-op {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--bx-line);
+  border-radius: var(--bx-r-md);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--bx-text);
+  font-family: var(--bx-font);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease), border-color var(--bx-t-fast) var(--bx-ease), transform 80ms var(--bx-ease);
+
+  &:hover { background: rgba(255, 255, 255, 0.09); border-color: var(--bx-line-strong); }
+  &:active { transform: translateY(1px); }
+}
+
+.vj-op-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vj-op-empresa {
+  min-width: 0;
+  font: 600 12px/1 var(--bx-font);
+  color: var(--bx-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vj-total {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+
+  strong { font-size: 24px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+  span { font: 700 12px/1 var(--bx-font); color: var(--bx-text-2); }
+}
+
+.vj-nota {
+  margin: 10px 2px 0;
+  font: 500 12px/1.4 var(--bx-font);
+  color: var(--bx-text-3);
+}
+
+// Cada tramo mide lo que dura: se ve de un vistazo cuánto se camina.
+.vj-barra {
+  display: flex;
+  gap: 3px;
+  height: 26px;
+}
+
+.vj-tramo {
+  min-width: 34px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border-radius: 7px;
+  font: 700 11px/1 var(--bx-font-mono);
+  overflow: hidden;
+
+  ion-icon { flex: none; font-size: 13px; }
+
+  &--pie {
+    color: #cfe4ff;
+    background: repeating-linear-gradient(90deg, rgba(108, 176, 255, 0.34) 0 6px, rgba(108, 176, 255, 0.12) 6px 10px);
+  }
+}
+
+.vj-paradas {
+  font: 600 12px/1.3 var(--bx-font);
+  color: var(--bx-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Pasos del viaje elegido, en la hoja de ruta.
+.vj-paso {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  > div {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-top: 2px;
+  }
+  strong {
+    font: 700 14px/1.25 var(--bx-font);
+    color: var(--bx-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  span {
+    font: 500 12px/1.3 var(--bx-font);
+    color: var(--bx-text-2);
+  }
+}
+
+.vj-ic {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--bx-text);
+  font-size: 18px;
+}
+
+// Lo que pasa ahora con el bus de ese viaje.
+.vj-paso .vj-vivo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 600;
+  color: #ffcf73;
+
+  &::before {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: var(--bx-warning);
+  }
+}
+
+// ============================================================================
+// BOLETO: un objeto con perforación, no una tarjeta más
+// ============================================================================
+.boleto {
+  --boleto-fondo: var(--bx-bg-1);
+  width: 100%;
+  max-width: 360px;
+  margin: auto;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--bx-bg-2);
+  border: 1px solid var(--bx-line-strong);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+
+  &.usado { opacity: 0.6; }
+}
+
+.boleto-arriba {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 18px 20px;
+  background: linear-gradient(180deg, rgba(0, 200, 83, 0.1), rgba(0, 200, 83, 0) 70%);
+}
+
+.boleto-marca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+
+  img { height: 20px; width: auto; }
+  .bx-etq { color: var(--bx-text-2); }
+}
+
+.boleto-estado {
+  margin-left: auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0, 224, 106, 0.14);
+  color: var(--bx-green-bright);
+  font: 800 11px/1 var(--bx-font);
+
+  .usado & { background: var(--bx-line); color: var(--bx-text-3); }
+}
+
+.boleto-nombre {
+  font: 800 22px/1.15 var(--bx-font);
+  letter-spacing: -0.03em;
+  color: var(--bx-text);
+}
+
+.boleto-datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+
+  div { display: flex; flex-direction: column; gap: 5px; }
+  span { font: 600 11px/1 var(--bx-font); color: var(--bx-text-3); }
+  strong { font-size: 14px; color: var(--bx-text); }
+}
+
+// La perforación: una línea de puntos con dos muescas a los costados.
+.boleto-corte {
+  position: relative;
+  height: 0;
+  margin: 0 18px;
+  border-top: 2px dashed rgba(255, 255, 255, 0.16);
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -13px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--boleto-fondo);
+  }
+  &::before { left: -31px; }
+  &::after { right: -31px; }
+}
+
+.boleto-abajo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 18px 18px;
+  text-align: center;
+}
+
+// El QR sobre blanco, con margen: los lectores fallan con poco contraste.
+.boleto-qr {
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+
+  img {
+    display: block;
+    width: clamp(150px, 38vh, 210px);
+    height: clamp(150px, 38vh, 210px);
+  }
+}
+
+.boleto-codigo { font-size: 12px; color: var(--bx-text-3); letter-spacing: 0.04em; }
+
+.boleto-ayuda {
+  margin: 0;
+  font: 600 13px/1.45 var(--bx-font);
+  color: var(--bx-text-2);
+}
+
+// Filas de rutas y boletos con su insignia.
+.ed-ruta-row .ed-ruta-info {
+  align-items: flex-start;
+  gap: 4px;
+}

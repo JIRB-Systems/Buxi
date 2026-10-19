@@ -252,6 +252,34 @@ export class AdminEmpresaService {
     if (error) throw error;
   }
 
+  // ---- CALIFICACIONES DE SUS RUTAS ----
+  // Lectura pública por RLS (ver ChoferService.getCalificacionesDelBus): solo
+  // hacen falta las estrellas para el promedio del resumen.
+  async getCalificacionesDeRutas(rutaIds: string[]): Promise<{ estrellas: number }[]> {
+    if (!rutaIds.length) return [];
+    const { data, error } = await this.supabase
+      .from('calificaciones')
+      .select('estrellas')
+      .in('ruta_id', rutaIds);
+    if (error) throw error;
+    return (data || []) as { estrellas: number }[];
+  }
+
+  // ---- ÚLTIMA SEÑAL DE CADA BUS ----
+  // Para el tablero de flota y para sembrar el mapa al abrir el panel: Realtime
+  // solo avisa de los puntos NUEVOS, así que sin esto un bus que ya venía
+  // transmitiendo aparecía recién con su próximo punto. Mismo recorte por ids
+  // que ChoferService.getUbicacionesFlota (ver el porqué ahí).
+  async getUltimasSenales(busIds: string[]): Promise<BusLocation[]> {
+    if (!busIds.length) return [];
+    const { data, error } = await this.supabase
+      .rpc('latest_bus_locations')
+      .select('bus_id, latitud, longitud, velocidad, timestamp')
+      .in('bus_id', busIds);
+    if (error) throw error;
+    return (data || []) as unknown as BusLocation[];
+  }
+
   // ---- REPORTES DE BUGS ----
   async getReportes(empresaId: string): Promise<ReporteBug[]> {
     const { data, error } = await this.supabase

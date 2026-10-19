@@ -21,7 +21,7 @@
   // que el logo nunca queda más angosto que el texto que lleva dentro.
   //
   // Con `1fr` a los lados, la pista podía quedar más corta que la palabra
-  // "Buxi" —que va con nowrap— y el texto se derramaba encima del buscador,
+  // "Buxmap" —que va con nowrap— y el texto se derramaba encima del buscador,
   // tapando el principio del placeholder. `auto` elimina ese caso por completo
   // en vez de depender de acertar un punto de corte.
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -43,7 +43,7 @@
   }
 
   .dt-mark { height: 32px; width: auto; flex-shrink: 0; display: block; }
-  .dt-word { height: 21px; width: auto; flex-shrink: 0; display: block; }
+  .dt-word { height: 28.6px; margin-bottom: -7.6px; width: auto; flex-shrink: 0; display: block; }
 
   // Mismo vidrio oscuro que el buscador móvil. Era una píldora blanca sólida
   // dentro de una barra oscura: el único elemento claro de todo el chrome.
@@ -260,16 +260,9 @@
     ion-icon { font-size: 20px; }
   }
 
-  // El color de la ruta, como barra: el mismo de su línea en el mapa.
-  .route-color-dot { flex: none; width: 4px; height: 30px; border-radius: 2px; }
-
   .ds-route-info {
     flex: 1; min-width: 0;
-    display: flex; flex-direction: column;
-    strong {
-      font-size: 16px; font-weight: 800; color: var(--bx-text); letter-spacing: -0.01em;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
+    display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
     span {
       font-size: 13px; color: var(--bx-text-2); margin-top: 1px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -343,7 +336,7 @@
 
   .dock-logo { display: block; height: 30px; width: auto; margin-bottom: 18px; }
 
-  .dock-item, .dock-center {
+  .dock-item {
     flex: none;
     width: 58px; height: 56px;
     padding: 0; gap: 4px;
@@ -364,14 +357,8 @@
     }
   }
 
-  // El botón central deja de ser un orbe: en una barra vertical es un ítem más.
-  .dc-orb, .dock-center.active .dc-orb {
-    width: auto; height: auto;
-    background: none; border: 0; box-shadow: none; transform: none;
-  }
-
   // Ajustes, al fondo de la barra.
-  .dock-item:last-child { margin-top: auto; }
+  .dock-item--ajustes { display: flex; margin-top: auto; }
 
   // ---------- Cabecera: buscador sobre el panel, perfil sobre el mapa ----------
   .desktop-topbar {

@@ -24,6 +24,15 @@
   font-display: swap;
 }
 
+// JetBrains Mono para placas, horas y cifras (31 KB, también variable).
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/assets/fonts/jetbrains-mono-latin-var.woff2') format('woff2');
+  font-weight: 500 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -71,14 +80,14 @@ ion-content {
 }
 
 // ====== Controles de Ionic ======
+// El relieve, los tamaños y las variantes de ion-button viven en
+// theme/componentes.scss, junto al resto del sistema de botones.
 ion-button {
   // Ionic en modo Material pone mayúsculas y espaciado ancho; se ve a
   // formulario de 2015 y no es como habla el resto de la app.
   text-transform: none;
   letter-spacing: 0;
   font-weight: 700;
-  --border-radius: var(--bx-r-md);
-  --box-shadow: none;
 }
 
 ion-input,
@@ -179,12 +188,15 @@ ion-modal {
   gap: 9px;
 
   .bx-mark { height: 32px; width: auto; flex: none; }
-  .bx-name { height: 21px; width: auto; flex: none; }
+  // El dibujo del nombre deja lugar abajo para la cola de la p (27 % del
+  // alto). El margen negativo lo saca del centrado: así se alinean las
+  // mayúsculas con la B, no la caja con el descendente.
+  .bx-name { height: 28.6px; margin-bottom: -7.6px; width: auto; flex: none; }
 
   &--lg {
     gap: 13px;
     .bx-mark { height: 48px; }
-    .bx-name { height: 32px; }
+    .bx-name { height: 43.6px; margin-bottom: -11.6px; }
   }
 }
 
