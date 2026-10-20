@@ -1,0 +1,68 @@
+# Despliega la app a producción en Vercel en cada push a main.
+#
+# Por qué existe: Vercel en plan Hobby no despliega solo un repositorio
+# privado que pertenece a una organización de GitHub (el check de cada commit
+# decía "Cannot deploy from a private GitHub organization repository on the
+# Hobby plan"). El CLI de Vercel sí puede: compila acá, en GitHub, y sube el
+# resultado ya armado.
+#
+# Necesita un solo secreto del repo: VERCEL_TOKEN (Settings → Secrets and
+# variables → Actions). Los ids del equipo y del proyecto no son secretos.
+
+name: Deploy a Vercel
+
+on:
+  push:
+    branches: [main]
+    # Solo cuando cambia la app: un cambio en supabase/ o en diseno/ no la
+    # vuelve a desplegar ni gasta minutos de build.
+    paths:
+      - 'buxi-app/**'
+      - '.github/workflows/deploy-vercel.yml'
+  workflow_dispatch:
+
+# Un deploy a la vez; si llegan dos push seguidos, el viejo se cancela.
+concurrency:
+  group: vercel-produccion
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: team_0mWleBN2Eepudlpm17E4uLdp
+  VERCEL_PROJECT_ID: prj_wxuWuU2IrhQ39uA8CnTFvqCxgcQS
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: buxi-app/package-lock.json
+
+      - name: Instalar el CLI de Vercel
+        run: npm install --global vercel@62.4.0
+
+      # Trae la configuración del proyecto (carpeta raíz buxi-app, variables
+      # de producción). Se corre desde la raíz del repo: el CLI respeta la
+      # carpeta raíz configurada en Vercel.
+      - name: Traer la configuración de Vercel
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Compilar
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Desplegar a producción
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
