@@ -20,11 +20,27 @@ import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
 import { AnuncioFormComponent } from './anuncio-form.component';
 import { descargarFacturaPDF } from '../../../core/utils/factura-pdf';
+import { REGLA_CLAVE, claveValida, generarClaveTemporal } from '../../../core/utils/clave';
+
+interface AccionAtencion { texto: string; estilo: 'pri' | 'sec' | 'ghost'; hacer: () => void; }
+
+// Una tarjeta de "Requiere tu atención" (mismo formato que en el panel de
+// empresa).
+interface Atencion {
+  clave: string;
+  tipo: string;
+  grave?: boolean;
+  cuando?: string | null;
+  ruta?: Ruta | null;
+  titulo: string;
+  texto: string;
+  acciones: AccionAtencion[];
+}
 
 @Component({
   selector: 'app-admin-dashboard',
   templateUrl: './admin-dashboard.page.html',
-  styleUrls: ['./admin-dashboard.page.scss'],
+  styleUrls: ['./admin-dashboard.page.scss', '../../../shared/consola/consola.scss'],
   standalone: false,
 })
 export class AdminDashboardPage implements OnInit, OnDestroy {
@@ -74,44 +90,53 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   // tapaba la pantalla y había que cerrarlo antes de ver nada.
   sidebarOpen = window.innerWidth > 768;
 
-  topNavItems = [
-    { id: 'overview', icon: 'grid-outline', label: 'Dashboard' },
-    { id: 'mapa', icon: 'map-outline', label: 'Mapa en vivo' },
+  // Agrupado por lo que JIRB viene a hacer: mirar la operación en vivo,
+  // controlar lo que se reporta y atender el negocio. Mismo esqueleto que el
+  // panel de empresa (ver shared/consola).
+  readonly menuGrupos = [
+    { titulo: 'Operación', items: [
+      { id: 'overview', icon: 'grid-outline', label: 'Resumen' },
+      { id: 'mapa', icon: 'map-outline', label: 'Mapa en vivo' },
+      { id: 'buses', icon: 'bus-outline', label: 'Flota' },
+      { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
+      { id: 'empresas', icon: 'business-outline', label: 'Empresas' },
+    ]},
+    { titulo: 'Control', items: [
+      { id: 'emergencias', icon: 'alert-circle-outline', label: 'Emergencias' },
+      { id: 'alertas', icon: 'warning-outline', label: 'Alertas GPS' },
+      { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
+      { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
+      { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
+    ]},
+    { titulo: 'Negocio', items: [
+      { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
+      { id: 'planes', icon: 'card-outline', label: 'Planes' },
+      { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
+      { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
+      { id: 'publicidad', icon: 'film-outline', label: 'Publicidad' },
+      { id: 'usuarios', icon: 'people-outline', label: 'Usuarios' },
+    ]},
+    { titulo: 'Sistema', items: [
+      { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
+      { id: 'config', icon: 'settings-outline', label: 'Configuración' },
+    ]},
   ];
 
-  navGroups = [
-    {
-      label: 'OPERACIÓN',
-      items: [
-        { id: 'empresas', icon: 'business-outline', label: 'Empresas' },
-        { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
-        { id: 'buses', icon: 'bus-outline', label: 'Buses' },
-        { id: 'usuarios', icon: 'people-outline', label: 'Usuarios' },
-      ],
-    },
-    {
-      label: 'CONTROL',
-      items: [
-        { id: 'emergencias', icon: 'alert-circle-outline', label: 'Emergencias' },
-        { id: 'viajes', icon: 'swap-horizontal-outline', label: 'Viajes' },
-        { id: 'alertas', icon: 'warning-outline', label: 'Alertas GPS' },
-        { id: 'calificaciones', icon: 'star-outline', label: 'Reseñas' },
-        { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
-      ],
-    },
-    {
-      label: 'ADMINISTRACIÓN',
-      items: [
-        { id: 'planes', icon: 'card-outline', label: 'Planes' },
-        { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
-        { id: 'solicitudes', icon: 'mail-outline', label: 'Solicitudes' },
-        { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos' },
-        { id: 'publicidad', icon: 'film-outline', label: 'Publicidad' },
-        { id: 'logs', icon: 'document-text-outline', label: 'Actividad' },
-        { id: 'config', icon: 'settings-outline', label: 'Configuración' },
-      ],
-    },
-  ];
+  cuentaNav(id: string): number | null {
+    switch (id) {
+      case 'mapa': return this.stats.busesEnRuta;
+      case 'buses': return this.buses.length;
+      case 'rutas': return this.rutas.length;
+      case 'empresas': return this.empresas.length;
+      case 'alertas': return this.anomalias.length;
+      default: return null;
+    }
+  }
+
+  // En teléfono: tres destinos fijos abajo y "Más" abre el menú completo.
+  readonly TABS_TELEFONO = ['overview', 'mapa', 'empresas'];
+  get enMas(): boolean { return !this.TABS_TELEFONO.includes(this.activeTab); }
+  abrirMas() { this.sidebarOpen = true; }
 
   stats = {
     totalEmpresas: 0, totalRutas: 0, totalBuses: 0, totalChoferes: 0,
@@ -173,6 +198,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     // sin escuchar el evento, el icono quedaria mostrando el estado anterior.
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     this.fixContentOffset();
+    this.relojTimer = setInterval(() => this.ahora = Date.now(), 5000);
     try {
       this.profile = await this.supabase.getProfile();
       await this.loadData();
@@ -239,6 +265,291 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.suscripcionMap.set(s.empresa_id, s);
     }
     this.applyUserFilter();
+    this.armarSenales();
+    this.armarAtencion();
+  }
+
+  // ---- RESUMEN ----
+  // Reloj de la pantalla: con él avanzan "hace 12 s" y la hora del encabezado.
+  ahora = Date.now();
+  private relojTimer: any = null;
+  atencion: Atencion[] = [];
+  // En teléfono se ven las dos primeras; el resto, a pedido.
+  atencionAbierta = false;
+  // Última posición de cada bus, por id. La arma loadData y la mantiene al día
+  // el canal de Realtime del mapa.
+  senales: Record<string, BusLocation> = {};
+  readonly FLOTA_MAX = 8;
+  readonly BITACORA_MAX = 6;
+  private readonly SENAL_VIEJA_MS = 45000;
+  private readonly ORDEN_ESTADO: Record<string, number> = { en_ruta: 0, activo: 1, mantenimiento: 2, inactivo: 3 };
+
+  get flota(): Bus[] {
+    return [...this.buses].sort((a, b) =>
+      (this.ORDEN_ESTADO[a.estado] ?? 4) - (this.ORDEN_ESTADO[b.estado] ?? 4) || a.placa.localeCompare(b.placa));
+  }
+
+  private senalFresca(b: Bus): BusLocation | null {
+    const s = this.senales[b.id];
+    return s && this.ahora - Date.parse(s.timestamp) <= this.SENAL_VIEJA_MS ? s : null;
+  }
+
+  // Color más palabra (ver .bx-estado). Un bus "en ruta" que dejó de mandar
+  // posición no se pinta verde: es justo el que hay que mirar.
+  estadoClase(b: Bus): string {
+    switch (b.estado) {
+      case 'en_ruta': {
+        const s = this.senalFresca(b);
+        if (!s) return 'bx-estado--alerta';
+        return (s.velocidad || 0) < 3 ? 'bx-estado--detenido' : 'bx-estado--ruta';
+      }
+      case 'mantenimiento': return 'bx-estado--taller';
+      case 'inactivo': return 'bx-estado--inactivo';
+      default: return '';
+    }
+  }
+
+  estadoTexto(b: Bus): string {
+    switch (b.estado) {
+      case 'en_ruta': {
+        const s = this.senalFresca(b);
+        if (!s) return 'Sin señal';
+        return (s.velocidad || 0) < 3 ? 'Detenido' : 'En ruta';
+      }
+      case 'activo': return 'Disponible';
+      case 'mantenimiento': return 'En taller';
+      case 'inactivo': return 'Inactivo';
+      default: return b.estado;
+    }
+  }
+
+  velocidadDe(b: Bus): number | null {
+    if (b.estado !== 'en_ruta') return null;
+    const s = this.senalFresca(b);
+    return s ? Math.round(s.velocidad || 0) : null;
+  }
+
+  senalDe(b: Bus): string {
+    const s = this.senales[b.id];
+    const ts = s ? Date.parse(s.timestamp) : NaN;
+    return isNaN(ts) ? '—' : this.edad(ts);
+  }
+
+  get ultimaSenal(): string | null {
+    const ts = Object.values(this.senales).map(s => Date.parse(s.timestamp)).filter(t => !isNaN(t));
+    return ts.length ? this.edad(Math.max(...ts)) : null;
+  }
+
+  get fechaHora(): string {
+    const d = new Date(this.ahora);
+    const dia = new Intl.DateTimeFormat('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+      .format(d).replace(/\./g, '').replace(',', '');
+    const hora = new Intl.DateTimeFormat('es-CR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    return `${dia} · ${hora}`.toUpperCase();
+  }
+
+  horaDe(iso: string): string {
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '—'
+      : new Intl.DateTimeFormat('es-CR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  }
+
+  // "12 s", "4 min", "3 h", "2 d": la edad de algo, corta, para columnas.
+  private edad(ts: number): string {
+    const seg = Math.max(0, Math.round((this.ahora - ts) / 1000));
+    if (seg < 60) return `${seg} s`;
+    const min = Math.round(seg / 60);
+    if (min < 60) return `${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 48) return `${h} h`;
+    return `${Math.round(h / 24)} d`;
+  }
+
+  private hace(iso: string | null | undefined): string | null {
+    const ts = iso ? Date.parse(iso) : NaN;
+    return isNaN(ts) ? null : 'hace ' + this.edad(ts);
+  }
+
+  private listaNatural(partes: string[]): string {
+    if (partes.length <= 1) return partes[0] || '';
+    return partes.slice(0, -1).join(', ') + ' y ' + partes[partes.length - 1];
+  }
+
+  get iniciales(): string {
+    const p = (this.profile?.nombre_completo || '').trim().split(/\s+/).filter(Boolean);
+    return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '·';
+  }
+
+  // ---- Indicadores ----
+  get segmentosFlota(): string[] { return this.flota.map(b => b.estado); }
+
+  get restoFlota(): string {
+    const n = (e: string) => this.buses.filter(b => b.estado === e).length;
+    const partes = ([
+      [n('activo'), 'disponible', 'disponibles'],
+      [n('mantenimiento'), 'en taller', 'en taller'],
+      [n('inactivo'), 'inactivo', 'inactivos'],
+    ] as [number, string, string][]).filter(([c]) => c > 0).map(([c, uno, varios]) => `${c} ${c === 1 ? uno : varios}`);
+    if (this.buses.length === 0) return 'Todavía no hay buses';
+    return partes.length ? partes.join(' · ') : 'Toda la flota está en ruta';
+  }
+
+  get viajesSemana(): number { return this.viajesPorDia.reduce((s, d) => s + d.count, 0); }
+  get maxViajesDia(): number { return Math.max(1, ...this.viajesPorDia.map(d => d.count)); }
+
+  get hallazgoViajes(): string {
+    const dias = this.viajesPorDia;
+    if (!this.viajesSemana) return 'Ninguno en los últimos 7 días';
+    const hoy = dias[dias.length - 1];
+    const mejor = dias.reduce((m, d) => d.count > m.count ? d : m, dias[0]);
+    if (mejor === hoy) return `Hoy es el mejor día, con ${hoy.count}`;
+    return `Hoy ${hoy.count} · el mejor día, el ${mejor.label} con ${mejor.count}`;
+  }
+
+  get promedioTexto(): string | null {
+    if (!this.calificaciones.length) return null;
+    const p = this.calificaciones.reduce((s, c) => s + c.estrellas, 0) / this.calificaciones.length;
+    return p.toLocaleString('es-CR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  get repartoCalificacion(): { estrellas: number; n: number }[] {
+    return [5, 4, 3, 2, 1]
+      .map(e => ({ estrellas: e, n: this.calificaciones.filter(c => c.estrellas === e).length }))
+      .filter(r => r.n > 0);
+  }
+
+  get notaCalificacion(): string {
+    const n = this.calificaciones.length;
+    if (!n) return 'Todavía sin reseñas';
+    return `${n} ${n === 1 ? 'reseña' : 'reseñas'} · ` + this.repartoCalificacion.map(r => `${r.n} de ${r.estrellas}★`).join(', ');
+  }
+
+  esActiva(e: Empresa): boolean { return e.estado === 'activo' || e.estado === 'activa'; }
+
+  get empresasActivas(): number { return this.empresas.filter(e => this.esActiva(e)).length; }
+
+  get notaEmpresas(): string {
+    const inactivas = this.empresas.filter(e => !this.esActiva(e));
+    if (!this.empresas.length) return 'Todavía no hay empresas';
+    if (!inactivas.length) return 'Todas activas';
+    return this.listaNatural(inactivas.slice(0, 2).map(e => e.nombre))
+      + (inactivas.length > 2 ? ` y ${inactivas.length - 2} más` : '')
+      + (inactivas.length === 1 ? ', inactiva' : ', inactivas');
+  }
+
+  get lineaEnOrden(): string {
+    const partes: string[] = [];
+    if (!this.pendingEmergenciasJirb) partes.push('Sin emergencias abiertas');
+    if (!this.anomalias.length) partes.push('sin alertas de GPS');
+    if (!this.pendingReportes) partes.push('sin reportes por responder');
+    const t = partes.join(' · ');
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  // ---- Requiere tu atención ----
+  // Lo que pide una decisión de JIRB, de lo más grave a lo menos. Se arma
+  // después de cada carga: las acciones son funciones y no tiene sentido
+  // rehacerlas en cada ciclo de Angular.
+  private armarAtencion() {
+    const lista: Atencion[] = [];
+
+    const emerg = this.emergenciasJirb.filter(r => r.estado === 'pendiente');
+    if (emerg.length) {
+      const e = emerg[0];
+      const quien = e.empresa?.nombre || 'una empresa';
+      lista.push({
+        clave: 'emergencia', tipo: 'Emergencia', grave: true, cuando: this.hace(e.created_at),
+        titulo: emerg.length === 1 ? `Botón de pánico en ${quien}` : `${emerg.length} emergencias sin resolver`,
+        texto: emerg.length === 1
+          ? `${e.autor?.nombre_completo || 'Un chofer'} la activó. La empresa la cierra desde su panel.`
+          : `La última, de ${quien}.`,
+        acciones: [{ texto: 'Ver emergencias', estilo: 'pri', hacer: () => this.switchTab('emergencias') }],
+      });
+    }
+
+    const solic = this.solicitudes.filter(s => s.estado === 'pendiente');
+    if (solic.length) {
+      const nombres = solic.slice(0, 2).map(s => s.nombre_empresa);
+      lista.push({
+        clave: 'solicitudes', tipo: 'Alta de empresa', cuando: this.hace(solic[solic.length - 1]?.created_at),
+        titulo: solic.length === 1 ? `${solic[0].nombre_empresa} espera aprobación` : `${solic.length} empresas esperan aprobación`,
+        texto: solic.length === 1
+          ? `${solic[0].nombre_contacto || 'Sin contacto'} · ${solic[0].email || 'sin correo'}`
+          : this.listaNatural(nombres) + (solic.length > 2 ? ` y ${solic.length - 2} más.` : '.'),
+        acciones: [
+          { texto: 'Revisar', estilo: 'pri', hacer: () => this.switchTab('solicitudes') },
+        ],
+      });
+    }
+
+    if (this.solicitudesPlan.length) {
+      const s = this.solicitudesPlan[0];
+      const emp = (s as any).empresa;
+      lista.push({
+        clave: 'plan', tipo: 'Cambio de plan', cuando: this.hace(s.created_at),
+        titulo: this.solicitudesPlan.length === 1
+          ? `${emp?.nombre || 'Una empresa'} pide el plan ${(s as any).plan?.nombre || ''}`.trim()
+          : `${this.solicitudesPlan.length} empresas piden cambiar de plan`,
+        texto: 'El cambio se aplica a mano: no hay pasarela de pago.',
+        acciones: [this.solicitudesPlan.length === 1 && emp
+          ? { texto: 'Revisar', estilo: 'sec', hacer: () => this.changePlan(emp) }
+          : { texto: 'Ver solicitudes', estilo: 'sec', hacer: () => this.switchTab('planes') }],
+      });
+    }
+
+    const abiertos = this.reportesNoEmergencia.filter(r => r.estado === 'pendiente');
+    if (abiertos.length) {
+      const r = abiertos[0];
+      lista.push({
+        clave: 'reporte', tipo: 'Reporte abierto', cuando: this.hace(r.created_at),
+        titulo: abiertos.length === 1 ? `“${r.titulo}”` : `${abiertos.length} reportes sin responder`,
+        texto: abiertos.length === 1
+          ? `${r.empresa?.nombre || 'Una empresa'}: ${r.descripcion}`.slice(0, 140)
+          : `El más reciente: “${r.titulo}”, de ${r.empresa?.nombre || 'una empresa'}.`,
+        acciones: [abiertos.length === 1
+          ? { texto: 'Responder', estilo: 'sec', hacer: () => this.responderReporte(r) }
+          : { texto: 'Ver reportes', estilo: 'sec', hacer: () => this.switchTab('reportes') }],
+      });
+    }
+
+    const vencidas = this.suscripciones.filter(s => s.estado === 'vencida'
+      || (s.estado === 'activa' && !!s.fecha_fin && Date.parse(s.fecha_fin) < this.ahora));
+    if (vencidas.length) {
+      const s = vencidas[0];
+      lista.push({
+        clave: 'vencida', tipo: 'Suscripción vencida', grave: true,
+        titulo: vencidas.length === 1 ? (s.empresa?.nombre || 'Una empresa') : `${vencidas.length} suscripciones vencidas`,
+        texto: vencidas.length === 1 ? `Venció el plan ${s.plan?.nombre || ''}.`.replace(' .', '.') : this.listaNatural(vencidas.slice(0, 3).map(v => v.empresa?.nombre || '—')) + '.',
+        acciones: [{ texto: 'Ver planes', estilo: 'sec', hacer: () => this.switchTab('planes') }],
+      });
+    }
+
+    if (this.anomalias.length) {
+      const a = this.anomalias[0];
+      lista.push({
+        clave: 'gps', tipo: 'Alerta de GPS', cuando: this.hace(a.timestamp),
+        titulo: this.anomalias.length === 1 ? `Un salto raro en el GPS de ${(a.bus as any)?.placa || 'un bus'}` : `${this.anomalias.length} saltos de GPS sin revisar`,
+        texto: 'Posiciones que implican más de 200 km/h desde la anterior: señal mala o un GPS falseado.',
+        acciones: [{ texto: 'Revisar', estilo: 'sec', hacer: () => this.switchTab('alertas') }],
+      });
+    }
+
+    this.atencion = lista;
+  }
+
+  trackAtencion = (_: number, a: Atencion) => a.clave;
+  trackBus = (_: number, b: Bus) => b.id;
+
+  private armarSenales() {
+    const s: Record<string, BusLocation> = {};
+    for (const l of this.liveLocations) s[l.bus_id] = l;
+    this.senales = s;
+  }
+
+  private registrarSenal(loc: BusLocation) {
+    const previa = this.senales[loc.bus_id];
+    if (previa && Date.parse(previa.timestamp) > Date.parse(loc.timestamp)) return;
+    this.senales = { ...this.senales, [loc.bus_id]: { ...previa, ...loc, bus: previa?.bus } as BusLocation };
   }
 
   switchTab(tab: string) {
@@ -520,10 +831,11 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     const sb = supabaseClient();
     this.realtimeChannel = sb.channel('admin-live-map')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bus_locations' }, (payload) => {
+        const loc = payload.new as BusLocation;
+        this.registrarSenal(loc);
         // En modo histórico los markers en pantalla son de otro día; una
         // llegada en vivo no debe pisarlos.
         if (this.historicalMode) return;
-        const loc = payload.new as BusLocation;
         this.addAdminBusMarker(loc);
       })
       .subscribe();
@@ -886,6 +1198,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   ngOnDestroy() {
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
+    if (this.relojTimer) clearInterval(this.relojTimer);
     this.stopPlayback();
     if (this.adminMap) this.adminMap.remove();
     if (this.realtimeChannel) {
@@ -1149,16 +1462,27 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     return this.solicitudes.filter(s => s.estado === 'pendiente').length;
   }
 
+  // La clave temporal sale nueva y aleatoria en cada aprobación (antes era la
+  // misma clave fija para todas las empresas). Va visible para que JIRB la
+  // pueda copiar y pasársela a la empresa, y se puede cambiar por otra que
+  // cumpla la misma regla.
   async approveSolicitud(sol: any) {
+    const sugerida = generarClaveTemporal();
     const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
       header: 'Aprobar solicitud',
-      message: `Se creará la empresa "${sol.nombre_empresa}" y una cuenta admin_empresa para ${sol.email}`,
+      message: `Se creará la empresa "${sol.nombre_empresa}" y una cuenta de administrador para ${sol.email}. Esta es su contraseña temporal: copiala antes de aprobar.`,
       inputs: [
-        { name: 'password', placeholder: 'Contraseña temporal para el admin', type: 'password', value: 'Buxi2024!' },
+        { name: 'password', placeholder: 'Contraseña temporal', type: 'text', value: sugerida,
+          attributes: { autocomplete: 'off', spellcheck: false } },
       ],
       buttons: [
         { text: 'Cancelar', role: 'cancel' },
         { text: 'Aprobar y crear', handler: async (data) => {
+          const clave = (data?.password || '').trim();
+          if (!claveValida(clave)) {
+            this.showToast(`La contraseña necesita ${REGLA_CLAVE}`, 'danger');
+            return false;
+          }
           const loading = await this.loadingCtrl.create({ message: 'Creando empresa y cuenta...' });
           await loading.present();
           try {
@@ -1172,14 +1496,16 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
             });
 
             await this.admin.createAdminEmpresa(
-              sol.email, data.password || 'Buxi2024!',
+              sol.email, clave,
               sol.nombre_contacto, empresa.id
             );
 
             await this.admin.updateSolicitud(sol.id, 'aprobada');
             await this.logAction('Aprobar solicitud', `${sol.nombre_empresa} + cuenta ${sol.email}`, 'solicitud', sol.id);
             await this.loadData();
-            this.showToast(`Empresa y cuenta admin creadas. Credenciales: ${sol.email}`);
+            await loading.dismiss();
+            await this.mostrarCredenciales(sol.email, clave);
+            return true;
           } catch (e: any) {
             this.showToast(e?.message || 'Error al aprobar', 'danger');
           }
@@ -1189,6 +1515,25 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       ],
     });
     await alert.present();
+  }
+
+  // Un aviso que se cierra solo en 2 s no alcanza para anotar una contraseña:
+  // queda abierta hasta que JIRB la copie o la cierre.
+  private async mostrarCredenciales(email: string, clave: string) {
+    const aviso = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Empresa y cuenta creadas',
+      message: `Pasale estos datos a la empresa. La contraseña no se vuelve a mostrar. Correo: ${esc(email)} · Contraseña: ${esc(clave)}`,
+      buttons: [
+        { text: 'Cerrar', role: 'cancel' },
+        { text: 'Copiar contraseña', handler: () => {
+          navigator.clipboard?.writeText(clave)
+            .then(() => this.showToast('Contraseña copiada'))
+            .catch(() => this.showToast('No se pudo copiar: anotala a mano', 'warning'));
+          return false;
+        }},
+      ],
+    });
+    await aviso.present();
   }
 
   async rejectSolicitud(sol: any) {
@@ -1394,7 +1739,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
 
   getTabTitle(): string {
     const titles: Record<string, string> = {
-      overview: 'Resumen general', mapa: 'Mapa en tiempo real',
+      overview: 'Resumen de la plataforma', mapa: 'Mapa en vivo',
       empresas: 'Gestión de empresas', rutas: 'Gestión de rutas',
       buses: 'Gestión de buses', usuarios: 'Gestión de usuarios',
       viajes: 'Historial de viajes', calificaciones: 'Reseñas y calificaciones',

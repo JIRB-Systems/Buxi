@@ -87,7 +87,7 @@
 
         <div class="tb-acciones" *ngIf="activeTab==='inicio'">
           <span class="bx-mono tb-fecha">{{ fechaHora }}</span>
-          <button type="button" class="bx-btn bx-btn--pri tb-avisar" (click)="nuevaNotificacion()">
+          <button type="button" class="bx-btn bx-btn--pri tb-avisar" aria-label="Avisar a pasajeros" (click)="nuevaNotificacion()">
             <ion-icon name="megaphone-outline" aria-hidden="true"></ion-icon>
             <span>Avisar a pasajeros</span>
           </button>
@@ -108,7 +108,7 @@
               <span class="atencion-n bx-mono">{{ atencion.length }}</span>
               <span class="atencion-linea" aria-hidden="true"></span>
             </div>
-            <div class="atencion-grilla">
+            <div class="atencion-grilla" [class.todas]="atencionAbierta">
               <article class="bx-atencion" *ngFor="let a of atencion; trackBy: trackAtencion" [class.bx-atencion--grave]="a.grave">
                 <div class="atencion-arriba">
                   <span class="bx-atencion__tipo">{{ a.tipo }}</span>
@@ -124,11 +124,15 @@
                 </div>
               </article>
             </div>
+            <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm atencion-mas" *ngIf="atencion.length > 2"
+                    [attr.aria-expanded]="atencionAbierta" (click)="atencionAbierta = !atencionAbierta">
+              {{ atencionAbierta ? 'Ver menos' : 'Ver las ' + atencion.length }}
+            </button>
 
             <div class="card anomalias" *ngIf="verAnomalias && anomalias.length">
               <div class="card-header">
                 <h3>Saltos de GPS</h3>
-                <span class="muted bx-mono">{{ anomalias.length }} sin revisar</span>
+                <span class="muted cifra">{{ anomalias.length }} sin revisar</span>
               </div>
               <ul class="anomalias-lista">
                 <li *ngFor="let a of anomalias">
@@ -206,7 +210,7 @@
             <div class="card flota-card">
               <div class="card-header">
                 <h3>Tu flota</h3>
-                <span class="muted bx-mono">{{ buses.length }} {{ buses.length === 1 ? 'unidad' : 'unidades' }}</span>
+                <span class="muted cifra">{{ buses.length }} {{ buses.length === 1 ? 'unidad' : 'unidades' }}</span>
                 <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm card-accion" (click)="switchTab('buses')">Ver flota</button>
               </div>
               <table class="tabla flota-tabla" *ngIf="buses.length; else sinBuses">
@@ -242,7 +246,7 @@
             <div class="card semana-card">
               <div class="card-header">
                 <h3>Viajes de la semana</h3>
-                <span class="muted bx-mono">{{ tripsChartTotal }} en total</span>
+                <span class="muted cifra">{{ tripsChartTotal }} en total</span>
               </div>
               <div class="semana" role="img" [attr.aria-label]="ariaSemana">
                 <div class="sem-col" *ngFor="let d of tripsChartData; let ult = last" [class.hoy]="ult">
@@ -268,7 +272,7 @@
             <div class="card rutas-card">
               <div class="card-header">
                 <h3>Tus rutas</h3>
-                <span class="muted bx-mono">{{ activeRoutesCount }} activas de {{ rutas.length }}</span>
+                <span class="muted cifra">{{ activeRoutesCount }} activas de {{ rutas.length }}</span>
                 <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm card-accion" (click)="switchTab('rutas')">Ver rutas</button>
               </div>
               <table class="tabla rutas-tabla" *ngIf="rutas.length; else sinRutas">

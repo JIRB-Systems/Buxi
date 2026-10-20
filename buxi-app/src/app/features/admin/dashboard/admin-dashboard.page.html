@@ -1,218 +1,257 @@
 <ion-content [fullscreen]="true" class="dash-shell" [scrollY]="false">
   <div class="layout" [class.sidebar-closed]="!sidebarOpen">
 
-    <!-- ====== SIDEBAR ====== -->
-    <aside class="sidebar">
+    <!-- BARRA LATERAL. En teléfono es el cajón que abre "Más". -->
+    <aside class="sidebar" aria-label="Menú de la consola">
       <div class="sidebar-header">
         <img class="logo-mark" src="assets/brand/buxmap-mark.svg" alt="" />
-        <div class="logo-text" *ngIf="sidebarOpen">
+        <div class="logo-text">
           <img class="logo-name" src="assets/brand/buxmap-nombre.svg" alt="Buxmap" />
-          <span class="logo-sub">Plataforma</span>
+          <span class="logo-sub">Consola · JIRB</span>
         </div>
+        <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm cerrar-cajon"
+                aria-label="Cerrar el menú" (click)="toggleSidebar()">
+          <ion-icon name="close" aria-hidden="true"></ion-icon>
+        </button>
       </div>
 
       <nav class="sidebar-nav">
-        <div
-          class="nav-link"
-          *ngFor="let item of topNavItems"
-          [class.active]="activeTab === item.id"
-          (click)="switchTab(item.id)"
-        >
-          <ion-icon [name]="activeTab === item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
-          <span *ngIf="sidebarOpen">{{ item.label }}</span>
-        </div>
-
-        <div *ngFor="let group of navGroups">
-          <div class="nav-group-label" *ngIf="sidebarOpen">{{ group.label }}</div>
-          <div
-            class="nav-link"
-            *ngFor="let item of group.items"
-            [class.active]="activeTab === item.id"
-            (click)="switchTab(item.id)"
-          >
-            <ion-icon [name]="activeTab === item.id ? item.icon.replace('-outline','') : item.icon"></ion-icon>
-            <span *ngIf="sidebarOpen">{{ item.label }}</span>
-            <span class="nav-badge" *ngIf="item.id === 'solicitudes' && pendingSolicitudes > 0">{{ pendingSolicitudes }}</span>
-            <span class="nav-badge" *ngIf="item.id === 'emergencias' && pendingEmergenciasJirb > 0">{{ pendingEmergenciasJirb > 9 ? '9+' : pendingEmergenciasJirb }}</span>
-          </div>
+        <div class="nav-grupo" *ngFor="let g of menuGrupos">
+          <span class="nav-grupo-titulo">{{ g.titulo }}</span>
+          <button type="button" class="nav-link" *ngFor="let item of g.items"
+                  [class.active]="activeTab===item.id"
+                  [attr.aria-current]="activeTab===item.id ? 'page' : null"
+                  [attr.title]="sidebarOpen ? null : item.label"
+                  (click)="switchTab(item.id)">
+            <ion-icon [name]="activeTab===item.id ? item.icon.replace('-outline','') : item.icon" aria-hidden="true"></ion-icon>
+            <span class="nav-texto">{{ item.label }}</span>
+            <span class="nav-badge" *ngIf="item.id==='emergencias' && pendingEmergenciasJirb > 0">{{ pendingEmergenciasJirb > 9 ? '9+' : pendingEmergenciasJirb }}</span>
+            <span class="nav-badge warn" *ngIf="item.id==='solicitudes' && pendingSolicitudes > 0">{{ pendingSolicitudes > 9 ? '9+' : pendingSolicitudes }}</span>
+            <span class="nav-badge warn" *ngIf="item.id==='reportes' && pendingReportes > 0">{{ pendingReportes > 9 ? '9+' : pendingReportes }}</span>
+            <span class="nav-badge info" *ngIf="item.id==='planes' && solicitudesPlan.length > 0">{{ solicitudesPlan.length }}</span>
+            <span class="nav-cuenta bx-mono" *ngIf="cuentaNav(item.id) !== null"
+                  [class.vivo]="item.id==='mapa' && stats.busesEnRuta > 0">{{ cuentaNav(item.id) }}</span>
+          </button>
         </div>
       </nav>
 
-      <div class="sidebar-footer">
-        <div class="nav-link logout" (click)="onLogout()">
-          <ion-icon name="log-out-outline"></ion-icon>
-          <span *ngIf="sidebarOpen">Cerrar sesión</span>
+      <div class="sidebar-footer" *ngIf="profile">
+        <div class="cuenta">
+          <div class="user-avatar" aria-hidden="true">{{ iniciales }}</div>
+          <div class="cuenta-datos">
+            <strong>{{ profile.nombre_completo }}</strong>
+            <span>Administrador JIRB</span>
+          </div>
+          <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm salir"
+                  aria-label="Cerrar sesión" title="Cerrar sesión" (click)="onLogout()">
+            <ion-icon name="log-out-outline" aria-hidden="true"></ion-icon>
+          </button>
         </div>
       </div>
     </aside>
 
     <div class="sidebar-backdrop" *ngIf="sidebarOpen" (click)="toggleSidebar()"></div>
 
-    <!-- ====== MAIN CONTENT ====== -->
-    <main class="main-content">
+    <!-- CONTENIDO -->
+    <main class="main">
+      <header class="topbar">
+        <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono toggle"
+                [attr.aria-label]="sidebarOpen ? 'Achicar el menú' : 'Agrandar el menú'"
+                [attr.aria-expanded]="sidebarOpen" (click)="toggleSidebar()">
+          <ion-icon name="menu-outline" aria-hidden="true"></ion-icon>
+        </button>
 
-      <!-- Top bar -->
-      <div class="topbar">
-        <ion-icon name="menu-outline" class="menu-toggle" (click)="toggleSidebar()"></ion-icon>
-        <div class="topbar-title">
-          <h1 *ngIf="activeTab !== 'overview'">{{ getTabTitle() }}</h1>
+        <div class="tb-marca">
+          <img src="assets/brand/buxmap-mark.svg" alt="" />
+          <span class="bx-etq">Buxmap · JIRB</span>
         </div>
-        <div class="topbar-user" *ngIf="profile">
-          <div class="user-info">
-            <span class="user-name">{{ profile.nombre_completo }}</span>
-            <span class="user-role">Administrador JIRB</span>
-          </div>
-          <div class="user-dot">{{ profile.nombre_completo.charAt(0) }}<span class="online-dot"></span></div>
-        </div>
-      </div>
 
-      <!-- Scrollable content area -->
-      <div class="content-area">
+        <div class="tb-info">
+          <h1>{{ getTabTitle() }}</h1>
+          <p class="tb-vivo" *ngIf="activeTab==='overview'">
+            <span class="tb-punto" [class.on]="stats.busesEnRuta > 0" aria-hidden="true"></span>
+            <ng-container *ngIf="stats.busesEnRuta > 0; else nadieEnRuta">
+              <span><span class="bx-mono tb-fuerte">{{ stats.busesEnRuta }}</span> de <span class="bx-mono">{{ stats.totalBuses }}</span> buses en ruta</span>
+            </ng-container>
+            <ng-template #nadieEnRuta><span>Ningún bus en ruta ahora</span></ng-template>
+            <ng-container *ngIf="ultimaSenal">
+              <span class="tb-sep" aria-hidden="true">·</span>
+              <span>última señal hace <span class="bx-mono">{{ ultimaSenal }}</span></span>
+            </ng-container>
+          </p>
+        </div>
+
+        <div class="tb-acciones" *ngIf="activeTab==='overview'">
+          <span class="bx-mono tb-fecha">{{ fechaHora }}</span>
+          <button type="button" class="bx-btn bx-btn--pri tb-avisar" *ngIf="pendingSolicitudes > 0" [attr.aria-label]="'Revisar ' + pendingSolicitudes + ' solicitudes'" (click)="switchTab('solicitudes')">
+            <ion-icon name="mail-outline" aria-hidden="true"></ion-icon>
+            <span>Revisar solicitudes</span><span class="bx-kbd">{{ pendingSolicitudes }}</span>
+          </button>
+        </div>
+
+        <button type="button" class="tb-cuenta" *ngIf="profile" aria-label="Tu cuenta y el menú completo" (click)="abrirMas()">{{ iniciales }}</button>
+      </header>
+
+      <div class="content">
 
         <div *ngIf="loading" class="loading-state"><ion-spinner name="crescent"></ion-spinner></div>
 
         <div *ngIf="!loading">
 
-          <!-- ========== OVERVIEW ========== -->
-          <div *ngIf="activeTab==='overview'" class="section">
+          <!-- ========== RESUMEN ========== -->
+          <div *ngIf="activeTab==='overview'" class="page resumen">
 
-            <div class="welcome-header">
-              <h2>¡Bienvenido{{ profile ? ', ' + profile.nombre_completo.split(' ')[0] : '' }}!</h2>
-              <p>Acá tenés un resumen general de la plataforma Buxmap.</p>
-            </div>
-
-            <div class="stats-row">
-              <div class="stat-card">
-                <div class="sc-icon green"><ion-icon name="bus"></ion-icon></div>
-                <div class="sc-body"><div class="sc-val">{{ stats.totalBuses }}</div><div class="sc-lbl">Buses</div></div>
+            <section class="atencion" aria-labelledby="atencion-titulo" *ngIf="atencion.length; else todoEnOrden">
+              <div class="atencion-cabeza">
+                <h2 id="atencion-titulo">Requiere tu atención</h2>
+                <span class="atencion-n bx-mono">{{ atencion.length }}</span>
+                <span class="atencion-linea" aria-hidden="true"></span>
               </div>
-              <div class="stat-card">
-                <div class="sc-icon red"><ion-icon name="person"></ion-icon></div>
-                <div class="sc-body"><div class="sc-val">{{ stats.totalChoferes }}</div><div class="sc-lbl">Choferes</div></div>
-              </div>
-              <div class="stat-card">
-                <div class="sc-icon orange"><ion-icon name="navigate"></ion-icon></div>
-                <div class="sc-body"><div class="sc-val">{{ stats.busesEnRuta }}</div><div class="sc-lbl">En recorrido</div></div>
-              </div>
-              <div class="stat-card">
-                <div class="sc-icon yellow"><ion-icon name="star"></ion-icon></div>
-                <div class="sc-body"><div class="sc-val">{{ stats.promedioGeneral || '-' }}</div><div class="sc-lbl">Calificación</div></div>
-              </div>
-              <div class="stat-card">
-                <div class="sc-icon blue"><ion-icon name="business"></ion-icon></div>
-                <div class="sc-body"><div class="sc-val">{{ stats.totalEmpresas }}</div><div class="sc-lbl">Empresas</div></div>
-              </div>
-              <div class="stat-card">
-                <div class="sc-icon teal"><ion-icon name="git-branch"></ion-icon></div>
-                <div class="sc-body"><div class="sc-val">{{ stats.totalRutas }}</div><div class="sc-lbl">Rutas</div></div>
-              </div>
-              <div class="stat-card">
-                <div class="sc-icon purple"><ion-icon name="people"></ion-icon></div>
-                <div class="sc-body"><div class="sc-val">{{ stats.totalPasajeros }}</div><div class="sc-lbl">Pasajeros</div></div>
-              </div>
-            </div>
-
-            <div class="overview-main">
-              <div class="live-map-container">
-                <div class="panel-header row">
-                  <h3>Mapa en vivo</h3>
-                  <span class="live-dot"></span>
-                  <span class="muted small">Actualizado en tiempo real</span>
-                </div>
-                <div id="admin-map-overview"></div>
-                <div class="map-legend">
-                  <div class="legend-item"><div class="legend-dot green"></div> En ruta</div>
-                  <div class="legend-item"><div class="legend-dot blue"></div> Activo</div>
-                  <div class="legend-item"><div class="legend-dot gray"></div> Inactivo</div>
-                </div>
-              </div>
-
-              <div class="activity-feed">
-                <div class="panel-header row">
-                  <h3>Actividad en tiempo real</h3>
-                  <span class="link-btn" (click)="switchTab('logs')">Ver todo</span>
-                </div>
-                <div class="feed-list">
-                  <div class="feed-item" *ngFor="let log of logs.slice(0, 8)">
-                    <div class="feed-icon" [style.background]="getLogColor(log.accion) + '22'" [style.color]="getLogColor(log.accion)">
-                      <ion-icon [name]="getLogIcon(log.accion)"></ion-icon>
-                    </div>
-                    <div class="feed-body">
-                      <strong>{{ log.accion }}</strong>
-                      <span>{{ log.detalle || log.entidad || '-' }}</span>
-                    </div>
-                    <span class="feed-time">{{ log.created_at | date:'shortTime' }}</span>
+              <div class="atencion-grilla" [class.todas]="atencionAbierta">
+                <article class="bx-atencion" *ngFor="let a of atencion; trackBy: trackAtencion" [class.bx-atencion--grave]="a.grave">
+                  <div class="atencion-arriba">
+                    <span class="bx-atencion__tipo">{{ a.tipo }}</span>
+                    <span class="bx-atencion__cuando" *ngIf="a.cuando">{{ a.cuando }}</span>
                   </div>
-                  <div class="empty" *ngIf="logs.length===0">Sin actividad reciente</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="charts-row">
-              <div class="panel chart-panel">
-                <div class="panel-header"><h3>Viajes por día</h3><span class="muted small">Últimos 7 días</span></div>
-                <svg class="line-chart" viewBox="0 0 320 140" preserveAspectRatio="none">
-                  <polyline
-                    class="line-fill"
-                    [attr.points]="viajesChartFillPoints"
-                  ></polyline>
-                  <polyline
-                    class="line-stroke"
-                    [attr.points]="viajesChartPoints"
-                  ></polyline>
-                  <circle *ngFor="let p of viajesPorDia" [attr.cx]="p.x" [attr.cy]="p.y" r="3.5" class="line-dot"></circle>
-                </svg>
-                <div class="chart-x-labels">
-                  <span *ngFor="let p of viajesPorDia">{{ p.label }}</span>
-                </div>
-              </div>
-
-              <div class="panel chart-panel">
-                <div class="panel-header"><h3>Buses por estado</h3></div>
-                <div class="donut-row">
-                  <svg class="donut-chart" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="48" fill="none" stroke="var(--dash-track)" stroke-width="16"></circle>
-                    <circle
-                      *ngFor="let seg of busEstadoBreakdown"
-                      cx="60" cy="60" r="48" fill="none"
-                      [attr.stroke]="seg.color" stroke-width="16"
-                      [attr.stroke-dasharray]="seg.dash"
-                      [attr.stroke-dashoffset]="seg.offset"
-                      transform="rotate(-90 60 60)"
-                    ></circle>
-                    <text x="60" y="56" text-anchor="middle" class="donut-total">{{ stats.totalBuses }}</text>
-                    <text x="60" y="72" text-anchor="middle" class="donut-total-lbl">Total</text>
-                  </svg>
-                  <div class="donut-legend">
-                    <div class="legend-row" *ngFor="let seg of busEstadoBreakdown">
-                      <div class="legend-dot" [style.background]="seg.color"></div>
-                      <span>{{ seg.label }}</span>
-                      <strong>{{ seg.count }} ({{ seg.pct }}%)</strong>
-                    </div>
+                  <div class="atencion-cuerpo">
+                    <p class="bx-atencion__titulo">{{ a.titulo }}</p>
+                    <p class="bx-atencion__texto">{{ a.texto }}</p>
                   </div>
+                  <div class="bx-atencion__acciones">
+                    <button type="button" class="bx-btn bx-btn--sm" *ngFor="let ac of a.acciones"
+                            [ngClass]="'bx-btn--' + ac.estilo" (click)="ac.hacer()">{{ ac.texto }}</button>
+                  </div>
+                </article>
+              </div>
+              <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm atencion-mas" *ngIf="atencion.length > 2"
+                      [attr.aria-expanded]="atencionAbierta" (click)="atencionAbierta = !atencionAbierta">
+                {{ atencionAbierta ? 'Ver menos' : 'Ver las ' + atencion.length }}
+              </button>
+              <p class="en-orden" *ngIf="lineaEnOrden">
+                <ion-icon name="checkmark" aria-hidden="true"></ion-icon>{{ lineaEnOrden }}
+              </p>
+            </section>
+            <ng-template #todoEnOrden>
+              <p class="en-orden en-orden--solo">
+                <ion-icon name="checkmark" aria-hidden="true"></ion-icon>
+                Nada pendiente: sin emergencias, solicitudes, reportes ni alertas de GPS.
+              </p>
+            </ng-template>
+
+            <!-- Cuatro números con su contexto, en una sola banda -->
+            <section class="kpis" aria-label="Indicadores">
+              <div class="kpi">
+                <span class="kpi-lbl">Buses en ruta</span>
+                <div class="kpi-val">
+                  <span class="bx-mono">{{ stats.busesEnRuta }}</span><span class="kpi-de bx-mono">/ {{ stats.totalBuses }}</span>
                 </div>
+                <div class="kpi-viz kpi-seg" aria-hidden="true">
+                  <span *ngFor="let e of segmentosFlota" [ngClass]="'seg--' + e"></span>
+                </div>
+                <span class="kpi-nota">{{ restoFlota }}</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi-lbl">Viajes · últimos 7 días</span>
+                <div class="kpi-val"><span class="bx-mono">{{ viajesSemana }}</span></div>
+                <div class="kpi-viz kpi-barras" aria-hidden="true">
+                  <span *ngFor="let d of viajesPorDia; let ult = last" [class.hoy]="ult"
+                        [style.height.%]="d.count ? 20 + 80 * d.count / maxViajesDia : 0"></span>
+                </div>
+                <span class="kpi-nota">{{ hallazgoViajes }}</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi-lbl">Calificación de pasajeros</span>
+                <div class="kpi-val">
+                  <span class="bx-mono">{{ promedioTexto || '—' }}</span><span class="kpi-de bx-mono" *ngIf="promedioTexto">/ 5</span>
+                </div>
+                <div class="kpi-viz kpi-seg kpi-seg--reparto" aria-hidden="true">
+                  <span *ngFor="let r of repartoCalificacion" [style.flex-grow]="r.n" [style.opacity]="0.3 + (r.estrellas - 1) * 0.175"></span>
+                </div>
+                <span class="kpi-nota">{{ notaCalificacion }}</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi-lbl">Empresas activas</span>
+                <div class="kpi-val">
+                  <span class="bx-mono">{{ empresasActivas }}</span><span class="kpi-de bx-mono">/ {{ empresas.length }}</span>
+                </div>
+                <div class="kpi-viz kpi-seg" aria-hidden="true">
+                  <span *ngFor="let e of empresas" [class.seg--empresa]="esActiva(e)"></span>
+                </div>
+                <span class="kpi-nota">{{ notaEmpresas }}</span>
+              </div>
+            </section>
+
+            <!-- Mapa y tablero de flota -->
+            <section class="fila vivo-fila" aria-label="Flota en vivo">
+              <div class="card mapa-card live-map-container">
+                <div class="card-header">
+                  <h3>Red en vivo</h3>
+                  <span class="live-badge" *ngIf="stats.busesEnRuta > 0"><span class="pulse-dot"></span>{{ stats.busesEnRuta }} en ruta</span>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm card-accion" (click)="switchTab('mapa')">
+                    Abrir mapa <ion-icon name="arrow-forward" aria-hidden="true"></ion-icon>
+                  </button>
+                </div>
+                <div class="mapa-caja"><div id="admin-map-overview"></div></div>
               </div>
 
-              <div class="panel chart-panel">
-                <div class="panel-header row">
-                  <h3>Empresas por plan</h3>
-                  <span class="link-btn" (click)="switchTab('planes')">Ver reporte</span>
+              <div class="card flota-card">
+                <div class="card-header">
+                  <h3>Tablero de flota</h3>
+                  <span class="muted cifra">{{ buses.length }} {{ buses.length === 1 ? 'unidad' : 'unidades' }}</span>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm card-accion" (click)="switchTab('buses')">Ver flota</button>
                 </div>
-                <div class="bar-list">
-                  <div class="bar-row" *ngFor="let p of empresaPlanBreakdown">
-                    <span class="bar-label">{{ p.label }}</span>
-                    <div class="bar-track"><div class="bar-fill" [style.width]="p.pct + '%'" [style.background]="p.color"></div></div>
-                    <span class="bar-value">{{ p.count }} ({{ p.pct }}%)</span>
-                  </div>
-                  <div class="empty" *ngIf="empresaPlanBreakdown.length===0">Sin datos de planes</div>
-                </div>
+                <table class="tabla flota-tabla" *ngIf="buses.length; else sinBuses">
+                  <thead>
+                    <tr><th scope="col">Unidad</th><th scope="col">Ruta</th><th scope="col">Estado</th><th scope="col" class="num">Señal</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let b of flota | slice:0:FLOTA_MAX; trackBy: trackBus">
+                      <td>
+                        <div class="celda-unidad">
+                          <bx-placa [placa]="b.placa" [apagada]="b.estado==='inactivo'"></bx-placa>
+                          <span class="sub">{{ $any(b.empresa)?.nombre || '—' }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <bx-ruta *ngIf="b.ruta; else sinRuta" [nombre]="b.ruta.nombre" [color]="b.ruta.color" [apagada]="b.estado==='inactivo'"></bx-ruta>
+                      </td>
+                      <td>
+                        <span class="bx-estado" [ngClass]="estadoClase(b)">{{ estadoTexto(b) }}<ng-container *ngIf="velocidadDe(b) !== null"> · <span class="bx-mono">{{ velocidadDe(b) }} km/h</span></ng-container></span>
+                      </td>
+                      <td class="num bx-mono senal">{{ senalDe(b) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <button type="button" class="mas-filas" *ngIf="buses.length > FLOTA_MAX" (click)="switchTab('buses')">
+                  Ver los {{ buses.length }} buses
+                </button>
               </div>
-            </div>
+            </section>
+
+            <!-- Bitácora: quién hizo qué y cuándo -->
+            <section class="card bitacora" aria-labelledby="bitacora-titulo">
+              <div class="card-header">
+                <h3 id="bitacora-titulo">Bitácora</h3>
+                <span class="muted">Cambios hechos desde la consola</span>
+                <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm card-accion" (click)="switchTab('logs')">Ver todo</button>
+              </div>
+              <ol class="bitacora-lista" *ngIf="logs.length; else sinBitacora">
+                <li *ngFor="let log of logs | slice:0:BITACORA_MAX">
+                  <span class="bx-mono bit-hora">{{ horaDe(log.created_at) }}</span>
+                  <span class="bit-texto"><strong>{{ log.accion }}</strong><ng-container *ngIf="log.detalle">: {{ log.detalle }}</ng-container></span>
+                  <span class="bx-etq bit-entidad" *ngIf="log.entidad">{{ log.entidad }}</span>
+                </li>
+              </ol>
+            </section>
+
+            <ng-template #sinRuta><span class="muted">Sin ruta</span></ng-template>
+            <ng-template #sinBuses><div class="vacio-corto">Todavía no hay buses en la plataforma.</div></ng-template>
+            <ng-template #sinBitacora><div class="vacio-corto">Todavía no hay cambios registrados.</div></ng-template>
           </div>
 
           <!-- ========== EMPRESAS ========== -->
           <div *ngIf="activeTab==='empresas'" class="section">
-            <ion-button class="btn-primary" (click)="addEmpresa()"><ion-icon name="add" slot="start"></ion-icon>Nueva empresa</ion-button>
+            <button type="button" class="bx-btn bx-btn--pri btn-primary" (click)="addEmpresa()"><ion-icon name="add" aria-hidden="true"></ion-icon>Nueva empresa</button>
 
             <div class="panel">
               <div class="table-header">
@@ -221,12 +260,12 @@
               <div class="table-row" *ngFor="let e of empresas">
                 <span class="col-expand"><strong>{{ e.nombre }}</strong></span>
                 <span class="col-md muted">{{ e.cedula_juridica || '-' }}</span>
-                <span class="col-sm"><span class="plan-badge" [style.background]="getEmpresaPlanColor(e.id)" (click)="changePlan(e)">{{ getEmpresaPlan(e.id) }}</span></span>
+                <span class="col-sm"><button type="button" class="plan-badge" [style.background]="getEmpresaPlanColor(e.id)" title="Cambiar plan" (click)="changePlan(e)">{{ getEmpresaPlan(e.id) }}</button></span>
                 <span class="col-md muted">{{ e.telefono || e.email || '-' }}</span>
                 <span class="col-sm"><span class="badge" [style.color]="e.estado==='activo'?'#00c853':'#aaa'">{{ e.estado }}</span></span>
                 <span class="col-sm actions">
-                  <ion-icon [name]="e.estado==='activo'?'pause-circle-outline':'play-circle-outline'" (click)="toggleEmpresaStatus(e)"></ion-icon>
-                  <ion-icon name="trash-outline" class="danger" (click)="deleteEmpresa(e)"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" [attr.aria-label]="e.estado==='activo' ? 'Pausar empresa' : 'Activar empresa'" [title]="e.estado==='activo' ? 'Pausar empresa' : 'Activar empresa'" (click)="toggleEmpresaStatus(e)"><ion-icon aria-hidden="true" [name]="e.estado==='activo'?'pause-circle-outline':'play-circle-outline'"></ion-icon></button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn danger" aria-label="Eliminar empresa" title="Eliminar empresa" (click)="deleteEmpresa(e)"><ion-icon aria-hidden="true" name="trash-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="empresas.length===0">No hay empresas</div>
@@ -235,7 +274,7 @@
 
           <!-- ========== RUTAS ========== -->
           <div *ngIf="activeTab==='rutas'" class="section">
-            <ion-button class="btn-primary" (click)="addRuta()"><ion-icon name="add" slot="start"></ion-icon>Nueva ruta</ion-button>
+            <button type="button" class="bx-btn bx-btn--pri btn-primary" (click)="addRuta()"><ion-icon name="add" aria-hidden="true"></ion-icon>Nueva ruta</button>
 
             <div class="panel">
               <div class="table-header">
@@ -248,8 +287,8 @@
                 <span class="col-md muted">{{ $any(r.empresa)?.nombre || '-' }}</span>
                 <span class="col-sm"><span class="badge" [style.color]="r.estado==='activa'?'#00c853':'#aaa'">{{ r.estado }}</span></span>
                 <span class="col-sm actions">
-                  <ion-icon [name]="r.estado==='activa'?'pause-circle-outline':'play-circle-outline'" (click)="toggleRutaStatus(r)"></ion-icon>
-                  <ion-icon name="trash-outline" class="danger" (click)="deleteRuta(r)"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" [attr.aria-label]="r.estado==='activa' ? 'Pausar ruta' : 'Activar ruta'" [title]="r.estado==='activa' ? 'Pausar ruta' : 'Activar ruta'" (click)="toggleRutaStatus(r)"><ion-icon aria-hidden="true" [name]="r.estado==='activa'?'pause-circle-outline':'play-circle-outline'"></ion-icon></button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn danger" aria-label="Eliminar ruta" title="Eliminar ruta" (click)="deleteRuta(r)"><ion-icon aria-hidden="true" name="trash-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="rutas.length===0">No hay rutas</div>
@@ -269,7 +308,7 @@
                 <span class="col-expand muted">{{ $any(b.ruta)?.nombre || 'Sin asignar' }}</span>
                 <span class="col-md muted">{{ b.chofer?.nombre_completo || 'Sin asignar' }}</span>
                 <span class="col-sm actions">
-                  <ion-icon name="trash-outline" class="danger" (click)="deleteBus(b)"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn danger" aria-label="Eliminar bus" title="Eliminar bus" (click)="deleteBus(b)"><ion-icon aria-hidden="true" name="trash-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="buses.length===0">No hay buses</div>
@@ -281,11 +320,11 @@
             <div class="filters-bar">
               <ion-searchbar placeholder="Buscar usuario..." debounce="300" (ionInput)="onUserSearch($event)" class="search-input"></ion-searchbar>
               <div class="role-pills">
-                <span class="pill" [class.active]="userRoleFilter==='todos'" (click)="filterByRole('todos')">Todos</span>
-                <span class="pill" [class.active]="userRoleFilter==='pasajero'" (click)="filterByRole('pasajero')">Pasajeros</span>
-                <span class="pill" [class.active]="userRoleFilter==='chofer'" (click)="filterByRole('chofer')">Choferes</span>
-                <span class="pill" [class.active]="userRoleFilter==='admin_empresa'" (click)="filterByRole('admin_empresa')">Admin Empresa</span>
-                <span class="pill" [class.active]="userRoleFilter==='admin_jirb'" (click)="filterByRole('admin_jirb')">JIRB</span>
+                <button type="button" class="pill" [class.active]="userRoleFilter==='todos'" [attr.aria-pressed]="userRoleFilter==='todos'" (click)="filterByRole('todos')">Todos</button>
+                <button type="button" class="pill" [class.active]="userRoleFilter==='pasajero'" [attr.aria-pressed]="userRoleFilter==='pasajero'" (click)="filterByRole('pasajero')">Pasajeros</button>
+                <button type="button" class="pill" [class.active]="userRoleFilter==='chofer'" [attr.aria-pressed]="userRoleFilter==='chofer'" (click)="filterByRole('chofer')">Choferes</button>
+                <button type="button" class="pill" [class.active]="userRoleFilter==='admin_empresa'" [attr.aria-pressed]="userRoleFilter==='admin_empresa'" (click)="filterByRole('admin_empresa')">Admin Empresa</button>
+                <button type="button" class="pill" [class.active]="userRoleFilter==='admin_jirb'" [attr.aria-pressed]="userRoleFilter==='admin_jirb'" (click)="filterByRole('admin_jirb')">JIRB</button>
               </div>
             </div>
 
@@ -299,8 +338,8 @@
                 <span class="col-sm"><span class="role-chip" [style.background]="getRoleColor(u.rol)">{{ getRoleLabel(u.rol) }}</span></span>
                 <span class="col-sm"><span class="badge" [style.color]="u.estado==='activo'?'#00c853':'#f44336'">{{ u.estado }}</span></span>
                 <span class="col-sm actions">
-                  <ion-icon name="shield-outline" (click)="changeUserRole(u)"></ion-icon>
-                  <ion-icon [name]="u.estado==='activo'?'ban-outline':'checkmark-circle-outline'" [class.danger]="u.estado==='activo'" [class.success]="u.estado!=='activo'" (click)="toggleUserStatus(u)"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Cambiar rol" title="Cambiar rol" (click)="changeUserRole(u)"><ion-icon aria-hidden="true" name="shield-outline"></ion-icon></button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" [class.danger]="u.estado==='activo'" [class.success]="u.estado!=='activo'" [attr.aria-label]="u.estado==='activo' ? 'Bloquear usuario' : 'Reactivar usuario'" [title]="u.estado==='activo' ? 'Bloquear usuario' : 'Reactivar usuario'" (click)="toggleUserStatus(u)"><ion-icon aria-hidden="true" [name]="u.estado==='activo'?'ban-outline':'checkmark-circle-outline'"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="filteredUsers.length===0">Sin resultados</div>
@@ -325,7 +364,7 @@
                 <span class="col-expand muted">{{ c.comentario || 'Sin comentario' }}</span>
                 <span class="col-sm muted">{{ c.created_at | date:'shortDate' }}</span>
                 <span class="col-sm actions">
-                  <ion-icon name="trash-outline" class="danger" (click)="deleteCalificacion(c)"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn danger" aria-label="Eliminar reseña" title="Eliminar reseña" (click)="deleteCalificacion(c)"><ion-icon aria-hidden="true" name="trash-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="calificaciones.length===0">No hay calificaciones</div>
@@ -338,7 +377,7 @@
               <div class="map-search">
                 <ion-icon name="search-outline"></ion-icon>
                 <input type="text" placeholder="Buscar bus por placa..." [(ngModel)]="busSearchQuery" (keyup.enter)="searchBus()" />
-                <ion-icon name="close-circle" *ngIf="busSearchQuery" (click)="clearBusSearch()"></ion-icon>
+                <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Borrar búsqueda" title="Borrar búsqueda" (click)="clearBusSearch()"><ion-icon aria-hidden="true" name="close-circle" *ngIf="busSearchQuery"></ion-icon></button>
               </div>
               <button class="map-toggle-btn" [class.active]="showAnomalyHeatmap" (click)="toggleAnomalyHeatmap()">
                 <ion-icon name="flame-outline"></ion-icon> Anomalías
@@ -353,7 +392,7 @@
 
             <div class="historical-controls" *ngIf="historicalMode">
               <input type="date" [(ngModel)]="historicalDate" [max]="todayStr" (change)="loadHistoricalDay()" (wheel)="blurTarget($event)" />
-              <ion-icon [name]="isPlaying ? 'pause-circle' : 'play-circle'" class="play-btn" (click)="togglePlayback()"></ion-icon>
+              <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn play-btn" [attr.aria-label]="isPlaying ? 'Pausar' : 'Reproducir'" [title]="isPlaying ? 'Pausar' : 'Reproducir'" (click)="togglePlayback()"><ion-icon aria-hidden="true" [name]="isPlaying ? 'pause-circle' : 'play-circle'"></ion-icon></button>
               <input type="range" min="0" max="1439" [(ngModel)]="historicalMinute" (input)="onScrub()" class="scrub" />
               <span class="time-label">{{ formatHistoricalTime(historicalMinute) }}</span>
               <ion-spinner name="crescent" *ngIf="historicalLoading"></ion-spinner>
@@ -374,7 +413,7 @@
               <div class="trail-panel" *ngIf="trailBusPlaca">
                 <ion-icon name="navigate-outline"></ion-icon>
                 <span>Recorrido de {{ trailBusPlaca }} (últimas 2h)</span>
-                <ion-icon name="close" (click)="clearTrail()"></ion-icon>
+                <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Quitar la estela" title="Quitar la estela" (click)="clearTrail()"><ion-icon aria-hidden="true" name="close"></ion-icon></button>
               </div>
             </div>
             <div class="panel" style="margin-top:12px" *ngIf="!historicalMode">
@@ -400,7 +439,7 @@
                 <span class="col-expand muted">{{ $any(a.bus)?.empresa?.nombre || '-' }} · {{ $any(a.bus)?.ruta?.nombre || 'Sin ruta' }}</span>
                 <span class="muted">{{ a.timestamp | date:'short' }}</span>
                 <span class="col-sm actions">
-                  <ion-icon name="checkmark-circle-outline" class="success" (click)="dismissAnomalia(a)" title="Descartar"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn success" aria-label="Descartar" title="Descartar" (click)="dismissAnomalia(a)"><ion-icon aria-hidden="true" name="checkmark-circle-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="anomalias.length===0">Sin alertas — ningún bus registró un salto de posición sospechoso</div>
@@ -429,7 +468,7 @@
                 </div>
                 <span class="badge" [style.color]="getReporteEstadoColor(r.estado)">{{ getReporteEstadoLabel(r.estado) }}</span>
                 <span class="col-sm actions">
-                  <ion-icon name="chatbox-outline" (click)="responderReporte(r)" title="Responder"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Responder" title="Responder" (click)="responderReporte(r)"><ion-icon aria-hidden="true" name="chatbox-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="emergenciasJirb.length===0">No hay emergencias registradas</div>
@@ -452,7 +491,7 @@
                 </div>
                 <span class="badge" [style.color]="getReporteEstadoColor(r.estado)">{{ getReporteEstadoLabel(r.estado) }}</span>
                 <span class="col-sm actions">
-                  <ion-icon name="chatbox-outline" (click)="responderReporte(r)" title="Responder"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Responder" title="Responder" (click)="responderReporte(r)"><ion-icon aria-hidden="true" name="chatbox-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="reportesNoEmergencia.length===0">No hay reportes de empresas</div>
@@ -508,12 +547,10 @@
                   <span class="muted">{{ s.created_at | date:'medium' }}</span>
                 </div>
                 <div class="sol-actions" *ngIf="s.estado === 'pendiente'">
-                  <ion-button size="small" color="success" (click)="approveSolicitud(s)">
-                    <ion-icon name="checkmark" slot="start"></ion-icon> Aprobar
-                  </ion-button>
-                  <ion-button size="small" color="danger" fill="outline" (click)="rejectSolicitud(s)">
-                    <ion-icon name="close" slot="start"></ion-icon> Rechazar
-                  </ion-button>
+                  <button type="button" class="bx-btn bx-btn--pri bx-btn--sm" (click)="approveSolicitud(s)">
+                    <ion-icon name="checkmark" aria-hidden="true"></ion-icon>Aprobar
+                  </button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm" (click)="rejectSolicitud(s)">Rechazar</button>
                 </div>
                 <span *ngIf="s.estado !== 'pendiente'" class="badge" [style.color]="s.estado==='aprobada'?'#00c853':'#f44336'">{{ s.estado }}</span>
               </div>
@@ -537,7 +574,7 @@
 
           <!-- ========== AVISOS DEL SISTEMA ========== -->
           <div *ngIf="activeTab==='avisos'" class="section">
-            <ion-button class="btn-primary" (click)="addAviso()"><ion-icon name="add" slot="start"></ion-icon>Nuevo aviso</ion-button>
+            <button type="button" class="bx-btn bx-btn--pri btn-primary" (click)="addAviso()"><ion-icon name="add" aria-hidden="true"></ion-icon>Nuevo aviso</button>
             <div class="panel">
               <div class="table-row aviso-row" *ngFor="let a of avisos" [class.resolved]="!a.activo">
                 <ion-icon [name]="getAvisoIcon(a.tipo)" [style.color]="getAvisoColor(a.tipo)" class="aviso-icon"></ion-icon>
@@ -547,8 +584,8 @@
                   <span>{{ a.mensaje }}</span>
                 </div>
                 <span class="actions">
-                  <ion-icon [name]="a.activo ? 'pause-circle-outline' : 'play-circle-outline'" (click)="toggleAviso(a)"></ion-icon>
-                  <ion-icon name="trash-outline" class="danger" (click)="deleteAviso(a)"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" [attr.aria-label]="a.activo ? 'Pausar aviso' : 'Activar aviso'" [title]="a.activo ? 'Pausar aviso' : 'Activar aviso'" (click)="toggleAviso(a)"><ion-icon aria-hidden="true" [name]="a.activo ? 'pause-circle-outline' : 'play-circle-outline'"></ion-icon></button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn danger" aria-label="Eliminar aviso" title="Eliminar aviso" (click)="deleteAviso(a)"><ion-icon aria-hidden="true" name="trash-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="avisos.length===0">No hay avisos creados</div>
@@ -557,7 +594,7 @@
 
           <!-- ========== PUBLICIDAD ========== -->
           <div *ngIf="activeTab==='publicidad'" class="section">
-            <ion-button class="btn-primary" (click)="addAnuncio()"><ion-icon name="add" slot="start"></ion-icon>Nuevo anuncio</ion-button>
+            <button type="button" class="bx-btn bx-btn--pri btn-primary" (click)="addAnuncio()"><ion-icon name="add" aria-hidden="true"></ion-icon>Nuevo anuncio</button>
             <div class="panel">
               <div class="table-row anuncio-row" *ngFor="let a of anuncios" [class.resolved]="!a.activo">
                 <div class="anuncio-thumb">
@@ -575,9 +612,9 @@
                 </div>
                 <span class="badge" [style.color]="isAnuncioVigente(a) ? '#00c853' : '#9aa5b4'">{{ isAnuncioVigente(a) ? 'Vigente' : (a.activo ? 'Fuera de fecha' : 'Inactivo') }}</span>
                 <span class="actions">
-                  <ion-icon name="create-outline" (click)="editAnuncio(a)"></ion-icon>
-                  <ion-icon [name]="a.activo ? 'pause-circle-outline' : 'play-circle-outline'" (click)="toggleAnuncio(a)"></ion-icon>
-                  <ion-icon name="trash-outline" class="danger" (click)="deleteAnuncio(a)"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Editar anuncio" title="Editar anuncio" (click)="editAnuncio(a)"><ion-icon aria-hidden="true" name="create-outline"></ion-icon></button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" [attr.aria-label]="a.activo ? 'Pausar anuncio' : 'Activar anuncio'" [title]="a.activo ? 'Pausar anuncio' : 'Activar anuncio'" (click)="toggleAnuncio(a)"><ion-icon aria-hidden="true" [name]="a.activo ? 'pause-circle-outline' : 'play-circle-outline'"></ion-icon></button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn danger" aria-label="Eliminar anuncio" title="Eliminar anuncio" (click)="deleteAnuncio(a)"><ion-icon aria-hidden="true" name="trash-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="anuncios.length===0">No hay anuncios creados</div>
@@ -610,7 +647,7 @@
                 <span class="col-expand">{{ $any(s.empresa)?.nombre }}</span>
                 <span class="col-md">Pide: <strong>{{ $any(s.plan)?.nombre }}</strong></span>
                 <span class="col-md muted">{{ s.created_at | date:'short' }}</span>
-                <span class="link-btn" (click)="changePlan($any(s.empresa))">Revisar</span>
+                <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm" (click)="changePlan($any(s.empresa))">Revisar</button>
               </div>
             </div>
 
@@ -644,7 +681,7 @@
                 <span class="col-md muted">{{ f.fecha | date:'shortDate' }}</span>
                 <span class="col-sm">₡{{ f.monto | number:'1.0-0' }}</span>
                 <span class="col-sm actions">
-                  <ion-icon name="download-outline" (click)="descargarFacturaJirb(f)" title="Descargar PDF"></ion-icon>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Descargar PDF" title="Descargar PDF" (click)="descargarFacturaJirb(f)"><ion-icon aria-hidden="true" name="download-outline"></ion-icon></button>
                 </span>
               </div>
               <div class="empty" *ngIf="facturas.length===0">Todavía no se ha emitido ninguna factura</div>
@@ -674,6 +711,23 @@
 
         </div>
       </div>
+
+      <!-- Teléfono: cuatro destinos en vez de un menú de dieciocho. -->
+      <nav class="tabbar" aria-label="Secciones">
+        <button type="button" class="tab" [class.on]="activeTab==='overview'" [attr.aria-current]="activeTab==='overview' ? 'page' : null" (click)="switchTab('overview')">
+          <ion-icon [name]="activeTab==='overview' ? 'grid' : 'grid-outline'" aria-hidden="true"></ion-icon><span>Resumen</span>
+        </button>
+        <button type="button" class="tab" [class.on]="activeTab==='mapa'" [attr.aria-current]="activeTab==='mapa' ? 'page' : null" (click)="switchTab('mapa')">
+          <ion-icon [name]="activeTab==='mapa' ? 'map' : 'map-outline'" aria-hidden="true"></ion-icon><span>Mapa</span>
+        </button>
+        <button type="button" class="tab" [class.on]="activeTab==='empresas'" [attr.aria-current]="activeTab==='empresas' ? 'page' : null" (click)="switchTab('empresas')">
+          <ion-icon [name]="activeTab==='empresas' ? 'business' : 'business-outline'" aria-hidden="true"></ion-icon><span>Empresas</span>
+        </button>
+        <button type="button" class="tab" [class.on]="enMas" [attr.aria-expanded]="sidebarOpen" (click)="abrirMas()">
+          <ion-icon name="ellipsis-horizontal" aria-hidden="true"></ion-icon><span>Más</span>
+          <span class="tab-alarma" *ngIf="pendingEmergenciasJirb > 0" aria-label="Hay emergencias sin resolver"></span>
+        </button>
+      </nav>
     </main>
   </div>
 </ion-content>

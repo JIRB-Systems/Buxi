@@ -7,6 +7,7 @@ import { AdminDashboardPage } from './admin-dashboard.page';
 import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
 import { AnuncioFormComponent } from './anuncio-form.component';
+import { RutaInsigniaComponent, PlacaComponent } from '../../../shared/transporte/transporte';
 
 @NgModule({
   declarations: [AdminDashboardPage, AvisoFormComponent, ResponderReporteComponent, AnuncioFormComponent],
@@ -14,6 +15,8 @@ import { AnuncioFormComponent } from './anuncio-form.component';
     CommonModule,
     FormsModule,
     IonicModule,
+    RutaInsigniaComponent,
+    PlacaComponent,
     RouterModule.forChild([{ path: '', component: AdminDashboardPage }]),
   ],
 })

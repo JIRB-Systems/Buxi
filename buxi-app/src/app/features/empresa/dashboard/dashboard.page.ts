@@ -43,7 +43,7 @@ interface Atencion {
 @Component({
   selector: 'app-empresa-dashboard',
   templateUrl: './dashboard.page.html',
-  styleUrls: ['./dashboard.page.scss'],
+  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss'],
   standalone: false,
 })
 export class EmpresaDashboardPage implements OnInit, OnDestroy {
@@ -184,6 +184,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private relojTimer: any = null;
   verAnomalias = false;
   atencion: Atencion[] = [];
+  // En teléfono se ven las dos primeras; el resto, a pedido.
+  atencionAbierta = false;
 
   private readonly ORDEN_ESTADO: Record<string, number> = { en_ruta: 0, activo: 1, mantenimiento: 2, inactivo: 3 };
   readonly FLOTA_MAX = 8;

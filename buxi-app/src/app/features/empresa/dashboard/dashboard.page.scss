@@ -11,11 +11,6 @@
 
 .layout {
   display: flex; height: 100vh; overflow: hidden;
-  &.sidebar-closed .sidebar { width: 68px; }
-  &.sidebar-closed .sidebar .logo-text,
-  &.sidebar-closed .sidebar .nav-link span { display: none; }
-  &.sidebar-closed .sidebar .sidebar-header { justify-content: center; }
-  &.sidebar-closed .sidebar .nav-link { justify-content: center; padding: 12px 0; }
 }
 
 // ====== SIDEBAR ======
@@ -87,30 +82,6 @@
 .page { animation: fadeIn 0.15s ease; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .loading { display: flex; justify-content: center; padding: 60px; }
-
-// ====== STATS ======
-.stats-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-
-.stat-card {
-  flex: 1; min-width: 140px; background: var(--dash-surface); border-radius: 14px; padding: 16px;
-  display: flex; align-items: center; gap: 14px;
-  border: 1px solid rgba(255,255,255,0.04);
-
-  .stat-icon {
-    width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
-    // Un solo tratamiento: el color de cada tarjeta no quería decir nada.
-    background: var(--bx-blue-soft);
-    ion-icon { font-size: 20px; color: var(--bx-blue-bright); }
-  }
-
-  .stat-data { display: flex; flex-direction: column;
-    .stat-val { font-size: 28px; font-weight: 800; color: #fff; line-height: 1.1; letter-spacing: -0.02em; }
-    .stat-lbl { font-size: 12px; color: var(--bx-text-2); font-weight: 600; margin-top: 2px; }
-  }
-}
-
-// ====== GRID ======
-.grid-2 { display: flex; gap: 14px; margin-bottom: 16px; }
 
 // MapLibre inyecta los markers fuera de las vistas de Angular: hace falta
 // ::ng-deep para que estas reglas los alcancen.
@@ -194,39 +165,6 @@
 
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-.alert-card {
-  border-color: rgba(255, 193, 7, 0.35); margin-bottom: 14px;
-  .card-header h3 { display: flex; align-items: center; gap: 6px; color: var(--bx-warning); }
-}
-
-.map-card { flex: 1.2; display: flex; flex-direction: column; }
-.mini-map { height: 420px; }
-.map-footer {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px; cursor: pointer; border-top: 1px solid rgba(255,255,255,0.04);
-  span { font-size: 12px; color: var(--bx-green); font-weight: 600; }
-  ion-icon { font-size: 14px; color: var(--bx-green); }
-  &:hover { background: rgba(0,200,83,0.04); }
-}
-
-.card-stack { flex: 0.8; display: flex; flex-direction: column; gap: 14px; }
-
-// ====== MINI LIST ======
-.mini-list { padding: 0 4px 8px; }
-.mini-item {
-  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 13px;
-  &:last-child { border-bottom: none; }
-  &.empty { justify-content: center; color: var(--dash-text-muted); padding: 16px; }
-  .color-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .flex1 { flex: 1; color: var(--bx-text-2); }
-  strong { color: #fff; font-size: 13px; }
-  .muted { color: var(--dash-text-muted); font-size: 11px; }
-  .badge { font-size: 11px; font-weight: 600; text-transform: capitalize; }
-  .status-tag { font-size: 11px; font-weight: 700; color: #fff; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; }
-}
-
 // ====== TABLE ROWS ======
 .table-row {
   display: flex; align-items: center; gap: 10px; padding: 12px 16px;
@@ -309,20 +247,6 @@
   display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0;
 }
 
-.status-tag.lg { font-size: 12px; padding: 6px 14px; border-radius: 8px; }
-
-.resolver-btn {
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(0,200,83,0.12); border: 1px solid rgba(0,200,83,0.35);
-  color: var(--bx-green-bright); font-size: 13px; font-weight: 700;
-  padding: 7px 14px; border-radius: 10px; cursor: pointer;
-  transition: background 0.14s ease;
-
-  ion-icon { font-size: 15px; }
-  &:hover:not(:disabled) { background: rgba(0,200,83,0.2); }
-  &:disabled { opacity: 0.6; cursor: default; }
-}
-
 .factura-row { align-items: flex-start; }
 .factura-icon { font-size: 20px; color: var(--bx-green); margin-top: 1px; flex-shrink: 0; }
 .factura-monto { font-size: 13px; font-weight: 700; color: #fff; margin-right: 4px; font-variant-numeric: tabular-nums; }
@@ -374,56 +298,6 @@
     --background: rgba(0,200,83,0.12); --color: var(--bx-green); --box-shadow: none;
     --border-radius: 10px; font-weight: 600; font-size: 13px; text-transform: none;
   }
-}
-
-// ====== DATOS DE LA EMPRESA (Inicio) ======
-.empresa-info-row {
-  display: flex; align-items: center; gap: 12px;
-  background: var(--dash-surface); border: 1px solid rgba(255,255,255,0.04);
-  border-radius: 14px; padding: 12px 16px; margin-bottom: 14px;
-
-  .ei-logo {
-    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
-    background: rgba(255,255,255,0.06);
-    display: grid; place-items: center; overflow: hidden;
-    img { width: 100%; height: 100%; object-fit: cover; }
-    ion-icon { font-size: 18px; color: var(--dash-text-muted); }
-  }
-  .ei-data {
-    flex: 1; min-width: 0; display: flex; flex-direction: column;
-    strong { color: #fff; font-size: 14px; }
-    .muted { color: var(--dash-text-muted); font-size: 12px; margin-top: 1px; }
-  }
-}
-
-// ====== VIAJES POR DÍA (gráfico de barras) ======
-.trips-card { margin-bottom: 14px; }
-.trips-chart {
-  display: flex; align-items: flex-end; gap: 8px;
-  height: 168px;
-  padding: 4px 16px 14px;
-}
-.tc-col {
-  flex: 1; min-width: 0; height: 100%;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-}
-.tc-val { font-size: 12px; font-weight: 700; color: var(--bx-text-2); min-height: 16px; }
-.tc-track {
-  flex: 1; width: 100%; max-width: 44px;
-  display: flex; align-items: flex-end;
-  border-bottom: 1px solid var(--bx-line-strong);
-}
-.tc-bar {
-  width: 100%; min-height: 2px;
-  border-radius: 6px 6px 0 0;
-  background: var(--bx-green);
-  transition: height var(--bx-t-slow) var(--bx-ease-out), background var(--bx-t-fast) var(--bx-ease);
-}
-.tc-col:hover .tc-bar { background: var(--bx-green-bright); }
-.tc-label { font-size: 12px; font-weight: 600; color: var(--bx-text-3); }
-.tc-empty {
-  text-align: center; padding: 30px 16px 24px;
-  color: var(--dash-text-muted); font-size: 13px;
 }
 
 // ---- REPORTE MENSUAL ----
@@ -505,10 +379,6 @@
   .sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 90; background: rgba(2, 6, 13, 0.6); }
   .topbar { padding: 14px 16px; }
   .content { padding: 16px; }
-  .layout.sidebar-closed .sidebar { width: 0; overflow: hidden; }
-  .stats-row { flex-wrap: wrap; }
-  .stat-card { min-width: calc(50% - 6px); }
-  .grid-2 { flex-direction: column; }
 }
 
 // ====== PERSONALIZACIÓN ======
@@ -604,3 +474,4 @@
   strong { font-size: 14px; color: var(--bx-text); }
   span { font-size: 13px; color: var(--dash-text-muted); line-height: 1.45; }
 }
+
