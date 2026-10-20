@@ -664,3 +664,15 @@
   // terminal con dirección completa se salía por debajo de "Sin horario".
   > * { max-width: 100%; }
 }
+
+// Primero a dónde va la ruta: varias rutas salen de la misma terminal, así
+// que el origen repetido no distingue nada y el destino sí.
+.ed-ruta-destino {
+  font: 600 13px/1.25 var(--bx-font);
+  color: var(--bx-text);
+}
+
+.ed-ruta-origen {
+  font: 500 11px/1.2 var(--bx-font);
+  color: var(--bx-text-3);
+}

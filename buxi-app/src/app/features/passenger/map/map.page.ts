@@ -20,6 +20,7 @@ import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyl
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
 import { rutaCorta, tintaSobre } from '../../../core/utils/marca';
+import { nombreCortoLugar } from '../../../core/utils/lugar';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
@@ -1878,9 +1879,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // (canton, provincia, codigo postal, pais) es contexto que el mapa ya da.
   // El nombre completo sigue disponible en el title, al pasar el cursor.
   private nombreParadaCorto(nombre: string): string {
-    const primero = (nombre || '').split(',')[0].trim();
-    if (!primero) return nombre;
-    return primero.length > 24 ? primero.slice(0, 23).trimEnd() + '…' : primero;
+    return nombreCortoLugar(nombre, 24) || nombre;
+  }
+
+  /** Para las listas: el nombre del lugar sin la dirección entera detrás. */
+  lugarCorto(nombre: string | null | undefined): string {
+    return nombreCortoLugar(nombre, 34);
   }
 
   clearRoute(navigate = true) {

@@ -80,7 +80,7 @@
         </button>
         <div class="ds-route-info">
           <bx-ruta [nombre]="activeRuta.nombre" [color]="activeRuta.color" [grande]="true"></bx-ruta>
-          <span>{{ activeRuta.origen }} → {{ activeRuta.destino }}{{ empresaNombre(activeRuta) ? ' · ' + empresaNombre(activeRuta) : '' }}</span>
+          <span>{{ lugarCorto(activeRuta.origen) }} → {{ lugarCorto(activeRuta.destino) }}{{ empresaNombre(activeRuta) ? ' · ' + empresaNombre(activeRuta) : '' }}</span>
         </div>
       </div>
 
@@ -148,7 +148,7 @@
       </button>
       <div class="route-header-info">
         <bx-ruta [nombre]="activeRuta.nombre" [color]="activeRuta.color"></bx-ruta>
-        <span>{{ empresaNombre(activeRuta) || (activeRuta.origen + ' → ' + activeRuta.destino) }}</span>
+        <span>{{ empresaNombre(activeRuta) || (lugarCorto(activeRuta.origen) + ' → ' + lugarCorto(activeRuta.destino)) }}</span>
       </div>
     </div>
   </div>
@@ -236,7 +236,7 @@
         </div>
         <div class="rs-info" *ngIf="!nearestStop">
           <span class="rs-label">Recorrido</span>
-          <strong>{{ ruta.origen }} → {{ ruta.destino }}</strong>
+          <strong>{{ lugarCorto(ruta.origen) }} → {{ lugarCorto(ruta.destino) }}</strong>
           <span class="rs-sub">Activá tu ubicación para ver cuánto falta</span>
         </div>
       </div>
@@ -455,7 +455,8 @@
       <div class="ed-ruta-row" *ngFor="let r of empresaDetailRutas" (click)="selectRutaFromEmpresaDetail(r)">
         <div class="ed-ruta-info">
           <bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta>
-          <span>{{ r.origen }} → {{ r.destino }}{{ r.precio ? ' · ₡' + (r.precio | number:'1.0-0') : '' }}</span>
+          <span class="ed-ruta-destino">a {{ lugarCorto(r.destino) }}{{ r.precio ? ' · ₡' + (r.precio | number:'1.0-0') : '' }}</span>
+          <span class="ed-ruta-origen">desde {{ lugarCorto(r.origen) }}</span>
         </div>
         <span class="ed-ruta-salida" *ngIf="r.proximaSalidaTexto">{{ r.proximaSalidaTexto }}</span>
         <span class="ed-ruta-salida sin-horario" *ngIf="!r.proximaSalidaTexto">Sin horario</span>
@@ -706,7 +707,7 @@
         <div class="lp-row" *ngFor="let r of panelRutas" (click)="selectRutaFromPanel(r)">
           <div class="lp-info">
             <bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta>
-            <strong>{{ r.origen }} → {{ r.destino }}</strong>
+            <strong>{{ lugarCorto(r.origen) }} → {{ lugarCorto(r.destino) }}</strong>
             <span class="lp-empresa" *ngIf="empresaNombre(r)">{{ empresaNombre(r) }}</span>
           </div>
           <ion-icon

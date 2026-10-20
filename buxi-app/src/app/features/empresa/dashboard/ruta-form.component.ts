@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { FeaturesService } from '../../../core/services/features.service';
 import { Ruta } from '../../../core/models/transport.model';
+import { nombreCortoLugar } from '../../../core/utils/lugar';
 
 interface PlaceSuggestion { label: string; lat: number; lng: number; }
 
@@ -88,16 +89,20 @@ export class RutaFormComponent implements OnInit {
     }, 350);
   }
 
+  // La lista muestra la dirección entera, que es lo que distingue dos lugares
+  // con el mismo nombre; lo que se GUARDA es el nombre corto. Si no, la parada
+  // queda llamándose "Terminal de Buses de Liberia, Calle 12, Los Ángeles,
+  // Liberia, Guanacaste, 50101, Costa Rica" en todas las pantallas.
   pickOrigen(s: PlaceSuggestion) {
-    this.origenSelected = s;
-    this.origenQuery = s.label;
+    this.origenSelected = { ...s, label: nombreCortoLugar(s.label) };
+    this.origenQuery = this.origenSelected.label;
     this.origenSuggestions = [];
     this.origenError = false;
   }
 
   pickDestino(s: PlaceSuggestion) {
-    this.destinoSelected = s;
-    this.destinoQuery = s.label;
+    this.destinoSelected = { ...s, label: nombreCortoLugar(s.label) };
+    this.destinoQuery = this.destinoSelected.label;
     this.destinoSuggestions = [];
     this.destinoError = false;
   }
