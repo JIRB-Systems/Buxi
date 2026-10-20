@@ -82,20 +82,6 @@ export class LoginPage {
     }
   }
 
-  async onFacebookLogin() {
-    try {
-      await this.supabase.signInWithFacebook();
-    } catch (error: any) {
-      const toast = await this.toastCtrl.create({
-        message: 'Error al iniciar con Facebook',
-        duration: 3000,
-        color: 'danger',
-        position: 'top',
-      });
-      await toast.present();
-    }
-  }
-
   private navigateByRole(rol: string) {
     switch (rol) {
       case 'chofer':

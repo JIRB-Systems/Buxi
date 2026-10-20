@@ -13,14 +13,25 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="msapplication-tap-highlight" content="no" />
 
-  <link rel="icon" type="image/png" href="assets/icon/favicon.png" />
+  <link rel="icon" type="image/png" href="assets/icon/buxmap-favicon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
   <!-- La fuente se pide junto con el HTML: sin esto el texto pinta primero en
        la fuente del sistema y salta al llegar Manrope. -->
   <link rel="preload" href="assets/fonts/manrope-latin-var.woff2" as="font" type="font/woff2" crossorigin />
 
-  <!-- add to homescreen for ios -->
+  <!-- Agregar a la pantalla de inicio.
+       iOS solo entra en pantalla completa con el meta de prefijo `apple-`:
+       con el estándar `mobile-web-app-capable` a secas seguía abriendo con
+       la barra de Safari encima. El título corto va aparte porque, si no,
+       iOS usa el <title> y lo recorta ("Buxmap-Tusbu…"), y el ícono hay que
+       declararlo porque iOS no lee el del manifiesto. -->
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Buxmap" />
+  <meta name="application-name" content="Buxmap" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="assets/icon/buxmap-icon-180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icon/buxmap-icon-180.png" />
 </head>
 
 <body>

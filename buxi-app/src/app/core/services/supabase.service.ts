@@ -106,25 +106,6 @@ export class SupabaseService {
     return true;
   }
 
-  async signInWithFacebook() {
-    if (Capacitor.isNativePlatform()) {
-      const { data, error } = await this.supabase.auth.signInWithOAuth({
-        provider: 'facebook',
-        options: { redirectTo: OAUTH_NATIVE_REDIRECT, skipBrowserRedirect: true },
-      });
-      if (error) throw error;
-      if (data.url) await Browser.open({ url: data.url });
-      return data;
-    }
-
-    const { data, error } = await this.supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: { redirectTo: `${window.location.origin}/auth/login` },
-    });
-    if (error) throw error;
-    return data;
-  }
-
   async resetPassword(email: string) {
     const { data, error } = await this.supabase.auth.resetPasswordForEmail(email);
     if (error) throw error;
