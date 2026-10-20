@@ -11,7 +11,10 @@ import { rutaCorta, tintaSobre } from '../../core/utils/marca';
 @Component({
   selector: 'bx-ruta',
   standalone: true,
-  template: '{{ texto }}',
+  // El texto va en su propio span: en un contenedor flex el recorte con
+  // puntos suspensivos no se aplica al texto suelto, y un nombre largo se
+  // cortaba a la mitad de una letra.
+  template: '<span class="bx-ruta__txt">{{ texto }}</span>',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'bx-ruta',

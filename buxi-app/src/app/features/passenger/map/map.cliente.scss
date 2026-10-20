@@ -166,6 +166,12 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+
+  // Con `align-items: flex-start` (que está para que la insignia no se
+  // estire) cada línea toma el ancho de su propio texto: sin este tope, el
+  // nombre largo de una terminal se sale de la fila y se mete debajo de lo
+  // que venga a la derecha.
+  > * { max-width: 100%; }
 }
 
 .cerca-parada {
@@ -554,6 +560,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+
+  > * { max-width: 100%; }
   padding: 18px 18px 20px;
   background: linear-gradient(180deg, rgba(0, 200, 83, 0.1), rgba(0, 200, 83, 0) 70%);
 }
@@ -651,4 +659,8 @@
 .ed-ruta-row .ed-ruta-info {
   align-items: flex-start;
   gap: 4px;
+
+  // Ver la nota de .cerca-ruta: sin el tope, el origen → destino de una
+  // terminal con dirección completa se salía por debajo de "Sin horario".
+  > * { max-width: 100%; }
 }

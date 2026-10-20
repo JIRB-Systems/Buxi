@@ -269,6 +269,13 @@ ion-button.button-large {
   flex: none;
 }
 
+.bx-ruta__txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bx-ruta--lg { height: 26px; padding: 0 10px; border-radius: 7px; font-size: 13px; }
 .bx-ruta--apagada { opacity: 0.55; }
 
