@@ -19,7 +19,7 @@ import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../
 import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
-import { tintaSobre } from '../../../core/utils/marca';
+import { rutaCorta, tintaSobre } from '../../../core/utils/marca';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
@@ -60,6 +60,9 @@ interface BusProximo {
 }
 
 // Una fila de "Cerca tuyo": una ruta con parada cerca y su próximo bus.
+// Altura de la hoja "Cerca tuyo" en teléfono.
+type AlturaCerca = 'mini' | 'resumen' | 'lista';
+
 interface Cercana {
   ruta: Ruta;
   parada: Parada;
@@ -1410,6 +1413,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       for (const ev of ['moveend', 'zoomend', 'rotateend', 'pitchend']) {
         this.map.on(ev as any, scheduleShow);
       }
+
+      // Si el pasajero arrastra el mapa con la lista de "Cerca tuyo" abierta,
+      // quiere ver el mapa: la hoja baja a resumen. Solo con 'dragstart', que
+      // es del usuario; 'movestart' también salta cuando la app mueve la
+      // cámara sola. No se recuerda: la próxima vez sigue abriendo como la dejó.
+      this.map.on('dragstart', () => {
+        if (this.cercaAltura === 'lista') this.zone.run(() => this.ponerCercaAltura('resumen', false));
+      });
 
       // Las etiquetas de parada solo se muestran con zoom suficiente. Se
       // resuelve con una clase en el contenedor del mapa en vez de tocar cada
@@ -2941,6 +2952,57 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return !this.activeRuta && !this.viaje && !this.selectedBus && this.navVisible
       && !this.activePanel && !this.sidebarOpen && !this.profilePanelOpen && !this.settingsPanelOpen
       && (this.cercanas.length > 0 || !!this.paradaCercana || this.tieneUbicacion);
+  }
+
+  // ---- Tres alturas de la hoja (teléfono) ----
+  // mini: una línea, el mapa casi libre. resumen: el bus que llega primero y
+  // la caminata. lista: todas las rutas cerca. Se cambia arrastrando el asa o
+  // tocando el encabezado, y se recuerda la que eligió el pasajero.
+  cercaAltura: AlturaCerca = this.leerAlturaCerca();
+  private readonly ALTURAS_CERCA: AlturaCerca[] = ['mini', 'resumen', 'lista'];
+  // Un arrastre de menos de esto vuelve a la altura en la que estaba.
+  private readonly ARRASTRE_MIN_PX = 40;
+
+  private leerAlturaCerca(): AlturaCerca {
+    try {
+      const v = localStorage.getItem('buxi.cercaAltura');
+      return v === 'mini' || v === 'lista' ? v : 'resumen';
+    } catch { return 'resumen'; }
+  }
+
+  ponerCercaAltura(altura: AlturaCerca, recordar = true) {
+    this.cercaAltura = altura;
+    if (recordar) { try { localStorage.setItem('buxi.cercaAltura', altura); } catch {} }
+  }
+
+  // El encabezado abre la lista; con la lista abierta, la vuelve a resumen.
+  alternarCerca() {
+    this.ponerCercaAltura(this.cercaAltura === 'lista' ? 'resumen' : 'lista');
+  }
+
+  soltarCerca(dy: number) {
+    if (Math.abs(dy) < this.ARRASTRE_MIN_PX) return;
+    const i = this.ALTURAS_CERCA.indexOf(this.cercaAltura);
+    // Un tirón largo salta dos alturas (de lista a mini, o al revés).
+    const pasos = Math.abs(dy) > 220 ? 2 : 1;
+    const j = Math.min(this.ALTURAS_CERCA.length - 1, Math.max(0, i + (dy < 0 ? pasos : -pasos)));
+    this.ponerCercaAltura(this.ALTURAS_CERCA[j]);
+  }
+
+  // El primero de la lista ya es el que llega antes (ver recalcularCercanas).
+  get cercaDestacada(): Cercana | null {
+    const c = this.cercanas[0];
+    return c && c.minutos !== null ? c : null;
+  }
+
+  // Lo que dice la hoja en una sola línea cuando está chica.
+  get cercaLinea(): string {
+    const d = this.cercaDestacada;
+    if (d) return `${rutaCorta(d.ruta.nombre)} llega en ${d.minutos === 0 ? 'menos de 1' : d.minutos} min`;
+    const n = this.cercanas.length;
+    if (n) return `${n} ${n === 1 ? 'ruta' : 'rutas'} cerca · ningún bus en camino`;
+    if (!this.tieneUbicacion) return 'Activá tu ubicación';
+    return this.paradaCercana ? 'Tu parada más cercana' : 'Sin paradas a menos de 2 km';
   }
 
   // Los puntos de los buses llegan seguido y el cálculo recorre rutas y

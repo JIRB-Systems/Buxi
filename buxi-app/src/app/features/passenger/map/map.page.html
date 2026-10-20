@@ -524,13 +524,24 @@
        La respuesta a "¿cuándo pasa mi bus?" sin tocar nada: las rutas con
        una parada cerca y el próximo bus de cada una. En escritorio esto mismo
        va en el panel. -->
-  <ng-template #tplCerca>
-    <div class="cerca-cabeza">
+  <ng-template #tplCerca let-cabeza="cabeza">
+    <div class="cerca-cabeza" *ngIf="cabeza !== false">
       <h2 class="cerca-titulo">Cerca tuyo</h2>
       <span class="cerca-vivo" *ngIf="cercanas.length"><i></i>en vivo</span>
     </div>
 
-    <button type="button" class="cerca-fila" *ngFor="let c of cercanas; trackBy: trackCercana" (click)="selectRutaFromPanel(c.ruta)">
+    <ng-container *ngFor="let c of cercanas; trackBy: trackCercana">
+      <ng-container *ngTemplateOutlet="tplCercaFila; context: { $implicit: c }"></ng-container>
+    </ng-container>
+
+    <p class="cerca-vacio" *ngIf="!cercanas.length && !tieneUbicacion">Activá tu ubicación para ver qué buses pasan cerca tuyo.</p>
+    <p class="cerca-vacio" *ngIf="!cercanas.length && tieneUbicacion">No hay paradas a menos de 2 km. Buscá a dónde vas y te armo el viaje.</p>
+
+    <ng-container *ngTemplateOutlet="tplCercaPie"></ng-container>
+  </ng-template>
+
+  <ng-template #tplCercaFila let-c>
+    <button type="button" class="cerca-fila" (click)="selectRutaFromPanel(c.ruta)">
       <span class="cerca-ruta">
         <bx-ruta [nombre]="c.ruta.nombre" [color]="c.ruta.color"></bx-ruta>
         <span class="cerca-parada">{{ nombreCorto(c.parada) }} · {{ metrosTexto(c.distanciaKm * 1000) }}</span>
@@ -542,10 +553,9 @@
       <span class="cerca-nada" *ngIf="c.minutos === null && c.siguiendo">Ninguno<br>en camino</span>
       <span class="cerca-nada cerca-seguir" *ngIf="c.minutos === null && !c.siguiendo">Seguí a la<br>empresa</span>
     </button>
+  </ng-template>
 
-    <p class="cerca-vacio" *ngIf="!cercanas.length && !tieneUbicacion">Activá tu ubicación para ver qué buses pasan cerca tuyo.</p>
-    <p class="cerca-vacio" *ngIf="!cercanas.length && tieneUbicacion">No hay paradas a menos de 2 km. Buscá a dónde vas y te armo el viaje.</p>
-
+  <ng-template #tplCercaPie>
     <div class="cerca-pie" *ngIf="paradaCercana as pc">
       <ion-icon name="walk" aria-hidden="true"></ion-icon>
       <div class="cerca-pie-info">
@@ -560,10 +570,42 @@
     </div>
   </ng-template>
 
-  <section class="cerca-hoja" #hoja *ngIf="!activeRuta && !viaje && (cercanas.length || paradaCercana || tieneUbicacion)"
+  <!-- Teléfono: hoja con tres alturas (mini, resumen, lista). Se cambia
+       arrastrando el asa o tocando el encabezado. -->
+  <section class="cerca-hoja" #hoja data-hoja [attr.data-altura]="cercaAltura"
+           *ngIf="!activeRuta && !viaje && (cercanas.length || paradaCercana || tieneUbicacion)"
            [class.oculta]="!cercaVisible" aria-label="Cerca tuyo">
-    <div class="cerca-grip" aria-hidden="true"></div>
-    <ng-container *ngTemplateOutlet="tplCerca"></ng-container>
+    <div class="cerca-asa" bxArrastreHoja (soltar)="soltarCerca($event)">
+      <div class="cerca-grip" aria-hidden="true"></div>
+      <div class="cerca-asa-fila">
+        <button type="button" class="cerca-toggle" data-asa
+                [attr.aria-expanded]="cercaAltura === 'lista'"
+                (click)="cercaAltura === 'mini' ? ponerCercaAltura('resumen') : alternarCerca()">
+          <span class="cerca-toggle-texto">
+            <span class="cerca-titulo">Cerca tuyo</span>
+            <span class="cerca-linea" *ngIf="cercaAltura === 'mini' || (cercaAltura === 'resumen' && !cercaDestacada)">{{ cercaLinea }}</span>
+          </span>
+          <span class="cerca-vivo" *ngIf="cercanas.length && cercaAltura !== 'mini'"><i></i>en vivo</span>
+          <ion-icon class="cerca-flecha" [name]="cercaAltura === 'lista' ? 'chevron-down' : 'chevron-up'" aria-hidden="true"></ion-icon>
+        </button>
+        <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm cerca-achicar"
+                *ngIf="cercaAltura !== 'mini'" aria-label="Achicar Cerca tuyo" title="Achicar"
+                (click)="ponerCercaAltura('mini')">
+          <ion-icon name="remove" aria-hidden="true"></ion-icon>
+        </button>
+      </div>
+    </div>
+
+    <ng-container *ngIf="cercaAltura === 'resumen'">
+      <ng-container *ngIf="cercaDestacada as c">
+        <ng-container *ngTemplateOutlet="tplCercaFila; context: { $implicit: c }"></ng-container>
+      </ng-container>
+      <ng-container *ngTemplateOutlet="tplCercaPie"></ng-container>
+    </ng-container>
+
+    <div class="cerca-lista" *ngIf="cercaAltura === 'lista'">
+      <ng-container *ngTemplateOutlet="tplCerca; context: { cabeza: false }"></ng-container>
+    </div>
   </section>
 
   <!-- ====== DOCK FLOTANTE ====== -->

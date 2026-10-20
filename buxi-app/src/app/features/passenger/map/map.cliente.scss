@@ -34,6 +34,78 @@
   background: rgba(255, 255, 255, 0.18);
 }
 
+// El asa: la barrita y el encabezado. Se arrastra (ver bxArrastreHoja), así
+// que el navegador no tiene que interpretar el gesto como scroll.
+.cerca-asa {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  &:active { cursor: grabbing; }
+}
+
+.cerca-asa-fila {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 0 0;
+}
+
+.cerca-toggle {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 8px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--bx-text);
+  font-family: var(--bx-font);
+  text-align: left;
+  cursor: inherit;
+
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: -2px; border-radius: 12px; }
+  .cerca-vivo { margin-left: auto; }
+}
+
+.cerca-toggle-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cerca-linea {
+  font: 600 12px/1.2 var(--bx-font);
+  color: var(--bx-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cerca-flecha { flex: none; font-size: 18px; color: var(--bx-text-3); }
+.cerca-achicar { flex: none; color: var(--bx-text-3); }
+
+// Mini: una sola fila compacta, el mapa casi libre.
+.cerca-hoja[data-altura='mini'] {
+  .cerca-toggle { min-height: 44px; padding-bottom: 6px; }
+  .cerca-titulo { font-size: 15px; }
+}
+
+// Lista: si hay muchas rutas cerca, scrollea adentro en vez de tapar el mapa.
+.cerca-lista {
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cerca-hoja { transition: opacity 0.2s ease; animation: none; }
+}
+
 // Escritorio: la misma lista, en una tarjeta del panel.
 .cerca-card { padding: 0; gap: 0; overflow: hidden; }
 

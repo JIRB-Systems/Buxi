@@ -5,6 +5,7 @@
 
 # Salida de herramientas de análisis local.
 graphify-out/
+.playwright-cli/
 
 # Sistema operativo
 .DS_Store
