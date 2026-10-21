@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { App, URLOpenListenerEvent } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { SupabaseService } from './core/services/supabase.service';
+import { DOMINIO_APP, esPortada, quedaEnPortada } from './core/utils/dominio';
 
 @Component({
   selector: 'app-root',
@@ -22,8 +23,14 @@ export class AppComponent implements OnInit {
     private supabase: SupabaseService,
     private router: Router,
   ) {
+    const portada = esPortada();
     this.router.events.subscribe(event => {
       if (event instanceof NavigationStart) {
+        // En buxci.com, entrar, el mapa o los paneles siguen en app.buxci.com.
+        if (portada && !quedaEnPortada(event.url)) {
+          location.href = DOMINIO_APP + event.url;
+          return;
+        }
         this.navigating = true;
       } else if (
         event instanceof NavigationEnd ||
@@ -39,7 +46,7 @@ export class AppComponent implements OnInit {
     if (!Capacitor.isNativePlatform()) return;
 
     App.addListener('appUrlOpen', async (event: URLOpenListenerEvent) => {
-      if (!event.url.startsWith('cr.buxi.app://login-callback')) return;
+      if (!event.url.startsWith('cr.buxci.app://login-callback')) return;
 
       try {
         const handled = await this.supabase.handleOAuthCallbackUrl(event.url);

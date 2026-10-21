@@ -8,8 +8,8 @@
        flota arriba a la derecha del mapa. -->
   <div class="desktop-topbar">
     <div class="dt-logo">
-      <img class="dt-mark" src="assets/brand/buxmap-mark.svg" alt="" />
-      <img class="dt-word" src="assets/brand/buxmap-nombre.svg" alt="Buxmap" />
+      <img class="dt-mark" src="assets/brand/buxci-mark.svg" alt="" />
+      <img class="dt-word" src="assets/brand/buxci-nombre.svg" alt="Buxci" />
     </div>
 
     <div class="dt-search" (click)="openSearch()">
@@ -128,7 +128,7 @@
   <div class="top-overlay">
     <div class="topbar" *ngIf="!activeRuta">
       <div class="tb-logo">
-        <img src="assets/brand/buxmap-mark.svg" alt="Buxmap" />
+        <img src="assets/brand/buxci-mark.svg" alt="Buxci" />
       </div>
       <!-- La pregunta es corta a propósito: entra entera en cualquier teléfono.
            Con un destino elegido, el buscador lo muestra. -->
@@ -567,7 +567,7 @@
       <article class="boleto" [class.usado]="boletoDetalle.estado !== 'pagado'" aria-label="Boleto">
         <div class="boleto-arriba">
           <div class="boleto-marca">
-            <img src="assets/brand/buxmap-mark.svg" alt="" />
+            <img src="assets/brand/buxci-mark.svg" alt="" />
             <span class="bx-etq">Boleto</span>
             <span class="boleto-estado">{{ boletoEstadoLabel(boletoDetalle) }}</span>
           </div>
@@ -694,7 +694,7 @@
   <!-- ====== DOCK FLOTANTE ====== -->
   <nav class="dock" [class.hidden]="!navVisible || selectedBus" [class.route-mode]="!!activeRuta || !!viaje">
     <!-- Solo se ve en escritorio, donde este mismo nav es la barra lateral. -->
-    <img class="dock-logo" src="assets/brand/buxmap-mark.svg" alt="Buxmap" />
+    <img class="dock-logo" src="assets/brand/buxci-mark.svg" alt="Buxci" />
 
     <button type="button" class="dock-item" [class.active]="!activePanel && !profilePanelOpen && !settingsPanelOpen" (click)="showMap()">
       <ion-icon name="map" aria-hidden="true"></ion-icon>
@@ -1079,7 +1079,7 @@
         <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
       </div>
 
-      <div class="pp-version">Buxmap · versión 1.0.0</div>
+      <div class="pp-version">Buxci · versión 1.0.0</div>
     </div>
   </aside>
 

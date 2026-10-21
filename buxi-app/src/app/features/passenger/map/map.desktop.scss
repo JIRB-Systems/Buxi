@@ -21,7 +21,7 @@
   // que el logo nunca queda más angosto que el texto que lleva dentro.
   //
   // Con `1fr` a los lados, la pista podía quedar más corta que la palabra
-  // "Buxmap" —que va con nowrap— y el texto se derramaba encima del buscador,
+  // "Buxci" —que va con nowrap— y el texto se derramaba encima del buscador,
   // tapando el principio del placeholder. `auto` elimina ese caso por completo
   // en vez de depender de acertar un punto de corte.
   grid-template-columns: auto minmax(0, 1fr) auto;

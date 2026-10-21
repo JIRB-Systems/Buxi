@@ -127,7 +127,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "BuxiApp/1.0 (contacto@buxi.cr)" },
+      headers: { "User-Agent": "Buxci/1.0 (hola@buxci.com)" },
       signal: AbortSignal.timeout(8000),
     });
     const data = await res.json();

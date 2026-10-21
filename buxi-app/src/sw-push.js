@@ -1,4 +1,4 @@
-// Service worker de Buxmap: SOLO notificaciones push. No cachea nada ni
+// Service worker de Buxci: SOLO notificaciones push. No cachea nada ni
 // intercepta pedidos, a propósito: la app no funciona sin conexión y un
 // service worker que cachea mal deja a la gente con una versión vieja.
 //
@@ -15,20 +15,20 @@ self.addEventListener('push', (event) => {
   } catch {
     datos = { body: event.data ? event.data.text() : '' };
   }
-  const titulo = datos.title || 'Buxmap';
+  const titulo = datos.title || 'Buxci';
   event.waitUntil(self.registration.showNotification(titulo, {
     body: datos.body || '',
     tag: datos.tag || undefined,
     // Con el mismo tag, la nueva reemplaza a la vieja pero vuelve a sonar.
     renotify: !!datos.tag,
-    icon: '/assets/icon/buxmap-icon-192.png',
-    badge: '/assets/icon/buxmap-icon-192.png',
+    icon: '/assets/icon/buxci-icon-192.png',
+    badge: '/assets/icon/buxci-icon-192.png',
     data: { url: datos.url || '/passenger/map' },
     vibrate: [120, 60, 120],
   }));
 });
 
-// Tocar la notificación abre Buxmap en la ruta del aviso: si ya hay una
+// Tocar la notificación abre Buxci en la ruta del aviso: si ya hay una
 // pestaña abierta, la usa; si no, abre una.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();

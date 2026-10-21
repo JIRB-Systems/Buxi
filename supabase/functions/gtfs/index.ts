@@ -19,7 +19,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { strToU8, zipSync } from "npm:fflate@0.8.2";
 
-const APP = "https://buxi.vercel.app";
+const APP = "https://app.buxci.com";
 const KMH = 25;
 const MIN_POR_PARADA = 0.5;
 const FACTOR_CALLE = 1.2;
@@ -160,7 +160,7 @@ async function estatico(empresaId: string): Promise<Response> {
     "stop_times.txt": strToU8(csv(["trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence", "timepoint"], stopTimes)),
     "calendar.txt": strToU8(csv(["service_id", ...NOMBRES, "start_date", "end_date"], calendar)),
     "feed_info.txt": strToU8(csv(["feed_publisher_name", "feed_publisher_url", "feed_lang", "feed_start_date", "feed_end_date", "feed_version"], [{
-      feed_publisher_name: "Buxmap", feed_publisher_url: APP, feed_lang: "es",
+      feed_publisher_name: "Buxci", feed_publisher_url: APP, feed_lang: "es",
       feed_start_date: yyyymmdd(hoy), feed_end_date: yyyymmdd(enUnAnio), feed_version: hoy.toISOString(),
     }])),
   };

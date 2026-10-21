@@ -853,7 +853,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       case 'ios-instalar': {
         const alert = await this.alertCtrl.create({
           cssClass: 'buxi-alert',
-          header: 'Primero instalá Buxmap',
+          header: 'Primero instalá Buxci',
           message: 'En iPhone los avisos solo llegan con la app en la pantalla de inicio: tocá Compartir y después "Agregar a inicio". Abrila desde ahí y activá los avisos.',
           buttons: ['Entendido'],
         });
@@ -1007,7 +1007,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const alert = await this.alertCtrl.create({
       cssClass: 'buxi-alert',
       header: 'Comprar boleto',
-      message: `Ruta ${ruta.nombre}: ₡${precio.toLocaleString('es-CR')}. El cobro todavía es simulado — no se te va a cobrar de verdad hasta que Buxmap tenga un método de pago conectado.`,
+      message: `Ruta ${ruta.nombre}: ₡${precio.toLocaleString('es-CR')}. El cobro todavía es simulado — no se te va a cobrar de verdad hasta que Buxci tenga un método de pago conectado.`,
       buttons: [
         { text: 'Cancelar', role: 'cancel', cssClass: 'ba-cancel' },
         {
@@ -3065,7 +3065,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         return {
           icono: 'git-branch-outline',
           titulo: 'No hay un bus directo',
-          texto: 'Hay paradas cerca tuyo y cerca de ese lugar, pero ninguna ruta las une. Buxmap todavía no arma viajes con trasbordo.',
+          texto: 'Hay paradas cerca tuyo y cerca de ese lugar, pero ninguna ruta las une. Buxci todavía no arma viajes con trasbordo.',
         };
     }
   }
@@ -3712,7 +3712,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // se carga en paralelo al mapa: si la ubicación llegaba primero, la
   // comprobación se desactivaba sola y la lectura falsa pasaba como válida.
   //
-  // Esto no depende de nada que pueda no haber cargado: Buxmap opera únicamente
+  // Esto no depende de nada que pueda no haber cargado: Buxci opera únicamente
   // en Costa Rica, así que una posición fuera del país es inservible para la
   // app aunque fuera cierta — no hay ningún bus que mostrar ahí.
   private static readonly CR_BOUNDS = { minLat: 7.9, maxLat: 11.4, minLng: -86.1, maxLng: -82.4 };
@@ -3790,7 +3790,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // isSecureContext cubre el caso de probar por IP de red local sin HTTPS,
     // donde el navegador bloquea la geolocalización sin siquiera preguntar.
     if (typeof window !== 'undefined' && !window.isSecureContext) {
-      return 'La ubicación necesita HTTPS. Abrí la app en localhost o en buxi.vercel.app.';
+      return 'La ubicación necesita HTTPS. Abrí la app en localhost o en app.buxci.com.';
     }
     const code = e?.code;
     const msg = String(e?.message || '').toLowerCase();
@@ -3859,17 +3859,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   // ---- COMPARTIR EL VIAJE EN VIVO ----
-  // Un enlace que abre Buxmap siguiendo este bus, sin cuenta (los buses en
+  // Un enlace que abre Buxci siguiendo este bus, sin cuenta (los buses en
   // vivo son públicos): quien lo recibe ve dónde va mientras transmita. Antes
   // se mandaba por WhatsApp un punto fijo de Google Maps, que quedaba viejo
   // apenas el bus se movía.
   async shareBusLocation() {
     if (!this.selectedBus) return;
     const url = `${window.location.origin}/passenger/map?bus=${encodeURIComponent(this.selectedBus.bus_id)}`;
-    const texto = `Seguí en vivo el bus ${this.selectedBusPlaca} (${this.selectedBusRuta}) en Buxmap`;
+    const texto = `Seguí en vivo el bus ${this.selectedBusPlaca} (${this.selectedBusRuta}) en Buxci`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Mi bus en Buxmap', text: texto, url });
+        await navigator.share({ title: 'Mi bus en Buxci', text: texto, url });
         return;
       }
     } catch (e: any) {

@@ -14,7 +14,7 @@ interface Plan {
   descripcion: string | null;
 }
 
-// Página pública para empresas de transporte: qué es Buxmap para ellas y cómo
+// Página pública para empresas de transporte: qué es Buxci para ellas y cómo
 // asociarse. Se ve sin cuenta. Todo lo que muestra es real: los planes salen
 // de la tabla `planes` y la búsqueda de tarifas de los datos de ARESEP.
 @Component({
@@ -42,7 +42,7 @@ export class EmpresasPage implements OnInit, OnDestroy {
   readonly faq = [
     {
       q: '¿Tengo que comprar GPS o equipos para los buses?',
-      a: 'No. El GPS es el teléfono del chofer con la app de Buxmap abierta: manda la posición del bus cada pocos segundos mientras hace el viaje.',
+      a: 'No. El GPS es el teléfono del chofer con la app de Buxci abierta: manda la posición del bus cada pocos segundos mientras hace el viaje.',
     },
     {
       q: '¿Mis pasajeros tienen que crear una cuenta?',
@@ -54,7 +54,7 @@ export class EmpresasPage implements OnInit, OnDestroy {
     },
     {
       q: '¿Puedo aparecer en Google Maps?',
-      a: 'Sí. Buxmap arma tus rutas, paradas, horarios y buses en vivo en GTFS, el formato que usan Google Maps, Moovit y Transit. Desde tu panel copiás los enlaces y postulás a tu empresa.',
+      a: 'Sí. Buxci arma tus rutas, paradas, horarios y buses en vivo en GTFS, el formato que usan Google Maps, Moovit y Transit. Desde tu panel copiás los enlaces y postulás a tu empresa.',
     },
     {
       q: '¿Quién ve dónde están mis buses?',
@@ -65,7 +65,7 @@ export class EmpresasPage implements OnInit, OnDestroy {
   constructor(private title: Title, private meta: Meta) {}
 
   async ngOnInit() {
-    this.title.setTitle('Buxmap para empresas de bus · Costa Rica');
+    this.title.setTitle('Buxci para empresas de bus · Costa Rica');
     this.meta.updateTag({
       name: 'description',
       content: 'GPS desde el teléfono del chofer, panel de flota y una app donde tus pasajeros ven llegar el bus. Tarifas oficiales de ARESEP y publicación en Google Maps.',
@@ -83,7 +83,7 @@ export class EmpresasPage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     clearTimeout(this.espera);
-    this.title.setTitle('Buxmap');
+    this.title.setTitle('Buxci');
   }
 
   onRuta() {

@@ -17,7 +17,7 @@ export function descargarFacturaPDF(factura: Factura): void {
 
   doc.setFontSize(20);
   doc.setTextColor(0, 200, 83);
-  doc.text('Buxmap', 20, 22);
+  doc.text('Buxci', 20, 22);
 
   doc.setFontSize(10);
   doc.setTextColor(100);

@@ -3,8 +3,11 @@ import { RouterModule, Routes } from '@angular/router';
 import { PreloadSelectivo } from './core/preload-selectivo';
 import { NoAuthGuard } from './core/guards/no-auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
+import { esPortada } from './core/utils/dominio';
 
 const routes: Routes = [
+  // En buxci.com la portada es la página para empresas; en la app, el arranque.
+  { path: '', pathMatch: 'full', canMatch: [() => esPortada()], loadChildren: () => import('./features/empresas/empresas.module').then(m => m.EmpresasPageModule) },
   { path: '', redirectTo: 'splash', pathMatch: 'full' },
   { path: 'splash', loadChildren: () => import('./features/auth/splash/splash.module').then(m => m.SplashPageModule) },
   { path: 'auth/login', loadChildren: () => import('./features/auth/login/login.module').then(m => m.LoginPageModule), canActivate: [NoAuthGuard], data: { precargar: true } },

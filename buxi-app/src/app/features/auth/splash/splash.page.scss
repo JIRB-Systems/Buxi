@@ -47,12 +47,14 @@
   will-change: transform, opacity;
 }
 
-// «Buxmap» es casi el doble de ancho que «Buxi»: con el 52 % de antes las
-// letras quedaban chicas al lado de la B. Al 72 % las mayúsculas miden lo
-// mismo que el asta de una franja, que es la proporción del logo horizontal.
+// Al 49 % las mayúsculas de «Buxci» miden lo mismo que el asta de una
+// franja, que es la proporción del logo horizontal. El punto de la i va en
+// verde, como lo que está en vivo en la app.
 .wordmark {
-  width: 72%; height: auto; display: block; overflow: visible;
+  width: 49%; height: auto; display: block; overflow: visible;
   fill: var(--bx-text);
+
+  .punto { fill: var(--bx-green); }
 
   // Cada letra sube por separado.
   > * {

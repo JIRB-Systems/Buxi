@@ -19,8 +19,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import * as webpush from "jsr:@negrel/webpush@0.5.0";
 
-const CONTACTO = "mailto:buxi.cr@gmail.com";
-const APP = "https://buxi.vercel.app";
+const CONTACTO = "mailto:hola@buxci.com";
+const APP = "https://app.buxci.com";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",

@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const res = await fetch(nominatimUrl, {
-      headers: { "User-Agent": "BuxiApp/1.0 (contacto@buxi.cr)" },
+      headers: { "User-Agent": "Buxci/1.0 (hola@buxci.com)" },
     });
     const data = await res.json();
     return new Response(JSON.stringify(data), {

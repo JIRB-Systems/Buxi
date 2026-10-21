@@ -91,7 +91,7 @@ export class PushService {
     if (!this.soportado || Notification.permission !== 'granted') return;
     const reg = await this.registro();
     await reg.showNotification(titulo, {
-      body: cuerpo, tag, icon: '/assets/icon/buxmap-icon-192.png', badge: '/assets/icon/buxmap-icon-192.png',
+      body: cuerpo, tag, icon: '/assets/icon/buxci-icon-192.png', badge: '/assets/icon/buxci-icon-192.png',
     });
   }
 

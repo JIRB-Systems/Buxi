@@ -1,4 +1,4 @@
-// Recibe el formulario público "Llevá tu empresa a Buxmap".
+// Recibe el formulario público "Llevá tu empresa a Buxci".
 //
 // Antes el navegador insertaba directo en `solicitudes_empresa` con una
 // política que aceptaba cualquier cosa de cualquiera: sin límite, sin
@@ -27,6 +27,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const ORIGENES = new Set([
+  "https://app.buxci.com",
+  "https://buxci.com",
   "https://buxi.vercel.app",
   "https://buxi-jirb.vercel.app",
   "http://localhost:4200",
@@ -49,7 +51,7 @@ const supabase = createClient(
 function cors(req: Request): Record<string, string> {
   const origen = req.headers.get("origin") || "";
   return {
-    "Access-Control-Allow-Origin": ORIGENES.has(origen) ? origen : "https://buxi.vercel.app",
+    "Access-Control-Allow-Origin": ORIGENES.has(origen) ? origen : "https://app.buxci.com",
     "Access-Control-Allow-Headers": "content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",

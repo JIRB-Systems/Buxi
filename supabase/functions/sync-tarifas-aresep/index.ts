@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
   let filas: Fila[];
   try {
     const res = await fetch(FUENTE, {
-      headers: { "User-Agent": "Buxmap/1.0 (buxi.vercel.app)" },
+      headers: { "User-Agent": "Buxci/1.0 (app.buxci.com)" },
       signal: AbortSignal.timeout(90_000),
     });
     if (!res.ok) return await fallar(`ARESEP respondió ${res.status}`);

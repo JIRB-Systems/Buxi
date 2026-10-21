@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'cr.buxi.app',
-  appName: 'Buxmap',
+  appId: 'cr.buxci.app',
+  appName: 'Buxci',
   webDir: 'www',
   server: {
     androidScheme: 'https',

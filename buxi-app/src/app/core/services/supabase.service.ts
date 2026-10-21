@@ -7,12 +7,12 @@ import { environment } from '../../../environments/environment';
 import { UserProfile } from '../models/user-profile.model';
 import { BehaviorSubject } from 'rxjs';
 
-const OAUTH_NATIVE_REDIRECT = 'cr.buxi.app://login-callback';
+const OAUTH_NATIVE_REDIRECT = 'cr.buxci.app://login-callback';
 
 // A dónde manda el correo de "olvidé mi contraseña". En la app nativa el
 // origen es https://localhost, que no le sirve a nadie desde el correo: el
 // enlace se abre en el navegador, así que va siempre a la web.
-const NUEVA_CLAVE_WEB = 'https://buxi.vercel.app/auth/nueva-clave';
+const NUEVA_CLAVE_WEB = 'https://app.buxci.com/auth/nueva-clave';
 
 // El enlace del correo inicia sesión. Mientras esta marca exista, la persona
 // todavía no eligió su contraseña nueva y cualquier camino a su pantalla de
@@ -106,7 +106,7 @@ export class SupabaseService {
       // En la app nativa no hay una URL de navegador que redirija sola: pedimos
       // la URL de Google sin que Supabase intente redirigir, y la abrimos
       // nosotros en el navegador in-app. El regreso llega por deep link
-      // (cr.buxi.app://login-callback), capturado en app.component.ts.
+      // (cr.buxci.app://login-callback), capturado en app.component.ts.
       const { data, error } = await this.supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: OAUTH_NATIVE_REDIRECT, skipBrowserRedirect: true },

@@ -14,7 +14,7 @@ interface ReporteMensualInput {
 }
 
 // Resumen mensual armado en el navegador a partir de la actividad ya
-// registrada en Buxmap (viajes, reportes) -- no hay pasarela de pago real, así
+// registrada en Buxci (viajes, reportes) -- no hay pasarela de pago real, así
 // que "ingresos" es un estimado (viajes × precio de la ruta), no un dato
 // financiero real. Se aclara en el propio PDF, igual que con las facturas.
 export function descargarReporteMensualPDF(input: ReporteMensualInput): void {
@@ -39,7 +39,7 @@ export function descargarReporteMensualPDF(input: ReporteMensualInput): void {
 
   doc.setFontSize(20);
   doc.setTextColor(0, 200, 83);
-  doc.text('Buxmap', 20, 22);
+  doc.text('Buxci', 20, 22);
 
   doc.setFontSize(10);
   doc.setTextColor(100);
@@ -124,7 +124,7 @@ export function descargarReporteMensualPDF(input: ReporteMensualInput): void {
 
   doc.setFontSize(8);
   doc.setTextColor(150);
-  doc.text('Generado automáticamente por Buxmap a partir de la actividad registrada en la plataforma.', 20, 280);
+  doc.text('Generado automáticamente por Buxci a partir de la actividad registrada en la plataforma.', 20, 280);
 
   doc.save(`reporte-${mesLabel.toLowerCase().replace(/\s+/g, '-')}.pdf`);
 }
