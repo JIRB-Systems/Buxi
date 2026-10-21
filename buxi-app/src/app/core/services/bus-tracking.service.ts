@@ -175,6 +175,18 @@ export class BusTrackingService implements OnDestroy {
     return data as HorarioSalida[];
   }
 
+  // Todas las salidas de todas las rutas: es una tabla chica (unas pocas por
+  // ruta y día) y "Cerca tuyo" la necesita para decir cuándo sale el próximo
+  // cuando no hay ningún bus en camino.
+  async getTodasLasSalidas(): Promise<HorarioSalida[]> {
+    const { data, error } = await this.supabase
+      .from('horario_salidas')
+      .select('id, ruta_id, dia, hora')
+      .order('hora');
+    if (error) throw error;
+    return data as HorarioSalida[];
+  }
+
   async getAllParadas(): Promise<Parada[]> {
     const { data, error } = await this.supabase
       .from('paradas')

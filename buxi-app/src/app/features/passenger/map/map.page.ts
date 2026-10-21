@@ -8,6 +8,7 @@ import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada, TarifaAresep } from '../../../core/models/transport.model';
 import { REGLA_ADULTO_MAYOR, tarifaAdultoMayorTexto, tituloAresep } from '../../../core/utils/aresep';
+import { diaHorario, horaCorta, proximaSalida, ProximaSalida, salidaTexto } from '../../../core/utils/horario';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Anuncio, HorarioSalida, Boleto, NotificacionEmpresa } from '../../../core/models/features.model';
 import { FeaturesService, PuntoGeo } from '../../../core/services/features.service';
@@ -69,8 +70,9 @@ interface Cercana {
   ruta: Ruta;
   parada: Parada;
   distanciaKm: number;
-  // El pasajero sigue a la empresa (si no, sus buses no le llegan: RLS).
-  siguiendo: boolean;
+  // Sin bus en camino: la próxima salida según el horario ("Sale a las…").
+  salida: string | null;
+  salidaMin: number | null;
   // Minutos del próximo bus hacia esa parada; null = ninguno viene.
   minutos: number | null;
   hacia: string | null;
@@ -419,8 +421,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     await Promise.all(this.empresaDetailRutas.map(async r => {
       try {
         const salidas = await this.tracking.getHorarioSalidas(r.id);
-        const proxima = this.proximaSalida(this.salidasDeHoy(salidas));
-        r.proximaSalidaTexto = proxima ? proxima.hora.slice(0, 5) : null;
+        const proxima = proximaSalida(salidas);
+        r.proximaSalidaTexto = proxima
+          ? (proxima.diasDespues === 1 ? 'mañana ' : '') + horaCorta(proxima.hora)
+          : null;
       } catch {}
     }));
   }
@@ -759,24 +763,33 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return this.salidasDeHoy(this.activeSalidas);
   }
 
+  // La salida de hoy que se resalta en la lista de salidas del panel.
   get nextSalida(): HorarioSalida | null {
-    return this.proximaSalida(this.todaySalidas);
+    const p = this.proximaSalidaInfo;
+    if (!p || p.diasDespues !== 0) return null;
+    return this.todaySalidas.find(h => h.hora === p.hora) || null;
+  }
+
+  // Según el horario, no en vivo: la pantalla lo dice.
+  get proximaSalidaInfo(): ProximaSalida | null {
+    return proximaSalida(this.activeSalidas);
+  }
+
+  get proximaSalidaTexto(): string | null {
+    const p = this.proximaSalidaInfo;
+    return p ? salidaTexto(p) : null;
+  }
+
+  private salidasPorRuta = new Map<string, HorarioSalida[]>();
+
+  private salidaDeRuta(rutaId: string): { salida: string | null; salidaMin: number | null } {
+    const p = proximaSalida(this.salidasPorRuta.get(rutaId) || []);
+    return p ? { salida: salidaTexto(p), salidaMin: p.minutos } : { salida: null, salidaMin: null };
   }
 
   private salidasDeHoy(salidas: HorarioSalida[]): HorarioSalida[] {
-    if (!salidas.length) return [];
-    const day = new Date().getDay(); // 0 domingo, 6 sábado
-    const dia = day === 0 ? 'domingo' : day === 6 ? 'sabado' : 'lunes_viernes';
+    const dia = diaHorario(new Date());
     return salidas.filter(h => h.dia === dia).sort((a, b) => a.hora.localeCompare(b.hora));
-  }
-
-  // Si ya pasaron todas las de hoy, se muestra la primera como referencia en
-  // vez de "no hay más" — sirve para planificar el día siguiente.
-  private proximaSalida(deHoy: HorarioSalida[]): HorarioSalida | null {
-    if (!deHoy.length) return null;
-    const now = new Date();
-    const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`;
-    return deHoy.find(h => h.hora >= nowStr) || deHoy[0];
   }
 
   private async loadHorariosFor(rutaId: string) {
@@ -1279,6 +1292,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.allParadas = paradas;
       this.recomputeEmpresasCercanas();
     } catch {}
+
+    // Aparte: si falla, "Cerca tuyo" solo se queda sin la próxima salida.
+    this.tracking.getTodasLasSalidas().then(salidas => {
+      this.salidasPorRuta.clear();
+      for (const s of salidas) {
+        const arr = this.salidasPorRuta.get(s.ruta_id);
+        if (arr) arr.push(s); else this.salidasPorRuta.set(s.ruta_id, [s]);
+      }
+      this.programarCercanas();
+    }).catch(e => logError('cargar los horarios de salida', e));
 
     // Los favoritos y las alertas se cargan al arrancar y no al abrir cada
     // panel: la estrella de las empresas se pinta en la barra lateral, que se
@@ -3083,11 +3106,22 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   // Lo que dice la hoja en una sola línea cuando está chica.
+  // "en vivo" solo si algún bus viene de verdad; una salida del horario no lo es.
+  get hayCercaEnVivo(): boolean {
+    return this.cercanas.some(c => c.minutos !== null);
+  }
+
   get cercaLinea(): string {
     const d = this.cercaDestacada;
     if (d) return `${rutaCorta(d.ruta.nombre)} llega en ${d.minutos === 0 ? 'menos de 1' : d.minutos} min`;
     const n = this.cercanas.length;
-    if (n) return `${n} ${n === 1 ? 'ruta' : 'rutas'} cerca · ningún bus en camino`;
+    if (n) {
+      // Sin buses en camino, lo útil es cuándo sale el próximo (según horario).
+      const conSalida = this.cercanas.filter(c => c.salidaMin !== null)
+        .sort((a, b) => a.salidaMin! - b.salidaMin!)[0];
+      if (conSalida) return `${rutaCorta(conSalida.ruta.nombre)}: ${conSalida.salida!.charAt(0).toLowerCase()}${conSalida.salida!.slice(1)} (horario)`;
+      return `${n} ${n === 1 ? 'ruta' : 'rutas'} cerca · ningún bus en camino`;
+    }
     if (!this.tieneUbicacion) return 'Activá tu ubicación';
     return this.paradaCercana ? 'Tu parada más cercana' : 'Sin paradas a menos de 2 km';
   }
@@ -3139,7 +3173,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         ruta,
         parada: cerca.parada,
         distanciaKm: cerca.distanceKm,
-        siguiendo: !this.favoritosEmpresaCargados || this.favoritoEmpresaIds.has(ruta.empresa_id),
+        ...(mejor ? { salida: null, salidaMin: null } : this.salidaDeRuta(ruta.id)),
         minutos: mejor?.minutos ?? null,
         hacia: mejor?.hacia ?? null,
       });

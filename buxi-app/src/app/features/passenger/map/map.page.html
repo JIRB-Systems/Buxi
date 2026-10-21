@@ -219,14 +219,16 @@
         </div>
 
         <div class="rs-info" *ngIf="nearestStop">
-          <span class="rs-label">{{ viajeElegido ? 'Subí acá' : (etaMinutes !== null ? 'Próximo bus a tu parada' : 'Tu parada más cercana') }}</span>
+          <span class="rs-label">{{ viajeElegido ? 'Subí acá' : (etaMinutes !== null ? 'Llega a tu parada · en vivo' : 'Tu parada más cercana') }}</span>
           <strong [title]="nearestStop.parada.nombre">{{ nombreCorto(nearestStop.parada) }}</strong>
           <span class="rs-sub rs-proximo" *ngIf="proximoPlaca">
             <bx-placa [placa]="proximoPlaca"></bx-placa>
             <span>{{ etaHacia ? 'hacia ' + etaHacia : proximoDetalle }}</span>
           </span>
           <span class="rs-sub" *ngIf="!proximoPlaca">
-            {{ sinBusEnCamino && !viajeElegido ?'Ningún bus viene hacia tu parada ahora' : 'a ' + metrosTexto(nearestStop.distanceKm * 1000) + ' de vos' }}
+            {{ sinBusEnCamino && !viajeElegido
+                 ? (proximaSalidaTexto ? 'Ningún bus en camino. ' + proximaSalidaTexto + ' (según horario)' : 'Ningún bus viene hacia tu parada ahora')
+                 : 'a ' + metrosTexto(nearestStop.distanceKm * 1000) + ' de vos' }}
           </span>
         </div>
         <div class="rs-info" *ngIf="!nearestStop">
@@ -315,7 +317,7 @@
         <span class="rs-pill live">
           <i class="live-dot"></i>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
         </span>
-        <span class="rs-pill" *ngIf="nextSalida">Sale {{ nextSalida.hora.slice(0,5) }}</span>
+        <span class="rs-pill" *ngIf="proximaSalidaTexto" title="Según el horario de la empresa, no en vivo">{{ proximaSalidaTexto }} · horario</span>
       </div>
 
       <button class="bx-btn bx-btn--pri bx-btn--lg bx-btn--bloque rs-comprar" *ngIf="ruta.precio"
@@ -546,7 +548,7 @@
   <ng-template #tplCerca let-cabeza="cabeza">
     <div class="cerca-cabeza" *ngIf="cabeza !== false">
       <h2 class="cerca-titulo">Cerca tuyo</h2>
-      <span class="cerca-vivo" *ngIf="cercanas.length"><i></i>en vivo</span>
+      <span class="cerca-vivo" *ngIf="hayCercaEnVivo"><i></i>en vivo</span>
     </div>
 
     <ng-container *ngFor="let c of cercanas; trackBy: trackCercana">
@@ -565,12 +567,14 @@
         <bx-ruta [nombre]="c.ruta.nombre" [color]="c.ruta.color"></bx-ruta>
         <span class="cerca-parada">{{ nombreCorto(c.parada) }} · {{ metrosTexto(c.distanciaKm * 1000) }}</span>
       </span>
+      <!-- "llega en": el número solo es ambiguo (¿llega o se camina?). -->
       <span class="cerca-eta" *ngIf="c.minutos !== null">
+        <span class="cerca-llega">llega en</span>
         <span class="cerca-min"><b class="bx-mono">{{ c.minutos === 0 ? '&lt;1' : c.minutos }}</b>min</span>
         <span class="cerca-hacia">hacia {{ c.hacia }}</span>
       </span>
-      <span class="cerca-nada" *ngIf="c.minutos === null && c.siguiendo">Ninguno<br>en camino</span>
-      <span class="cerca-nada cerca-seguir" *ngIf="c.minutos === null && !c.siguiendo">Seguí a la<br>empresa</span>
+      <span class="cerca-nada" *ngIf="c.minutos === null && !c.salida">Ninguno<br>en camino</span>
+      <span class="cerca-nada cerca-horario" *ngIf="c.minutos === null && c.salida">{{ c.salida }}<br><small>según horario</small></span>
     </button>
   </ng-template>
 
@@ -604,7 +608,7 @@
             <span class="cerca-titulo">Cerca tuyo</span>
             <span class="cerca-linea" *ngIf="cercaAltura === 'mini' || (cercaAltura === 'resumen' && !cercaDestacada)">{{ cercaLinea }}</span>
           </span>
-          <span class="cerca-vivo" *ngIf="cercanas.length && cercaAltura !== 'mini'"><i></i>en vivo</span>
+          <span class="cerca-vivo" *ngIf="hayCercaEnVivo && cercaAltura !== 'mini'"><i></i>en vivo</span>
           <ion-icon class="cerca-flecha" [name]="cercaAltura === 'lista' ? 'chevron-down' : 'chevron-up'" aria-hidden="true"></ion-icon>
         </button>
         <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm cerca-achicar"

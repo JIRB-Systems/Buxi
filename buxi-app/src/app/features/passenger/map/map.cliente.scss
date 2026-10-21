@@ -217,7 +217,18 @@
   text-align: right;
 }
 
-.cerca-seguir { color: #ffcf73; }
+// Sin bus en camino pero con horario: la salida, marcada como no en vivo.
+.cerca-horario {
+  color: var(--bx-text);
+  max-width: 120px;
+  small { font-size: 10px; font-weight: 600; color: var(--bx-text-3); }
+}
+
+.cerca-llega {
+  font: 600 10px/1 var(--bx-font);
+  letter-spacing: 0.02em;
+  color: var(--bx-text-3);
+}
 
 .cerca-vacio {
   margin: 0;
