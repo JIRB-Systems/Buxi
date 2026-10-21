@@ -10,6 +10,8 @@ const routes: Routes = [
   { path: 'auth/login', loadChildren: () => import('./features/auth/login/login.module').then(m => m.LoginPageModule), canActivate: [NoAuthGuard], data: { precargar: true } },
   { path: 'auth/register', loadChildren: () => import('./features/auth/register/register.module').then(m => m.RegisterPageModule), canActivate: [NoAuthGuard] },
   { path: 'auth/empresa-request', loadChildren: () => import('./features/auth/empresa-request/empresa-request.module').then(m => m.EmpresaRequestPageModule) },
+  // Página pública para empresas de transporte (sin cuenta).
+  { path: 'empresas', loadChildren: () => import('./features/empresas/empresas.module').then(m => m.EmpresasPageModule) },
   { path: 'legal/privacy', loadChildren: () => import('./features/legal/privacy/privacy.module').then(m => m.PrivacyPageModule) },
   { path: 'legal/terms', loadChildren: () => import('./features/legal/terms/terms.module').then(m => m.TermsPageModule) },
   { path: 'auth/forgot-password', loadChildren: () => import('./features/auth/forgot-password/forgot-password.module').then(m => m.ForgotPasswordPageModule), canActivate: [NoAuthGuard] },

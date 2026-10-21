@@ -1,0 +1,226 @@
+<ion-content [fullscreen]="true" class="emp-content">
+  <div class="emp">
+
+    <header class="emp-top">
+      <a class="bx-lockup" routerLink="/empresas" aria-label="Buxmap para empresas">
+        <img class="bx-mark" src="assets/brand/buxmap-mark.svg" alt="" />
+        <img class="bx-name" src="assets/brand/buxmap-nombre.svg" alt="Buxmap" />
+      </a>
+      <nav class="emp-nav" aria-label="Accesos">
+        <a routerLink="/passenger/map">Ver el mapa</a>
+        <a routerLink="/auth/login">Entrar</a>
+        <a class="bx-btn bx-btn--pri bx-btn--sm" routerLink="/auth/empresa-request">Asociá tu empresa</a>
+      </nav>
+    </header>
+
+    <!-- ===== Lo primero: qué es y para quién ===== -->
+    <section class="emp-hero">
+      <div class="emp-hero-txt">
+        <h1>Tus buses, en el mapa de tus pasajeros.</h1>
+        <p class="emp-lead">
+          Buxmap es la plataforma tica para empresas de autobús: el teléfono del chofer
+          hace de GPS, vos ves tu flota en un panel y tus pasajeros ven llegar el bus
+          en una app que no les pide registrarse. Sin comprar equipos.
+        </p>
+        <div class="emp-ctas">
+          <a class="bx-btn bx-btn--pri bx-btn--lg" routerLink="/auth/empresa-request">Asociá tu empresa</a>
+          <a class="bx-btn bx-btn--sec bx-btn--lg" routerLink="/passenger/map">Ver el mapa en vivo</a>
+        </div>
+      </div>
+
+      <!-- La app del pasajero, hecha con los mismos componentes que la app. -->
+      <figure class="emp-tel" aria-label="Así ve tu ruta un pasajero">
+        <div class="tel-mapa" aria-hidden="true">
+          <svg viewBox="0 0 320 260" preserveAspectRatio="xMidYMid slice">
+            <path class="tel-calle" d="M-10 200 L90 150 L170 160 L250 90 L340 70" />
+            <path class="tel-calle tel-calle--b" d="M60 -10 L90 150 L120 280" />
+            <path class="tel-ruta" d="M-10 200 L90 150 L170 160 L250 90 L340 70" />
+            <circle class="tel-parada" cx="90" cy="150" r="6" />
+            <circle class="tel-parada tel-parada--tu" cx="250" cy="90" r="8" />
+            <g class="tel-bus" transform="translate(150 158)">
+              <rect x="-13" y="-8" width="26" height="16" rx="4" />
+              <rect class="tel-bus-v" x="-9" y="-4" width="18" height="5" rx="1.5" />
+            </g>
+          </svg>
+        </div>
+        <div class="tel-hoja">
+          <div class="tel-fila">
+            <bx-ruta nombre="Centro · Universidad" color="#2f8bff"></bx-ruta>
+            <span class="tel-vivo"><i></i>en vivo</span>
+          </div>
+          <div class="tel-fila tel-eta">
+            <div class="bx-pizarra" role="img" aria-label="Llega en 7 minutos">
+              <span class="bx-flap">0</span><span class="bx-flap">7</span>
+              <span class="bx-pizarra__unidad">min</span>
+            </div>
+            <div class="tel-info">
+              <span class="tel-label">Llega a tu parada</span>
+              <strong>Parada del Hospital</strong>
+              <span class="tel-sub"><bx-placa placa="SJB 4127"></bx-placa> hacia Universidad</span>
+            </div>
+          </div>
+          <div class="tel-aviso"><ion-icon name="notifications" aria-hidden="true"></ion-icon>Te avisamos cuando falten 5 min</div>
+        </div>
+        <figcaption>La app del pasajero. Ejemplo con datos de muestra.</figcaption>
+      </figure>
+    </section>
+
+    <!-- ===== Tres pantallas, una por cada persona del servicio ===== -->
+    <section class="emp-bloque" aria-labelledby="t-chofer">
+      <div class="emp-bloque-txt">
+        <h2 id="t-chofer">El teléfono del chofer es el GPS.</h2>
+        <p>El chofer abre Buxmap, revisa la unidad y toca «Iniciar ruta». Desde ahí la posición del bus sale cada pocos segundos, sin cables ni instalación.</p>
+        <ul class="emp-lista">
+          <li>Botón de pánico: se mantiene presionado y te llega la emergencia con la ubicación.</li>
+          <li>Checklist antes de salir: frenos, luces, espejos y combustible.</li>
+          <li>Próxima parada, alerta de velocidad y aviso si se sale del recorrido.</li>
+          <li>Escaneo de boletos con la cámara y mensajes de la empresa.</li>
+        </ul>
+      </div>
+      <div class="emp-frag frag-chofer" aria-hidden="true">
+        <div class="fc-top"><bx-placa placa="SJB 4127"></bx-placa><span class="fc-chip"><i></i>Transmitiendo</span></div>
+        <div class="fc-sig"><span>Próxima parada</span><strong>Parada del Hospital · 650 m</strong></div>
+        <div class="fc-vel"><span class="bx-mono">38</span> km/h</div>
+        <div class="fc-sos">SOS · mantené presionado</div>
+      </div>
+    </section>
+
+    <section class="emp-bloque emp-bloque--inv" aria-labelledby="t-panel">
+      <div class="emp-bloque-txt">
+        <h2 id="t-panel">Tu flota en una pantalla.</h2>
+        <p>Desde la oficina ves cada bus en el mapa, lo que necesita atención y cómo viene el servicio, sin llamar a nadie.</p>
+        <ul class="emp-lista">
+          <li>Emergencias, buses sin señal y rutas sin bus, arriba de todo.</li>
+          <li>Salidas a tiempo contra tu horario, viaje por viaje.</li>
+          <li>Avisos a tus pasajeros: atrasos, desvíos y cancelaciones, directo a su teléfono.</li>
+          <li>Rutas, horarios, choferes y equipo; reportes en PDF.</li>
+        </ul>
+      </div>
+      <div class="emp-frag frag-panel" aria-hidden="true">
+        <div class="fp-kpis">
+          <div><span>Buses en ruta</span><strong class="bx-mono">6<small>/ 8</small></strong></div>
+          <div><span>Salidas a tiempo</span><strong class="bx-mono">82<small>%</small></strong></div>
+          <div><span>Te siguen</span><strong class="bx-mono">140</strong></div>
+        </div>
+        <div class="fp-alerta">
+          <span class="fp-punto"></span>
+          <div><strong>Unidad 12 sin señal hace 6 min</strong><span>Centro · Universidad · última vez cerca del Hospital</span></div>
+        </div>
+        <div class="fp-alerta fp-alerta--ok">
+          <span class="fp-punto"></span>
+          <div><strong>Aviso enviado a 140 pasajeros</strong><span>«La ruta de las 6:10 sale 10 min tarde»</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="emp-bloque" aria-labelledby="t-pasajero">
+      <div class="emp-bloque-txt">
+        <h2 id="t-pasajero">Tus pasajeros, sin llamar a la terminal.</h2>
+        <p>Abren la app y ven qué bus pasa cerca, cuánto falta y cuánto cuesta. Sin registrarse.</p>
+        <ul class="emp-lista">
+          <li>Tiempo de llegada en vivo o, si no hay bus en camino, la próxima salida de tu horario.</li>
+          <li>«Avisame cuando falten 5 minutos», aunque cierren la app.</li>
+          <li>Planificador de viaje: dónde subir, dónde bajar y a qué hora llegan.</li>
+          <li>Comparten el viaje en vivo con la familia y reportan si el bus va lleno.</li>
+        </ul>
+      </div>
+      <div class="emp-frag frag-pasajero" aria-hidden="true">
+        <div class="fq-op">
+          <div class="fq-cab"><bx-ruta nombre="Centro · Universidad" color="#2f8bff"></bx-ruta><strong class="bx-mono">34<small>min</small></strong></div>
+          <div class="fq-barra"><span class="pie" style="flex-grow: 4">4</span><span class="bus" style="flex-grow: 24">24</span><span class="pie" style="flex-grow: 6">6</span></div>
+          <span class="fq-vivo"><i></i>Pasa en 7 min · llegás ~3:42 p. m.</span>
+        </div>
+        <div class="fq-rep"><ion-icon name="people-outline"></ion-icon>Va lleno · hace 4 min · 3 personas</div>
+      </div>
+    </section>
+
+    <!-- ===== Lo vivo: la tarifa oficial de SU ruta ===== -->
+    <section class="emp-tarifa" aria-labelledby="t-tarifa">
+      <div class="emp-tarifa-txt">
+        <h2 id="t-tarifa">Tu ruta, con su tarifa oficial.</h2>
+        <p>Buxmap toma las tarifas vigentes de ARESEP y las actualiza solas cada semana, con la de adulto mayor. Probá con el número o el nombre de tu ruta.</p>
+      </div>
+      <div class="emp-buscador">
+        <label class="emp-campo">
+          <span class="sr-only">Número o nombre de la ruta</span>
+          <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
+          <input type="search" [(ngModel)]="rutaQuery" (input)="onRuta()" placeholder="Ej. 521, Liberia, Cartago" autocomplete="off" />
+        </label>
+        <p class="emp-buscando" *ngIf="buscando">Buscando en ARESEP…</p>
+        <p class="emp-buscando" *ngIf="sinResultados && !buscando">No la encontramos. Probá con otra parte del nombre.</p>
+        <ul class="emp-tarifas" *ngIf="tarifas.length">
+          <li *ngFor="let t of tarifas">
+            <div class="et-ruta">
+              <strong>Ruta {{ t.codigo_ruta }} · {{ tituloAresep(t.nombre_fraccionamiento) }}</strong>
+              <span>{{ operadores(t) }}</span>
+            </div>
+            <div class="et-precios">
+              <b class="bx-mono">₡{{ t.tarifa_regular | number:'1.0-0' }}</b>
+              <span>adulto mayor {{ tarifaAM(t.tarifa_adulto_mayor) }}</span>
+            </div>
+          </li>
+        </ul>
+        <p class="emp-fuente" *ngIf="tarifas.length">Fuente: datos abiertos de ARESEP, vigentes desde {{ tarifas[0].fecha_vigencia | date:'d MMM y' }}.</p>
+      </div>
+    </section>
+
+    <!-- ===== Google Maps ===== -->
+    <section class="emp-gmaps" aria-labelledby="t-gmaps">
+      <h2 id="t-gmaps">Y también en Google Maps.</h2>
+      <p>Tus rutas, paradas, horarios y buses en vivo salen en GTFS, el formato que leen Google Maps, Moovit y Transit. Desde tu panel copiás los dos enlaces y postulás a tu empresa: Buxmap mantiene los datos al día.</p>
+    </section>
+
+    <!-- ===== Planes ===== -->
+    <section class="emp-planes" aria-labelledby="t-planes" *ngIf="planes.length">
+      <h2 id="t-planes">Planes según el tamaño de tu flota.</h2>
+      <div class="emp-planes-grilla">
+        <article class="emp-plan" *ngFor="let p of planes; let i = index" [class.destacado]="i === 1">
+          <h3>{{ p.nombre }}</h3>
+          <ul>
+            <li>{{ limite(p.max_buses, 'buses') }}</li>
+            <li>{{ limite(p.max_rutas, 'rutas') }}</li>
+            <li>GPS {{ intervalo(p.gps_intervalo_seg) }}</li>
+          </ul>
+          <p class="emp-plan-desc" *ngIf="p.descripcion">{{ p.descripcion }}</p>
+          <a class="bx-btn bx-btn--bloque" [class.bx-btn--pri]="i === 1" [class.bx-btn--sec]="i !== 1" routerLink="/auth/empresa-request">Consultar precio</a>
+        </article>
+      </div>
+    </section>
+
+    <!-- ===== Cómo empezar ===== -->
+    <section class="emp-pasos" aria-labelledby="t-pasos">
+      <h2 id="t-pasos">Cómo empezar.</h2>
+      <ol>
+        <li><strong>Mandanos la solicitud.</strong><span>Nombre de la empresa, cédula jurídica y un contacto. Toma dos minutos.</span></li>
+        <li><strong>Te creamos el acceso.</strong><span>JIRB revisa la solicitud y te manda el usuario de tu panel.</span></li>
+        <li><strong>Cargá rutas y choferes.</strong><span>Buscás tu ruta en ARESEP, marcás las paradas y les das acceso a tus choferes. Ese mismo día tus buses aparecen en el mapa.</span></li>
+      </ol>
+      <a class="bx-btn bx-btn--pri bx-btn--lg" routerLink="/auth/empresa-request">Asociá tu empresa</a>
+    </section>
+
+    <!-- ===== Preguntas ===== -->
+    <section class="emp-faq" aria-labelledby="t-faq">
+      <h2 id="t-faq">Preguntas frecuentes.</h2>
+      <div class="emp-faq-item" *ngFor="let f of faq; let i = index" [class.abierta]="faqAbierta === i">
+        <button type="button" (click)="faqAbierta = faqAbierta === i ? null : i" [attr.aria-expanded]="faqAbierta === i">
+          <span>{{ f.q }}</span>
+          <ion-icon [name]="faqAbierta === i ? 'remove' : 'add'" aria-hidden="true"></ion-icon>
+        </button>
+        <p *ngIf="faqAbierta === i">{{ f.a }}</p>
+      </div>
+    </section>
+
+    <footer class="emp-pie">
+      <div class="bx-lockup">
+        <img class="bx-mark" src="assets/brand/buxmap-mark.svg" alt="" />
+        <img class="bx-name" src="assets/brand/buxmap-nombre.svg" alt="Buxmap" />
+      </div>
+      <p>Hecho en Costa Rica por JIRB Systems.</p>
+      <nav aria-label="Legal">
+        <a routerLink="/legal/privacy">Privacidad</a>
+        <a routerLink="/legal/terms">Términos</a>
+        <a routerLink="/passenger/map">Mapa de buses</a>
+      </nav>
+    </footer>
+  </div>
+</ion-content>
