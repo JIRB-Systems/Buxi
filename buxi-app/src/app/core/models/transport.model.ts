@@ -22,7 +22,28 @@ export interface Ruta {
   estado: string;
   geometria: [number, number][] | null;
   precio: number | null;
+  // Código oficial (CTP/ARESEP), ej. "521".
+  codigo_ruta?: string | null;
+  // Tramo de ARESEP del que sale el precio; con esto el precio lo fija la base.
+  aresep_fraccionamiento?: string | null;
   empresa?: Empresa;
+}
+
+// Una fila de las tarifas vigentes que publica ARESEP (tabla tarifas_aresep).
+export interface TarifaAresep {
+  codigo_fraccionamiento: string;
+  codigo_ruta: string;
+  nombre_ruta: string;
+  codigo_ramal: string | null;
+  nombre_ramal: string | null;
+  nombre_fraccionamiento: string;
+  km: number | null;
+  tarifa_regular: number;
+  tarifa_adulto_mayor: number | null;
+  resolucion: string | null;
+  fecha_vigencia: string | null;
+  operadores: string | null;
+  vigente: boolean;
 }
 
 export interface Parada {

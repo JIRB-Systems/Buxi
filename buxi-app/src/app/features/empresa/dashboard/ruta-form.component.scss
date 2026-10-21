@@ -77,6 +77,42 @@
   &:hover { background: rgba(0, 200, 83, 0.12); }
 }
 
+// Los resultados de ARESEP son botones (se llega con el teclado); sin esto
+// tendrían el estilo nativo.
+button.suggestion {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: left;
+  font: inherit;
+  &:focus-visible { outline: 2px solid var(--bx-green); outline-offset: -2px; }
+}
+
+.tarifa-op__txt {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  small { color: var(--dash-text-muted); font-size: 11px; }
+}
+
+.tarifa-elegida {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(0, 200, 83, 0.08);
+  border: 1px solid rgba(0, 200, 83, 0.35);
+
+  ion-button { --color: var(--dash-text-muted); margin: -4px -6px 0 0; }
+}
+
+.tarifa-datos {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  strong { font-size: 14px; color: #fff; }
+  span { font-size: 13px; color: var(--bx-text); }
+}
+
+.tarifa-pie { font-size: 12px !important; color: var(--dash-text-muted) !important; }
+
 .hint {
   margin-top: 6px;
   font-size: 12px;

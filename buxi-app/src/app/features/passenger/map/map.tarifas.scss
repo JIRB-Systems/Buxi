@@ -1,0 +1,54 @@
+// ============================================================================
+// HOJA DE RUTA: tarifas oficiales de ARESEP, por tramo
+// ============================================================================
+// Usa el mismo desplegable que "Recorrido" (.rec / .rec-toggle).
+
+.tar-cuerpo { padding-bottom: 6px; }
+
+.tar-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bx-line);
+  font-size: 13px;
+  color: var(--bx-text);
+
+  > span:nth-child(n + 2) { text-align: right; min-width: 64px; }
+}
+
+.tar-cab {
+  padding-top: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bx-text-3);
+}
+
+.tar-tramo {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// El tramo de esta ruta (el viaje completo) se destaca.
+.tar-tuya {
+  font-weight: 800;
+  .tar-tramo::after {
+    content: ' · esta ruta';
+    font-weight: 600;
+    color: var(--bx-text-3);
+  }
+}
+
+.tar-gratis { color: var(--bx-green); font-weight: 700; }
+
+.tar-pie {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--bx-text-3);
+}

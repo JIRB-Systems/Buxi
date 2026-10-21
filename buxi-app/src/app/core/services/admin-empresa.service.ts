@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Bus, Ruta, Parada, BusLocation, Empresa } from '../models/transport.model';
+import { Bus, Ruta, Parada, BusLocation, Empresa, TarifaAresep } from '../models/transport.model';
 import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje, MensajeChofer, NotificacionEmpresa, TipoNotificacion } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
@@ -41,6 +41,32 @@ export class AdminEmpresaService {
     const { data, error } = await this.supabase.from('rutas').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data as Ruta;
+  }
+
+  // ---- TARIFAS DE ARESEP ----
+  // Busca tramos por código de ruta ("521"), nombre de ruta o nombre de tramo.
+  // El texto va dentro de un filtro `or` de PostgREST: se le sacan los
+  // caracteres que cambiarían la consulta (coma, paréntesis, comodines).
+  async buscarTarifasAresep(texto: string): Promise<TarifaAresep[]> {
+    const q = texto.replace(/[,()%*\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (q.length < 2) return [];
+    const { data, error } = await this.supabase
+      .from('tarifas_aresep')
+      .select('*')
+      .eq('vigente', true)
+      .or(`codigo_ruta.ilike.${q},nombre_ruta.ilike.%${q}%,nombre_fraccionamiento.ilike.%${q}%`)
+      .order('codigo_ruta')
+      .order('tarifa_regular', { ascending: false })
+      .limit(40);
+    if (error) throw error;
+    return (data || []) as TarifaAresep[];
+  }
+
+  async getTarifaAresep(codigoFraccionamiento: string): Promise<TarifaAresep | null> {
+    const { data, error } = await this.supabase
+      .from('tarifas_aresep').select('*').eq('codigo_fraccionamiento', codigoFraccionamiento).maybeSingle();
+    if (error) throw error;
+    return data as TarifaAresep | null;
   }
 
   async deleteRuta(id: string): Promise<void> {

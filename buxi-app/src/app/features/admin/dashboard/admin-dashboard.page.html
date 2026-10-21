@@ -690,6 +690,37 @@
 
           <!-- ========== CONFIGURACIÓN ========== -->
           <div *ngIf="activeTab==='config'" class="section">
+            <div class="panel tarifas-aresep">
+              <div class="panel-header">
+                <h3>Tarifas de ARESEP</h3>
+                <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" [disabled]="sincronizandoTarifas"
+                        [attr.aria-busy]="sincronizandoTarifas" (click)="sincronizarTarifas()">
+                  <span class="bx-btn__giro" *ngIf="sincronizandoTarifas" aria-hidden="true"></span>
+                  {{ sincronizandoTarifas ? 'Actualizando…' : 'Actualizar ahora' }}
+                </button>
+              </div>
+              <div class="config-item">
+                <div class="config-info">
+                  <strong>Última actualización</strong>
+                  <span class="muted">Se piden solas cada lunes a las 3:00 a. m. a los datos abiertos de ARESEP.</span>
+                </div>
+                <span class="bx-mono">{{ estadoTarifas?.ultima_ok ? (estadoTarifas?.ultima_ok | date:'d MMM y, h:mm a') : 'Nunca' }}</span>
+              </div>
+              <div class="config-item">
+                <div class="config-info">
+                  <strong>Tramos cargados</strong>
+                  <span class="muted">Rutas de Buxmap que toman el precio de ARESEP: {{ estadoTarifas?.enlazadas ?? '—' }}</span>
+                </div>
+                <span class="bx-mono">{{ estadoTarifas?.filas != null ? (estadoTarifas?.filas | number) : '—' }}</span>
+              </div>
+              <div class="config-item" *ngIf="estadoTarifas?.error">
+                <div class="config-info">
+                  <strong class="txt-danger">El último intento falló</strong>
+                  <span class="muted">{{ estadoTarifas?.error }}</span>
+                </div>
+              </div>
+            </div>
+
             <div class="panel">
               <div class="panel-header"><h3>Parámetros del sistema</h3></div>
               <div class="config-item" *ngFor="let c of configItems">

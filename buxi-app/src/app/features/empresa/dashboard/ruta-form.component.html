@@ -13,12 +13,50 @@
     <ion-input [(ngModel)]="nombre" placeholder="Ej. San José - Cartago" fill="outline"></ion-input>
   </div>
 
-  <div class="field">
-    <label>Precio del pasaje <span class="opt">(opcional)</span></label>
-    <ion-input [(ngModel)]="precio" type="number" min="0" placeholder="Ej. 500" fill="outline">
-      <div slot="start" class="currency-prefix">₡</div>
-    </ion-input>
+  <div class="field autocomplete">
+    <label>Tarifa oficial de ARESEP <span class="opt">(recomendado)</span></label>
+    <div class="tarifa-elegida" *ngIf="tarifa">
+      <div class="tarifa-datos">
+        <strong>Ruta {{ tarifa.codigo_ruta }} · {{ tituloAresep(tarifa.nombre_fraccionamiento) }}</strong>
+        <span><b class="bx-mono">₡{{ tarifa.tarifa_regular | number:'1.0-0' }}</b> · adulto mayor {{ tarifaAM(tarifa.tarifa_adulto_mayor) }}</span>
+        <span class="tarifa-pie">
+          Vigente desde {{ tarifa.fecha_vigencia | date:'d MMM y' }}. Cuando ARESEP la cambie, se actualiza sola.
+        </span>
+      </div>
+      <ion-button fill="clear" size="small" (click)="quitarTarifa()">Quitar</ion-button>
+    </div>
+    <ng-container *ngIf="!tarifa">
+      <ion-input [(ngModel)]="tarifaQuery" (ionInput)="onTarifaInput()" fill="outline"
+                 placeholder="Número o nombre de la ruta, ej. 521 o Liberia"></ion-input>
+      <div class="hint searching" *ngIf="tarifaBuscando">Buscando en ARESEP...</div>
+      <div class="suggestions" *ngIf="tarifaResultados.length">
+        <button type="button" class="suggestion tarifa-op" *ngFor="let t of tarifaResultados" (click)="elegirTarifa(t)">
+          <span class="tarifa-op__txt">
+            <span><b>{{ t.codigo_ruta }}</b> · {{ tituloAresep(t.nombre_fraccionamiento) }}</span>
+            <small>{{ tituloAresep(t.nombre_ramal || t.nombre_ruta) }}<ng-container *ngIf="t.km"> · {{ t.km | number:'1.0-0' }} km</ng-container></small>
+          </span>
+          <b class="bx-mono">₡{{ t.tarifa_regular | number:'1.0-0' }}</b>
+        </button>
+      </div>
+      <div class="hint error" *ngIf="!tarifaBuscando && tarifaError">
+        No la encontramos en ARESEP. Podés poner el código y el precio a mano.
+      </div>
+    </ng-container>
   </div>
+
+  <ng-container *ngIf="!tarifa">
+    <div class="field">
+      <label>Código de ruta <span class="opt">(opcional)</span></label>
+      <ion-input [(ngModel)]="codigoRuta" maxlength="20" placeholder="Ej. 521" fill="outline"></ion-input>
+    </div>
+
+    <div class="field">
+      <label>Precio del pasaje <span class="opt">(opcional)</span></label>
+      <ion-input [(ngModel)]="precio" type="number" min="0" placeholder="Ej. 500" fill="outline">
+        <div slot="start" class="currency-prefix">₡</div>
+      </ion-input>
+    </div>
+  </ng-container>
 
   <div class="field autocomplete" *ngIf="!isEdit">
     <label>Origen</label>

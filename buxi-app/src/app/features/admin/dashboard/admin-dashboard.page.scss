@@ -397,6 +397,14 @@
   }
 }
 
+.tarifas-aresep {
+  margin-bottom: 16px;
+  .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; h3 { margin: 0; } }
+  .config-item { gap: 16px; .config-info { min-width: 0; } }
+  .bx-mono { font-size: 13px; color: var(--bx-text); white-space: nowrap; }
+  .txt-danger { color: var(--bx-danger) !important; }
+}
+
 // ====== RESPONSIVE ======
 @media (max-width: 768px) {
   // En pantallas de teléfono el mapa se achica todavía más: a 420px ocupaba

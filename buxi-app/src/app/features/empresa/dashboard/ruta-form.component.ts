@@ -1,8 +1,11 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { ModalController } from '@ionic/angular';
 import { FeaturesService } from '../../../core/services/features.service';
-import { Ruta } from '../../../core/models/transport.model';
+import { AdminEmpresaService } from '../../../core/services/admin-empresa.service';
+import { Ruta, TarifaAresep } from '../../../core/models/transport.model';
 import { nombreCortoLugar } from '../../../core/utils/lugar';
+import { tarifaAdultoMayorTexto, tituloAresep } from '../../../core/utils/aresep';
+import { logError } from '../../../core/utils/log';
 
 interface PlaceSuggestion { label: string; lat: number; lng: number; }
 
@@ -21,6 +24,18 @@ export class RutaFormComponent implements OnInit {
   nombre = '';
   color = '#00c853';
   precio: number | null = null;
+  codigoRuta = '';
+
+  // Tramo de ARESEP enlazado. Con tramo, el precio lo fija la base (trigger
+  // rutas_precio_aresep) y se actualiza solo cuando ARESEP lo cambia.
+  tarifa: TarifaAresep | null = null;
+  tarifaQuery = '';
+  tarifaResultados: TarifaAresep[] = [];
+  tarifaBuscando = false;
+  tarifaError = false;
+  private tarifaTimeout: any;
+  readonly tituloAresep = tituloAresep;
+  readonly tarifaAM = tarifaAdultoMayorTexto;
 
   origenQuery = '';
   origenSuggestions: PlaceSuggestion[] = [];
@@ -39,18 +54,62 @@ export class RutaFormComponent implements OnInit {
   destinoAdding = false;
   private destinoTimeout: any;
 
-  constructor(private modalCtrl: ModalController, private features: FeaturesService) {}
+  constructor(
+    private modalCtrl: ModalController,
+    private features: FeaturesService,
+    private admin: AdminEmpresaService,
+  ) {}
 
   get isEdit(): boolean {
     return !!this.ruta;
   }
 
-  ngOnInit() {
+  async ngOnInit() {
     if (this.ruta) {
       this.nombre = this.ruta.nombre;
       this.color = this.ruta.color;
       this.precio = this.ruta.precio;
+      this.codigoRuta = this.ruta.codigo_ruta || '';
+      if (this.ruta.aresep_fraccionamiento) {
+        try {
+          this.tarifa = await this.admin.getTarifaAresep(this.ruta.aresep_fraccionamiento);
+        } catch (e) {
+          logError('leer la tarifa ARESEP de la ruta', e);
+        }
+      }
     }
+  }
+
+  onTarifaInput() {
+    this.tarifaError = false;
+    clearTimeout(this.tarifaTimeout);
+    if (this.tarifaQuery.trim().length < 2) { this.tarifaResultados = []; return; }
+    this.tarifaBuscando = true;
+    this.tarifaTimeout = setTimeout(async () => {
+      try {
+        this.tarifaResultados = await this.admin.buscarTarifasAresep(this.tarifaQuery);
+        this.tarifaError = this.tarifaResultados.length === 0;
+      } catch (e) {
+        logError('buscar tarifas ARESEP', e);
+        this.tarifaError = true;
+      } finally {
+        this.tarifaBuscando = false;
+      }
+    }, 300);
+  }
+
+  elegirTarifa(t: TarifaAresep) {
+    this.tarifa = t;
+    this.precio = t.tarifa_regular;
+    this.codigoRuta = t.codigo_ruta;
+    if (!this.nombre.trim()) this.nombre = tituloAresep(t.nombre_fraccionamiento);
+    this.tarifaResultados = [];
+    this.tarifaQuery = '';
+  }
+
+  // Sin tramo, el precio vuelve a ser manual (se conserva el último).
+  quitarTarifa() {
+    this.tarifa = null;
   }
 
   onOrigenInput() {
@@ -153,7 +212,9 @@ export class RutaFormComponent implements OnInit {
     this.modalCtrl.dismiss({
       nombre: this.nombre.trim(),
       color: this.color,
-      precio: this.precio,
+      precio: this.tarifa ? this.tarifa.tarifa_regular : this.precio,
+      codigo_ruta: this.tarifa ? this.tarifa.codigo_ruta : (this.codigoRuta.trim() || null),
+      aresep_fraccionamiento: this.tarifa?.codigo_fraccionamiento ?? null,
       origen: this.origenSelected,
       destino: this.destinoSelected,
     }, 'confirm');

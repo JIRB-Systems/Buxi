@@ -561,6 +561,33 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     if (tab === 'overview') {
       setTimeout(() => this.initAdminMap('admin-map-overview'), 150);
     }
+    if (tab === 'config') this.cargarEstadoTarifas();
+  }
+
+  // ---- TARIFAS DE ARESEP ----
+  estadoTarifas: { ultima_ok: string | null; filas: number | null; rutas_actualizadas: number | null; error: string | null; enlazadas: number } | null = null;
+  sincronizandoTarifas = false;
+
+  async cargarEstadoTarifas() {
+    try {
+      this.estadoTarifas = await this.admin.getEstadoTarifas();
+    } catch (e) {
+      logError('leer el estado de las tarifas ARESEP', e);
+    }
+  }
+
+  async sincronizarTarifas() {
+    if (this.sincronizandoTarifas) return;
+    this.sincronizandoTarifas = true;
+    try {
+      const r = await this.admin.sincronizarTarifas();
+      this.showToast(`Listo: ${r.filas.toLocaleString('es-CR')} tarifas al día, ${r.rutas_actualizadas} rutas con precio nuevo`);
+    } catch (e: any) {
+      logError('sincronizar tarifas ARESEP', e);
+      this.showToast(e?.message || 'No se pudieron actualizar las tarifas', 'danger');
+    }
+    await this.cargarEstadoTarifas();
+    this.sincronizandoTarifas = false;
   }
 
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }

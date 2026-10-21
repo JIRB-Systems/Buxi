@@ -227,6 +227,25 @@ export class AdminJirbService {
     if (error) throw error;
   }
 
+  // ---- TARIFAS DE ARESEP ----
+  async getEstadoTarifas(): Promise<{ ultima_ok: string | null; filas: number | null; rutas_actualizadas: number | null; error: string | null; enlazadas: number }> {
+    const [{ data: sync, error }, { count }] = await Promise.all([
+      this.supabase.from('tarifas_aresep_sync').select('ultima_ok, filas, rutas_actualizadas, error').eq('id', 1).maybeSingle(),
+      this.supabase.from('rutas').select('id', { count: 'exact', head: true }).not('aresep_fraccionamiento', 'is', null),
+    ]);
+    if (error) throw error;
+    return { ultima_ok: null, filas: null, rutas_actualizadas: null, error: null, ...(sync || {}), enlazadas: count ?? 0 };
+  }
+
+  // Con sesión de admin_jirb la función sincroniza aunque la última vez haya
+  // sido hace poco (ver supabase/functions/sync-tarifas-aresep).
+  async sincronizarTarifas(): Promise<{ filas: number; rutas_actualizadas: number }> {
+    const { data, error } = await this.supabase.functions.invoke('sync-tarifas-aresep', { method: 'POST', body: {} });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
   // ---- LIVE BUS LOCATIONS ----
   // La última posición de cada bus, calculada en la base (DISTINCT ON + índice).
   // Antes se bajaba el historial entero, con la geometría de la ruta repetida en

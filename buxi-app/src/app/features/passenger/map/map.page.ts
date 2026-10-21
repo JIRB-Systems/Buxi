@@ -6,7 +6,8 @@ import { Subscription } from 'rxjs';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-tracking.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
-import { BusLocation, Ruta, Parada } from '../../../core/models/transport.model';
+import { BusLocation, Ruta, Parada, TarifaAresep } from '../../../core/models/transport.model';
+import { REGLA_ADULTO_MAYOR, tarifaAdultoMayorTexto, tituloAresep } from '../../../core/utils/aresep';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Anuncio, HorarioSalida, Boleto, NotificacionEmpresa } from '../../../core/models/features.model';
 import { FeaturesService, PuntoGeo } from '../../../core/services/features.service';
@@ -115,7 +116,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -763,11 +764,39 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   private async loadHorariosFor(rutaId: string) {
+    this.cargarTarifas(this.activeRuta);
     try {
       this.activeSalidas = await this.tracking.getHorarioSalidas(rutaId);
     } catch {
       this.activeSalidas = [];
     }
+  }
+
+  // ---- TARIFAS (ARESEP) ----
+  // Solo para rutas enlazadas a un tramo de ARESEP: todos los tramos de ese
+  // ramal, con la tarifa de adulto mayor.
+  tarifasRuta: TarifaAresep[] = [];
+  tarifasAbiertas = false;
+  readonly tituloAresep = tituloAresep;
+  readonly tarifaAM = tarifaAdultoMayorTexto;
+  readonly reglaAdultoMayor = REGLA_ADULTO_MAYOR;
+
+  private async cargarTarifas(ruta: Ruta | null) {
+    this.tarifasRuta = [];
+    if (!ruta?.aresep_fraccionamiento) return;
+    const pedida = ruta.id;
+    try {
+      const tarifas = await this.tracking.getTarifasDelRamal(ruta.aresep_fraccionamiento);
+      // Si mientras tanto eligió otra ruta, no pisar la suya.
+      if (this.activeRuta?.id === pedida) this.tarifasRuta = tarifas;
+    } catch (e) {
+      logError('cargar las tarifas de ARESEP', e);
+    }
+  }
+
+  get tarifaPrincipal(): TarifaAresep | null {
+    const t = this.activeRuta?.aresep_fraccionamiento;
+    return this.tarifasRuta.find(x => x.codigo_fraccionamiento === t) || null;
   }
 
   // ---- BOLETOS (QR) ----
@@ -1916,6 +1945,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.activeParadas = [];
     this.updateETA();
     this.activeSalidas = [];
+    this.tarifasRuta = [];
     this.selectedEmpresaId = null;
 
     if (navigate) {
@@ -3509,6 +3539,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           this.activeRuta = ruta;
           this.activeParadas = paradas;
           this.updateETA();
+          this.loadHorariosFor(ruta.id);
           await this.drawRouteLayer(paradas, ruta.color, ruta.geometria);
         }
       } catch {}

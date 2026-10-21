@@ -290,7 +290,33 @@
         </ol>
       </div>
 
+      <!-- Las tarifas oficiales de ARESEP, por tramo. Solo si la empresa
+           enlazó la ruta a un tramo; si no, el precio sale en el botón. -->
+      <div class="rec tar" *ngIf="tarifasRuta.length">
+        <button type="button" class="rec-toggle" (click)="tarifasAbiertas = !tarifasAbiertas" [attr.aria-expanded]="tarifasAbiertas">
+          <span>Tarifas</span>
+          <span class="bx-mono rec-cuenta">ARESEP · ruta {{ ruta.codigo_ruta }}</span>
+          <ion-icon [name]="tarifasAbiertas ? 'chevron-up' : 'chevron-down'" aria-hidden="true"></ion-icon>
+        </button>
+        <div class="tar-cuerpo" *ngIf="tarifasAbiertas">
+          <div class="tar-fila tar-cab" aria-hidden="true">
+            <span>Tramo</span><span>Pasaje</span><span>Adulto mayor</span>
+          </div>
+          <div class="tar-fila" *ngFor="let t of tarifasRuta"
+               [class.tar-tuya]="t.codigo_fraccionamiento === ruta.aresep_fraccionamiento">
+            <span class="tar-tramo">{{ tituloAresep(t.nombre_fraccionamiento) }}</span>
+            <span class="bx-mono">₡{{ t.tarifa_regular | number:'1.0-0' }}</span>
+            <span class="bx-mono" [class.tar-gratis]="t.tarifa_adulto_mayor === 0">{{ tarifaAM(t.tarifa_adulto_mayor) }}</span>
+          </div>
+          <p class="tar-pie">
+            Vigentes desde {{ tarifaPrincipal?.fecha_vigencia | date:'d MMM y' }}<ng-container *ngIf="tarifaPrincipal?.resolucion">
+            ({{ tarifaPrincipal?.resolucion }})</ng-container>. {{ reglaAdultoMayor }}
+          </p>
+        </div>
+      </div>
+
       <div class="rs-meta">
+        <span class="rs-pill" *ngIf="ruta.codigo_ruta">Ruta {{ ruta.codigo_ruta }}</span>
         <span class="rs-pill live" *ngIf="!rutaActivaSinSeguir">
           <i class="live-dot"></i>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
         </span>

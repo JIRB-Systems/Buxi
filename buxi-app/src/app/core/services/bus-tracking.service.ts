@@ -3,7 +3,7 @@ import { supabaseClient } from '../supabase-client';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { BusLocation, Ruta, Parada, Bus } from '../models/transport.model';
+import { BusLocation, Ruta, Parada, Bus, TarifaAresep } from '../models/transport.model';
 import { logError } from '../utils/log';
 import { Horario, HorarioSalida } from '../models/features.model';
 
@@ -41,6 +41,21 @@ export class BusTrackingService implements OnDestroy {
       .eq('empresa.estado', 'activo');
     if (error) throw error;
     return data as Ruta[];
+  }
+
+  // Todos los tramos del mismo ramal que el tramo enlazado a la ruta, del más
+  // caro (el viaje completo) al más barato: es la tabla "Tarifas" de la hoja.
+  async getTarifasDelRamal(codigoFraccionamiento: string): Promise<TarifaAresep[]> {
+    const { data: base, error } = await this.supabase
+      .from('tarifas_aresep').select('codigo_ramal, codigo_ruta')
+      .eq('codigo_fraccionamiento', codigoFraccionamiento).maybeSingle();
+    if (error) throw error;
+    if (!base) return [];
+    let q = this.supabase.from('tarifas_aresep').select('*').eq('vigente', true);
+    q = base.codigo_ramal ? q.eq('codigo_ramal', base.codigo_ramal) : q.eq('codigo_ruta', base.codigo_ruta);
+    const { data, error: err2 } = await q.order('tarifa_regular', { ascending: false });
+    if (err2) throw err2;
+    return (data || []) as TarifaAresep[];
   }
 
   async getParadas(rutaId: string): Promise<Parada[]> {

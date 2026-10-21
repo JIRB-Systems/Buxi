@@ -1539,6 +1539,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         destino: data.destino.label,
         color: data.color || '#00c853',
         precio: data.precio ?? null,
+        codigo_ruta: data.codigo_ruta ?? null,
+        aresep_fraccionamiento: data.aresep_fraccionamiento ?? null,
         estado: 'activa',
       });
 
@@ -1569,7 +1571,10 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     if (role !== 'confirm' || !data) return;
 
     try {
-      await this.admin.updateRuta(r.id, { nombre: data.nombre, color: data.color, precio: data.precio ?? null });
+      await this.admin.updateRuta(r.id, {
+        nombre: data.nombre, color: data.color, precio: data.precio ?? null,
+        codigo_ruta: data.codigo_ruta ?? null, aresep_fraccionamiento: data.aresep_fraccionamiento ?? null,
+      });
       await this.loadData();
       this.showToast('Ruta actualizada');
     } catch {
