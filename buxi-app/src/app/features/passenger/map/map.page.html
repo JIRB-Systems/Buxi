@@ -312,6 +312,37 @@
         </div>
       </div>
 
+      <!-- Lo que reportan los pasajeros en los últimos 30 minutos. El último
+           se ve aunque esté cerrado: es lo más útil cuando no hay GPS. -->
+      <div class="rec rep">
+        <button type="button" class="rec-toggle" (click)="reportesAbiertos = !reportesAbiertos" [attr.aria-expanded]="reportesAbiertos">
+          <span>Lo que dicen los pasajeros</span>
+          <span class="bx-mono rec-cuenta">{{ reportesRuta.length ? reportesRuta.length + (reportesRuta.length === 1 ? ' aviso' : ' avisos') : 'últimos 30 min' }}</span>
+          <ion-icon [name]="reportesAbiertos ? 'chevron-up' : 'chevron-down'" aria-hidden="true"></ion-icon>
+        </button>
+        <p class="rep-ultimo" *ngIf="!reportesAbiertos && reportesRuta.length">
+          <ion-icon [name]="iconoReporte(reportesRuta[0].tipo)" aria-hidden="true"></ion-icon>
+          {{ reporteTexto(reportesRuta[0]) }} · {{ haceTexto(reportesRuta[0].ultimo) }}
+        </p>
+        <div class="rep-cuerpo" *ngIf="reportesAbiertos">
+          <ul class="rep-lista" *ngIf="reportesRuta.length">
+            <li *ngFor="let r of reportesRuta">
+              <ion-icon [name]="iconoReporte(r.tipo)" aria-hidden="true"></ion-icon>
+              <span>{{ reporteTexto(r) }}</span>
+              <small>{{ haceTexto(r.ultimo) }}<ng-container *ngIf="r.cantidad > 1"> · {{ r.cantidad }} personas</ng-container></small>
+            </li>
+          </ul>
+          <p class="rep-vacio" *ngIf="!reportesRuta.length">Nadie reportó nada en la última media hora.</p>
+          <span class="rep-pregunta">¿Estás en la parada o en el bus? Avisale a los demás:</span>
+          <div class="rep-botones">
+            <button type="button" class="rep-btn" *ngFor="let t of TIPOS_REPORTE"
+                    [disabled]="!!enviandoReporte" [attr.aria-busy]="enviandoReporte === t.tipo" (click)="reportar(t.tipo)">
+              <ion-icon [name]="t.icono" aria-hidden="true"></ion-icon>{{ t.texto }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="rs-meta">
         <span class="rs-pill" *ngIf="ruta.codigo_ruta">Ruta {{ ruta.codigo_ruta }}</span>
         <span class="rs-pill live">

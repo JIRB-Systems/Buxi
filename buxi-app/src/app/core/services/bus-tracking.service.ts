@@ -7,6 +7,16 @@ import { BusLocation, Ruta, Parada, Bus, TarifaAresep } from '../models/transpor
 import { logError } from '../utils/log';
 import { Horario, HorarioSalida } from '../models/features.model';
 
+export type TipoReporte = 'ya_paso' | 'lleno' | 'no_paso' | 'atrasado';
+
+export interface ReporteReciente {
+  tipo: TipoReporte;
+  parada_id: string | null;
+  parada_nombre: string | null;
+  cantidad: number;
+  ultimo: string;
+}
+
 export interface EmpresaListItem {
   id: string;
   nombre: string;
@@ -41,6 +51,21 @@ export class BusTrackingService implements OnDestroy {
       .eq('empresa.estado', 'activo');
     if (error) throw error;
     return data as Ruta[];
+  }
+
+  // ---- REPORTES DE PASAJEROS ----
+  // Lo de los últimos 30 minutos, resumido (sin quién reportó).
+  async getReportesRecientes(rutaId: string): Promise<ReporteReciente[]> {
+    const { data, error } = await this.supabase.rpc('reportes_recientes', { p_ruta_id: rutaId });
+    if (error) throw error;
+    return (data || []) as ReporteReciente[];
+  }
+
+  // Sin `.select()`: la tabla no se lee (lleva el usuario). El límite de
+  // frecuencia lo pone la base y vuelve como error con el texto para mostrar.
+  async reportar(rutaId: string, paradaId: string | null, tipo: TipoReporte): Promise<void> {
+    const { error } = await this.supabase.from('reportes_pasajero').insert({ ruta_id: rutaId, parada_id: paradaId, tipo });
+    if (error) throw error;
   }
 
   // Todos los tramos del mismo ramal que el tramo enlazado a la ruta, del más

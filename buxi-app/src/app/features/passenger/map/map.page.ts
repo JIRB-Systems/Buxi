@@ -4,7 +4,7 @@ import { ViewWillEnter, ViewDidEnter, AlertController, ToastController } from '@
 import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { BusTrackingService, EmpresaListItem } from '../../../core/services/bus-tracking.service';
+import { BusTrackingService, EmpresaListItem, ReporteReciente, TipoReporte } from '../../../core/services/bus-tracking.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada, TarifaAresep } from '../../../core/models/transport.model';
 import { REGLA_ADULTO_MAYOR, tarifaAdultoMayorTexto, tituloAresep } from '../../../core/utils/aresep';
@@ -794,10 +794,70 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   private async loadHorariosFor(rutaId: string) {
     this.cargarTarifas(this.activeRuta);
+    this.cargarReportes(rutaId);
     try {
       this.activeSalidas = await this.tracking.getHorarioSalidas(rutaId);
     } catch {
       this.activeSalidas = [];
+    }
+  }
+
+  // ---- REPORTES DE PASAJEROS ----
+  // "Ya pasó", "va lleno"...: cubren lo que el GPS no ve (empresas que todavía
+  // no transmiten). Se reporta con cuenta; se lee sin cuenta y sin saber quién.
+  reportesRuta: ReporteReciente[] = [];
+  reportesAbiertos = false;
+  enviandoReporte: TipoReporte | null = null;
+  private reportesCargadosEn = 0;
+  readonly TIPOS_REPORTE: { tipo: TipoReporte; texto: string; icono: string }[] = [
+    { tipo: 'ya_paso', texto: 'Ya pasó', icono: 'checkmark-done-outline' },
+    { tipo: 'lleno', texto: 'Va lleno', icono: 'people-outline' },
+    { tipo: 'atrasado', texto: 'Atrasado', icono: 'time-outline' },
+    { tipo: 'no_paso', texto: 'No pasó', icono: 'close-circle-outline' },
+  ];
+
+  private async cargarReportes(rutaId: string) {
+    this.reportesCargadosEn = Date.now();
+    try {
+      const reportes = await this.tracking.getReportesRecientes(rutaId);
+      if (this.activeRuta?.id === rutaId) this.reportesRuta = reportes;
+    } catch (e) {
+      logError('cargar los reportes de pasajeros', e);
+    }
+  }
+
+  reporteTexto(r: ReporteReciente): string {
+    switch (r.tipo) {
+      case 'ya_paso': return r.parada_nombre ? `Ya pasó por ${nombreCortoLugar(r.parada_nombre, 28)}` : 'Ya pasó';
+      case 'lleno': return 'Va lleno';
+      case 'atrasado': return 'Viene atrasado';
+      default: return 'No pasó';
+    }
+  }
+
+  iconoReporte(tipo: TipoReporte): string {
+    return this.TIPOS_REPORTE.find(t => t.tipo === tipo)?.icono || 'chatbubble-outline';
+  }
+
+  haceTexto(iso: string): string {
+    const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+    return min < 1 ? 'recién' : `hace ${min} min`;
+  }
+
+  async reportar(tipo: TipoReporte) {
+    if (!this.profile) { this.pedirCuenta('avisarle a otros pasajeros'); return; }
+    const ruta = this.activeRuta;
+    if (!ruta || this.enviandoReporte) return;
+    this.enviandoReporte = tipo;
+    try {
+      await this.tracking.reportar(ruta.id, this.nearestStop?.parada.id ?? null, tipo);
+      await this.toast('Gracias: ya lo ven los demás pasajeros de esta ruta');
+      await this.cargarReportes(ruta.id);
+    } catch (e: any) {
+      // El límite de frecuencia lo pone la base con un texto para mostrar.
+      await this.toast(e?.message || 'No se pudo enviar el reporte', 'warning');
+    } finally {
+      this.enviandoReporte = null;
     }
   }
 
@@ -1988,6 +2048,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.updateETA();
     this.activeSalidas = [];
     this.tarifasRuta = [];
+    this.reportesRuta = [];
     this.selectedEmpresaId = null;
 
     if (navigate) {
@@ -2061,6 +2122,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         : await this.tracking.getLatestLocations();
       // Si mientras tanto cambió la ruta elegida, esta respuesta ya no aplica.
       if (this.activeRuta?.id !== ruta?.id) return;
+      // Los reportes cambian despacio: alcanza con refrescarlos cada minuto.
+      if (ruta && Date.now() - this.reportesCargadosEn > 60000) this.cargarReportes(ruta.id);
       for (const loc of locations) {
         const previo = this.busLocationsMap.get(loc.bus_id);
         // Mismo punto que ya llegó por Realtime: no reiniciar su animación.
