@@ -261,6 +261,7 @@
           </div>
         </div>
         <p class="vj-resumen">Unos <b>{{ viajeMinutosTotal }} min</b> en total, sin contar la espera del bus</p>
+        <ng-container *ngTemplateOutlet="tplEspera; context: { $implicit: esperaDe(o) }"></ng-container>
       </div>
 
       <!-- El recorrido: las paradas en orden y los buses entre ellas. -->
@@ -396,8 +397,9 @@
             <span class="vj-tramo vj-tramo--pie" [style.flex-grow]="o.minutosAlDestino"><ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlDestino }}</span>
           </span>
           <span class="vj-paradas">Subí en {{ nombreCorto(o.subir) }} · bajá en {{ nombreCorto(o.bajar) }}</span>
+          <ng-container *ngTemplateOutlet="tplEspera; context: { $implicit: esperaDe(o) }"></ng-container>
         </button>
-        <p class="vj-nota">Tiempos aproximados, sin contar la espera del bus.</p>
+        <p class="vj-nota">Tiempos aproximados.</p>
       </ng-container>
 
       <div class="vj-aviso" *ngIf="viajeAviso as a">
@@ -417,6 +419,17 @@
         Buscar otro lugar
       </button>
     </ng-container>
+  </ng-template>
+
+  <!-- Cuándo pasa el bus (en vivo o según horario), a qué hora se llega y,
+       si se pierde, cuál es el siguiente. -->
+  <ng-template #tplEspera let-e>
+    <span class="vj-espera" *ngIf="e" [class.vivo]="e.enVivo">
+      <span class="vj-espera-linea">
+        <i class="live-dot" *ngIf="e.enVivo" aria-hidden="true"></i>{{ e.texto }}<ng-container *ngIf="e.llegas"> · llegás ~{{ e.llegas }}</ng-container>
+      </span>
+      <small *ngIf="e.siguiente">Si lo perdés, el siguiente sale {{ e.siguiente.startsWith('mañana') ? '' : 'a las ' }}{{ e.siguiente }}</small>
+    </span>
   </ng-template>
 
   <section class="route-sheet viaje-sheet" #hoja *ngIf="viaje && !activeRuta && !selectedBus" aria-label="Tu viaje">

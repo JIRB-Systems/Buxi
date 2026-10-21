@@ -3171,6 +3171,42 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   // Lo que dice la hoja en una sola línea cuando está chica.
+  // ---- ESPERA DE CADA OPCIÓN DEL PLANIFICADOR ----
+  // Cuándo pasa el bus por la parada de subir, en el sentido del viaje: en
+  // vivo si hay un bus en camino, si no según el horario (y lo dice). Con eso
+  // se puede decir a qué hora se llega y cuál es el siguiente si se pierde.
+  esperaDe(o: OpcionVista): { texto: string; enVivo: boolean; llegas: string | null; siguiente: string | null } | null {
+    const ahora = Date.now();
+    let enVivo: number | null = null;
+    for (const loc of this.busLocationsMap.values()) {
+      if (this.busRuta.get(loc.bus_id) !== o.ruta.id) continue;
+      if (ahora - (this.busLastSeen.get(loc.bus_id) ?? ahora) > this.STALE_MS) continue;
+      const r = this.llegadaDe(loc, o.subir);
+      if (!r || r.sentido !== o.sentido || r.llegada.minutos === null) continue;
+      if (enVivo === null || r.llegada.minutos < enVivo) enVivo = r.llegada.minutos;
+    }
+    const llegasEn = (espera: number) => {
+      // Se sale caminando ya: si el bus pasa antes de que se llegue a la
+      // parada, se toma el siguiente; acá se asume el que se alcanza.
+      const total = Math.max(espera, o.minutosAlSubir) + o.minutosEnBus + o.minutosAlDestino;
+      const t = new Date(ahora + total * 60000);
+      return horaCorta(`${t.getHours()}:${t.getMinutes()}`);
+    };
+    if (enVivo !== null) {
+      return { texto: enVivo === 0 ? 'Pasando ahora' : `Pasa en ${enVivo} min`, enVivo: true, llegas: llegasEn(enVivo), siguiente: null };
+    }
+    const salidas = this.salidasPorRuta.get(o.ruta.id) || [];
+    const p = proximaSalida(salidas);
+    if (!p) return null;
+    const despues = proximaSalida(salidas, new Date(ahora + (p.minutos + 1) * 60000));
+    return {
+      texto: salidaTexto(p) + ' (horario)',
+      enVivo: false,
+      llegas: p.diasDespues === 0 ? llegasEn(p.minutos) : null,
+      siguiente: despues ? (despues.diasDespues === 1 ? 'mañana ' : '') + horaCorta(despues.hora) : null,
+    };
+  }
+
   // "en vivo" solo si algún bus viene de verdad; una salida del horario no lo es.
   get hayCercaEnVivo(): boolean {
     return this.cercanas.some(c => c.minutos !== null);
