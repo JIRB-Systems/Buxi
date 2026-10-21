@@ -1,0 +1,42 @@
+// ============================================================================
+// SIN CUENTA
+// ============================================================================
+// El mapa se usa entero sin cuenta; estos bloques solo ofrecen crearla.
+
+// Tarjeta del panel de escritorio (sobre .ds-hint).
+.ds-invitado {
+  align-items: flex-start;
+  > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  span { font-size: 12px; line-height: 1.4; }
+  .bx-btn { align-self: flex-start; margin-top: 6px; }
+}
+
+// Panel de perfil.
+.pp-invitado {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 6px;
+
+  p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--bx-text-2, var(--bx-text));
+  }
+}
+
+// Pestañas Favoritos y Alertas.
+.lp-invitado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 20px;
+  text-align: center;
+
+  ion-icon { font-size: 30px; color: var(--bx-green); }
+  strong { font-size: 15px; color: var(--bx-text); }
+  span { font-size: 13px; line-height: 1.45; color: var(--bx-text-3); max-width: 300px; }
+  .bx-btn { margin-top: 8px; }
+}

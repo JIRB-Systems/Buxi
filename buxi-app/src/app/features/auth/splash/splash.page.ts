@@ -66,7 +66,9 @@ export class SplashPage implements AfterViewInit, OnDestroy {
           this.pendingTarget = ['/auth/login'];
         }
       } else {
-        this.pendingTarget = ['/auth/login'];
+        // Sin cuenta se entra directo al mapa: rutas, horarios, tarifas y
+        // buses en vivo no necesitan registrarse. El login queda en el perfil.
+        this.pendingTarget = ['/passenger/map'];
       }
 
       if (isPasajero) {

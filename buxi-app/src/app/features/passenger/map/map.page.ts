@@ -116,7 +116,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -278,16 +278,32 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return this.notificacionesError || this.favoritosEmpresaError;
   }
 
-  // Los buses solo se ven si se sigue a su empresa: lo decide RLS
-  // (20260930000000), no el cliente. Estos dos getters solo explican en pantalla
-  // por qué no hay buses, en vez de dejar un "0 buses" sin contexto.
-  get sinEmpresasSeguidas(): boolean {
-    return this.favoritosEmpresaCargados && this.favoritoEmpresaIds.size === 0;
+  // ---- SIN CUENTA ----
+  // El mapa, las rutas, los horarios, las tarifas y los buses en vivo se ven
+  // sin cuenta (buses_en_vivo, 20261021172627). La cuenta es para lo personal:
+  // favoritos, seguir empresas, avisos y boletos.
+  get esInvitado(): boolean {
+    return this.perfilCargado && !this.profile;
+  }
+  private perfilCargado = false;
+
+  irAEntrar() {
+    this.router.navigate(['/auth/login']);
   }
 
-  get rutaActivaSinSeguir(): boolean {
-    return !!this.activeRuta && this.favoritosEmpresaCargados
-      && !this.favoritoEmpresaIds.has(this.activeRuta.empresa_id);
+  // En vez de un botón que no hace nada: explicar para qué hace falta la
+  // cuenta y ofrecer entrar.
+  private async pedirCuenta(para: string) {
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: 'Creá tu cuenta gratis',
+      message: `Necesitás una cuenta para ${para}. El mapa y los buses en vivo los podés seguir viendo sin cuenta.`,
+      buttons: [
+        { text: 'Ahora no', role: 'cancel' },
+        { text: 'Entrar o crear cuenta', handler: () => { this.irAEntrar(); } },
+      ],
+    });
+    await alert.present();
   }
 
   // Lo que el panel lista de verdad. Con el interruptor apagado, o con un fallo
@@ -592,7 +608,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   async toggleFavoritoEmpresa(empresa: EmpresaListItem, ev: Event) {
     // Sin esto, seguir la empresa además la seleccionaría en el mapa.
     ev.stopPropagation();
-    if (!this.profile) return;
+    if (!this.profile) { this.pedirCuenta('seguir empresas y recibir sus avisos'); return; }
 
     const seguia = this.favoritoEmpresaIds.has(empresa.id);
     // Optimista, igual que la estrella de las rutas.
@@ -683,7 +699,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   async toggleFavorito(ruta: Ruta, ev: Event) {
     // Sin esto, marcar favorito además abriría la ruta en el mapa.
     ev.stopPropagation();
-    if (!this.profile) return;
+    if (!this.profile) { this.pedirCuenta('guardar rutas favoritas'); return; }
 
     const wasFav = this.favoritoRutaIds.has(ruta.id);
     // Optimista: la estrella responde al toque sin esperar al servidor.
@@ -807,7 +823,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   comprandoBoleto = false;
 
   async comprarBoleto() {
-    if (!this.activeRuta || !this.profile) return;
+    if (!this.activeRuta) return;
+    if (!this.profile) { this.pedirCuenta('comprar boletos'); return; }
     const ruta = this.activeRuta;
     const precio = ruta.precio || 0;
     const alert = await this.alertCtrl.create({
@@ -839,7 +856,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   async openMisBoletos() {
-    if (!this.profile) return;
+    if (!this.profile) { this.pedirCuenta('ver tus boletos'); return; }
     this.boletoDetalle = null;
     this.boletoQrUrl = null;
     this.boletoSheetOpen = true;
@@ -1248,6 +1265,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         await this.loadPreferences();
       }
     } catch {}
+    this.perfilCargado = true;
 
     try {
       const [empresas, rutas, paradas] = await Promise.all([
@@ -2002,7 +2020,39 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     } catch {}
   }
 
+  // Realtime solo entrega lo que RLS deja leer: los buses de las empresas que
+  // se siguen, y nada sin cuenta. El resto de la flota llega consultando
+  // buses_en_vivo cada pocos segundos (el chofer manda un punto cada 5).
+  private readonly ENVIVO_MS = 6000;
+  private envivoInterval: any = null;
+  private refrescandoEnVivo = false;
+
+  private async refrescarEnVivo() {
+    if (this.refrescandoEnVivo || this.destroyed || document.hidden) return;
+    this.refrescandoEnVivo = true;
+    try {
+      const ruta = this.activeRuta;
+      const locations = ruta
+        ? await this.tracking.getLocationsByRuta(ruta.id)
+        : await this.tracking.getLatestLocations();
+      // Si mientras tanto cambió la ruta elegida, esta respuesta ya no aplica.
+      if (this.activeRuta?.id !== ruta?.id) return;
+      for (const loc of locations) {
+        const previo = this.busLocationsMap.get(loc.bus_id);
+        // Mismo punto que ya llegó por Realtime: no reiniciar su animación.
+        if (previo && Date.parse(previo.timestamp) >= Date.parse(loc.timestamp)) continue;
+        this.addOrUpdateBusMarker(loc);
+      }
+    } catch (e) {
+      // El próximo intento es en unos segundos; no vale la pena avisar.
+      logError('refrescar los buses en vivo', e);
+    } finally {
+      this.refrescandoEnVivo = false;
+    }
+  }
+
   private startRealtimeTracking() {
+    this.envivoInterval = setInterval(() => this.refrescarEnVivo(), this.ENVIVO_MS);
     this.locationSub = this.tracking.subscribeToLocations().subscribe((locations) => {
       locations.forEach((loc) => this.addOrUpdateBusMarker(loc));
       // El conteo sale de los buses que hay en el mapa, no de `locations`: ese
@@ -2176,6 +2226,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (this.activeRuta) this.updateETA();
     else this.programarCercanas();
     if (location.bus?.empresa_id) this.busEmpresa.set(location.bus_id, location.bus.empresa_id);
+    // Sin cuenta no se puede leer la tabla de buses, así que la ruta de cada
+    // bus llega con su posición (buses_en_vivo).
+    if (location.bus?.ruta_id) this.busRuta.set(location.bus_id, location.bus.ruta_id);
     this.busIcono.set(
       location.bus_id,
       this.registrarIconoBus(this.estadoDeBus(location), this.busColor(location),
@@ -3581,6 +3634,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.featuresService.unsubscribeNotificaciones(this.notifChannel);
     this.notifChannel = null;
     this.locationSub?.unsubscribe();
+    if (this.envivoInterval) clearInterval(this.envivoInterval);
     if (this.navIdleTimer) clearTimeout(this.navIdleTimer);
     if (this.clockInterval) clearInterval(this.clockInterval);
     if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);

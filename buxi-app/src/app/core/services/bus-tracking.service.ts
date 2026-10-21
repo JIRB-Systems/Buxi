@@ -122,16 +122,38 @@ export class BusTrackingService implements OnDestroy {
   // El "último punto por bus" lo resuelve Postgres (DISTINCT ON). Antes se
   // traía el historial completo y se deduplicaba acá, lo que crecía sin techo
   // a razón de ~17.000 filas por bus por día.
-  // empresa_id viaja acá para poder cruzar el bus con el color que eligió su
-  // empresa (ver getColoresBusEmpresas), que va en una consulta aparte.
-  private readonly BUS_SELECT = '*, bus:buses(placa, numero_unidad, empresa_id, ruta:rutas(nombre, color), empresa:empresas(nombre))';
+  //
+  // Las posiciones del mapa del pasajero salen de buses_en_vivo
+  // (20261021172627): el último punto de cada bus que está transmitiendo, para
+  // cualquiera, con o sin cuenta y siga o no a la empresa. Devuelve filas
+  // planas; acá se arman con la misma forma que tenía el join de antes
+  // (`bus.ruta`, `bus.empresa`) para que el resto del mapa no cambie.
+  async getBusesEnVivo(rutaId: string | null = null): Promise<BusLocation[]> {
+    const { data, error } = await this.supabase.rpc('buses_en_vivo', { p_ruta_id: rutaId });
+    if (error) throw error;
+    return ((data || []) as any[]).map(f => ({
+      id: f.id,
+      bus_id: f.bus_id,
+      latitud: f.latitud,
+      longitud: f.longitud,
+      velocidad: f.velocidad,
+      heading: f.heading,
+      timestamp: f.timestamp,
+      anomalo: f.anomalo,
+      bus: {
+        id: f.bus_id,
+        empresa_id: f.empresa_id,
+        ruta_id: f.ruta_id,
+        placa: f.placa,
+        numero_unidad: f.numero_unidad,
+        ruta: f.ruta_id ? { nombre: f.ruta_nombre, color: f.ruta_color } : undefined,
+        empresa: { nombre: f.empresa_nombre, color_bus: f.empresa_color },
+      } as any,
+    }));
+  }
 
   async getLocationsByRuta(rutaId: string): Promise<BusLocation[]> {
-    const { data, error } = await this.supabase
-      .rpc('latest_bus_locations_by_ruta', { p_ruta_id: rutaId })
-      .select(this.BUS_SELECT);
-    if (error) throw error;
-    return (data || []) as BusLocation[];
+    return this.getBusesEnVivo(rutaId);
   }
 
   async getHorarios(rutaId: string): Promise<Horario[]> {
@@ -164,11 +186,7 @@ export class BusTrackingService implements OnDestroy {
   }
 
   async getLatestLocations(): Promise<BusLocation[]> {
-    const { data, error } = await this.supabase
-      .rpc('latest_bus_locations')
-      .select(this.BUS_SELECT);
-    if (error) throw error;
-    return (data || []) as BusLocation[];
+    return this.getBusesEnVivo(null);
   }
 
   async getEmpresas(): Promise<EmpresaListItem[]> {

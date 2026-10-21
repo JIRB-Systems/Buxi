@@ -10,6 +10,8 @@ export class RoleGuard implements CanActivate {
   async canActivate(route: ActivatedRouteSnapshot): Promise<boolean> {
     const session = await this.supabase.getSessionAsync();
     if (!session) {
+      // Las rutas marcadas `invitado` (el mapa del pasajero) se usan sin cuenta.
+      if (route.data['invitado']) return true;
       this.router.navigate(['/auth/login']);
       return false;
     }

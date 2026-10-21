@@ -106,11 +106,13 @@
       <div class="ds-card cerca-card">
         <ng-container *ngTemplateOutlet="tplCerca"></ng-container>
       </div>
-      <div class="ds-card ds-hint" *ngIf="sinEmpresasSeguidas">
-        <ion-icon name="star-outline"></ion-icon>
+      <!-- Sin cuenta se ve todo; la cuenta es para lo personal. -->
+      <div class="ds-card ds-hint ds-invitado" *ngIf="esInvitado">
+        <ion-icon name="person-circle-outline" aria-hidden="true"></ion-icon>
         <div>
-          <strong>Seguí una empresa para ver sus buses</strong>
-          <span>Tocá la estrella de una empresa de la lista y vas a ver sus buses en vivo y recibir sus avisos</span>
+          <strong>Creá tu cuenta gratis</strong>
+          <span>Para guardar tus rutas, seguir a tus empresas, recibir sus avisos y comprar boletos</span>
+          <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" (click)="irAEntrar()">Entrar o crear cuenta</button>
         </div>
       </div>
     </div>
@@ -180,13 +182,6 @@
     {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
   </div>
 
-  <!-- Sin empresas seguidas no llega ningún bus (RLS). Abre la lista de
-       empresas, que es donde está la estrella para seguirlas. -->
-  <button class="live-chip seguir-chip" *ngIf="sinEmpresasSeguidas && !activeRuta && !sidebarOpen"
-          (click)="toggleSidebar()">
-    <ion-icon name="star-outline"></ion-icon>
-    Seguí una empresa para ver sus buses
-  </button>
 
   <!-- ====== HOJA DE RUTA (teléfono) ====== -->
   <!-- Todo lo de la ruta elegida en un solo lugar, abajo, al alcance del
@@ -231,7 +226,7 @@
             <span>{{ etaHacia ? 'hacia ' + etaHacia : proximoDetalle }}</span>
           </span>
           <span class="rs-sub" *ngIf="!proximoPlaca">
-            {{ sinBusEnCamino && !rutaActivaSinSeguir && !viajeElegido ? 'Ningún bus viene hacia tu parada ahora' : 'a ' + metrosTexto(nearestStop.distanceKm * 1000) + ' de vos' }}
+            {{ sinBusEnCamino && !viajeElegido ?'Ningún bus viene hacia tu parada ahora' : 'a ' + metrosTexto(nearestStop.distanceKm * 1000) + ' de vos' }}
           </span>
         </div>
         <div class="rs-info" *ngIf="!nearestStop">
@@ -317,11 +312,8 @@
 
       <div class="rs-meta">
         <span class="rs-pill" *ngIf="ruta.codigo_ruta">Ruta {{ ruta.codigo_ruta }}</span>
-        <span class="rs-pill live" *ngIf="!rutaActivaSinSeguir">
+        <span class="rs-pill live">
           <i class="live-dot"></i>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
-        </span>
-        <span class="rs-pill warn" *ngIf="rutaActivaSinSeguir">
-          <ion-icon name="star-outline" aria-hidden="true"></ion-icon>Seguí a la empresa para ver sus buses
         </span>
         <span class="rs-pill" *ngIf="nextSalida">Sale {{ nextSalida.hora.slice(0,5) }}</span>
       </div>
@@ -695,7 +687,7 @@
 
     <!-- Dos pestañas: rutas guardadas y empresas seguidas. Solo en favoritos:
          en el panel de rutas no hay nada que separar. -->
-    <div class="lp-tabs" *ngIf="activePanel === 'favoritos'">
+    <div class="lp-tabs" *ngIf="activePanel === 'favoritos' && !esInvitado">
       <button type="button" [class.on]="favoritosTab === 'rutas'" (click)="favoritosTab = 'rutas'">
         <ion-icon name="git-branch-outline"></ion-icon> Rutas
       </button>
@@ -704,7 +696,7 @@
       </button>
     </div>
 
-    <div class="lp-search" *ngIf="activePanel === 'rutas' || activePanel === 'favoritos'">
+    <div class="lp-search" *ngIf="activePanel === 'rutas' || (activePanel === 'favoritos' && !esInvitado)">
       <ion-icon name="search-outline"></ion-icon>
       <input
         type="text"
@@ -714,8 +706,18 @@
     </div>
 
     <div class="lp-body">
+      <!-- Favoritos y avisos son de la cuenta: sin cuenta, se ofrece crearla. -->
+      <div class="lp-invitado" *ngIf="esInvitado && (activePanel === 'favoritos' || activePanel === 'alertas')">
+        <ion-icon [name]="activePanel === 'favoritos' ? 'star-outline' : 'notifications-outline'" aria-hidden="true"></ion-icon>
+        <strong>{{ activePanel === 'favoritos' ? 'Guardá tus rutas y empresas' : 'Recibí los avisos de tus empresas' }}</strong>
+        <span>{{ activePanel === 'favoritos'
+          ? 'Con una cuenta gratis tus rutas de siempre quedan a un toque.'
+          : 'Atrasos, desvíos y cancelaciones de las empresas que seguís, apenas pasan.' }}</span>
+        <button type="button" class="bx-btn bx-btn--pri" (click)="irAEntrar()">Entrar o crear cuenta</button>
+      </div>
+
       <!-- Rutas y favoritos comparten la misma lista -->
-      <ng-container *ngIf="activePanel === 'rutas' || (activePanel === 'favoritos' && favoritosTab === 'rutas')">
+      <ng-container *ngIf="activePanel === 'rutas' || (activePanel === 'favoritos' && favoritosTab === 'rutas' && !esInvitado)">
         <a class="lp-sponsored" *ngIf="activePanel === 'rutas' && listAd" [class]="'anim-' + listAd.animacion"
            [href]="listAd.link_url || null" target="_blank" rel="noopener">
           <span class="lp-sp-tag">Patrocinado</span>
@@ -758,7 +760,7 @@
 
       <!-- Favoritos > Empresas: las que el pasajero sigue. La estrella acá solo
            puede quitar, porque para estar en esta lista ya está seguida. -->
-      <ng-container *ngIf="activePanel === 'favoritos' && favoritosTab === 'empresas'">
+      <ng-container *ngIf="activePanel === 'favoritos' && favoritosTab === 'empresas' && !esInvitado">
         <div class="lp-row" *ngFor="let e of panelEmpresasFavoritas" (click)="openEmpresaDetail(e)">
           <div class="lp-empresa-logo">
             <img *ngIf="e.logo_url" [src]="e.logo_url" alt="" />
@@ -812,7 +814,7 @@
       </ng-container>
 
       <!-- Alertas: avisos de las empresas que el pasajero sigue -->
-      <ng-container *ngIf="activePanel === 'alertas'">
+      <ng-container *ngIf="activePanel === 'alertas' && !esInvitado">
         <div class="lp-notif" *ngFor="let n of notificacionesVisibles" [class.nueva]="notifEsNueva(n)">
           <div class="lp-notif-icon" [style.background]="notifColor(n.tipo)">
             <ion-icon [name]="notifIcon(n.tipo)"></ion-icon>
@@ -883,7 +885,13 @@
       <ion-icon name="close" class="pp-close" (click)="toggleProfilePanel()"></ion-icon>
     </div>
 
-    <div class="pp-links">
+    <!-- Sin cuenta: lo único que hay para hacer acá es entrar. -->
+    <div class="pp-invitado" *ngIf="esInvitado">
+      <p>Con una cuenta guardás tus rutas, seguís a tus empresas, recibís sus avisos y comprás boletos.</p>
+      <button type="button" class="bx-btn bx-btn--pri bx-btn--bloque" (click)="irAEntrar()">Entrar o crear cuenta</button>
+    </div>
+
+    <div class="pp-links" *ngIf="!esInvitado">
       <!-- ---- Editar perfil, en el mismo panel ---- -->
       <div class="pp-link" *ngIf="!editingProfile" (click)="startEditProfile()">
         <ion-icon name="create-outline"></ion-icon><span>Editar perfil</span>
@@ -934,7 +942,14 @@
       </div>
     </div>
 
-    <div class="pp-logout" (click)="confirmLogout()">
+    <div class="pp-links" *ngIf="esInvitado">
+      <div class="pp-link" (click)="abrirAjustesDesdePerfil()">
+        <ion-icon name="settings-outline"></ion-icon><span>Ajustes</span>
+        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
+      </div>
+    </div>
+
+    <div class="pp-logout" *ngIf="!esInvitado" (click)="confirmLogout()">
       <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
     </div>
   </aside>
