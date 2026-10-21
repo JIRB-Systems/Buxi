@@ -537,3 +537,17 @@
   a { color: var(--bx-green); }
 }
 .gtfs-nota { margin: 6px 16px 0; font-size: 12px; line-height: 1.5; a { color: var(--bx-green); } }
+
+// ====== PUNTUALIDAD (quinta cifra del resumen) ======
+// La banda de cifras es compartida con la consola JIRB (cuatro); acá son cinco.
+.kpis.kpis--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.kpi-puntual {
+  .a-tiempo { background: var(--bx-green-bright); }
+  .tarde { background: var(--bx-warning); }
+  .antes { background: #3a5a86; }
+}
+@media (max-width: 768px) {
+  .kpis.kpis--5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  // La quinta queda sola en su fila: que ocupe el ancho.
+  .kpis.kpis--5 .kpi:last-child { grid-column: span 2; }
+}

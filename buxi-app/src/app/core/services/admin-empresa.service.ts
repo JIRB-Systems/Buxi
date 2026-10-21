@@ -6,6 +6,17 @@ import { Bus, Ruta, Parada, BusLocation, Empresa, TarifaAresep } from '../models
 import { Horario, HorarioSalida, ReporteBug, AvisoSistema, Plan, Suscripcion, SolicitudPlan, Factura, Viaje, MensajeChofer, NotificacionEmpresa, TipoNotificacion } from '../models/features.model';
 import { UserProfile } from '../models/user-profile.model';
 
+export interface PuntualidadRuta {
+  ruta_id: string;
+  ruta_nombre: string;
+  viajes: number;
+  comparables: number;
+  a_tiempo: number;
+  tarde: number;
+  temprano: number;
+  desvio_promedio: number | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminEmpresaService {
   private supabase: SupabaseClient;
@@ -41,6 +52,15 @@ export class AdminEmpresaService {
     const { data, error } = await this.supabase.from('rutas').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return data as Ruta;
+  }
+
+  // ---- PUNTUALIDAD ----
+  // Salidas de los choferes contra el horario cargado (ver la migración
+  // puntualidad). RLS hace que cada empresa vea solo lo suyo.
+  async getPuntualidad(dias = 30): Promise<PuntualidadRuta[]> {
+    const { data, error } = await this.supabase.rpc('puntualidad_empresa', { p_dias: dias });
+    if (error) throw error;
+    return (data || []) as PuntualidadRuta[];
   }
 
   // ---- GTFS ----

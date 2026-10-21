@@ -156,7 +156,7 @@
           </ng-template>
 
           <!-- Cuatro números con su contexto, en una sola banda -->
-          <section class="kpis" aria-label="Indicadores">
+          <section class="kpis kpis--5" aria-label="Indicadores">
             <div class="kpi">
               <span class="kpi-lbl">Buses en ruta</span>
               <div class="kpi-val">
@@ -175,6 +175,20 @@
                       [style.height.%]="d.count ? 20 + 80 * d.count / tripsChartMax : 0"></span>
               </div>
               <span class="kpi-nota">{{ hallazgoViajes }}</span>
+            </div>
+            <div class="kpi">
+              <span class="kpi-lbl">Salidas a tiempo · 30 días</span>
+              <div class="kpi-val">
+                <span class="bx-mono">{{ puntualidad ? puntualidad.pct : '—' }}</span><span class="kpi-de bx-mono" *ngIf="puntualidad">%</span>
+              </div>
+              <div class="kpi-viz kpi-seg kpi-seg--reparto kpi-puntual" aria-hidden="true">
+                <ng-container *ngIf="puntualidad as p">
+                  <span class="a-tiempo" [style.flex-grow]="p.aTiempo"></span>
+                  <span class="tarde" [style.flex-grow]="p.tarde"></span>
+                  <span class="antes" [style.flex-grow]="p.temprano"></span>
+                </ng-container>
+              </div>
+              <span class="kpi-nota">{{ notaPuntualidad }}</span>
             </div>
             <div class="kpi">
               <span class="kpi-lbl">Calificación de pasajeros</span>

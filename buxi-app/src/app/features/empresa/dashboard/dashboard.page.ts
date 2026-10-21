@@ -10,7 +10,7 @@ import * as maplibregl from 'maplibre-gl';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { SupabaseService } from '../../../core/services/supabase.service';
-import { AdminEmpresaService } from '../../../core/services/admin-empresa.service';
+import { AdminEmpresaService, PuntualidadRuta } from '../../../core/services/admin-empresa.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation, Empresa } from '../../../core/models/transport.model';
@@ -613,6 +613,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.equipo = equipo;
     this.notificaciones = notificaciones;
     this.seguidores = seguidores;
+    // Aparte: si falla, el indicador queda en "—" y nada más.
+    this.admin.getPuntualidad(30).then(p => this.puntualidadRutas = p)
+      .catch(e => logError('cargar la puntualidad', e));
     // Dependen de las rutas y los buses recién cargados. Ninguna de las dos
     // debe tumbar el panel si falla.
     await Promise.all([
@@ -989,6 +992,37 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.showToast('No se pudo quitar el logo', 'danger');
     }
     this.subiendoLogo = false;
+  }
+
+  // ---- PUNTUALIDAD ----
+  // Cada salida de un chofer contra la salida programada más cercana: a tiempo
+  // si fue de 2 min antes a 5 después. Sin salidas exactas cargadas no hay
+  // contra qué comparar, y el indicador lo dice.
+  puntualidadRutas: PuntualidadRuta[] = [];
+
+  get puntualidad(): { pct: number; comparables: number; aTiempo: number; tarde: number; temprano: number } | null {
+    const t = this.puntualidadRutas.reduce((acc, r) => ({
+      comparables: acc.comparables + r.comparables,
+      aTiempo: acc.aTiempo + r.a_tiempo,
+      tarde: acc.tarde + r.tarde,
+      temprano: acc.temprano + r.temprano,
+    }), { comparables: 0, aTiempo: 0, tarde: 0, temprano: 0 });
+    if (!t.comparables) return null;
+    return { ...t, pct: Math.round((t.aTiempo / t.comparables) * 100) };
+  }
+
+  get notaPuntualidad(): string {
+    const p = this.puntualidad;
+    if (!p) {
+      const viajes = this.puntualidadRutas.reduce((n, r) => n + r.viajes, 0);
+      return viajes
+        ? 'Cargá las salidas exactas en Horarios para medirla'
+        : 'Se mide cuando tus choferes hagan viajes';
+    }
+    const partes = [`${p.aTiempo} de ${p.comparables} salidas`];
+    if (p.tarde) partes.push(`${p.tarde} tarde`);
+    if (p.temprano) partes.push(`${p.temprano} antes de hora`);
+    return partes.join(' · ');
   }
 
   // ---- GOOGLE MAPS Y APPS (GTFS) ----
