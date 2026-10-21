@@ -112,6 +112,13 @@
 
     &:hover { border-color: var(--bx-green); background: rgba(0,200,83,0.05); }
   }
+
+  .media-error {
+    margin: 8px 0 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bx-danger);
+  }
 }
 
 .media-preview {

@@ -14,6 +14,12 @@ export class RoleGuard implements CanActivate {
       return false;
     }
 
+    // Entró con el enlace de "olvidé mi contraseña": primero la contraseña nueva.
+    if (this.supabase.debeCrearClave) {
+      this.router.navigate(['/auth/nueva-clave'], { replaceUrl: true });
+      return false;
+    }
+
     const allowedRoles = route.data['roles'] as string[];
     if (!allowedRoles) return true;
 

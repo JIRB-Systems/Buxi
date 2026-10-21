@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SupabaseClient, AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { supabaseClient } from '../supabase-client';
+import { LLEGO_POR_RECUPERACION, supabaseClient } from '../supabase-client';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { environment } from '../../../environments/environment';
@@ -9,17 +9,33 @@ import { BehaviorSubject } from 'rxjs';
 
 const OAUTH_NATIVE_REDIRECT = 'cr.buxi.app://login-callback';
 
+// A dónde manda el correo de "olvidé mi contraseña". En la app nativa el
+// origen es https://localhost, que no le sirve a nadie desde el correo: el
+// enlace se abre en el navegador, así que va siempre a la web.
+const NUEVA_CLAVE_WEB = 'https://buxi.vercel.app/auth/nueva-clave';
+
+// El enlace del correo inicia sesión. Mientras esta marca exista, la persona
+// todavía no eligió su contraseña nueva y cualquier camino a su pantalla de
+// inicio la manda primero a elegirla (ver homeRouteForRole y RoleGuard). Vive
+// en sessionStorage para sobrevivir a una recarga de la pestaña.
+const MARCA_NUEVA_CLAVE = 'buxi.nuevaClave';
+
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {
   private supabase: SupabaseClient;
   private _session = new BehaviorSubject<Session | null>(null);
+  // Por si sessionStorage no está disponible (modo privado, bloqueado).
+  private nuevaClavePendiente = false;
 
   session$ = this._session.asObservable();
 
   constructor() {
     this.supabase = supabaseClient();
+    if (LLEGO_POR_RECUPERACION) this.marcarNuevaClave(true);
 
-    this.supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    this.supabase.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
+      if (event === 'PASSWORD_RECOVERY') this.marcarNuevaClave(true);
+      if (event === 'SIGNED_OUT') this.marcarNuevaClave(false);
       this._session.next(session);
     });
 
@@ -38,7 +54,26 @@ export class SupabaseService {
     return data.session;
   }
 
+  get debeCrearClave(): boolean {
+    try {
+      return this.nuevaClavePendiente || sessionStorage.getItem(MARCA_NUEVA_CLAVE) === '1';
+    } catch {
+      return this.nuevaClavePendiente;
+    }
+  }
+
+  private marcarNuevaClave(pendiente: boolean) {
+    this.nuevaClavePendiente = pendiente;
+    try {
+      if (pendiente) sessionStorage.setItem(MARCA_NUEVA_CLAVE, '1');
+      else sessionStorage.removeItem(MARCA_NUEVA_CLAVE);
+    } catch {
+      // Sin sessionStorage alcanza con la marca en memoria.
+    }
+  }
+
   homeRouteForRole(rol: string): string[] {
+    if (this.debeCrearClave) return ['/auth/nueva-clave'];
     switch (rol) {
       case 'admin_jirb': return ['/admin/dashboard'];
       case 'admin_empresa': return ['/empresa/dashboard'];
@@ -106,10 +141,21 @@ export class SupabaseService {
     return true;
   }
 
+  // Sin redirectTo, el correo volvía a la portada: la persona quedaba adentro
+  // con la sesión del enlace y nunca se le pedía la contraseña nueva.
   async resetPassword(email: string) {
-    const { data, error } = await this.supabase.auth.resetPasswordForEmail(email);
+    const redirectTo = Capacitor.isNativePlatform()
+      ? NUEVA_CLAVE_WEB
+      : `${window.location.origin}/auth/nueva-clave`;
+    const { data, error } = await this.supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) throw error;
     return data;
+  }
+
+  async actualizarClave(password: string) {
+    const { error } = await this.supabase.auth.updateUser({ password });
+    if (error) throw error;
+    this.marcarNuevaClave(false);
   }
 
   async signOut() {

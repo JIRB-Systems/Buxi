@@ -107,7 +107,48 @@ export class ChoferService {
     if (error) throw error;
   }
 
+  // El id del viaje en curso vive solo en memoria: si la app se recargaba o se
+  // cerraba a mitad de camino, el viaje quedaba "en_curso" para siempre y el
+  // siguiente arranque abría otro. Al entrar se busca el que quedó abierto
+  // para retomarlo o cerrarlo (ver revisarViajeAbierto en chofer-home).
+  async getViajesAbiertos(choferId: string): Promise<Viaje[]> {
+    const { data, error } = await this.supabase
+      .from('viajes')
+      .select('*')
+      .eq('chofer_id', choferId)
+      .eq('estado', 'en_curso')
+      .order('inicio', { ascending: false });
+    if (error) throw error;
+    return data as Viaje[];
+  }
+
+  retomarViaje(viajeId: string) {
+    this.currentViajeId = viajeId;
+  }
+
+  // Un viaje que nadie terminó no se marca "completado": no se sabe cuándo
+  // terminó ni cuánto recorrió. Queda "cancelado" con fin = inicio, para que
+  // no infle duraciones ni kilómetros en los paneles.
+  async cancelarViajes(viajes: Viaje[]): Promise<void> {
+    for (const v of viajes) {
+      const { error } = await this.supabase.from('viajes')
+        .update({ estado: 'cancelado', fin: v.inicio })
+        .eq('id', v.id)
+        .eq('estado', 'en_curso')
+        .select('id');
+      if (error) throw error;
+    }
+  }
+
   async startViaje(busId: string, choferId: string, rutaId: string): Promise<string> {
+    // Red de seguridad: nunca más de un viaje abierto por chofer.
+    try {
+      const abiertos = await this.getViajesAbiertos(choferId);
+      if (abiertos.length) await this.cancelarViajes(abiertos);
+    } catch (e) {
+      logError('startViaje: no se pudieron cerrar viajes abiertos', e);
+    }
+
     const { data, error } = await this.supabase.from('viajes').insert({
       bus_id: busId, chofer_id: choferId, ruta_id: rutaId,
       inicio: new Date().toISOString(), estado: 'en_curso',

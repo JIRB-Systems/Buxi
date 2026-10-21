@@ -228,18 +228,21 @@ export class AdminJirbService {
   }
 
   // ---- LIVE BUS LOCATIONS ----
+  // La última posición de cada bus, calculada en la base (DISTINCT ON + índice).
+  // Antes se bajaba el historial entero, con la geometría de la ruta repetida en
+  // cada punto, y se filtraba acá. Supabase corta cada respuesta en 1000 filas,
+  // así que pasado ese número los buses que llevaban rato sin transmitir
+  // desaparecían del mapa. El plazo largo mantiene lo de antes: se ve la última
+  // posición conocida de cada bus, aunque sea vieja.
+  private readonly ULTIMA_POSICION_MAX_MIN = 60 * 24 * 365;
+
   async getAllLiveLocations(): Promise<BusLocation[]> {
     const { data, error } = await this.supabase
-      .from('bus_locations')
+      .rpc('latest_bus_locations', { p_max_age_minutes: this.ULTIMA_POSICION_MAX_MIN })
       .select('*, bus:buses(placa, numero_unidad, ruta:rutas(nombre, color, geometria), empresa:empresas(nombre))')
       .order('timestamp', { ascending: false });
     if (error) throw error;
-
-    const latest = new Map<string, BusLocation>();
-    for (const loc of (data as BusLocation[])) {
-      if (!latest.has(loc.bus_id)) latest.set(loc.bus_id, loc);
-    }
-    return Array.from(latest.values());
+    return (data || []) as unknown as BusLocation[];
   }
 
   // ---- ESTELA DE RECORRIDO ----

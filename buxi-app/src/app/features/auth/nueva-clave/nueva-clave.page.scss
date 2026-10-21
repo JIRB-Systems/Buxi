@@ -1,0 +1,8 @@
+// El resto del estilo sale de theme/auth.scss y de <app-auth-shell>,
+// compartidos por las pantallas de acceso.
+
+.nc-cargando {
+  display: flex;
+  justify-content: center;
+  padding-block: 64px;
+}

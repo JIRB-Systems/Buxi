@@ -50,4 +50,10 @@
          solicita en runtime automáticamente al detectar getUserMedia). -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Ubicación para @capacitor/geolocation: el chofer transmite la
+         posición del bus y el pasajero ve su parada más cercana. Sin estas
+         líneas Android rechaza el pedido de permiso y el GPS no funciona. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 </manifest>

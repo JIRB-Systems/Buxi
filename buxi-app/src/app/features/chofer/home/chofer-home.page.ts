@@ -319,6 +319,60 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       this.drawAssignedRoute();
     }
     if (!this.destroyed) await this.iniciarFlota();
+    // Al final: retomar un viaje necesita el mapa, el GPS y las paradas.
+    if (!this.destroyed) await this.revisarViajeAbierto();
+  }
+
+  // Si la app se cerró o se recargó a mitad de un viaje, ese viaje quedó
+  // abierto. Uno reciente del mismo bus se ofrece retomar; los demás (viejos,
+  // o de un bus que ya no es el suyo) se cierran solos.
+  private readonly RETOMAR_MAX_MS = 4 * 60 * 60 * 1000;
+
+  private async revisarViajeAbierto() {
+    if (!this.profile || !this.assignedBus || this.tracking) return;
+    let abiertos: Viaje[];
+    try {
+      abiertos = await this.choferService.getViajesAbiertos(this.profile.id);
+    } catch (e) {
+      logError('chofer: no se pudieron leer los viajes abiertos', e);
+      return;
+    }
+    if (!abiertos.length) return;
+
+    const [ultimo, ...resto] = abiertos;
+    const retomable = ultimo.bus_id === this.assignedBus.id
+      && Date.now() - Date.parse(ultimo.inicio) < this.RETOMAR_MAX_MS;
+    const aCerrar = retomable ? resto : abiertos;
+    if (aCerrar.length) {
+      try { await this.choferService.cancelarViajes(aCerrar); }
+      catch (e) { logError('chofer: no se pudieron cerrar viajes viejos', e); }
+    }
+    if (!retomable || this.destroyed) return;
+
+    const hora = new Date(ultimo.inicio).toLocaleTimeString('es-CR', { hour: 'numeric', minute: '2-digit' });
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: 'Tenés un viaje sin terminar',
+      // La hora en es-CR ya termina en punto ("10:13 p. m."): no agregar otro.
+      message: `Lo empezaste a las ${hora} y quedó abierto. ¿Lo seguís o lo das por terminado?`,
+      backdropDismiss: false,
+      buttons: [
+        { text: 'Terminarlo', handler: () => { this.terminarViajeAbierto(ultimo); } },
+        { text: 'Seguir viaje', handler: () => { this.startTracking(ultimo); } },
+      ],
+    });
+    await alert.present();
+  }
+
+  private async terminarViajeAbierto(viaje: Viaje) {
+    try {
+      this.choferService.retomarViaje(viaje.id);
+      await this.choferService.endViaje(viaje.distancia_km || 0);
+    } catch (e) {
+      logError('chofer: no se pudo terminar el viaje abierto', e);
+      const toast = await this.toastCtrl.create({ message: 'No se pudo terminar el viaje. Intentá de nuevo.', duration: 3000, color: 'danger', position: 'top' });
+      await toast.present();
+    }
   }
 
   // Traza la ruta asignada (línea + paradas) apenas se conoce la ruta, pero
@@ -838,22 +892,26 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     await alert.present();
   }
 
-  private async startTracking() {
+  // `retomar`: el viaje que quedó abierto (ver revisarViajeAbierto). Se sigue
+  // ese mismo en vez de abrir otro.
+  private async startTracking(retomar?: Viaje) {
     this.tracking = true;
     this.refrescarBusPropio();
     this.setRouteVisible(true);
     this.paused = false;
-    this.tripDistanceKm = 0;
+    this.tripDistanceKm = retomar?.distancia_km || 0;
     this.boletosEscaneados = 0;
     this.transmisionCaida = false;
     this.enviosFallidos = 0;
-    this.tripStartTime = Date.now();
+    this.tripStartTime = retomar ? Date.parse(retomar.inicio) : Date.now();
     this.lastTripLat = this.currentLat;
     this.lastTripLng = this.currentLng;
 
     await this.choferService.updateBusStatus(this.assignedBus!.id, 'en_ruta');
 
-    if (this.profile && this.assignedBus!.ruta_id) {
+    if (retomar) {
+      this.choferService.retomarViaje(retomar.id);
+    } else if (this.profile && this.assignedBus!.ruta_id) {
       await this.choferService.startViaje(this.assignedBus!.id, this.profile.id, this.assignedBus!.ruta_id);
       // Las paradas ya se cargaron en ngOnInit para el trazado y "próxima
       // parada"; si por lo que sea no llegaron a tiempo, se reintenta acá.
@@ -873,7 +931,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
 
     const toast = await this.toastCtrl.create({
-      message: 'Viaje iniciado — transmitiendo ubicación',
+      message: retomar ? 'Viaje retomado — transmitiendo ubicación' : 'Viaje iniciado — transmitiendo ubicación',
       duration: 2000,
       color: 'success',
       position: 'top',

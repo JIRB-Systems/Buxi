@@ -30,9 +30,10 @@
       <label class="upload-btn">
         <ion-icon name="cloud-upload-outline"></ion-icon>
         <span>Subir archivo</span>
-        <small>JPG, PNG, WEBP o MP4</small>
+        <small>JPG, PNG o WebP hasta 5 MB · MP4 o WebM hasta 25 MB</small>
         <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" (change)="onFileSelected($event)" hidden />
       </label>
+      <p class="media-error" role="alert" *ngIf="mediaError">{{ mediaError }}</p>
     </div>
     <div class="media-preview" *ngIf="mediaPreviewUrl">
       <video *ngIf="mediaTipo==='video'" [src]="mediaPreviewUrl" muted autoplay loop playsinline></video>

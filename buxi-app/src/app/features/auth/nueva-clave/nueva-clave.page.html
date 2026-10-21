@@ -1,0 +1,72 @@
+<ion-content [fullscreen]="true" class="auth-content" [scrollY]="true">
+  <app-auth-shell>
+
+    <div *ngIf="estado === 'cargando'" class="auth-in nc-cargando" aria-busy="true">
+      <ion-spinner name="crescent" aria-label="Cargando"></ion-spinner>
+    </div>
+
+    <div *ngIf="estado === 'form'" class="auth-in">
+      <div class="auth-badge">
+        <ion-icon name="key-outline" aria-hidden="true"></ion-icon>
+      </div>
+
+      <div class="auth-head">
+        <h1>Elegí tu contraseña nueva</h1>
+        <p>Tiene que tener {{ regla }}.</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="auth-field" [class.has-error]="campoMal('password')">
+          <span class="auth-label">Contraseña nueva</span>
+          <div class="auth-input">
+            <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+            <ion-input formControlName="password" [type]="showPassword ? 'text' : 'password'" autocomplete="new-password"
+                       aria-label="Contraseña nueva" placeholder="Tu contraseña nueva"></ion-input>
+            <button type="button" class="auth-eye" (click)="togglePassword()"
+                    [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+              <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" aria-hidden="true"></ion-icon>
+            </button>
+          </div>
+          <span class="auth-err" role="alert" *ngIf="campoMal('password') && form.get('password')?.hasError('required')">Escribí una contraseña</span>
+          <span class="auth-err" role="alert" *ngIf="campoMal('password') && form.get('password')?.hasError('debil')">Le falta: {{ regla }}</span>
+          <span class="auth-err" role="alert" *ngIf="campoMal('password') && form.get('password')?.hasError('maxlength')">Puede tener hasta 72 caracteres</span>
+        </div>
+
+        <div class="auth-field" [class.has-error]="noCoinciden || campoMal('confirmar')">
+          <span class="auth-label">Repetila</span>
+          <div class="auth-input">
+            <ion-icon name="lock-closed-outline" aria-hidden="true"></ion-icon>
+            <ion-input formControlName="confirmar" [type]="showPassword ? 'text' : 'password'" autocomplete="new-password"
+                       aria-label="Repetir contraseña nueva" placeholder="La misma otra vez"></ion-input>
+          </div>
+          <span class="auth-err" role="alert" *ngIf="noCoinciden">Las dos contraseñas no coinciden</span>
+        </div>
+
+        <ion-button type="submit" class="auth-btn">Guardar contraseña</ion-button>
+      </form>
+    </div>
+
+    <div *ngIf="estado === 'vencido'" class="auth-in">
+      <div class="auth-badge">
+        <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+      </div>
+      <div class="auth-head">
+        <h1>Este enlace ya no sirve</h1>
+        <p>Los enlaces para cambiar la contraseña se usan una sola vez y vencen en una hora. Pedí uno nuevo.</p>
+      </div>
+      <ion-button class="auth-btn" (click)="pedirOtro()">Pedir otro enlace</ion-button>
+    </div>
+
+    <div *ngIf="estado === 'listo'" class="auth-in">
+      <div class="auth-badge ok">
+        <ion-icon name="checkmark" aria-hidden="true"></ion-icon>
+      </div>
+      <div class="auth-head">
+        <h1>Listo, ya cambiaste tu contraseña</h1>
+        <p>La próxima vez que entres usá la contraseña nueva.</p>
+      </div>
+      <ion-button class="auth-btn" (click)="entrar()">Seguir</ion-button>
+    </div>
+
+  </app-auth-shell>
+</ion-content>

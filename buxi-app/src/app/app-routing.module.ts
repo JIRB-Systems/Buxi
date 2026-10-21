@@ -13,6 +13,9 @@ const routes: Routes = [
   { path: 'legal/privacy', loadChildren: () => import('./features/legal/privacy/privacy.module').then(m => m.PrivacyPageModule) },
   { path: 'legal/terms', loadChildren: () => import('./features/legal/terms/terms.module').then(m => m.TermsPageModule) },
   { path: 'auth/forgot-password', loadChildren: () => import('./features/auth/forgot-password/forgot-password.module').then(m => m.ForgotPasswordPageModule), canActivate: [NoAuthGuard] },
+  // Sin guard a propósito: llega con la sesión del enlace del correo (NoAuthGuard
+  // la rebotaría) o sin sesión si el enlace venció, y la página maneja los dos.
+  { path: 'auth/nueva-clave', loadChildren: () => import('./features/auth/nueva-clave/nueva-clave.module').then(m => m.NuevaClavePageModule) },
   { path: 'passenger/map', loadChildren: () => import('./features/passenger/map/map.module').then(m => m.MapPageModule), canActivate: [RoleGuard], data: { roles: ['pasajero'], precargar: true } },
 
   // La experiencia del pasajero vive entera sobre el mapa: rutas, favoritos,

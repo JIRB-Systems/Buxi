@@ -17,6 +17,13 @@ import { environment } from '../../environments/environment';
 // persistSession:false para crear usuarios sin pisar la sesión del admin.
 let client: SupabaseClient | null = null;
 
+// ¿Se abrió la app desde el enlace de "olvidé mi contraseña"? Ese enlace trae
+// `type=recovery` en el fragmento de la URL. Se lee acá, al cargar el módulo y
+// antes de crear el cliente, porque Supabase borra el fragmento apenas arma la
+// sesión con él.
+export const LLEGO_POR_RECUPERACION =
+  typeof window !== 'undefined' && /(^#|&)type=recovery(&|$)/.test(window.location.hash);
+
 export function supabaseClient(): SupabaseClient {
   if (!client) {
     client = createClient(environment.supabaseUrl, environment.supabaseAnonKey, {

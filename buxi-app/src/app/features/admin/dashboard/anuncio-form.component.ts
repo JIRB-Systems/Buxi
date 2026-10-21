@@ -3,6 +3,13 @@ import { ModalController } from '@ionic/angular';
 import { AdminJirbService } from '../../../core/services/admin-jirb.service';
 import { Anuncio } from '../../../core/models/features.model';
 
+// Lo mismo que acepta el balde `anuncios` en Storage (migración
+// 20261021044746). Acá se avisa antes de subir, con un mensaje claro, en vez
+// del error genérico que devolvería Storage.
+const MEDIA_TIPOS = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/webm'];
+const IMAGEN_MAX_MB = 5;
+const VIDEO_MAX_MB = 25;
+
 @Component({
   selector: 'app-anuncio-form',
   templateUrl: './anuncio-form.component.html',
@@ -24,6 +31,7 @@ export class AnuncioFormComponent implements OnInit {
   mediaPreviewUrl: string | null = null;
   mediaTipo: 'imagen' | 'video' = 'imagen';
   existingMediaUrl: string | null = null;
+  mediaError: string | null = null;
 
   uploading = false;
 
@@ -55,7 +63,20 @@ export class AnuncioFormComponent implements OnInit {
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+    input.value = '';
     if (!file) return;
+
+    this.mediaError = null;
+    if (!MEDIA_TIPOS.includes(file.type)) {
+      this.mediaError = 'El archivo tiene que ser JPG, PNG, WebP, MP4 o WebM.';
+      return;
+    }
+    const esVideo = file.type.startsWith('video/');
+    const maxMb = esVideo ? VIDEO_MAX_MB : IMAGEN_MAX_MB;
+    if (file.size > maxMb * 1024 * 1024) {
+      this.mediaError = `${esVideo ? 'El video' : 'La imagen'} puede pesar hasta ${maxMb} MB.`;
+      return;
+    }
 
     this.mediaFile = file;
     this.mediaTipo = file.type.startsWith('video/') ? 'video' : 'imagen';
