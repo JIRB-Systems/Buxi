@@ -23,10 +23,18 @@
             <ion-icon name="image-outline" aria-hidden="true"></ion-icon>
             <span class="logo-text">
               <strong>Subir logo de la empresa</strong>
-              <small>PNG, JPG o SVG, hasta 5 MB · opcional</small>
+              <small>PNG, JPG o WebP, hasta 2 MB · opcional</small>
             </span>
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" (change)="onLogoSelected($event)" hidden />
+            <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onLogoSelected($event)" hidden />
           </label>
+          <span class="auth-err" role="alert" *ngIf="logoError || errorDe('logo')">{{ logoError || errorDe('logo') }}</span>
+        </div>
+
+        <!-- Trampa para bots: una persona no la ve ni llega con el teclado; un
+             bot que llena todos los campos, sí. -->
+        <div class="trampa" aria-hidden="true">
+          <label>Sitio web <input type="text" name="sitio_web" tabindex="-1" autocomplete="off"
+                 [value]="trampa" (input)="trampa = $any($event.target).value" /></label>
         </div>
 
         <div class="auth-field" [class.has-error]="form.get('nombre_empresa')?.touched && form.get('nombre_empresa')?.invalid">
@@ -35,13 +43,17 @@
             <ion-input formControlName="nombre_empresa" autocomplete="organization" aria-label="Nombre de la empresa" placeholder="Transportes Ejemplo S.A."></ion-input>
           </div>
           <span class="auth-err" role="alert" *ngIf="form.get('nombre_empresa')?.touched && form.get('nombre_empresa')?.hasError('required')">Escribí el nombre de la empresa</span>
+          <span class="auth-err" role="alert" *ngIf="form.get('nombre_empresa')?.touched && form.get('nombre_empresa')?.hasError('maxlength')">Hasta 120 caracteres</span>
+          <span class="auth-err" role="alert" *ngIf="errorDe('nombre_empresa') as e">{{ e }}</span>
         </div>
 
         <div class="auth-field">
           <span class="auth-label">Cédula jurídica <span class="opt">(opcional)</span></span>
           <div class="auth-input">
-            <ion-input formControlName="cedula_juridica" aria-label="Cédula jurídica" placeholder="3-101-000000"></ion-input>
+            <ion-input formControlName="cedula_juridica" inputmode="numeric" aria-label="Cédula jurídica" placeholder="3-101-000000"></ion-input>
           </div>
+          <span class="auth-err" role="alert" *ngIf="form.get('cedula_juridica')?.touched && form.get('cedula_juridica')?.invalid">Solo números y guiones</span>
+          <span class="auth-err" role="alert" *ngIf="errorDe('cedula_juridica') as e">{{ e }}</span>
         </div>
 
         <div class="auth-field" [class.has-error]="form.get('nombre_contacto')?.touched && form.get('nombre_contacto')?.invalid">
@@ -50,6 +62,7 @@
             <ion-input formControlName="nombre_contacto" autocomplete="name" aria-label="Persona de contacto" placeholder="Nombre completo"></ion-input>
           </div>
           <span class="auth-err" role="alert" *ngIf="form.get('nombre_contacto')?.touched && form.get('nombre_contacto')?.hasError('required')">Escribí a quién contactamos</span>
+          <span class="auth-err" role="alert" *ngIf="errorDe('nombre_contacto') as e">{{ e }}</span>
         </div>
 
         <div class="auth-row-2">
@@ -59,13 +72,15 @@
               <ion-input formControlName="email" type="email" inputmode="email" autocomplete="email" aria-label="Correo" placeholder="tu@empresa.cr"></ion-input>
             </div>
             <span class="auth-err" role="alert" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">Revisá el correo</span>
+            <span class="auth-err" role="alert" *ngIf="errorDe('email') as e">{{ e }}</span>
           </div>
           <div class="auth-field" [class.has-error]="form.get('telefono')?.touched && form.get('telefono')?.invalid">
             <span class="auth-label">Teléfono</span>
             <div class="auth-input">
               <ion-input formControlName="telefono" type="tel" inputmode="tel" autocomplete="tel" aria-label="Teléfono" placeholder="8888-8888"></ion-input>
             </div>
-            <span class="auth-err" role="alert" *ngIf="form.get('telefono')?.touched && form.get('telefono')?.invalid">Escribí un teléfono</span>
+            <span class="auth-err" role="alert" *ngIf="form.get('telefono')?.touched && form.get('telefono')?.invalid">Entre 8 y 15 números</span>
+            <span class="auth-err" role="alert" *ngIf="errorDe('telefono') as e">{{ e }}</span>
           </div>
         </div>
 
@@ -75,9 +90,16 @@
             <ion-textarea formControlName="mensaje" aria-label="Mensaje" rows="3" [autoGrow]="true"
                           placeholder="Cuántos buses tienen, qué rutas operan…"></ion-textarea>
           </div>
+          <span class="auth-err" role="alert" *ngIf="form.get('mensaje')?.hasError('maxlength')">Hasta 1000 caracteres</span>
         </div>
 
-        <ion-button type="submit" class="auth-btn">Enviar solicitud</ion-button>
+        <!-- Captcha de Cloudflare: casi siempre se resuelve solo, sin clics. -->
+        <div class="captcha" *ngIf="usaCaptcha">
+          <div #captcha></div>
+          <span class="auth-err" role="alert" *ngIf="captchaError">No se pudo cargar la verificación. Recargá la página e intentá de nuevo.</span>
+        </div>
+
+        <ion-button type="submit" class="auth-btn" [disabled]="!puedeEnviar">Enviar solicitud</ion-button>
       </form>
     </div>
 

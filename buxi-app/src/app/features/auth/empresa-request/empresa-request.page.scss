@@ -58,3 +58,22 @@
     font-size: 14px;
   }
 }
+
+// Trampa para bots: fuera de la pantalla, no `display: none`, porque algunos
+// bots se saltan los campos ocultos así.
+.trampa {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.captcha {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 65px;
+  margin: 4px 0 2px;
+}
