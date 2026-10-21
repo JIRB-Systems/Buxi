@@ -21,6 +21,7 @@
             "inlineStyleLanguage": "scss",
             "assets": [
               "src/manifest.webmanifest",
+              "src/sw-push.js",
               {
                 "glob": "**/*",
                 "input": "src/assets",
@@ -136,6 +137,7 @@
             "inlineStyleLanguage": "scss",
             "assets": [
               "src/manifest.webmanifest",
+              "src/sw-push.js",
               {
                 "glob": "**/*",
                 "input": "src/assets",

@@ -5,6 +5,7 @@ import * as maplibregl from 'maplibre-gl';
 import { Subscription } from 'rxjs';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { BusTrackingService, EmpresaListItem, ReporteReciente, TipoReporte } from '../../../core/services/bus-tracking.service';
+import { AlertaLlegada, PushService, ResultadoPush } from '../../../core/services/push.service';
 import { SupabaseService } from '../../../core/services/supabase.service';
 import { BusLocation, Ruta, Parada, TarifaAresep } from '../../../core/models/transport.model';
 import { REGLA_ADULTO_MAYOR, tarifaAdultoMayorTexto, tituloAresep } from '../../../core/utils/aresep';
@@ -795,11 +796,114 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private async loadHorariosFor(rutaId: string) {
     this.cargarTarifas(this.activeRuta);
     this.cargarReportes(rutaId);
+    // La parada para el aviso depende de la ubicación, que puede tardar.
+    setTimeout(() => this.cargarAlertaLlegada(), 1500);
     try {
       this.activeSalidas = await this.tracking.getHorarioSalidas(rutaId);
     } catch {
       this.activeSalidas = [];
     }
+  }
+
+  // ---- AVISOS EN EL TELÉFONO (push) ----
+  // Avisos de las empresas que se siguen y "avisame cuando falten 5 min" (los
+  // manda el servidor, llegan con la app cerrada); "bajate en la próxima" lo
+  // arma el propio teléfono durante el viaje.
+  pushActivo = false;
+  alertaLlegada: AlertaLlegada | null = null;
+  alertaCargando = false;
+  private bajadaAvisada: string | null = null;
+
+  // Con viaje elegido, la parada donde se sube; si no, la más cercana.
+  get paradaParaAviso(): Parada | null {
+    return this.viajeElegido?.subir ?? this.nearestStop?.parada ?? null;
+  }
+
+  private async cargarAlertaLlegada() {
+    this.alertaLlegada = null;
+    const ruta = this.activeRuta, parada = this.paradaParaAviso;
+    if (!this.profile || !ruta || !parada) return;
+    try {
+      const a = await this.push.alertaActiva(ruta.id, parada.id);
+      if (this.activeRuta?.id === ruta.id) this.alertaLlegada = a;
+    } catch (e) {
+      logError('leer la alerta de llegada', e);
+    }
+  }
+
+  async togglePush() {
+    if (!this.profile) { this.pedirCuenta('recibir avisos en el teléfono'); return; }
+    if (this.pushActivo) {
+      await this.push.desactivar().catch(e => logError('apagar push', e));
+      this.pushActivo = false;
+      await this.toast('Listo: no te mandamos más avisos a este teléfono');
+      return;
+    }
+    const r = await this.push.activar();
+    this.pushActivo = r === 'ok';
+    await this.contarResultadoPush(r);
+  }
+
+  private async contarResultadoPush(r: ResultadoPush) {
+    switch (r) {
+      case 'ok': return this.toast('Listo: te vamos a avisar en este teléfono');
+      case 'denegado': return this.toast('El navegador bloqueó los avisos. Activalos en los permisos del sitio.', 'warning');
+      case 'no-soportado': return this.toast('Este navegador no puede recibir avisos.', 'warning');
+      case 'error': return this.toast('No se pudieron activar los avisos. Probá de nuevo.', 'danger');
+      case 'ios-instalar': {
+        const alert = await this.alertCtrl.create({
+          cssClass: 'buxi-alert',
+          header: 'Primero instalá Buxmap',
+          message: 'En iPhone los avisos solo llegan con la app en la pantalla de inicio: tocá Compartir y después "Agregar a inicio". Abrila desde ahí y activá los avisos.',
+          buttons: ['Entendido'],
+        });
+        await alert.present();
+      }
+    }
+  }
+
+  async toggleAlertaLlegada() {
+    if (!this.profile) { this.pedirCuenta('que te avisemos cuando llegue tu bus'); return; }
+    const ruta = this.activeRuta, parada = this.paradaParaAviso;
+    if (!ruta || !parada || this.alertaCargando) return;
+    this.alertaCargando = true;
+    try {
+      if (this.alertaLlegada) {
+        await this.push.cancelarAlerta(this.alertaLlegada.id);
+        this.alertaLlegada = null;
+        await this.toast('Listo, ya no te avisamos');
+        return;
+      }
+      if (!(await this.push.activo())) {
+        const r = await this.push.activar();
+        if (r !== 'ok') { await this.contarResultadoPush(r); return; }
+        this.pushActivo = true;
+      }
+      await this.push.crearAlerta(ruta.id, parada.id, 5);
+      await this.cargarAlertaLlegada();
+      await this.toast(`Te avisamos cuando el bus esté a 5 min de ${this.nombreCorto(parada)}`);
+    } catch (e: any) {
+      logError('alerta de llegada', e);
+      await this.toast(e?.message || 'No se pudo guardar el aviso', 'danger');
+    } finally {
+      this.alertaCargando = false;
+    }
+  }
+
+  // "Bajate en la próxima": ya lejos de donde subió y a menos de 500 m de
+  // donde baja. Una vez por viaje.
+  private revisarBajada(lat: number, lng: number) {
+    const o = this.viajeElegido;
+    if (!o) return;
+    const clave = o.rutaId + ':' + o.bajarId;
+    if (this.bajadaAvisada === clave) return;
+    const aBajar = this.featuresService.distanceKm(lat, lng, o.bajar.latitud, o.bajar.longitud);
+    const aSubir = this.featuresService.distanceKm(lat, lng, o.subir.latitud, o.subir.longitud);
+    if (aSubir < 0.4 || aBajar > 0.5) return;
+    this.bajadaAvisada = clave;
+    const parada = this.nombreCorto(o.bajar);
+    this.push.notificarLocal('Bajate en la próxima', `Tu parada: ${parada}`, 'bajada').catch(() => {});
+    this.zone.run(() => this.toast(`Bajate en la próxima: ${parada}`, 'warning'));
   }
 
   // ---- REPORTES DE PASAJEROS ----
@@ -1296,6 +1400,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
     private elRef: ElementRef<HTMLElement>,
+    private push: PushService,
   ) {}
 
   // Ionic calcula --offset-top a partir de un ion-header que esta pagina
@@ -1339,6 +1444,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       }
     } catch {}
     this.perfilCargado = true;
+    if (this.profile) this.push.activo().then(a => this.pushActivo = a).catch(() => {});
 
     try {
       const [empresas, rutas, paradas] = await Promise.all([
@@ -2049,6 +2155,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.activeSalidas = [];
     this.tarifasRuta = [];
     this.reportesRuta = [];
+    this.alertaLlegada = null;
     this.selectedEmpresaId = null;
 
     if (navigate) {
@@ -2391,6 +2498,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private updateUserPosition(lat: number, lng: number, accuracy?: number | null, heading?: number | null) {
     this.userLat = lat;
     this.userLng = lng;
+    this.revisarBajada(lat, lng);
 
     const gpsHeading = heading !== null && heading !== undefined && !isNaN(heading)
       ? (heading as number)

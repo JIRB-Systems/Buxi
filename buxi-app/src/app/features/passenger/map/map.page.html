@@ -242,6 +242,19 @@
         <ng-container *ngTemplateOutlet="tplLlegar"></ng-container>
       </ng-container>
 
+      <!-- Lo manda el servidor: llega aunque la app esté cerrada. -->
+      <div class="aviso-llegada" *ngIf="paradaParaAviso as p" [class.activo]="!!alertaLlegada">
+        <ion-icon [name]="alertaLlegada ? 'notifications' : 'notifications-outline'" aria-hidden="true"></ion-icon>
+        <div class="aviso-llegada-info">
+          <strong>{{ alertaLlegada ? 'Te avisamos cuando falten 5 min' : 'Avisame cuando falten 5 min' }}</strong>
+          <span>Para {{ nombreCorto(p) }}, aunque cierres la app</span>
+        </div>
+        <button type="button" class="bx-btn bx-btn--sm" [class.bx-btn--info]="!alertaLlegada" [class.bx-btn--sec]="!!alertaLlegada"
+                [disabled]="alertaCargando" [attr.aria-busy]="alertaCargando" (click)="toggleAlertaLlegada()">
+          {{ alertaCargando ? '…' : (alertaLlegada ? 'Cancelar' : 'Avisame') }}
+        </button>
+      </div>
+
       <!-- El resto del viaje: el tramo en bus y dónde bajar. Subir y caminar
            hasta la parada ya lo dicen las dos filas de arriba. -->
       <div class="vj-pasos" *ngIf="viajeElegido as o">
@@ -1023,6 +1036,13 @@
       <div class="pp-link" (click)="toggleNotifications()">
         <ion-icon name="notifications-outline"></ion-icon><span>Notificaciones</span>
         <div class="pp-switch" [class.on]="notificationsEnabled"><i></i></div>
+      </div>
+
+      <!-- Push: llegan con la app cerrada. Distinto del de arriba, que es la
+           lista de avisos dentro de la app. -->
+      <div class="pp-link" (click)="togglePush()">
+        <ion-icon name="phone-portrait-outline"></ion-icon><span>Avisos en el teléfono</span>
+        <div class="pp-switch" [class.on]="pushActivo"><i></i></div>
       </div>
 
       <div class="pp-link" (click)="toggleDarkMode()">
