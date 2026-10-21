@@ -445,12 +445,15 @@
     <div class="sheet-updated">
       <span class="pulse-dot" [class.stale]="!!selectedBusSignalText"></span>
       {{ selectedBusSignalText || selectedBusAgeText }}
-      <ion-icon name="share-social-outline" class="sheet-share" (click)="shareBusLocation()"></ion-icon>
     </div>
 
     <button class="bx-btn bx-btn--lg bx-btn--bloque follow-btn" [class.bx-btn--pri]="!followingBus" [class.bx-btn--sec]="followingBus" (click)="toggleFollow()">
       <ion-icon [name]="followingBus ? 'close-circle-outline' : 'navigate-circle-outline'"></ion-icon>
       {{ followingBus ? 'Dejar de seguir' : 'Seguir recorrido' }}
+    </button>
+    <button type="button" class="bx-btn bx-btn--ghost bx-btn--bloque share-btn" (click)="shareBusLocation()">
+      <ion-icon name="share-social-outline" aria-hidden="true"></ion-icon>
+      Compartir viaje en vivo
     </button>
   </div>
 

@@ -617,11 +617,6 @@
     animation: live-pulse 1.8s ease-out infinite;
     &.stale { background: var(--bx-warning); animation: none; }
   }
-
-  .sheet-share {
-    margin-left: auto;
-    font-size: 18px; color: var(--bx-green-bright); cursor: pointer;
-  }
 }
 
 @keyframes live-pulse {
@@ -630,6 +625,7 @@
 }
 
 .follow-btn { margin-top: 13px; }
+.share-btn { margin-top: 8px; }
 
 // ---- BARRA INFERIOR ----
 // Pegada abajo, como en las apps de transporte de referencia: cuatro

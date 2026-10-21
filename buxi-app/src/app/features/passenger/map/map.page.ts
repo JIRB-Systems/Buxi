@@ -1456,6 +1456,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     } else {
       await this.loadBusLocations();
     }
+    this.abrirBusCompartido();
 
     this.setupMapChrome();
     this.startClock();
@@ -2252,6 +2253,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // Sin cuenta no se puede leer la tabla de buses, así que la ruta de cada
     // bus llega con su posición (buses_en_vivo).
     if (location.bus?.ruta_id) this.busRuta.set(location.bus_id, location.bus.ruta_id);
+    if (this.busPedido === location.bus_id) setTimeout(() => this.seguirBusCompartido(location));
     this.busIcono.set(
       location.bus_id,
       this.registrarIconoBus(this.estadoDeBus(location), this.busColor(location),
@@ -3649,17 +3651,51 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.map.easeTo({ pitch: this.is3D ? 50 : 0, duration: 600 });
   }
 
-  shareBusLocation() {
+  // ---- COMPARTIR EL VIAJE EN VIVO ----
+  // Un enlace que abre Buxmap siguiendo este bus, sin cuenta (los buses en
+  // vivo son públicos): quien lo recibe ve dónde va mientras transmita. Antes
+  // se mandaba por WhatsApp un punto fijo de Google Maps, que quedaba viejo
+  // apenas el bus se movía.
+  async shareBusLocation() {
     if (!this.selectedBus) return;
-    const lat = this.selectedBus.latitud;
-    const lng = this.selectedBus.longitud;
-    const placa = this.selectedBusPlaca;
-    const ruta = this.selectedBusRuta;
-    const mapUrl = `https://www.google.com/maps?q=${lat},${lng}`;
-    const text = `🚌 Mi bus ${placa} (${ruta}) está aquí: ${mapUrl}`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(waUrl, '_blank');
+    const url = `${window.location.origin}/passenger/map?bus=${encodeURIComponent(this.selectedBus.bus_id)}`;
+    const texto = `Seguí en vivo el bus ${this.selectedBusPlaca} (${this.selectedBusRuta}) en Buxmap`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Mi bus en Buxmap', text: texto, url });
+        return;
+      }
+    } catch (e: any) {
+      // Cancelar el menú de compartir no es un error.
+      if (e?.name === 'AbortError') return;
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${texto}: ${url}`)}`, '_blank', 'noopener');
   }
+
+  // Si se llegó por un enlace compartido (?bus=...), abrir ese bus y seguirlo.
+  // Puede que todavía no haya llegado su posición: se espera al próximo
+  // refresco (ver addOrUpdateBusMarker), y si no transmite se avisa.
+  private busPedido: string | null = null;
+
+  private abrirBusCompartido() {
+    const id = this.route.snapshot.queryParams['bus'] || null;
+    if (!id) return;
+    const loc = this.busLocationsMap.get(id);
+    if (loc) { this.seguirBusCompartido(loc); return; }
+    this.busPedido = id;
+    setTimeout(() => {
+      if (this.busPedido !== id) return;
+      this.busPedido = null;
+      this.toast('Ese bus no está transmitiendo ahora. Cuando vuelva a salir, lo vas a ver en el mapa.', 'warning');
+    }, this.ENVIVO_MS * 2 + 2000);
+  }
+
+  private seguirBusCompartido(loc: BusLocation) {
+    this.busPedido = null;
+    this.selectedBus = loc;
+    this.toggleFollow();
+  }
+
 
   ngOnDestroy() {
     this.destroyed = true;
