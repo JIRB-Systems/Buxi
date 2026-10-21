@@ -72,6 +72,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     { titulo: 'Pasajeros', items: [
       { id: 'notificaciones', icon: 'notifications-outline', label: 'Avisos a pasajeros' },
       { id: 'personalizacion', icon: 'color-palette-outline', label: 'Personalización' },
+      { id: 'gtfs', icon: 'globe-outline', label: 'Google Maps y apps' },
     ]},
     { titulo: 'Cuenta', items: [
       { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos de JIRB' },
@@ -886,6 +887,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     if (tab === 'horarios') {
       this.loadHorariosResumen();
     }
+    if (tab === 'gtfs') this.cargarEstadoGtfs();
     if (tab === 'personalizacion') {
       // Los canvas recién existen cuando Angular pintó el panel.
       setTimeout(() => this.prepararPreview(), 0);
@@ -987,6 +989,56 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.showToast('No se pudo quitar el logo', 'danger');
     }
     this.subiendoLogo = false;
+  }
+
+  // ---- GOOGLE MAPS Y APPS (GTFS) ----
+  // Los enlaces que se le dan a Google, Moovit o Transit: la función gtfs arma
+  // el GTFS de la empresa al momento, con lo que tenga cargado.
+  gtfsRutas: { ruta: Ruta; lista: boolean; falta: string }[] = [];
+  gtfsCargando = false;
+
+  get gtfsUrl(): string {
+    return `${environment.supabaseUrl}/functions/v1/gtfs?empresa=${this.empresa?.id ?? ''}`;
+  }
+
+  get gtfsRtUrl(): string {
+    return `${this.gtfsUrl}&rt=1`;
+  }
+
+  get gtfsListas(): number {
+    return this.gtfsRutas.filter(r => r.lista).length;
+  }
+
+  private async cargarEstadoGtfs() {
+    const activas = this.rutas.filter(r => r.estado === 'activa');
+    this.gtfsCargando = true;
+    try {
+      const estado = await this.admin.getEstadoGtfs(activas.map(r => r.id));
+      this.gtfsRutas = activas.map(ruta => {
+        const e = estado[ruta.id];
+        const falta = [
+          e.paradas < 2 ? 'paradas' : '',
+          e.horarios === 0 ? 'horario' : '',
+        ].filter(Boolean).join(' y ');
+        return { ruta, lista: !falta, falta: falta ? `Falta ${falta}` : '' };
+      });
+    } catch (e) {
+      logError('estado GTFS', e);
+    }
+    this.gtfsCargando = false;
+  }
+
+  async copiarEnlace(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      this.showToast('Enlace copiado');
+    } catch {
+      this.showToast('No se pudo copiar: seleccioná el enlace y copialo a mano', 'warning');
+    }
+  }
+
+  abrirEnlace(url: string) {
+    window.open(url, '_blank', 'noopener');
   }
 
   // ---- HORARIOS (resumen por ruta) ----

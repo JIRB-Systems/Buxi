@@ -499,3 +499,41 @@
   span { font-size: 13px; color: var(--dash-text-muted); line-height: 1.45; }
 }
 
+
+// ====== GOOGLE MAPS Y APPS (GTFS) ======
+.gtfs-card { margin-bottom: 14px; padding-bottom: 14px; }
+.gtfs-resumen { margin: 4px 16px 8px; font-size: 13px; color: var(--bx-text); b { font-size: 15px; } }
+.gtfs-lista {
+  list-style: none; margin: 0; padding: 0 16px;
+  li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px; color: var(--bx-text);
+  }
+  .gtfs-nombre { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .gtfs-estado {
+    display: flex; align-items: center; gap: 4px; flex: none;
+    font-size: 12px; font-weight: 700; color: var(--bx-green);
+    ion-icon { font-size: 16px; }
+    &.falta { color: var(--bx-warning); }
+  }
+}
+.gtfs-enlace {
+  display: flex; flex-direction: column; gap: 8px;
+  padding-bottom: 12px;
+  & + & { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px; }
+}
+.gtfs-url {
+  display: block; margin: 0 16px;
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--bx-bg-1); border: 1px solid rgba(255,255,255,0.06);
+  font-size: 11px; color: var(--dash-text-muted);
+  overflow-x: auto; white-space: nowrap;
+}
+.gtfs-acciones { display: flex; gap: 8px; padding: 0 16px; flex-wrap: wrap; }
+.gtfs-pasos {
+  margin: 8px 16px 0; padding-left: 18px;
+  li { margin-bottom: 8px; font-size: 13px; line-height: 1.5; color: var(--bx-text); }
+  a { color: var(--bx-green); }
+}
+.gtfs-nota { margin: 6px 16px 0; font-size: 12px; line-height: 1.5; a { color: var(--bx-green); } }

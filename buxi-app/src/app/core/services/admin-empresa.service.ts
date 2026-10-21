@@ -43,6 +43,24 @@ export class AdminEmpresaService {
     return data as Ruta;
   }
 
+  // ---- GTFS ----
+  // Por ruta: cuántas paradas, salidas exactas y horarios por frecuencia
+  // tiene. Google solo publica rutas con paradas y algún horario.
+  async getEstadoGtfs(rutaIds: string[]): Promise<Record<string, { paradas: number; horarios: number }>> {
+    const estado: Record<string, { paradas: number; horarios: number }> = {};
+    for (const id of rutaIds) estado[id] = { paradas: 0, horarios: 0 };
+    if (!rutaIds.length) return estado;
+    const [p, s, h] = await Promise.all([
+      this.supabase.from('paradas').select('ruta_id').in('ruta_id', rutaIds),
+      this.supabase.from('horario_salidas').select('ruta_id').in('ruta_id', rutaIds),
+      this.supabase.from('horarios').select('ruta_id').in('ruta_id', rutaIds),
+    ]);
+    for (const r of [p, s, h]) if (r.error) throw r.error;
+    for (const f of p.data || []) estado[f.ruta_id].paradas++;
+    for (const f of [...(s.data || []), ...(h.data || [])]) estado[f.ruta_id].horarios++;
+    return estado;
+  }
+
   // ---- TARIFAS DE ARESEP ----
   // Busca tramos por código de ruta ("521"), nombre de ruta o nombre de tramo.
   // El texto va dentro de un filtro `or` de PostgREST: se le sacan los

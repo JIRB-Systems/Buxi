@@ -100,7 +100,7 @@ async function aviso(id: string): Promise<Response> {
   if (yaEnviado) return responder(200, { ok: true, omitido: true });
 
   const { data: seguidores } = await admin.from("favoritos_empresa").select("user_id").eq("empresa_id", n.empresa_id);
-  const empresa = (n.empresa as { nombre?: string } | null)?.nombre || "Tu empresa";
+  const empresa = (n.empresa as unknown as { nombre?: string } | null)?.nombre || "Tu empresa";
   const enviados = await enviar((seguidores || []).map((f) => f.user_id), {
     title: `${empresa}: ${n.titulo}`,
     body: n.mensaje,
@@ -156,7 +156,7 @@ async function llegadas(): Promise<Response> {
 
   let avisadas = 0;
   for (const a of alertas) {
-    const parada = a.parada as { nombre: string; latitud: number; longitud: number } | null;
+    const parada = a.parada as unknown as { nombre: string; latitud: number; longitud: number } | null;
     if (!parada) continue;
     let mejor: { min: number; placa: string } | null = null;
     for (const b of (buses || []).filter((x) => x.ruta_id === a.ruta_id)) {
@@ -179,7 +179,7 @@ async function llegadas(): Promise<Response> {
       .update({ avisada_at: ahora }).eq("id", a.id).is("avisada_at", null).select("id");
     if (!marcada?.length) continue;
 
-    const ruta = (a.ruta as { nombre?: string } | null)?.nombre || "Tu bus";
+    const ruta = (a.ruta as unknown as { nombre?: string } | null)?.nombre || "Tu bus";
     const minutos = Math.max(1, Math.round(mejor.min));
     await enviar([a.user_id], {
       title: `${ruta}: llega en ~${minutos} min`,

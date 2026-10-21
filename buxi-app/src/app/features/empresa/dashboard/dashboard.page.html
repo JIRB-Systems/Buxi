@@ -641,6 +641,69 @@
           </div>
         </div>
 
+        <!-- ===== GOOGLE MAPS Y APPS (GTFS) ===== -->
+        <div *ngIf="activeTab==='gtfs'" class="page">
+          <p class="page-hint">Publicá tus rutas y tus buses en vivo en Google Maps, Moovit, Transit y cualquier app que lea GTFS, el formato estándar del transporte público.</p>
+
+          <div class="card gtfs-card">
+            <div class="perso-titulo">
+              <strong>¿Qué tan listas están tus rutas?</strong>
+              <span class="muted">Google muestra las rutas que tienen paradas y horario. Las que no, se publican igual pero sin viajes.</span>
+            </div>
+            <p class="gtfs-resumen" *ngIf="!gtfsCargando">
+              <b class="bx-mono">{{ gtfsListas }} de {{ gtfsRutas.length }}</b> rutas listas
+            </p>
+            <ul class="gtfs-lista">
+              <li *ngFor="let r of gtfsRutas" [class.ok]="r.lista">
+                <bx-ruta [nombre]="r.ruta.nombre" [color]="r.ruta.color"></bx-ruta>
+                <span class="gtfs-nombre">{{ r.ruta.nombre }}</span>
+                <span class="gtfs-estado" *ngIf="r.lista"><ion-icon name="checkmark-circle" aria-hidden="true"></ion-icon>Lista</span>
+                <span class="gtfs-estado falta" *ngIf="!r.lista">{{ r.falta }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="card gtfs-card">
+            <div class="gtfs-enlace">
+              <div class="perso-titulo">
+                <strong>Horarios y paradas (GTFS)</strong>
+                <span class="muted">Se arma al momento con lo que tenés cargado: si cambiás una ruta u horario, el enlace ya lo trae.</span>
+              </div>
+              <code class="gtfs-url">{{ gtfsUrl }}</code>
+              <div class="gtfs-acciones">
+                <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" (click)="copiarEnlace(gtfsUrl)">Copiar enlace</button>
+                <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm" (click)="abrirEnlace(gtfsUrl)">Descargar</button>
+              </div>
+            </div>
+            <div class="gtfs-enlace">
+              <div class="perso-titulo">
+                <strong>Buses en vivo (GTFS-Realtime)</strong>
+                <span class="muted">La posición de tus buses mientras transmiten, en el formato que usa Google Maps para mostrarlos en tiempo real.</span>
+              </div>
+              <code class="gtfs-url">{{ gtfsRtUrl }}</code>
+              <div class="gtfs-acciones">
+                <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" (click)="copiarEnlace(gtfsRtUrl)">Copiar enlace</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card gtfs-card">
+            <div class="perso-titulo">
+              <strong>Cómo aparecer en Google Maps</strong>
+            </div>
+            <ol class="gtfs-pasos">
+              <li>Completá el formulario de Google para empresas de transporte:
+                <a href="https://support.google.com/transitpartners/contact/agency_participate" target="_blank" rel="noopener">Google Transit Partners</a>.
+                Lo tiene que enviar alguien de la empresa que la pueda representar.</li>
+              <li>Cuando Google te dé acceso a su panel, pegá el enlace de horarios y paradas como fuente de datos, y el de buses en vivo como posiciones de vehículos.</li>
+              <li>Google revisa los datos y los prueba en privado antes de publicarlos.</li>
+            </ol>
+            <p class="gtfs-nota muted">Moovit y Transit leen el mismo formato: mandales estos enlaces. También podés registrarlos en
+              <a href="https://mobilitydatabase.org" target="_blank" rel="noopener">MobilityDatabase.org</a>, el catálogo abierto que consultan las apps.
+              Por ahora se publica el sentido de ida, y el paso por cada parada se estima a partir de la salida.</p>
+          </div>
+        </div>
+
         <!-- ===== PERSONALIZACIÓN ===== -->
         <div *ngIf="activeTab==='personalizacion'" class="page">
           <p class="page-hint">Cómo se ve tu flota en el mapa de los pasajeros y en el de tus choferes.</p>
