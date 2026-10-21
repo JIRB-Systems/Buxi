@@ -461,6 +461,20 @@ export class AdminEmpresaService {
   // (migración pendiente de aplicar) -- sin ella, RLS bloquea el UPDATE en
   // silencio (204 sin cambiar nada), por eso se pide .select() para
   // detectar ese caso igual que en resolverEmergencia().
+  // El logo va al balde público `logos`, en la carpeta empresas/<id>/: la
+  // política de Storage solo deja subir a la carpeta de la propia empresa
+  // (migración logos_por_empresa). Antes el panel pedía una URL, y una imagen
+  // de otro dominio la bloquea la CSP (img-src), así que nunca se veía.
+  async subirLogoEmpresa(empresaId: string, archivo: File): Promise<string> {
+    const ext = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' } as Record<string, string>)[archivo.type];
+    if (!ext) throw new Error('El logo tiene que ser PNG, JPG o WebP.');
+    const ruta = `empresas/${empresaId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await this.supabase.storage.from('logos')
+      .upload(ruta, archivo, { contentType: archivo.type, upsert: false });
+    if (error) throw error;
+    return this.supabase.storage.from('logos').getPublicUrl(ruta).data.publicUrl;
+  }
+
   async updateEmpresa(id: string, updates: Partial<Empresa>): Promise<void> {
     const { data, error } = await this.supabase.from('empresas').update(updates).eq('id', id).select('id');
     if (error) throw error;

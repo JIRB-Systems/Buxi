@@ -645,6 +645,31 @@
         <div *ngIf="activeTab==='personalizacion'" class="page">
           <p class="page-hint">Cómo se ve tu flota en el mapa de los pasajeros y en el de tus choferes.</p>
 
+          <div class="card perso-logo">
+            <div class="perso-titulo">
+              <strong>Logo de tu empresa</strong>
+              <span class="muted">Sale en la lista de empresas y en el detalle de tus rutas.</span>
+            </div>
+            <div class="perso-logo__fila">
+              <div class="perso-logo__previa">
+                <img *ngIf="empresa?.logo_url" [src]="empresa?.logo_url" alt="Logo actual" />
+                <span *ngIf="!empresa?.logo_url" aria-hidden="true">{{ (empresa?.nombre || '?').charAt(0) }}</span>
+              </div>
+              <div class="perso-logo__acciones">
+                <label class="bx-btn bx-btn--pri" [class.bx-btn--cargando]="subiendoLogo" [attr.aria-disabled]="subiendoLogo">
+                  <span class="bx-btn__giro" *ngIf="subiendoLogo" aria-hidden="true"></span>
+                  {{ subiendoLogo ? 'Subiendo…' : (empresa?.logo_url ? 'Cambiar logo' : 'Subir logo') }}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" hidden
+                         [disabled]="subiendoLogo" (change)="onLogoElegido($event)" />
+                </label>
+                <button type="button" class="bx-btn bx-btn--ghost" *ngIf="empresa?.logo_url"
+                        [disabled]="subiendoLogo" (click)="quitarLogo()">Quitar</button>
+                <span class="muted">PNG, JPG o WebP, hasta 2 MB. Mejor cuadrado.</span>
+              </div>
+            </div>
+            <p class="perso-logo__error" role="alert" *ngIf="logoError">{{ logoError }}</p>
+          </div>
+
           <div class="card">
             <div class="perso-titulo">
               <strong>Color de tus buses</strong>

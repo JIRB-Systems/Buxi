@@ -125,6 +125,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   usaColorPropio = false;
   colorBus = '#00c853';
   guardandoPersonalizacion = false;
+  subiendoLogo = false;
+  logoError: string | null = null;
   private colorBusGuardado: string | null = null;
   private spritesPreview: SpritesBus | null = null;
 
@@ -760,8 +762,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         { name: 'cedula_juridica', placeholder: 'Cédula jurídica', type: 'text', value: e.cedula_juridica || '' },
         { name: 'telefono', placeholder: 'Teléfono', type: 'tel', value: e.telefono || '' },
         { name: 'email', placeholder: 'Correo', type: 'email', value: e.email || '' },
-        { name: 'logo_url', placeholder: 'URL del logo (opcional)', type: 'url', value: e.logo_url || '' },
       ],
+      // El logo se sube desde Personalización; acá ya no se toca.
+      message: 'El logo se cambia en Personalización.',
       buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
         if (!d.nombre?.trim()) return false;
         try {
@@ -770,7 +773,6 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
             cedula_juridica: d.cedula_juridica?.trim() || null,
             telefono: d.telefono?.trim() || null,
             email: d.email?.trim() || null,
-            logo_url: d.logo_url?.trim() || null,
           });
           await this.loadData();
           this.showToast('Datos actualizados');
@@ -941,6 +943,50 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.showToast(e?.message || 'No se pudo guardar la personalización', 'danger');
     }
     this.guardandoPersonalizacion = false;
+  }
+
+  // ---- LOGO ----
+  // Mismos límites que el balde `logos` (PNG/JPG/WebP); 2 MB acá porque un
+  // logo no necesita más y en el teléfono del pasajero se baja cada vez.
+  async onLogoElegido(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    input.value = '';
+    if (!archivo || !this.profile?.empresa_id || this.subiendoLogo) return;
+    this.logoError = null;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(archivo.type)) {
+      this.logoError = 'El logo tiene que ser PNG, JPG o WebP.';
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      this.logoError = 'El logo puede pesar hasta 2 MB.';
+      return;
+    }
+    this.subiendoLogo = true;
+    try {
+      const url = await this.admin.subirLogoEmpresa(this.profile.empresa_id, archivo);
+      await this.admin.updateEmpresa(this.profile.empresa_id, { logo_url: url });
+      if (this.empresa) this.empresa.logo_url = url;
+      this.showToast('Listo: los pasajeros ya ven tu logo');
+    } catch (e: any) {
+      logError('subir el logo de la empresa', e);
+      this.logoError = 'No se pudo subir el logo. Intentá de nuevo.';
+    }
+    this.subiendoLogo = false;
+  }
+
+  async quitarLogo() {
+    if (!this.profile?.empresa_id || this.subiendoLogo) return;
+    this.subiendoLogo = true;
+    try {
+      await this.admin.updateEmpresa(this.profile.empresa_id, { logo_url: null });
+      if (this.empresa) this.empresa.logo_url = null;
+      this.showToast('Quitaste el logo');
+    } catch (e: any) {
+      logError('quitar el logo de la empresa', e);
+      this.showToast('No se pudo quitar el logo', 'danger');
+    }
+    this.subiendoLogo = false;
   }
 
   // ---- HORARIOS (resumen por ruta) ----

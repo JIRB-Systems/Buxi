@@ -34,8 +34,11 @@ export class BusTrackingService implements OnDestroy {
   async getRutas(): Promise<Ruta[]> {
     const { data, error } = await this.supabase
       .from('rutas')
-      .select('*, empresa:empresas(nombre, logo_url)')
-      .eq('estado', 'activa');
+      // !inner + filtro: una empresa desactivada se lleva sus rutas del mapa,
+      // de la lista y del planificador. Antes solo desaparecía de "Empresas".
+      .select('*, empresa:empresas!inner(nombre, logo_url)')
+      .eq('estado', 'activa')
+      .eq('empresa.estado', 'activo');
     if (error) throw error;
     return data as Ruta[];
   }
