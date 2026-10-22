@@ -21,6 +21,7 @@ import {
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
 import { createMap, estiloCargo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
+import { normalizarTelefono } from '../../../core/utils/telefono';
 import { esc, colorSeguro } from '../../../core/utils/html';
 import { rutaCorta, tintaSobre } from '../../../core/utils/marca';
 import { nombreCortoLugar } from '../../../core/utils/lugar';
@@ -1823,11 +1824,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       return;
     }
 
+    const telefono = this.editPhone.trim() ? normalizarTelefono(this.editPhone) : null;
+    if (this.editPhone.trim() && !telefono) {
+      await this.toast('El teléfono tiene que ser un número de Costa Rica, de 8 dígitos', 'warning');
+      return;
+    }
+
     this.savingProfile = true;
     try {
       this.profile = await this.supabase.updateProfile({
         nombre_completo: nombre,
-        telefono: this.editPhone.trim() || null,
+        telefono,
         provincia: this.editProvincia || null,
       });
       this.userName = this.profile.nombre_completo.split(' ')[0];

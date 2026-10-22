@@ -15,6 +15,12 @@ export class LoginPage {
   showPassword = false;
   rememberMe = false;
 
+  // Correo de una cuenta que existe pero todavía no abrió el enlace de
+  // confirmación: en vez de un error suelto, se ofrece mandarlo de nuevo.
+  sinConfirmar: string | null = null;
+  reenviando = false;
+  reenviado = false;
+
   constructor(
     private fb: FormBuilder,
     private supabase: SupabaseService,
@@ -56,6 +62,11 @@ export class LoginPage {
         this.router.navigate(['/passenger/map'], { replaceUrl: true });
       }
     } catch (error: any) {
+      if (error?.message?.includes('Email not confirmed')) {
+        this.sinConfirmar = this.loginForm.value.email.trim();
+        this.reenviado = false;
+        return;
+      }
       const toast = await this.toastCtrl.create({
         message: this.getErrorMessage(error),
         duration: 3000,
@@ -95,6 +106,25 @@ export class LoginPage {
         break;
       default:
         this.router.navigate(['/passenger/map'], { replaceUrl: true });
+    }
+  }
+
+  async reenviarConfirmacion() {
+    if (!this.sinConfirmar || this.reenviando) return;
+    this.reenviando = true;
+    try {
+      await this.supabase.reenviarConfirmacion(this.sinConfirmar);
+      this.reenviado = true;
+    } catch (e: any) {
+      const toast = await this.toastCtrl.create({
+        message: /rate|seconds/i.test(e?.message || '')
+          ? 'Ya te lo mandamos hace poco. Esperá un minuto y probá de nuevo.'
+          : 'No se pudo reenviar. Probá de nuevo.',
+        duration: 3000, color: 'danger', position: 'top',
+      });
+      await toast.present();
+    } finally {
+      this.reenviando = false;
     }
   }
 

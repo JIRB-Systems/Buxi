@@ -29,6 +29,25 @@
     line-height: 1.5;
     color: var(--bx-text-2);
   }
+
+  // El correo al que mandamos el enlace: que se lea y que no rompa el ancho.
+  strong { color: var(--bx-text); overflow-wrap: anywhere; }
+}
+
+// Aviso dentro de un formulario: correo sin confirmar en el login.
+.auth-aviso {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border-radius: var(--bx-r-md);
+  border: 1px solid rgba(255, 176, 32, 0.35);
+  background: var(--bx-warning-soft);
+  font-size: var(--bx-fs-small);
+  line-height: 1.5;
+  color: var(--bx-text);
+
+  ion-button.auth-btn { margin: 0; }
 }
 
 // Ícono de estado (recuperar contraseña, solicitud enviada).

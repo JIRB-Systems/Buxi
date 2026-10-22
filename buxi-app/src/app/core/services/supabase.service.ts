@@ -6,6 +6,7 @@ import { Browser } from '@capacitor/browser';
 import { environment } from '../../../environments/environment';
 import { UserProfile } from '../models/user-profile.model';
 import { BehaviorSubject } from 'rxjs';
+import { DOMINIO_APP } from '../utils/dominio';
 
 const OAUTH_NATIVE_REDIRECT = 'cr.buxci.app://login-callback';
 
@@ -88,10 +89,27 @@ export class SupabaseService {
       password,
       options: {
         data: metadata,
+        emailRedirectTo: this.vueltaConfirmacion(),
       },
     });
     if (error) throw error;
     return data;
+  }
+
+  // El enlace de "confirmá tu correo" inicia sesión y vuelve a la raíz de la
+  // app, que manda a cada uno a su pantalla. En la app nativa el origen es
+  // https://localhost, que desde el correo no abre nada: va siempre a la web.
+  private vueltaConfirmacion(): string {
+    return Capacitor.isNativePlatform() ? `${DOMINIO_APP}/` : `${window.location.origin}/`;
+  }
+
+  async reenviarConfirmacion(email: string) {
+    const { error } = await this.supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: this.vueltaConfirmacion() },
+    });
+    if (error) throw error;
   }
 
   async signIn(email: string, password: string) {

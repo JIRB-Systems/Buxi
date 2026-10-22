@@ -236,6 +236,17 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Correos de Buxci. En producción se pegan a mano en Authentication → Emails
+# (el dashboard no lee estos archivos); acá quedan para el entorno local y
+# como fuente del texto.
+[auth.email.template.confirmation]
+subject = "Confirmá tu correo en Buxci"
+content_path = "./supabase/templates/confirmar-correo.html"
+
+[auth.email.template.recovery]
+subject = "Creá tu contraseña nueva de Buxci"
+content_path = "./supabase/templates/recuperar-clave.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

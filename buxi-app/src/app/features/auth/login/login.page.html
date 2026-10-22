@@ -34,6 +34,18 @@
           <span class="auth-err" role="alert" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.hasError('minlength')">Mínimo 6 caracteres</span>
         </div>
 
+        <div class="auth-aviso" role="alert" *ngIf="sinConfirmar">
+          <ng-container *ngIf="!reenviado; else listo">
+            <span>Todavía no confirmaste <strong>{{ sinConfirmar }}</strong>. Abrí el enlace que te mandamos al crear la cuenta.</span>
+            <ion-button class="auth-btn auth-btn--ghost" (click)="reenviarConfirmacion()" [disabled]="reenviando">
+              {{ reenviando ? 'Enviando…' : 'Reenviar el correo' }}
+            </ion-button>
+          </ng-container>
+          <ng-template #listo>
+            <span>Listo: te mandamos otro enlace a <strong>{{ sinConfirmar }}</strong>. Si no lo ves, buscá en correo no deseado.</span>
+          </ng-template>
+        </div>
+
         <div class="auth-forgot">
           <a routerLink="/auth/forgot-password">¿Olvidaste tu contraseña?</a>
         </div>

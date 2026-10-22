@@ -1,6 +1,6 @@
 <ion-content [fullscreen]="true" class="auth-content" [scrollY]="true">
   <app-auth-shell back="/auth/login">
-    <div class="auth-in">
+    <div class="auth-in" *ngIf="!enviadoA">
 
       <div class="auth-head">
         <h1>Creá tu cuenta</h1>
@@ -63,6 +63,7 @@
               <ion-input formControlName="telefono" type="tel" inputmode="tel" autocomplete="tel"
                          aria-label="Teléfono" placeholder="8888-8888"></ion-input>
             </div>
+            <span class="auth-err" role="alert" *ngIf="registerForm.get('telefono')?.touched && registerForm.get('telefono')?.invalid">Un número de Costa Rica, de 8 dígitos</span>
           </div>
           <div class="auth-field">
             <span class="auth-label">Provincia <span class="opt">(opcional)</span></span>
@@ -83,6 +84,21 @@
       </form>
 
       <p class="auth-alt">¿Ya tenés cuenta?<a routerLink="/auth/login">Iniciar sesión</a></p>
+    </div>
+
+    <!-- La cuenta queda creada pero sin poder entrar hasta abrir el enlace. -->
+    <div class="auth-in" *ngIf="enviadoA">
+      <div class="auth-badge ok">
+        <ion-icon name="mail-unread-outline" aria-hidden="true"></ion-icon>
+      </div>
+      <div class="auth-head">
+        <h1>Confirmá tu correo</h1>
+        <p>Te mandamos un enlace a <strong>{{ enviadoA }}</strong>. Abrilo para activar tu cuenta y entrar. Si no lo ves en unos minutos, buscá en correo no deseado.</p>
+      </div>
+      <ion-button class="auth-btn auth-btn--ghost" (click)="reenviar()" [disabled]="reenvioEn > 0">
+        {{ reenvioEn > 0 ? 'Reenviar en ' + reenvioEn + ' s' : 'Reenviar el correo' }}
+      </ion-button>
+      <p class="auth-alt">¿Ya lo abriste?<a (click)="irALogin()" href="javascript:void(0)">Iniciar sesión</a></p>
     </div>
   </app-auth-shell>
 </ion-content>
