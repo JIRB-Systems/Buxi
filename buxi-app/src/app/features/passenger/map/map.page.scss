@@ -387,6 +387,22 @@
   ion-spinner { width: 20px; height: 20px; --color: var(--bx-green); }
 }
 
+// Sin mapa de fondo el resto sigue usable (rutas, cerca, perfil): el aviso no
+// tapa la pantalla, solo se apoya arriba del centro.
+.mapa-fallo {
+  inset: auto 0 auto 0; top: 40%;
+  background: none; backdrop-filter: none;
+  pointer-events: none;
+  .loading-pill { pointer-events: auto; }
+  ion-icon { font-size: 20px; color: var(--bx-warning); }
+  button {
+    margin-left: 4px; padding: 8px 14px; min-height: 36px;
+    border: 0; border-radius: var(--bx-r-pill);
+    background: var(--bx-green); color: #04140a;
+    font: 700 13px var(--bx-font); cursor: pointer;
+  }
+}
+
 // ---- FICHA DEL BUS ----
 // Glass oscuro para no romper la escena del mapa: una tarjeta blanca sólida
 // cortaba la pantalla en dos.

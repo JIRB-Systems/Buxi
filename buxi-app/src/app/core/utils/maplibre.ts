@@ -29,6 +29,14 @@ const TERRAIN_DEM_URL = () =>
 // estilo terminó de cargar. Este helper devuelve el mapa ya "load" para que
 // el código llamador pueda dibujar de una sin manejar el evento cada vez.
 // Nota: MapLibre usa [lng, lat] (invertido respecto a Leaflet).
+// Mapas cuyo estilo llegó a cargar. `isStyleLoaded()` no sirve para saberlo:
+// también da false un rato después, mientras baja fuentes o relieve.
+const conEstilo = new WeakSet<maplibregl.Map>();
+
+export function estiloCargo(map: maplibregl.Map): boolean {
+  return conEstilo.has(map);
+}
+
 export function createMap(opts: {
   container: string | HTMLElement;
   center: [number, number];
@@ -79,6 +87,7 @@ export function createMap(opts: {
       // estilo de montaña crudo de MapTiler (relieve, curvas de nivel, nombres
       // en inglés).
       if (!dark) { try { tintLightMap(map); } catch {} }
+      conEstilo.add(map);
       done();
     });
 

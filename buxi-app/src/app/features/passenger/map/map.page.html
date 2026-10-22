@@ -456,6 +456,13 @@
       <span>Cargando mapa</span>
     </div>
   </div>
+  <div class="loading-overlay mapa-fallo" *ngIf="mapaFallo && !loading" role="alert">
+    <div class="loading-pill">
+      <ion-icon name="cloud-offline-outline" aria-hidden="true"></ion-icon>
+      <span>No pudimos cargar el mapa</span>
+      <button type="button" (click)="reintentarMapa()">Reintentar</button>
+    </div>
+  </div>
 
   <!-- ====== FICHA DEL BUS ====== -->
   <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus">

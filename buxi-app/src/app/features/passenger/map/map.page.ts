@@ -19,7 +19,7 @@ import {
   TrazadoRuta, LatLng, Sentido, Llegada, estimarLlegada, sentidoSegunRumbo, suavizarVelocidad,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, estiloCargo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { esc, colorSeguro } from '../../../core/utils/html';
 import { rutaCorta, tintaSobre } from '../../../core/utils/marca';
@@ -174,6 +174,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   selectedBus: BusLocation | null = null;
   loading = true;
+  // El mapa de fondo no cargó: se avisa en vez de dejar la pantalla vacía.
+  mapaFallo = false;
   userName = '';
   activeBusCount = 0;
 
@@ -1614,23 +1616,36 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
     this.mapReady = true;
-    setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
+    // Si el estilo no cargó (clave de MapTiler rechazada, sin red), dibujar
+    // rutas y buses encima tira errores; sin el finally el "Cargando mapa"
+    // quedaba para siempre tapando toda la pantalla.
+    try {
+      setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
 
-    const rutaId = this.route.snapshot.queryParams['ruta'] || null;
-    if (rutaId) {
-      await this.loadRoute(rutaId);
-    } else {
-      await this.loadBusLocations();
+      const rutaId = this.route.snapshot.queryParams['ruta'] || null;
+      if (rutaId) {
+        await this.loadRoute(rutaId);
+      } else {
+        await this.loadBusLocations();
+      }
+      this.abrirBusCompartido();
+
+      this.setupMapChrome();
+      this.startClock();
+      this.startRealtimeTracking();
+      this.startUserLocation();
+      this.startCompass();
+      this.startStaleBusWatcher();
+    } catch (e) {
+      logError('iniciar el mapa', e);
+    } finally {
+      this.mapaFallo = !estiloCargo(this.map);
+      this.loading = false;
     }
-    this.abrirBusCompartido();
+  }
 
-    this.setupMapChrome();
-    this.startClock();
-    this.startRealtimeTracking();
-    this.startUserLocation();
-    this.startCompass();
-    this.startStaleBusWatcher();
-    this.loading = false;
+  reintentarMapa() {
+    location.reload();
   }
 
   // La barra inferior se esconde mientras el usuario manipula el mapa y vuelve
