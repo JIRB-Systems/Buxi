@@ -849,7 +849,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private async contarResultadoPush(r: ResultadoPush) {
     switch (r) {
       case 'ok': return this.toast('Listo: te vamos a avisar en este teléfono');
-      case 'denegado': return this.toast('El navegador bloqueó los avisos. Activalos en los permisos del sitio.', 'warning');
+      case 'denegado': {
+        // En iPhone no hay "permisos del sitio": el permiso vive en Ajustes, y
+        // dentro de otra app (un enlace abierto desde WhatsApp, un ícono viejo)
+        // iOS lo niega sin preguntar.
+        if (!this.push.esIos) return this.toast('El navegador bloqueó los avisos. Activalos en los permisos del sitio.', 'warning');
+        const alert = await this.alertCtrl.create({
+          cssClass: 'buxi-alert',
+          header: 'El iPhone bloqueó los avisos',
+          message: 'Abrí app.buxci.com en Safari, tocá Compartir → "Agregar a inicio" y entrá desde ese ícono. Si ya lo hiciste, activalos en Ajustes → Notificaciones → Buxci.',
+          buttons: ['Entendido'],
+        });
+        await alert.present();
+        return;
+      }
       case 'no-soportado': return this.toast('Este navegador no puede recibir avisos.', 'warning');
       case 'error': return this.toast('No se pudieron activar los avisos. Probá de nuevo.', 'danger');
       case 'ios-instalar': {

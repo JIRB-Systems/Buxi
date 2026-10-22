@@ -27,9 +27,12 @@ export class PushService {
   // En iPhone, Web Push solo funciona con la app agregada a la pantalla de
   // inicio (iOS 16.4+). En Safari suelto, PushManager directamente no existe.
   get esIosSinInstalar(): boolean {
-    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const instalada = (navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-    return ios && !instalada;
+    return this.esIos && !instalada;
+  }
+
+  get esIos(): boolean {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent);
   }
 
   private async registro(): Promise<ServiceWorkerRegistration> {
