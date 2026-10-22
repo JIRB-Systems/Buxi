@@ -721,6 +721,18 @@
               </div>
             </div>
 
+            <div class="panel correos-app">
+              <div class="panel-header"><h3>Correos de la app</h3></div>
+              <div class="config-item">
+                <div class="config-info">
+                  <strong>Últimas 24 horas</strong>
+                  <span class="muted" *ngIf="correosAuth">{{ correosAuth.confirmaciones }} para confirmar cuentas · {{ correosAuth.recuperaciones }} de contraseña nueva. Salen por Resend (plan gratis: {{ correosAuth.limite }} por día). Desde {{ CORREOS_AVISO }} aparece un aviso en el resumen.</span>
+                  <span class="muted" *ngIf="!correosAuth">Todavía no hay conteo: falta aplicar la migración correos_auth_contador.</span>
+                </div>
+                <span class="bx-mono" [class.txt-danger]="correosAuth && correosAuth.total >= CORREOS_AVISO">{{ correosAuth ? correosAuth.total + ' / ' + correosAuth.limite : '—' }}</span>
+              </div>
+            </div>
+
             <div class="panel">
               <div class="panel-header"><h3>Parámetros del sistema</h3></div>
               <div class="config-item" *ngFor="let c of configItems">

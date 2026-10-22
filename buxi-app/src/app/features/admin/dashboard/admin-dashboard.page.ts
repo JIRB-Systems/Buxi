@@ -8,7 +8,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { AlertController, LoadingController, ToastController, ModalController } from '@ionic/angular';
 import { SupabaseService } from '../../../core/services/supabase.service';
-import { AdminJirbService } from '../../../core/services/admin-jirb.service';
+import { AdminJirbService, CorreosAuth } from '../../../core/services/admin-jirb.service';
 import { logError } from '../../../core/utils/log';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
@@ -220,7 +220,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
   }
 
   async loadData() {
-    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos, anuncios, solicitudesPlan, facturas] = await Promise.all([
+    const [stats, empresas, rutas, buses, users, calificaciones, viajes, logs, config, liveLocations, anomalias, planes, suscripciones, solicitudes, reportes, avisos, anuncios, solicitudesPlan, facturas, correosAuth] = await Promise.all([
       this.admin.getGlobalStats(),
       this.admin.getEmpresas(),
       this.admin.getAllRutas(),
@@ -240,6 +240,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getAnuncios(),
       this.admin.getSolicitudesPlanPendientes(),
       this.admin.getFacturas(),
+      this.admin.getCorreosAuth24h(),
     ]);
     this.stats = stats;
     this.empresas = empresas;
@@ -260,6 +261,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.anuncios = anuncios;
     this.solicitudesPlan = solicitudesPlan;
     this.facturas = facturas;
+    this.correosAuth = correosAuth;
     this.suscripcionMap.clear();
     for (const s of suscripciones) {
       this.suscripcionMap.set(s.empresa_id, s);
@@ -524,6 +526,21 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       });
     }
 
+    // Resend gratis manda hasta 100 por día. Pasado el tope, nadie nuevo puede
+    // confirmar su cuenta ni recuperar la contraseña hasta el día siguiente.
+    const c = this.correosAuth;
+    if (c && c.total >= this.CORREOS_AVISO) {
+      lista.push({
+        clave: 'correos', tipo: 'Correos de la app', grave: c.total >= c.limite * 0.9,
+        titulo: `${c.total} de ${c.limite} correos en las últimas 24 horas`,
+        texto: `${c.confirmaciones} para confirmar cuentas y ${c.recuperaciones} de contraseña nueva. Al llegar a ${c.limite}, Resend deja de mandarlos hasta el día siguiente: conviene pasar a Brevo (300 por día, gratis) o a Resend Pro.`,
+        acciones: [
+          { texto: 'Abrir Resend', estilo: 'pri', hacer: () => window.open('https://resend.com/emails', '_blank', 'noopener') },
+          { texto: 'Ver detalle', estilo: 'sec', hacer: () => this.switchTab('config') },
+        ],
+      });
+    }
+
     if (this.anomalias.length) {
       const a = this.anomalias[0];
       lista.push({
@@ -561,8 +578,16 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     if (tab === 'overview') {
       setTimeout(() => this.initAdminMap('admin-map-overview'), 150);
     }
-    if (tab === 'config') this.cargarEstadoTarifas();
+    if (tab === 'config') {
+      this.cargarEstadoTarifas();
+      this.admin.getCorreosAuth24h().then(c => this.correosAuth = c);
+    }
   }
+
+  // ---- CORREOS DE LA APP ----
+  correosAuth: CorreosAuth | null = null;
+  // Desde cuántos correos en 24 h aparece el aviso en "Requiere tu atención".
+  readonly CORREOS_AVISO = 70;
 
   // ---- TARIFAS DE ARESEP ----
   estadoTarifas: { ultima_ok: string | null; filas: number | null; rutas_actualizadas: number | null; error: string | null; enlazadas: number } | null = null;

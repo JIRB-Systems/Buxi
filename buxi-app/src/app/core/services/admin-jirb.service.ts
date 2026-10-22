@@ -237,6 +237,16 @@ export class AdminJirbService {
     return { ultima_ok: null, filas: null, rutas_actualizadas: null, error: null, ...(sync || {}), enlazadas: count ?? 0 };
   }
 
+  // Correos de Supabase Auth (confirmar cuenta, contraseña nueva) en las
+  // últimas 24 horas, contra el tope diario de Resend. Los cuenta un trigger
+  // sobre auth.users (migración correos_auth_contador). null si todavía no
+  // está la función: el aviso simplemente no aparece.
+  async getCorreosAuth24h(): Promise<CorreosAuth | null> {
+    const { data, error } = await this.supabase.rpc('correos_auth_24h');
+    if (error) { console.warn('correos_auth_24h', error.message); return null; }
+    return (Array.isArray(data) ? data[0] : data) ?? null;
+  }
+
   // Con sesión de admin_jirb la función sincroniza aunque la última vez haya
   // sido hace poco (ver supabase/functions/sync-tarifas-aresep).
   async sincronizarTarifas(): Promise<{ filas: number; rutas_actualizadas: number }> {
@@ -524,4 +534,11 @@ export class AdminJirbService {
       totalChoferes: (choferes.data || []).length,
     };
   }
+}
+
+export interface CorreosAuth {
+  total: number;
+  confirmaciones: number;
+  recuperaciones: number;
+  limite: number;
 }
