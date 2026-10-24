@@ -1,0 +1,458 @@
+// ============================================================================
+// PANEL DE EMPRESA: capa de diseño sobria
+//
+// Va última en styleUrls, así que pisa a consola.scss y a dashboard.page.scss
+// solo dentro de este panel: JIRB, pasajero y chofer no cambian. No toca
+// comportamiento ni textos; solo color, letra, tamaños y espaciado.
+//
+// Lo que hacía que el panel se viera "de plantilla":
+//  · letra monoespaciada y rótulos en mayúsculas espaciadas por todos lados;
+//  · el verde con brillo en cada botón principal, y deshabilitado en verde
+//    apagado, que se leía como un botón roto;
+//  · íconos de acción de colores (ámbar, rojo) en cada fila;
+//  · estados como punto + texto de color en vez de una etiqueta;
+//  · filas de lado a lado de la pantalla, con el nombre en una punta y las
+//    acciones en la otra.
+// ============================================================================
+
+.emp-shell {
+  // Superficies un poco menos saturadas: el azul de marca queda en el logo y
+  // en los acentos, no en cada fondo.
+  --bx-bg-0: #080e1a;
+  --bx-bg-1: #0b1321;
+  --bx-bg-2: #101a2b;
+  --bx-bg-3: #162235;
+  --bx-bg-4: #1d2a40;
+  --bx-line: rgba(255, 255, 255, 0.07);
+  --bx-line-strong: rgba(255, 255, 255, 0.12);
+  --hover: rgba(255, 255, 255, 0.035);
+}
+
+// ---------- Letra ----------
+// Una sola familia. Las cifras siguen alineadas (tabulares) sin cambiar de
+// letra: la monoespaciada era lo que más se leía como "terminal".
+.bx-mono {
+  font-family: var(--bx-font);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+// ---------- Botones ----------
+.bx-btn {
+  --bx-btn-h: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font: 600 13.5px/1 var(--bx-font);
+  letter-spacing: 0;
+  ion-icon, svg { font-size: 16px; width: 16px; height: 16px; }
+}
+
+.bx-btn--sm {
+  --bx-btn-h: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  ion-icon, svg { font-size: 15px; width: 15px; height: 15px; }
+}
+
+.bx-btn--icono { padding: 0; }
+
+// Sin brillo ni relieve: el color solo ya dice "acción principal".
+.bx-btn--pri {
+  border-color: transparent;
+  box-shadow: none;
+  &:hover:not(:disabled) { background: #00b84c; }
+  &:active:not(:disabled) { box-shadow: none; }
+}
+
+.bx-btn--sec {
+  background: transparent;
+  border-color: var(--bx-line-strong);
+  box-shadow: none;
+  &:hover:not(:disabled) { background: var(--hover); border-color: rgba(255, 255, 255, 0.2); }
+}
+
+.bx-btn--ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); }
+
+// Deshabilitado en gris, no en el color del botón a media luz.
+.bx-btn:disabled,
+.bx-btn[aria-disabled='true'] {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--bx-line);
+  color: var(--bx-text-off);
+  box-shadow: none;
+}
+
+// ---------- Barra lateral ----------
+.sidebar {
+  background: var(--bx-bg-0);
+  border-right-color: var(--bx-line);
+}
+
+// Mismo largo de selector que en dashboard.page.scss, si no aquel gana.
+.sidebar-header .logo-text .logo-sub {
+  font: 500 12px/1 var(--bx-font);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--bx-text-3);
+}
+
+.nav-grupo-titulo {
+  padding: 0 10px 8px;
+  font: 600 11.5px/1 var(--bx-font);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--bx-text-3);
+}
+
+.nav-link {
+  position: relative;
+  min-height: 34px;
+  border-radius: 6px;
+  font: 500 13.5px/1 var(--bx-font);
+  color: var(--bx-text-2);
+  ion-icon { font-size: 16px; opacity: 0.75; }
+
+  &:hover { background: var(--hover); color: var(--bx-text); }
+  &.active {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--bx-text);
+    font-weight: 600;
+    ion-icon { color: var(--bx-text); opacity: 1; }
+    // El acento de marca va en una raya, no pintando el ícono.
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      border-radius: 2px;
+      background: var(--bx-green-bright);
+    }
+  }
+}
+
+// Contadores neutros; solo Emergencias (la insignia sin variante) en rojo.
+.nav-badge {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font: 600 11px/1 var(--bx-font);
+  font-variant-numeric: tabular-nums;
+  background: var(--bx-danger-soft);
+  color: #ff9a94;
+  &.warn,
+  &.info { background: rgba(255, 255, 255, 0.08); color: var(--bx-text-2); }
+}
+
+.nav-cuenta { font: 500 12px/1 var(--bx-font); font-variant-numeric: tabular-nums; color: var(--bx-text-3); }
+
+.cuenta {
+  background: transparent;
+  border-color: var(--bx-line);
+  border-radius: 8px;
+}
+
+.user-avatar,
+.tb-cuenta {
+  border-radius: 50%;
+  background: #1d3a66;
+  font-weight: 700;
+}
+
+// ---------- Encabezado ----------
+.topbar {
+  border-bottom-color: var(--bx-line);
+  .toggle { color: var(--bx-text-3); }
+}
+
+.tb-info h1 {
+  font: 700 20px/1.2 var(--bx-font);
+  letter-spacing: -0.015em;
+}
+
+.tb-vivo { font-size: 13px; color: var(--bx-text-3); }
+.tb-fecha { font: 500 12.5px/1 var(--bx-font); color: var(--bx-text-3); }
+
+// ---------- Tarjetas y tablas ----------
+.card {
+  background: var(--bx-bg-2);
+  border: 1px solid var(--bx-line);
+  border-radius: 10px;
+}
+
+.card-header {
+  min-height: 48px;
+  padding: 12px 16px;
+  border-bottom-color: var(--bx-line);
+  h3 { font: 600 14px/1.2 var(--bx-font); letter-spacing: -0.005em; }
+  .muted { font-weight: 500; }
+}
+
+.tabla {
+  font: 500 13.5px/1.3 var(--bx-font);
+  th { font: 500 12px/1 var(--bx-font); color: var(--bx-text-3); }
+  td { border-top-color: var(--bx-line); }
+  tbody tr:hover { background: var(--hover); }
+}
+
+.mas-filas {
+  color: var(--bx-text-2);
+  font: 600 12.5px/1 var(--bx-font);
+  &:hover { background: var(--hover); color: var(--bx-text); }
+}
+
+// Filas de las listas (buses, choferes, rutas, avisos, reportes…).
+.table-row {
+  min-height: 60px;
+  gap: 14px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--bx-line);
+  font-size: 14px;
+  &:last-child { border-bottom: 0; }
+
+  .row-main {
+    gap: 3px;
+    strong { font: 600 14px/1.3 var(--bx-font); color: var(--bx-text); }
+    .muted { margin-top: 0; font: 400 13px/1.45 var(--bx-font); color: var(--bx-text-3); overflow-wrap: anywhere; }
+    .muted.small { font-size: 12px; opacity: 1; }
+  }
+
+  .avatar-sm {
+    width: 34px;
+    height: 34px;
+    background: var(--bx-bg-4);
+    ion-icon { color: var(--bx-text-3); }
+  }
+}
+
+button.table-row.clickable:hover { background: var(--hover); }
+
+.unit-tag { font-size: 12px; font-weight: 500; color: var(--bx-text-3); }
+.horas { font: 500 13px/1 var(--bx-font); color: var(--bx-text-2); }
+
+// Estado como etiqueta: fondo suave del color, punto chico, texto legible.
+.bx-estado {
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font: 600 12px/1.2 var(--bx-font);
+  white-space: nowrap;
+  &::before { width: 6px; height: 6px; }
+}
+.bx-estado--ruta { background: rgba(0, 224, 106, 0.12); color: #4be08f; }
+.bx-estado--ruta::before { box-shadow: none; }
+.bx-estado--detenido,
+.bx-estado--taller { background: var(--bx-warning-soft); }
+.bx-estado--alerta { background: var(--bx-danger-soft); color: #ff9a94; }
+.bx-estado--inactivo { background: transparent; box-shadow: inset 0 0 0 1px var(--bx-line-strong); }
+
+// Íconos de acción neutros. El color aparece al pasar el cursor, cuando la
+// persona ya está por tocarlo: una fila de íconos rojos y ámbar se leía
+// como alarma permanente.
+.act-group { gap: 2px; }
+.act-btn {
+  color: var(--bx-text-3);
+  &.warn,
+  &.danger { color: var(--bx-text-3); }
+  &:hover:not(:disabled) { color: var(--bx-text); background: rgba(255, 255, 255, 0.06); }
+  &.warn:hover:not(:disabled) { color: #ffcf73; background: var(--bx-warning-soft); }
+  &.danger:hover:not(:disabled) { color: #ff9a94; background: var(--bx-danger-soft); }
+}
+
+// ---------- Barra de cada sección: buscador y acción ----------
+.search-bar {
+  height: 36px;
+  min-width: 280px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--bx-bg-2);
+  border-color: var(--bx-line-strong);
+  transition: border-color var(--bx-t-fast) var(--bx-ease), box-shadow var(--bx-t-fast) var(--bx-ease);
+  ion-icon { color: var(--bx-text-3); }
+  input { font-size: 13.5px; color: var(--bx-text); &::placeholder { color: var(--bx-text-3); } }
+  &:focus-within { border-color: rgba(0, 224, 106, 0.5); box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.12); }
+}
+
+.seguidores-tag {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: transparent;
+  border-color: var(--bx-line-strong);
+  color: var(--bx-text-2);
+}
+
+.page-hint {
+  max-width: 72ch;
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--bx-text-3);
+}
+
+// ---------- Estados vacíos ----------
+.empty-state {
+  gap: 6px;
+  padding: 48px 24px;
+  ion-icon {
+    width: 44px;
+    height: 44px;
+    padding: 11px;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--bx-text-2);
+    opacity: 1;
+  }
+  strong { font: 600 15px/1.3 var(--bx-font); }
+  span { max-width: 48ch; font-size: 13px; line-height: 1.5; color: var(--bx-text-3); }
+}
+
+.empty { padding: 32px 24px; color: var(--bx-text-3); }
+
+// ---------- Resumen ----------
+.kpis { border-radius: 10px; border-color: var(--bx-line); }
+.kpi + .kpi { border-left-color: var(--bx-line); }
+.kpi-lbl { font: 500 12.5px/1.35 var(--bx-font); color: var(--bx-text-3); }
+.kpi-nota { font: 400 12.5px/1.4 var(--bx-font); }
+.kpi-val { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+
+.atencion-cabeza h2 {
+  font: 600 14px/1 var(--bx-font);
+  letter-spacing: 0;
+  color: var(--bx-text);
+}
+.atencion-n { border-radius: 999px; padding: 3px 8px; font-weight: 600; }
+.atencion-linea { background: var(--bx-line); }
+
+.bx-atencion {
+  border-radius: 10px;
+  border-color: var(--bx-line);
+  border-left: 3px solid var(--bx-warning);
+  box-shadow: none;
+  &--grave { border-left-color: var(--bx-danger); }
+}
+.bx-atencion__tipo { font: 600 11.5px/1 var(--bx-font); letter-spacing: 0; text-transform: none; }
+.bx-atencion__cuando { font: 500 12px/1 var(--bx-font); }
+.bx-atencion__titulo { font: 600 15px/1.3 var(--bx-font); }
+
+.en-orden--solo { border-radius: 10px; }
+
+.rm-mes span { font: 500 12.5px/1 var(--bx-font); }
+.rm-controls input[type='month'] {
+  height: 36px;
+  border-radius: 8px;
+  background: var(--bx-bg-1);
+  border-color: var(--bx-line-strong);
+}
+
+// ---------- Emergencias ----------
+// Una emergencia pendiente se distingue por su ícono y su etiqueta; pintar
+// cada fila de rojo hacía que la lista entera gritara por igual.
+.emergencia-row {
+  background: none;
+  border-radius: 0;
+  &.resuelto {
+    opacity: 1;
+    .row-main strong { color: var(--bx-text-2); }
+    .emergencia-icon { color: var(--bx-text-off); }
+  }
+}
+.emergencia-icon { font-size: 20px; }
+.pendientes-cuenta { font-size: 13.5px; color: var(--bx-text-3); font-variant-numeric: tabular-nums; }
+.emergencia-ubicacion { margin-top: 4px; font-size: 12.5px; }
+
+// ---------- Avisos, reportes y facturas ----------
+.aviso-icon,
+.notif-icon,
+.factura-icon { font-size: 20px; }
+.factura-icon { color: var(--bx-text-3); }
+.factura-monto { font: 600 14px/1 var(--bx-font); }
+.notif-tag { padding: 3px 8px; font: 600 11px/1 var(--bx-font); letter-spacing: 0; }
+.reporte-respuesta {
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left-color: var(--bx-line-strong);
+  ion-icon { color: var(--bx-text-3); }
+}
+
+// ---------- Planes ----------
+.plans-grid-empresa {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  max-width: 980px;
+}
+
+.plan-card-empresa {
+  width: auto;
+  gap: 14px;
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--bx-bg-2);
+
+  h3 { margin: 0; font: 600 16px/1.2 var(--bx-font); }
+  .plan-desc { min-height: 40px; font-size: 13px; line-height: 1.5; color: var(--bx-text-3); }
+  .plan-row { font-size: 13.5px; ion-icon { color: var(--bx-text-3); } }
+  .plan-price-tag {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--bx-line);
+    font: 700 28px/1 var(--bx-font);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    span { margin-left: 2px; font-size: 13px; font-weight: 500; letter-spacing: 0; }
+  }
+
+  &.current {
+    background: var(--bx-bg-2);
+    border-color: rgba(0, 224, 106, 0.45);
+  }
+  .plan-tag-actual { padding: 4px 10px; font: 600 11px/1 var(--bx-font); letter-spacing: 0; text-transform: none; }
+}
+
+// ---------- Tarjetas con título y bajada (Google Maps y apps) ----------
+.perso-titulo {
+  gap: 4px;
+  padding: 16px 16px 8px;
+  strong { font: 600 15px/1.3 var(--bx-font); }
+  .muted { font-size: 13px; color: var(--bx-text-3); }
+}
+
+// ---------- Personalización ----------
+.perso-preview { border-radius: 10px; border-color: var(--bx-line); }
+.perso-acciones .muted { font-size: 12.5px; color: var(--bx-text-3); }
+
+// ---------- Escritorio: ancho de lectura y orden de la barra ----------
+@media (min-width: 769px) {
+  .topbar { padding: 16px 32px; }
+  .content { padding: 28px 32px 48px; }
+
+  // Las filas ya no cruzan una pantalla de 1440 px: el nombre y sus acciones
+  // quedan a una distancia que el ojo recorre sin perderse.
+  .content > .page { max-width: 1200px; margin-inline: auto; }
+  .content > .page.resumen { max-width: 1360px; }
+  .content > .page:has(.mapa-completo-card) { max-width: none; }
+
+  // Buscador a la izquierda, acción principal a la derecha.
+  .page-toolbar { flex-direction: row-reverse; margin-bottom: 16px; }
+  .page > .btn-action { display: flex; width: fit-content; margin-left: auto; margin-bottom: 16px; }
+
+  // Etiqueta y botón en una línea. En teléfono no: le quitan el ancho al
+  // nombre y la fecha.
+  .emergencia-actions { flex-direction: row; align-items: center; gap: 12px; }
+}
+
+// Encabezado de teléfono: la marca en letra normal, como en la barra lateral.
+.tb-marca .bx-etq {
+  font: 600 12.5px/1 var(--bx-font);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--bx-text-2);
+}

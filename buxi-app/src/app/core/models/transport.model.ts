@@ -9,6 +9,8 @@ export interface Empresa {
   // Personalización del bus. null = usar el color de la ruta, que es como se
   // venía pintando y lo que ve una empresa que nunca entró a personalizar.
   color_bus?: string | null;
+  // Modelo del bus (ver core/utils/bus-modelos). null = urbano.
+  modelo_bus?: string | null;
 }
 
 export interface Ruta {
@@ -64,6 +66,10 @@ export interface Bus {
   capacidad: number;
   chofer_id: string | null;
   estado: string;
+  // Personalización propia de esta unidad. null = la de la flota
+  // (empresas.color_bus / empresas.modelo_bus).
+  color_bus?: string | null;
+  modelo_bus?: string | null;
   ruta?: Ruta;
   empresa?: Empresa;
   chofer?: { nombre_completo: string } | null;

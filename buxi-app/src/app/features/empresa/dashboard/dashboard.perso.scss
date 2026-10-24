@@ -1,0 +1,388 @@
+// ============================================================================
+// PERSONALIZACIÓN: el configurador (a quién, color, modelo y la vista previa).
+// Va en su propia hoja para que dashboard.page.scss no pase el presupuesto de
+// 20 kB por componente, igual que el mapa del pasajero reparte las suyas.
+// ============================================================================
+// ---- Configurador: pasos a la izquierda, vista previa a la derecha ----
+.perso-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+.perso-pasos { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.paso-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 16px;
+  padding: 16px;
+  .segmentos { margin-left: auto; }
+}
+
+.paso-n {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bx-bg-4);
+  color: var(--bx-text);
+  font: 700 13px/1 var(--bx-font);
+}
+
+.paso-textos {
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 3px;
+  h3 { margin: 0; font: 600 15px/1.2 var(--bx-font); color: var(--bx-text); }
+  p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--bx-text-3); }
+}
+
+// El cuerpo arranca alineado con el texto, no con el número.
+.paso-cuerpo {
+  padding: 0 16px 16px 58px;
+  .perso-paleta { margin: 0; }
+}
+
+.paso-vacio { margin: 0; font-size: 13px; color: var(--bx-text-3); }
+
+// Con "buses específicos" y ninguna unidad elegida, color y modelo esperan:
+// no hay a quién aplicárselos todavía.
+.perso-en-espera {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity var(--bx-t) var(--bx-ease);
+}
+
+// Control de dos opciones: la elegida se rellena; sin bordes de color. El
+// contorno blanco es solo el foco del teclado (Tab): en verde se confundía
+// con "elegido".
+.segmentos {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--bx-line);
+  border-radius: 9px;
+  background: var(--bx-bg-0);
+
+  button {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 32px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--bx-text-3);
+    font: 600 13px/1 var(--bx-font);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--bx-t-fast) var(--bx-ease), color var(--bx-t-fast) var(--bx-ease);
+
+    ion-icon { font-size: 15px; }
+    &:hover { color: var(--bx-text); }
+    &.on { background: var(--bx-bg-4); color: var(--bx-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+    &:focus { outline: none; }
+    &:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 1px; }
+  }
+}
+
+// ---- Unidades como fichas que se marcan con un toque ----
+.bus-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.bus-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 7px 14px 7px 10px;
+  border: 1px solid var(--bx-line-strong);
+  border-radius: 10px;
+  background: var(--bx-bg-1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--bx-t-fast) var(--bx-ease), background var(--bx-t-fast) var(--bx-ease);
+
+  > ion-icon { flex-shrink: 0; font-size: 20px; color: var(--bx-text-off); }
+  &:hover { border-color: rgba(255, 255, 255, 0.22); }
+  &.on {
+    border-color: rgba(0, 224, 106, 0.6);
+    background: rgba(0, 224, 106, 0.08);
+    > ion-icon { color: var(--bx-green-bright); }
+  }
+  &:focus { outline: none; }
+  &:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
+}
+
+.bus-chip-color {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.bus-chip-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  strong { font: 600 13.5px/1.2 var(--bx-font); color: var(--bx-text); white-space: nowrap; }
+  span { font: 400 12px/1.2 var(--bx-font); color: var(--bx-text-3); white-space: nowrap; }
+}
+
+// ---- Modelos: fichas chicas; el detalle va en la vista previa ----
+// Doce modelos: de a tres quedan cuatro filas parejas.
+.modelos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.modelo-ficha {
+  appearance: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 8px 10px;
+  border: 1px solid var(--bx-line);
+  border-radius: 10px;
+  background: var(--bx-bg-1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--bx-t-fast) var(--bx-ease), background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { border-color: var(--bx-line-strong); }
+  &.sel {
+    border-color: var(--bx-green-bright);
+    box-shadow: inset 0 0 0 1px var(--bx-green-bright);
+    background: rgba(0, 224, 106, 0.05);
+  }
+  &:focus { outline: none; }
+  &:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 2px; }
+}
+
+.ficha-previa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  border-radius: 6px;
+  background: var(--bx-bg-0);
+  .bx-bus-modelo--lado { display: block; width: 100%; max-width: 160px; height: 46px; }
+}
+
+.ficha-nombre { padding: 0 2px; font: 600 13px/1.25 var(--bx-font); color: var(--bx-text); }
+
+.ficha-flota {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0, 224, 106, 0.14);
+  color: #4be08f;
+  font: 600 10.5px/1.3 var(--bx-font);
+}
+
+// ---- Vista previa: sigue a la vista mientras se baja ----
+.perso-vista { position: sticky; top: 0; z-index: 2; min-width: 0; }
+
+.vista-card { display: flex; flex-direction: column; }
+
+.vista-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px 10px;
+}
+
+.vista-etq { font: 600 14px/1 var(--bx-font); color: var(--bx-text); }
+
+.vista-alcance {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--bx-text-2);
+  font: 600 11.5px/1.3 var(--bx-font);
+}
+
+// De costado arriba y desde arriba abajo, a la misma escala: el largo de un
+// dibujo coincide con el del otro, como en una ficha técnica. La cuadrícula
+// de fondo ayuda a leer el tamaño.
+.vista-escena {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 16px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  background-color: var(--bx-bg-0);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 16px 16px;
+
+  .bx-bus-modelo--lado { display: block; width: 100%; aspect-ratio: 200 / 56; }
+  .bx-bus-modelo--planta { display: block; width: 100%; aspect-ratio: 200 / 36; }
+}
+
+.vista-cota { font: 500 11px/1 var(--bx-font); color: var(--bx-text-3); }
+
+.vista-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px 0;
+  p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--bx-text-2); }
+}
+
+.vista-nombre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  strong { font: 600 16px/1.2 var(--bx-font); color: var(--bx-text); }
+}
+
+.vista-info .vista-ideal { color: var(--bx-text-3); b { font-weight: 600; color: var(--bx-text-2); } }
+
+.modelo-tag {
+  margin-left: auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 224, 106, 0.12);
+  color: #4be08f;
+  font: 600 11px/1 var(--bx-font);
+  white-space: nowrap;
+}
+
+.vista-mapa {
+  margin: 14px 16px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--bx-line);
+  > span { font: 500 12px/1 var(--bx-font); color: var(--bx-text-3); }
+  .perso-preview {
+    margin: 8px 0 0;
+    padding: 6px 4px;
+    gap: 2px;
+    canvas { width: 62px; height: 62px; }
+  }
+}
+
+.vista-guardar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--bx-line);
+  .muted { font-size: 12.5px; color: var(--bx-text-3); }
+  .perso-sucio { font-size: 12.5px; line-height: 1.4; }
+}
+
+// La barra flotante es solo para pantallas angostas: ahí el Guardar de la
+// vista previa queda arriba, lejos de donde se está eligiendo.
+.perso-barra.flotante { display: none; }
+
+@media (max-width: 1100px) {
+  .perso-layout { grid-template-columns: minmax(0, 1fr); }
+  .perso-vista { position: static; order: -1; }
+  .vista-guardar { display: none; }
+
+  .perso-barra.flotante {
+    display: flex;
+    position: sticky;
+    bottom: 16px;
+    z-index: 3;
+    width: fit-content;
+    margin: 14px 0 0 auto;
+    padding: 10px 10px 10px 18px;
+    border: 1px solid var(--bx-line-strong);
+    border-radius: 12px;
+    background: var(--bx-bg-3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+}
+
+// Teléfono: las opciones a lo ancho y sin íconos, el cuerpo de cada paso sin
+// sangría y dos modelos por fila.
+@media (max-width: 520px) {
+  .paso-cabeza .segmentos {
+    width: 100%;
+    margin-left: 0;
+    button { flex: 1; justify-content: center; padding: 0 8px; ion-icon { display: none; } }
+  }
+  .paso-cuerpo { padding-left: 16px; }
+  .modelos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  // La vista previa va arriba de los pasos: compacta, para que el paso 1
+  // asome en la primera pantalla.
+  .vista-mapa { display: none; }
+  .vista-info { padding-bottom: 14px; }
+  .vista-escena { padding: 10px; }
+}
+
+// ---- Logo de la empresa (de Berny, 1ccf6fa), arriba del configurador ----
+// Mismo armado que un paso: el logo a la izquierda, el texto y las acciones.
+.perso-logo { margin-bottom: 14px; }
+
+.perso-logo__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 16px;
+}
+
+.perso-logo__previa {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border: 1px solid var(--bx-line);
+  border-radius: 12px;
+  background: var(--bx-bg-1);
+  img { width: 100%; height: 100%; object-fit: contain; }
+  span { font: 700 22px/1 var(--bx-font); color: var(--bx-text-3); text-transform: uppercase; }
+}
+
+.perso-logo__textos {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  h3 { margin: 0; font: 600 15px/1.2 var(--bx-font); color: var(--bx-text); }
+  p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--bx-text-3); }
+}
+
+.perso-logo__acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  label.bx-btn { cursor: pointer; }
+}
+
+.perso-logo__error {
+  margin: -6px 16px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--bx-danger);
+}

@@ -153,6 +153,36 @@ export class AdminEmpresaService {
     return data as Bus;
   }
 
+  // Color o modelo propio para algunas unidades (null = que sigan a la
+  // flota). Devuelve los ids que cambiaron: RLS deja afuera los que no son de
+  // la empresa sin dar error.
+  async personalizarBuses(
+    busIds: string[],
+    cambios: { color_bus?: string | null; modelo_bus?: string | null },
+  ): Promise<string[]> {
+    if (busIds.length === 0 || Object.keys(cambios).length === 0) return [];
+    const { data, error } = await this.supabase
+      .from('buses')
+      .update(cambios)
+      .in('id', busIds)
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).map(b => b.id as string);
+  }
+
+  // "Toda la flota": ninguna unidad conserva un color o modelo propio en lo
+  // que se cambió.
+  async quitarPersonalizacionDeBuses(empresaId: string, campos: ('color_bus' | 'modelo_bus')[]): Promise<void> {
+    for (const campo of campos) {
+      const { error } = await this.supabase
+        .from('buses')
+        .update({ [campo]: null })
+        .eq('empresa_id', empresaId)
+        .not(campo, 'is', null);
+      if (error) throw error;
+    }
+  }
+
   async deleteBus(id: string): Promise<void> {
     const { error } = await this.supabase.from('buses').delete().eq('id', id);
     if (error) throw error;
@@ -394,6 +424,21 @@ export class AdminEmpresaService {
       .select('id');
     if (error) throw error;
     if (!data || data.length === 0) throw new Error('Sin permiso para resolver este reporte');
+  }
+
+  // Todas las pendientes de una vez. Devuelve los ids que de verdad cambiaron:
+  // el filtro por estado deja afuera las que otra persona ya resolvió en el
+  // medio, y RLS deja afuera las que no son de la empresa.
+  async resolverEmergencias(ids: string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.supabase
+      .from('reportes_bugs')
+      .update({ estado: 'resuelto' })
+      .in('id', ids)
+      .eq('estado', 'pendiente')
+      .select('id');
+    if (error) throw error;
+    return (data ?? []).map(r => r.id as string);
   }
 
   // ---- FACTURAS ----

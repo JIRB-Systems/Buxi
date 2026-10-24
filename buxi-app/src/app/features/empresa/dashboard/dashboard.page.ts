@@ -4,6 +4,7 @@ import { esc, colorSeguro } from '../../../core/utils/html';
 import { suscribirCambios } from '../../../core/utils/live';
 import { logError } from '../../../core/utils/log';
 import { SpritesBus, cargarSpritesBus, tintarSpriteBus } from '../../../core/utils/bus-sprite';
+import { MODELOS_BUS, MODELO_BUS_DEFECTO, ModeloBus, esModeloBus, nombreModeloBus } from '../../../core/utils/bus-modelos';
 import { Router } from '@angular/router';
 import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -43,7 +44,7 @@ interface Atencion {
 @Component({
   selector: 'app-empresa-dashboard',
   templateUrl: './dashboard.page.html',
-  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss'],
+  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss'],
   standalone: false,
 })
 export class EmpresaDashboardPage implements OnInit, OnDestroy {
@@ -131,17 +132,124 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   private colorBusGuardado: string | null = null;
   private spritesPreview: SpritesBus | null = null;
 
-  // Con el color propio apagado cada bus usa el de SU ruta, así que no hay un
-  // único color que mostrar: se usa el de la primera ruta como muestra y el
-  // texto del panel aclara que es un ejemplo.
+  // Modelo del bus: urbano, buseta, interurbano… (core/utils/bus-modelos).
+  readonly MODELOS = MODELOS_BUS;
+  modeloBus: ModeloBus = MODELO_BUS_DEFECTO;
+  // El de la flota (empresas.modelo_bus).
+  modeloBusGuardado: ModeloBus = MODELO_BUS_DEFECTO;
+
+  // ---- A quién se aplica ----
+  // Toda la flota (empresas.color_bus y modelo_bus) o algunas unidades
+  // (buses.color_bus y modelo_bus, que pisan a los de la flota). Un solo
+  // selector manda sobre el color y el modelo a la vez.
+  alcance: 'flota' | 'buses' = 'flota';
+  busesElegidos = new Set<string>();
+  // Color de las unidades elegidas: el de la flota o uno propio.
+  colorUnidadPropio = false;
+  colorUnidad = '#e53935';
+  // Qué tocó la persona desde el último guardado. En la flota evita que la
+  // sección abra "sucia" por las unidades con algo propio; en las unidades
+  // dice qué hay que guardarles.
+  private colorTocado = false;
+  private modeloTocado = false;
+
+  // El color con que se ve de verdad una unidad: el suyo; si no, el de la
+  // flota; si no, el de su ruta.
+  colorDeBus(b: Bus): string {
+    return colorSeguro(b.color_bus || this.colorBusGuardado || b.ruta?.color || this.COLOR_BUS_DEFECTO);
+  }
+
+  modeloDeBus(b: Bus): ModeloBus {
+    return esModeloBus(b.modelo_bus) ? b.modelo_bus : this.modeloBusGuardado;
+  }
+
+  tieneModeloPropio(b: Bus): boolean {
+    return esModeloBus(b.modelo_bus);
+  }
+
+  tienePersonalizacionPropia(b: Bus): boolean {
+    return !!b.color_bus || this.tieneModeloPropio(b);
+  }
+
+  nombreModelo(modelo: string | null | undefined): string {
+    return nombreModeloBus(modelo);
+  }
+
+  // El modelo elegido, con su descripción, para la vista previa.
+  get modeloInfo() {
+    return MODELOS_BUS.find(m => m.id === this.modeloBus) ?? null;
+  }
+
+  get busesConPropio(): number {
+    return this.buses.filter(b => this.tienePersonalizacionPropia(b)).length;
+  }
+
+  // El color de las vistas previas (el bus 3D y los modelos). Con el color de
+  // cada ruta no hay un único color: va el de la primera ruta como muestra y
+  // el texto del panel aclara que es un ejemplo.
   get colorPreview(): string {
+    if (this.alcance === 'buses') {
+      if (this.colorUnidadPropio) return colorSeguro(this.colorUnidad);
+      const primera = this.buses.find(b => this.busesElegidos.has(b.id));
+      return colorSeguro(this.colorBusGuardado || primera?.ruta?.color || this.rutas[0]?.color || this.COLOR_BUS_DEFECTO);
+    }
     if (this.usaColorPropio) return colorSeguro(this.colorBus);
     return colorSeguro(this.rutas[0]?.color || this.COLOR_BUS_DEFECTO);
   }
 
-  get personalizacionSucia(): boolean {
+  // Para la plantilla: el selector de color muestra lo del alcance elegido.
+  get colorEsPropio(): boolean {
+    return this.alcance === 'buses' ? this.colorUnidadPropio : this.usaColorPropio;
+  }
+
+  get colorElegido(): string {
+    return this.alcance === 'buses' ? this.colorUnidad : this.colorBus;
+  }
+
+  private get colorFlotaSucio(): boolean {
     const actual = this.usaColorPropio ? colorSeguro(this.colorBus) : null;
     return actual !== this.colorBusGuardado;
+  }
+
+  private get modeloFlotaSucio(): boolean {
+    return this.modeloBus !== this.modeloBusGuardado;
+  }
+
+  // "Toda la flota" es toda: al guardar, las unidades con algo propio pasan a
+  // lo de la flota en lo que se tocó.
+  private get colorPropioAQuitar(): boolean {
+    return this.colorTocado && this.buses.some(b => !!b.color_bus);
+  }
+
+  private get modeloPropioAQuitar(): boolean {
+    return this.modeloTocado && this.buses.some(b => this.tieneModeloPropio(b));
+  }
+
+  get personalizacionSucia(): boolean {
+    if (this.alcance === 'buses') {
+      return this.busesElegidos.size > 0 && (this.colorTocado || this.modeloTocado);
+    }
+    return this.colorFlotaSucio || this.modeloFlotaSucio || this.colorPropioAQuitar || this.modeloPropioAQuitar;
+  }
+
+  // Lo que dice la barra de guardar: qué se va a guardar, no solo "hay cambios".
+  get resumenCambios(): string {
+    const partes: string[] = [];
+    let destino: string;
+    if (this.alcance === 'buses') {
+      if (this.colorTocado) partes.push(this.colorUnidadPropio ? 'color propio' : 'color de la flota');
+      if (this.modeloTocado) partes.push(nombreModeloBus(this.modeloBus));
+      const n = this.busesElegidos.size;
+      destino = `en ${n === 1 ? '1 unidad' : n + ' unidades'}`;
+    } else {
+      if (this.colorFlotaSucio || this.colorPropioAQuitar) {
+        partes.push(this.usaColorPropio ? 'un color' : 'el color de cada ruta');
+      }
+      if (this.modeloFlotaSucio || this.modeloPropioAQuitar) partes.push(nombreModeloBus(this.modeloBus));
+      destino = 'para toda la flota';
+    }
+    const texto = partes.join(' y ');
+    return `${texto.charAt(0).toUpperCase()}${texto.slice(1)} ${destino} · sin guardar`;
   }
 
   stats = { buses: 0, rutas: 0, choferes: 0, busesEnRuta: 0 };
@@ -607,8 +715,14 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.empresa = empresa;
     // null = nunca personalizó: cada bus sigue con el color de su ruta.
     this.colorBusGuardado = empresa?.color_bus || null;
-    this.usaColorPropio = !!this.colorBusGuardado;
-    this.colorBus = this.colorBusGuardado || this.COLOR_BUS_DEFECTO;
+    this.modeloBusGuardado = esModeloBus(empresa?.modelo_bus) ? empresa!.modelo_bus as ModeloBus : MODELO_BUS_DEFECTO;
+    // El refresco en vivo vuelve a pasar por acá: lo que la persona está
+    // eligiendo sin guardar no se le pisa.
+    if (!this.colorTocado) {
+      this.usaColorPropio = !!this.colorBusGuardado;
+      this.colorBus = this.colorBusGuardado || this.COLOR_BUS_DEFECTO;
+    }
+    if (!this.modeloTocado) this.modeloBus = this.modeloBusGuardado;
     this.viajesRecientes = viajesRecientes;
     this.equipo = equipo;
     this.notificaciones = notificaciones;
@@ -850,6 +964,46 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     }
   }
 
+  resolviendoTodas = false;
+
+  // Para cuando se juntan muchas (pruebas del botón de pánico, emergencias
+  // ya atendidas por teléfono): una por una eran trece clics iguales.
+  async resolverTodasEmergencias() {
+    const pendientes = this.emergencias.filter(e => e.estado === 'pendiente');
+    if (this.resolviendoTodas || pendientes.length === 0) return;
+    const n = pendientes.length;
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Resolver todas',
+      message: `¿Marcar ${n === 1 ? 'la emergencia pendiente' : `las ${n} emergencias pendientes`} como resueltas? JIRB también las va a ver resueltas.`,
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Resolver todas', handler: () => { this.ejecutarResolverTodas(pendientes); } },
+      ],
+    });
+    await alert.present();
+  }
+
+  private async ejecutarResolverTodas(pendientes: ReporteBug[]) {
+    this.resolviendoTodas = true;
+    try {
+      const resueltas = new Set(await this.admin.resolverEmergencias(pendientes.map(e => e.id)));
+      for (const e of pendientes) if (resueltas.has(e.id)) e.estado = 'resuelto';
+      this.armarAtencion();
+      if (resueltas.size === pendientes.length) {
+        this.showToast(resueltas.size === 1 ? 'Marcada como resuelta' : `${resueltas.size} emergencias marcadas como resueltas`);
+      } else {
+        // Las que no cambiaron: ya las había resuelto otra persona o no hubo
+        // permiso. Se recarga para mostrar el estado real.
+        await this.loadData();
+        this.showToast(`Se resolvieron ${resueltas.size} de ${pendientes.length}`, 'warning');
+      }
+    } catch (e: any) {
+      this.showToast(e?.message || 'No se pudieron resolver', 'danger');
+    } finally {
+      this.resolviendoTodas = false;
+    }
+  }
+
   async addReporte() {
     const modal = await this.modalCtrl.create({ component: ReporteFormComponent });
     await modal.present();
@@ -920,32 +1074,82 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     }
   }
 
-  elegirColorBus(color: string) {
-    this.colorBus = color;
-    this.usaColorPropio = true;
+  elegirColor(color: string) {
+    if (this.alcance === 'buses') {
+      this.colorUnidad = color;
+      this.colorUnidadPropio = true;
+    } else {
+      this.colorBus = color;
+      this.usaColorPropio = true;
+    }
+    this.colorTocado = true;
     this.dibujarPreview();
   }
 
-  alternarColorPropio(usar: boolean) {
-    this.usaColorPropio = usar;
+  // Flota: false = el color de cada ruta. Unidades: false = el de la flota.
+  elegirColorPropio(propio: boolean) {
+    if (this.alcance === 'buses') this.colorUnidadPropio = propio;
+    else this.usaColorPropio = propio;
+    this.colorTocado = true;
+    this.dibujarPreview();
+  }
+
+  elegirModeloBus(modelo: ModeloBus) {
+    this.modeloBus = modelo;
+    this.modeloTocado = true;
+  }
+
+  // Cambiar de alcance descarta lo elegido sin guardar: se estaba armando
+  // para el otro.
+  elegirAlcance(alcance: 'flota' | 'buses') {
+    if (alcance === this.alcance) return;
+    this.alcance = alcance;
+    this.busesElegidos.clear();
+    this.restablecerEdicion();
+  }
+
+  alternarBus(busId: string) {
+    if (this.busesElegidos.has(busId)) this.busesElegidos.delete(busId);
+    else this.busesElegidos.add(busId);
+    // Con una sola unidad elegida y nada tocado todavía, la sección muestra
+    // cómo es esa unidad hoy.
+    if (this.busesElegidos.size === 1 && !this.colorTocado && !this.modeloTocado) {
+      const b = this.buses.find(x => this.busesElegidos.has(x.id));
+      if (b) {
+        this.colorUnidadPropio = !!b.color_bus;
+        if (b.color_bus) this.colorUnidad = colorSeguro(b.color_bus);
+        this.modeloBus = this.modeloDeBus(b);
+      }
+    }
+    this.dibujarPreview();
+  }
+
+  private restablecerEdicion() {
+    this.usaColorPropio = !!this.colorBusGuardado;
+    this.colorBus = this.colorBusGuardado || this.COLOR_BUS_DEFECTO;
+    this.colorUnidadPropio = false;
+    this.modeloBus = this.modeloBusGuardado;
+    this.colorTocado = false;
+    this.modeloTocado = false;
     this.dibujarPreview();
   }
 
   async guardarPersonalizacion() {
-    if (!this.profile?.empresa_id || this.guardandoPersonalizacion) return;
-    // null vuelve al comportamiento de siempre: el color de cada ruta.
-    const color = this.usaColorPropio ? colorSeguro(this.colorBus) : null;
+    const empresaId = this.profile?.empresa_id;
+    if (!empresaId || this.guardandoPersonalizacion || !this.personalizacionSucia) return;
     this.guardandoPersonalizacion = true;
     try {
-      await this.admin.updateEmpresa(this.profile.empresa_id, { color_bus: color });
-      this.colorBusGuardado = color;
-      if (this.empresa) this.empresa.color_bus = color;
-      this.showToast(color
-        ? 'Listo: toda tu flota se ve de ese color'
-        : 'Tus buses vuelven al color de cada ruta');
+      if (this.alcance === 'buses') await this.guardarEnUnidades();
+      else await this.guardarEnFlota(empresaId);
     } catch (e: any) {
       logError('guardar la personalización del bus', e);
-      this.showToast(e?.message || 'No se pudo guardar la personalización', 'danger');
+      // Mientras no se aplique la migración, Supabase responde que no conoce
+      // la columna: se dice eso y no el mensaje técnico.
+      const msg = e?.message || '';
+      const sinColumna = /(modelo_bus|color_bus)/.test(msg) && /(column|schema cache)/i.test(msg);
+      this.showToast(sinColumna
+        ? 'Falta aplicar en Supabase la migración de la personalización por bus'
+        : msg || 'No se pudo guardar la personalización', 'danger');
     }
     this.guardandoPersonalizacion = false;
   }
@@ -1073,6 +1277,44 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   abrirEnlace(url: string) {
     window.open(url, '_blank', 'noopener');
+  }
+
+  private async guardarEnUnidades() {
+    const cambios: Partial<Bus> = {};
+    // null = la unidad sigue a la flota. El modelo igual al de la flota se
+    // guarda como null por lo mismo: si mañana la flota cambia, la sigue.
+    if (this.colorTocado) cambios.color_bus = this.colorUnidadPropio ? colorSeguro(this.colorUnidad) : null;
+    if (this.modeloTocado) cambios.modelo_bus = this.modeloBus === this.modeloBusGuardado ? null : this.modeloBus;
+    const cambiados = new Set(await this.admin.personalizarBuses([...this.busesElegidos], cambios));
+    for (const b of this.buses) if (cambiados.has(b.id)) Object.assign(b, cambios);
+    const n = cambiados.size;
+    this.busesElegidos.clear();
+    this.restablecerEdicion();
+    this.showToast(n === 1 ? 'Listo: la unidad quedó personalizada' : `Listo: ${n} unidades personalizadas`);
+  }
+
+  private async guardarEnFlota(empresaId: string) {
+    // null vuelve al comportamiento de siempre: el color de cada ruta.
+    const color = this.usaColorPropio ? colorSeguro(this.colorBus) : null;
+    // Solo se manda lo que cambió: guardar un color no depende de que exista
+    // la columna del modelo, ni al revés.
+    const cambios: Partial<Empresa> = {};
+    if (this.colorFlotaSucio) cambios.color_bus = color;
+    if (this.modeloFlotaSucio) cambios.modelo_bus = this.modeloBus;
+    const quitar: ('color_bus' | 'modelo_bus')[] = [];
+    if (this.colorPropioAQuitar) quitar.push('color_bus');
+    if (this.modeloPropioAQuitar) quitar.push('modelo_bus');
+
+    if (Object.keys(cambios).length) await this.admin.updateEmpresa(empresaId, cambios);
+    if (quitar.length) await this.admin.quitarPersonalizacionDeBuses(empresaId, quitar);
+
+    this.colorBusGuardado = color;
+    this.modeloBusGuardado = this.modeloBus;
+    if (this.empresa) Object.assign(this.empresa, cambios);
+    for (const b of this.buses) for (const campo of quitar) b[campo] = null;
+    this.colorTocado = false;
+    this.modeloTocado = false;
+    this.showToast('Listo: los cambios se ven en toda tu flota');
   }
 
   // ---- HORARIOS (resumen por ruta) ----

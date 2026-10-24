@@ -381,16 +381,17 @@
   .content { padding: 16px; }
 }
 
-// ====== PERSONALIZACIÓN ======
-// La previa usa el sprite real del mapa, así que los canvas van sobre un
-// fondo parecido al del mapa oscuro: un bus de color claro sobre blanco se
-// ve distinto de como va a quedar, y la previa no debe mentir.
+// Título con bajada de las tarjetas (lo usan las de Google Maps y apps).
 .perso-titulo {
   display: flex; flex-direction: column; gap: 2px;
   padding: 14px 16px 6px;
   strong { font-size: 14px; color: #fff; }
 }
 
+// ====== PERSONALIZACIÓN ======
+// La previa usa el sprite real del mapa, así que los canvas van sobre un
+// fondo parecido al del mapa oscuro: un bus de color claro sobre blanco se
+// ve distinto de como va a quedar, y la previa no debe mentir.
 .perso-preview {
   display: flex; align-items: flex-end; justify-content: center; gap: 4px;
   flex-wrap: wrap;
@@ -401,31 +402,6 @@
   border: 1px solid rgba(255,255,255,0.05);
 
   canvas { width: 78px; height: 78px; }
-}
-
-.perso-pie {
-  margin: 8px 16px 0;
-  font-size: 12px; color: var(--dash-text-muted); text-align: center;
-}
-
-.perso-modo {
-  display: flex; gap: 6px;
-  margin: 14px 16px 0;
-  padding: 4px;
-  background: rgba(255,255,255,0.05);
-  border-radius: 12px;
-
-  button {
-    flex: 1;
-    padding: 9px 10px;
-    border: none; border-radius: 8px;
-    background: transparent;
-    color: var(--bx-text-3); font-size: 13px; font-weight: 700;
-    cursor: pointer;
-    transition: background 0.16s ease, color 0.16s ease;
-
-    &.on { background: rgba(255,255,255,0.1); color: #fff; }
-  }
 }
 
 .perso-paleta {
@@ -465,40 +441,6 @@
 }
 
 .perso-sucio { font-size: 12px; color: var(--bx-warning); font-weight: 600; }
-
-.perso-logo { margin-bottom: 14px; }
-.perso-logo__fila {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 10px 16px 16px;
-}
-.perso-logo__previa {
-  width: 72px; height: 72px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 16px; overflow: hidden;
-  background: var(--bx-bg-1);
-  border: 1px solid rgba(255,255,255,0.08);
-  img { width: 100%; height: 100%; object-fit: contain; }
-  span { font-size: 28px; font-weight: 800; color: var(--dash-text-muted); text-transform: uppercase; }
-}
-.perso-logo__acciones {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0;
-  label.bx-btn { cursor: pointer; }
-  .muted { font-size: 12px; flex-basis: 100%; }
-}
-.perso-logo__error {
-  margin: -6px 16px 14px;
-  font-size: 12px; font-weight: 600; color: var(--bx-danger);
-}
-
-.perso-proximo {
-  display: flex; align-items: flex-start; gap: 12px;
-  margin-top: 14px; padding: 16px;
-  ion-icon { font-size: 22px; color: var(--dash-text-muted); flex-shrink: 0; }
-  div { display: flex; flex-direction: column; gap: 3px; }
-  strong { font-size: 14px; color: var(--bx-text); }
-  span { font-size: 13px; color: var(--dash-text-muted); line-height: 1.45; }
-}
-
 
 // ====== GOOGLE MAPS Y APPS (GTFS) ======
 .gtfs-card { margin-bottom: 14px; padding-bottom: 14px; }
