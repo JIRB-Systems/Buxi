@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { supabaseClient } from '../supabase-client';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
@@ -87,10 +88,36 @@ export class ChoferService {
   }
 
   async sendLocation(busId: string, lat: number, lng: number, speed: number = 0, heading: number = 0) {
-    const { error } = await this.supabase
-      .from('bus_locations')
-      .insert({ bus_id: busId, latitud: lat, longitud: lng, velocidad: speed, heading });
+    const fila = { bus_id: busId, latitud: lat, longitud: lng, velocidad: speed, heading };
+    if (Capacitor.getPlatform() === 'android') return this.sendLocationNativo(fila);
+    const { error } = await this.supabase.from('bus_locations').insert(fila);
     if (error) throw error;
+  }
+
+  // En la app de Android, con la pantalla apagada, Android frena los pedidos
+  // que salen del navegador interno a los 5 minutos: el bus dejaba de
+  // moverse aunque el GPS siguiera andando. El HTTP nativo de Capacitor no
+  // tiene ese freno. Es el mismo insert, con la misma sesión y la misma RLS.
+  private async sendLocationNativo(fila: Record<string, unknown>) {
+    const { data } = await this.supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error('Sin sesión');
+    const r = await CapacitorHttp.post({
+      url: `${environment.supabaseUrl}/rest/v1/bus_locations`,
+      headers: {
+        apikey: environment.supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      data: fila,
+    });
+    if (r.status >= 300) {
+      // Token vencido en un viaje largo con la pantalla apagada: se renueva
+      // y el próximo envío ya sale bien.
+      if (r.status === 401) await this.supabase.auth.refreshSession().catch(() => {});
+      throw new Error(`bus_locations ${r.status}`);
+    }
   }
 
   // No se puede hacer `update buses set estado` directo: en buses solo hay

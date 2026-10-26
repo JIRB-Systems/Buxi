@@ -11,6 +11,7 @@ import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Parada } from '../../../core/models/transport.model';
 import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/features.model';
 import { ChoferService } from '../../../core/services/chofer.service';
+import { GpsFondoService } from '../../../core/services/gps-fondo.service';
 import { createMap, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { colorSeguro } from '../../../core/utils/html';
@@ -72,6 +73,10 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   transmisionCaida = false;
   private enviosFallidos = 0;
   private readonly FALLOS_PARA_AVISAR = 2;
+  // Con el GPS de fondo llega una posición por segundo; al servidor se manda
+  // como mucho una cada 5 s, igual que el intervalo de siempre.
+  private readonly ENVIO_MIN_MS = 5000;
+  private ultimoEnvio = 0;
 
   // ---- Botón de pánico ----
   sendingPanic = false;
@@ -190,6 +195,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
     private elRef: ElementRef<HTMLElement>,
+    private gpsFondo: GpsFondoService,
   ) {}
 
   async ngOnInit() {
@@ -929,6 +935,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
     await this.sendLocation();
     this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
+    await this.iniciarGpsFondo();
 
     const toast = await this.toastCtrl.create({
       message: retomar ? 'Viaje retomado — transmitiendo ubicación' : 'Viaje iniciado — transmitiendo ubicación',
@@ -953,6 +960,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       clearInterval(this.trackingInterval);
       this.trackingInterval = null;
     }
+    await this.gpsFondo.detener();
 
     await this.choferService.updateBusStatus(this.assignedBus!.id, 'activo');
     // Antes siempre mandaba 0 acá — la distancia real ya se venía sumando en
@@ -998,6 +1006,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         clearInterval(this.trackingInterval);
         this.trackingInterval = null;
       }
+      // En pausa no se transmite: se apaga también la notificación fija.
+      this.gpsFondo.detener();
       this.speedWarning = false;
       this.offRoute = false;
     } else {
@@ -1007,6 +1017,31 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       this.enviosFallidos = 0;
       this.sendLocation();
       this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
+      this.iniciarGpsFondo();
+    }
+  }
+
+  // App de Android: el GPS sigue con la pantalla apagada (ver GpsFondoService).
+  // Cada posición actualiza la pantalla y, cada 5 s, se manda al servidor. El
+  // intervalo de siempre queda andando: con la app abierta sigue mandando
+  // aunque el GPS de fondo tarde en dar la primera posición.
+  private async iniciarGpsFondo() {
+    if (!this.gpsFondo.disponible) return;
+    const r = await this.gpsFondo.iniciar(this.assignedBus?.ruta?.nombre || null, l => {
+      this.updatePosition(l.latitude, l.longitude, l.speed, l.bearing);
+      if (this.tracking && !this.paused && Date.now() - this.ultimoEnvio >= this.ENVIO_MIN_MS) this.sendLocation();
+    });
+    if (r === 'sin-permiso') {
+      const alert = await this.alertCtrl.create({
+        cssClass: 'buxi-alert',
+        header: 'Buxci necesita tu ubicación',
+        message: 'Sin el permiso de ubicación el bus no aparece en el mapa de los pasajeros. Abrí los ajustes y elegí "Permitir mientras se usa la app".',
+        buttons: [
+          { text: 'Ahora no', role: 'cancel' },
+          { text: 'Abrir ajustes', handler: () => this.gpsFondo.abrirAjustes() },
+        ],
+      });
+      await alert.present();
     }
   }
 
@@ -1020,6 +1055,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   private async sendLocation() {
     if (!this.assignedBus || this.currentLat === 0) return;
+    this.ultimoEnvio = Date.now();
 
     try {
       await this.choferService.sendLocation(
@@ -1452,6 +1488,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     if (this.watchId) {
       Geolocation.clearWatch({ id: this.watchId });
     }
+    this.gpsFondo.detener();
     if (this.map) {
       try { this.map.remove(); } catch {}
     }
