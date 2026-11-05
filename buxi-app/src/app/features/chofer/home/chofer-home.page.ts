@@ -913,12 +913,25 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.lastTripLat = this.currentLat;
     this.lastTripLng = this.currentLng;
 
-    await this.choferService.updateBusStatus(this.assignedBus!.id, 'en_ruta');
+    // Sin esto, si fallaba la red la pantalla quedaba en "transmitiendo" sin
+    // viaje abierto en el servidor. Se revierte y se avisa.
+    try {
+      await this.reintentar(() => this.choferService.updateBusStatus(this.assignedBus!.id, 'en_ruta'));
+      if (!retomar && this.profile && this.assignedBus!.ruta_id) {
+        await this.reintentar(() => this.choferService.startViaje(this.assignedBus!.id, this.profile!.id, this.assignedBus!.ruta_id!));
+      }
+    } catch {
+      this.tracking = false;
+      this.refrescarBusPropio();
+      this.setRouteVisible(false);
+      const t = await this.toastCtrl.create({ message: 'No se pudo iniciar el viaje. Revisá tu conexión e intentá de nuevo', duration: 4000, color: 'danger', position: 'top' });
+      await t.present();
+      return;
+    }
 
     if (retomar) {
       this.choferService.retomarViaje(retomar.id);
     } else if (this.profile && this.assignedBus!.ruta_id) {
-      await this.choferService.startViaje(this.assignedBus!.id, this.profile.id, this.assignedBus!.ruta_id);
       // Las paradas ya se cargaron en ngOnInit para el trazado y "próxima
       // parada"; si por lo que sea no llegaron a tiempo, se reintenta acá.
       if (this.rutaParadas.length === 0) {
@@ -946,6 +959,17 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     await toast.present();
   }
 
+  private async reintentar<T>(fn: () => Promise<T>, intentos = 3): Promise<T> {
+    let ultimo: unknown;
+    for (let i = 0; i < intentos; i++) {
+      try { return await fn(); } catch (e) {
+        ultimo = e;
+        if (i < intentos - 1) await new Promise(r => setTimeout(r, 800 * (i + 1)));
+      }
+    }
+    throw ultimo;
+  }
+
   private async stopTracking() {
     this.tracking = false;
     this.refrescarBusPropio();
@@ -962,10 +986,18 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     }
     await this.gpsFondo.detener();
 
-    await this.choferService.updateBusStatus(this.assignedBus!.id, 'activo');
-    // Antes siempre mandaba 0 acá — la distancia real ya se venía sumando en
-    // updatePosition() pero nunca se usaba al cerrar el viaje.
-    await this.choferService.endViaje(this.tripDistanceKm);
+    // Sin red, estos dos awaits fallaban sin aviso y el viaje quedaba
+    // "en_curso" para siempre. Se reintenta y, si no hay manera, se avisa:
+    // al reabrir la app, revisarViajeAbierto lo ofrece retomar o cerrar.
+    try {
+      await this.reintentar(() => this.choferService.updateBusStatus(this.assignedBus!.id, 'activo'));
+      // Antes siempre mandaba 0 acá — la distancia real ya se venía sumando en
+      // updatePosition() pero nunca se usaba al cerrar el viaje.
+      await this.reintentar(() => this.choferService.endViaje(this.tripDistanceKm));
+    } catch {
+      const t = await this.toastCtrl.create({ message: 'No se pudo cerrar el viaje en el servidor. Al abrir la app de nuevo vas a poder cerrarlo', duration: 6000, color: 'warning', position: 'top' });
+      await t.present();
+    }
 
     const paradasCumplidas = this.nextParadaIndex - 1;
     const duracionMin = this.tripStartTime ? Math.round((Date.now() - this.tripStartTime) / 60000) : 0;

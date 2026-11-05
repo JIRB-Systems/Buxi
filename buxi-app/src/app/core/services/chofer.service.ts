@@ -270,18 +270,26 @@ export class ChoferService {
       .select('*, pasajero:profiles!boletos_pasajero_id_fkey(nombre_completo), ruta:rutas(nombre,origen,destino)')
       .eq('codigo', codigo)
       .maybeSingle();
+    // Un fallo de red no es "código no encontrado": el chofer se lo diría al
+    // pasajero y lo dejaría sin subir por un problema que no es del boleto.
+    if (error && !error.code) return { ok: false, motivo: 'Sin conexión. Reintentá el escaneo cuando vuelva la señal' };
     if (error || !boleto) return { ok: false, motivo: 'Código no encontrado' };
     if (boleto.estado === 'usado') return { ok: false, motivo: 'Este boleto ya fue usado', boleto: boleto as Boleto };
     if (boleto.estado !== 'pagado') return { ok: false, motivo: 'Este boleto no es válido', boleto: boleto as Boleto };
     if (new Date(boleto.expira_at) < new Date()) return { ok: false, motivo: 'Este boleto expiró', boleto: boleto as Boleto };
     if (rutaIdEsperada && boleto.ruta_id !== rutaIdEsperada) return { ok: false, motivo: 'Este boleto es de otra ruta', boleto: boleto as Boleto };
 
-    const { error: updError } = await this.supabase
+    // .select() devuelve las filas realmente cambiadas: con dos escaneos a la
+    // vez, el segundo no encuentra el boleto en 'pagado' y afecta 0 filas
+    // (sin error). Sin esta comprobación los dos daban "válido".
+    const { data: filas, error: updError } = await this.supabase
       .from('boletos')
       .update({ estado: 'usado', usado_at: new Date().toISOString(), usado_por: choferId })
       .eq('id', boleto.id)
-      .eq('estado', 'pagado');
+      .eq('estado', 'pagado')
+      .select('id');
     if (updError) return { ok: false, motivo: 'No se pudo validar el boleto' };
+    if (!filas || filas.length === 0) return { ok: false, motivo: 'Este boleto ya fue usado', boleto: boleto as Boleto };
 
     return { ok: true, boleto: boleto as Boleto };
   }
