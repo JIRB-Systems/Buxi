@@ -38,6 +38,12 @@ module.exports = function (config) {
     logLevel: config.LOG_INFO,
     autoWatch: true,
     browsers: ['Chrome'],
+    // Para CI (GitHub Actions corre como root en Linux, donde Chrome no
+    // arranca con sandbox) y para correr sin ventana. Localmente sirve con
+    // Brave: CHROME_BIN=<ruta de brave.exe>.
+    customLaunchers: {
+      ChromeHeadlessCI: { base: 'ChromeHeadless', flags: ['--no-sandbox'] },
+    },
     singleRun: false,
     restartOnFileChange: true
   });

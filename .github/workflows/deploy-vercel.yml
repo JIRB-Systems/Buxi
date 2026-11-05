@@ -46,6 +46,16 @@ jobs:
           cache: npm
           cache-dependency-path: buxi-app/package-lock.json
 
+      # Las pruebas corren ANTES de compilar y desplegar: si alguna falla, no
+      # se publica nada y producción queda con la versión anterior.
+      - name: Instalar dependencias
+        working-directory: buxi-app
+        run: npm ci
+
+      - name: Pruebas unitarias
+        working-directory: buxi-app
+        run: npx ng test --watch=false --browsers=ChromeHeadlessCI --no-progress
+
       - name: Instalar el CLI de Vercel
         run: npm install --global vercel@62.4.0
 

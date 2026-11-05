@@ -1,0 +1,27 @@
+// ============================================================================
+// SIN CONEXIÓN
+// ============================================================================
+// Fijo arriba y centrado, sobre el mapa y debajo de la barra superior: lo
+// tiene que ver aunque tenga un panel abierto.
+.aviso-sin-conexion {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 76px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: #3d2a06;
+  border: 1px solid rgba(255, 176, 32, 0.45);
+  color: #ffd27a;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+
+  ion-icon { font-size: 18px; flex-shrink: 0; }
+}

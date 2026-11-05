@@ -2,6 +2,11 @@
 
   <div id="map"></div>
 
+  <div class="aviso-sin-conexion" *ngIf="sinConexion" role="status">
+    <ion-icon name="cloud-offline-outline"></ion-icon>
+    <span>Sin conexión: los buses no se actualizan hasta que vuelva la señal</span>
+  </div>
+
   <!-- ====== ESCRITORIO ======
        Barra lateral (el dock) + panel fijo + mapa. Esta barra superior lleva
        el buscador, que cae sobre la cabecera del panel, y el perfil, que

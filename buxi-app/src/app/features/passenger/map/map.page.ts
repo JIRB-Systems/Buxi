@@ -120,7 +120,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -1439,7 +1439,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // esta promesa antes de tocar nada que dependa del perfil.
   private profileReady!: Promise<void>;
 
+  // Sin red el mapa se quedaba en blanco o con buses congelados, y el pasajero
+  // no sabía si era la app, el bus o su conexión. Un aviso fijo lo dice.
+  sinConexion = typeof navigator !== 'undefined' && navigator.onLine === false;
+  private readonly alCambiarRed = () => this.zone.run(() => { this.sinConexion = !navigator.onLine; });
+
   async ngOnInit() {
+    window.addEventListener('online', this.alCambiarRed);
+    window.addEventListener('offline', this.alCambiarRed);
     this.profileReady = this.loadProfile();
     await this.profileReady;
   }
@@ -2501,7 +2508,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // el permiso se pide solo al llamar getCurrentPosition().
       if (Capacitor.isNativePlatform()) {
         const permission = await Geolocation.requestPermissions();
-        if (permission.location === 'denied') return;
+        if (permission.location === 'denied') {
+          // Antes era un return mudo: sin punto azul, sin paradas cercanas y
+          // sin saber por qué. Acaba de responder al diálogo del sistema, así
+          // que avisar ahora no lo toma por sorpresa.
+          this.locationError = this.geolocationError({ code: 1 });
+          await this.toast(this.locationError, 'warning');
+          return;
+        }
       }
       const c = await this.acquirePosition();
       this.logFix('inicio', c);
@@ -3831,7 +3845,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const msg = String(e?.message || '').toLowerCase();
 
     if (code === 1 || msg.includes('denied') || msg.includes('permission')) {
-      return 'Bloqueaste la ubicación para este sitio. Habilitala en el candado de la barra de direcciones.';
+      // En la app instalada no hay barra de direcciones: el permiso se cambia
+      // en los ajustes del teléfono.
+      return Capacitor.isNativePlatform()
+        ? 'La ubicación está bloqueada para Buxci. Activala en Ajustes del teléfono → Apps → Buxci → Permisos. Mientras tanto podés buscar tu destino con «¿A dónde vas?».'
+        : 'Bloqueaste la ubicación para este sitio. Habilitala en el candado de la barra de direcciones.';
     }
     if (code === 3 || msg.includes('timeout')) {
       return 'La ubicación tardó demasiado. Revisá que el GPS esté encendido y probá de nuevo.';
@@ -3941,6 +3959,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   ngOnDestroy() {
     this.destroyed = true;
+    window.removeEventListener('online', this.alCambiarRed);
+    window.removeEventListener('offline', this.alCambiarRed);
     if (this.busRaf !== null) { cancelAnimationFrame(this.busRaf); this.busRaf = null; }
     this.tracking.unsubscribe();
     this.featuresService.unsubscribeNotificaciones(this.notifChannel);

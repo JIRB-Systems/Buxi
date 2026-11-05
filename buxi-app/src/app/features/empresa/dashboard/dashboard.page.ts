@@ -480,8 +480,24 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       });
     }
 
+    // Un bus en ruta que dejó de transmitir: los pasajeros lo ven desaparecer
+    // del mapa. Va justo después de las emergencias porque puede ser una.
+    const sinSenal = this.busesSinSenal();
+    if (sinSenal.length) {
+      const b = sinSenal[0];
+      const s = this.senales[b.id];
+      lista.push({
+        clave: 'sin-senal', tipo: 'Bus sin señal', grave: true, cuando: s ? `hace ${this.edad(s.ts)}` : undefined,
+        titulo: sinSenal.length === 1 ? `${b.placa} está en ruta pero dejó de transmitir` : `${sinSenal.length} buses en ruta sin señal`,
+        texto: sinSenal.length === 1
+          ? 'Puede ser una zona sin cobertura, el teléfono del chofer apagado o un problema. Si sigue así, contactá al chofer.'
+          : this.listaNatural(sinSenal.slice(0, 3).map(x => x.placa)) + (sinSenal.length > 3 ? ' y otros.' : '.'),
+        acciones: [{ texto: 'Ver la flota', estilo: 'sec', hacer: () => this.switchTab('buses') }],
+      });
+    }
+
     const disponible = (b: Bus) => b.estado === 'activo' || b.estado === 'en_ruta';
-    const sinBus = this.rutas.filter(r => r.estado === 'activa' && !this.buses.some(b => b.ruta_id === r.id && disponible(b)));
+    const sinBus =this.rutas.filter(r => r.estado === 'activa' && !this.buses.some(b => b.ruta_id === r.id && disponible(b)));
     if (sinBus.length) {
       const r = sinBus[0];
       const asignados = this.buses.filter(b => b.ruta_id === r.id);
@@ -537,6 +553,31 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     }
 
     this.atencion = lista;
+  }
+
+  private busesSinSenal(): Bus[] {
+    return this.buses.filter(b => b.estado === 'en_ruta' && !this.senalFresca(b));
+  }
+
+  // Corre con el reloj (cada 5 s). Rearma "Requiere tu atención" cuando un bus
+  // pierde o recupera la señal, y avisa con un toast cuando la pierde con el
+  // panel abierto. Al abrir el panel no avisa: lo que ya estaba sin señal se
+  // ve en la tarjeta, no hace falta un toast además.
+  private sinSenalPrevios: Set<string> | null = null;
+  private revisarSinSenal() {
+    if (!this.buses.length) return;
+    const actuales = new Set(this.busesSinSenal().map(b => b.id));
+    const previos = this.sinSenalPrevios;
+    this.sinSenalPrevios = actuales;
+    if (!previos) { this.armarAtencion(); return; }
+    const nuevos = [...actuales].filter(id => !previos.has(id));
+    const cambio = nuevos.length > 0 || [...previos].some(id => !actuales.has(id));
+    if (!cambio) return;
+    this.armarAtencion();
+    if (nuevos.length) {
+      const placas = this.buses.filter(b => nuevos.includes(b.id)).map(b => b.placa);
+      this.showToast(placas.length === 1 ? `${placas[0]} dejó de transmitir su ubicación` : `${placas.length} buses dejaron de transmitir`, 'warning');
+    }
   }
 
   trackAtencion = (_: number, a: Atencion) => a.clave;
@@ -663,7 +704,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.fixContentOffset();
-    this.relojTimer = setInterval(() => this.ahora = Date.now(), 5000);
+    this.relojTimer = setInterval(() => { this.ahora = Date.now(); this.revisarSinSenal(); }, 5000);
     try {
       this.profile = await this.supabase.getProfile();
       if (this.profile?.empresa_id) {
