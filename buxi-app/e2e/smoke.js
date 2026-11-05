@@ -51,6 +51,12 @@ async function pasajero(browser) {
   await page.goto(`${BASE}/passenger/map`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(6000);
   ok('pasajero', 'el mapa carga sin cuenta', (await page.locator('canvas').count()) > 0);
+  await ctx.setOffline(true);
+  await page.waitForTimeout(800);
+  ok('pasajero', 'sin red muestra el aviso "Sin conexión"', await page.locator('.aviso-sin-conexion').isVisible());
+  await ctx.setOffline(false);
+  await page.waitForTimeout(800);
+  ok('pasajero', 'al volver la red el aviso se va', !(await page.locator('.aviso-sin-conexion').isVisible()));
   ok('pasajero', 'sin errores de página', errores.length === 0);
   await ctx.close();
 }
