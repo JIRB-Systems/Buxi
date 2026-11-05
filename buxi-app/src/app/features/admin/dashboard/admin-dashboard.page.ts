@@ -8,7 +8,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { AlertController, LoadingController, ToastController, ModalController } from '@ionic/angular';
 import { SupabaseService } from '../../../core/services/supabase.service';
-import { AdminJirbService, CorreosAuth } from '../../../core/services/admin-jirb.service';
+import { AdminJirbService, CorreosAuth, MetricasNegocio } from '../../../core/services/admin-jirb.service';
 import { logError } from '../../../core/utils/log';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Empresa, Bus, Ruta } from '../../../core/models/transport.model';
@@ -242,6 +242,8 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       this.admin.getFacturas(),
       this.admin.getCorreosAuth24h(),
     ]);
+    // Aparte del Promise.all: si las métricas fallan, el resto del panel carga igual.
+    this.admin.getMetricasNegocio().then(m => this.metricas = m);
     this.stats = stats;
     this.empresas = empresas;
     this.rutas = rutas;
@@ -425,6 +427,47 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     if (!n) return 'Todavía sin reseñas';
     return `${n} ${n === 1 ? 'reseña' : 'reseñas'} · ` + this.repartoCalificacion.map(r => `${r.n} de ${r.estrellas}★`).join(', ');
   }
+
+  // ---- MÉTRICAS DEL NEGOCIO ----
+  metricas: MetricasNegocio | null = null;
+
+  colones(n: number | null | undefined): string {
+    return '₡' + new Intl.NumberFormat('es-CR', { maximumFractionDigits: 0 }).format(n || 0);
+  }
+
+  get notaMrr(): string {
+    const m = this.metricas;
+    if (!m) return '';
+    const n = m.empresas_que_pagan ?? 0;
+    const partes = [n ? `De ${n} ${n === 1 ? 'empresa activa' : 'empresas activas'} con plan` : 'Ninguna empresa activa con plan'];
+    if (m.mrr_en_prueba) partes.push(`${this.colones(m.mrr_en_prueba)} más si convierten las de prueba`);
+    return partes.join(' · ') + ' · sin IVA';
+  }
+
+  get notaSuscripciones(): string {
+    const m = this.metricas;
+    if (!m) return '';
+    const p: string[] = [];
+    if (m.vencen_30d) p.push(`${m.vencen_30d} vence${m.vencen_30d === 1 ? '' : 'n'} en 30 días`);
+    if (m.bajas_30d) p.push(`${m.bajas_30d} baja${m.bajas_30d === 1 ? '' : 's'} en 30 días`);
+    if (m.empresas_sin_plan) p.push(`${m.empresas_sin_plan} sin plan`);
+    return p.length ? p.join(' · ') : 'Sin vencimientos ni bajas en 30 días';
+  }
+
+  get ingresosMeses(): { mes: string; monto: number }[] {
+    // Siempre los últimos 6 meses, con 0 los que no facturaron, para que las
+    // barras se lean como una serie de tiempo y no salten meses.
+    const porMes = new Map((this.metricas?.ingresos_por_mes || []).map(x => [x.mes, Number(x.monto) || 0]));
+    const hoy = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - 5 + i, 1);
+      const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return { mes, monto: porMes.get(mes) || 0 };
+    });
+  }
+
+  get maxIngresoMes(): number { return Math.max(1, ...this.ingresosMeses.map(x => x.monto)); }
+  get totalIngresos6m(): number { return this.ingresosMeses.reduce((s, x) => s + x.monto, 0); }
 
   esActiva(e: Empresa): boolean { return e.estado === 'activo' || e.estado === 'activa'; }
 

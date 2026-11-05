@@ -181,6 +181,41 @@
               </div>
             </section>
 
+            <!-- El negocio: cuánto entra y cómo están las suscripciones -->
+            <section class="kpis" aria-label="Negocio" *ngIf="metricas as m">
+              <div class="kpi">
+                <span class="kpi-lbl">Ingreso mensual estimado</span>
+                <div class="kpi-val"><span class="bx-mono">{{ colones(m.mrr_estimado) }}</span></div>
+                <span class="kpi-nota">{{ notaMrr }}</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi-lbl">Suscripciones</span>
+                <div class="kpi-val">
+                  <span class="bx-mono">{{ m.suscripciones.activa }}</span><span class="kpi-de bx-mono">activas</span>
+                </div>
+                <div class="kpi-viz kpi-seg kpi-seg--reparto" aria-hidden="true">
+                  <span [style.flex-grow]="m.suscripciones.activa" class="seg--empresa"></span>
+                  <span [style.flex-grow]="m.suscripciones.prueba" [style.opacity]="0.55"></span>
+                  <span [style.flex-grow]="m.suscripciones.vencida + m.suscripciones.cancelada" [style.opacity]="0.25"></span>
+                </div>
+                <span class="kpi-nota">{{ m.suscripciones.prueba }} en prueba · {{ m.suscripciones.vencida }} vencidas · {{ notaSuscripciones }}</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi-lbl">Facturado · últimos 6 meses</span>
+                <div class="kpi-val"><span class="bx-mono">{{ colones(totalIngresos6m) }}</span></div>
+                <div class="kpi-viz kpi-barras" aria-hidden="true">
+                  <span *ngFor="let x of ingresosMeses; let ult = last" [class.hoy]="ult"
+                        [style.height.%]="x.monto ? 20 + 80 * x.monto / maxIngresoMes : 0"></span>
+                </div>
+                <span class="kpi-nota">Según las facturas emitidas; el cobro todavía es manual</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi-lbl">Uso · últimos 30 días</span>
+                <div class="kpi-val"><span class="bx-mono">{{ m.viajes_30d }}</span><span class="kpi-de bx-mono">viajes</span></div>
+                <span class="kpi-nota">{{ m.pasajeros }} pasajeros registrados · {{ m.buses_total }} buses en la red</span>
+              </div>
+            </section>
+
             <!-- Mapa y tablero de flota -->
             <section class="fila vivo-fila" aria-label="Flota en vivo">
               <div class="card mapa-card live-map-container">

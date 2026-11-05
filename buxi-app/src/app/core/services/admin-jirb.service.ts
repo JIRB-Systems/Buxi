@@ -6,6 +6,7 @@ import { Empresa, Bus, Ruta, Parada } from '../models/transport.model';
 import { UserProfile } from '../models/user-profile.model';
 import { Calificacion, Horario, Viaje, ActivityLog, SystemConfig, Plan, Suscripcion, ReporteBug, AvisoSistema, Anuncio, SolicitudPlan, Factura } from '../models/features.model';
 import { BusLocation } from '../models/transport.model';
+import { logError } from '../utils/log';
 
 @Injectable({ providedIn: 'root' })
 export class AdminJirbService {
@@ -501,6 +502,15 @@ export class AdminJirbService {
     if (error) throw error;
   }
 
+  // ---- MÉTRICAS DEL NEGOCIO ----
+  // Calculadas en la base (metricas_negocio, 20261105000000) en una sola
+  // llamada. Si falla no se rompe el panel: el resumen las omite.
+  async getMetricasNegocio(): Promise<MetricasNegocio | null> {
+    const { data, error } = await this.supabase.rpc('metricas_negocio');
+    if (error) { logError('métricas del negocio', error); return null; }
+    return data as MetricasNegocio;
+  }
+
   // ---- SOLICITUDES ----
   async getSolicitudes(): Promise<any[]> {
     const { data, error } = await this.supabase.from('solicitudes_empresa').select('*').order('created_at', { ascending: false });
@@ -518,22 +528,48 @@ export class AdminJirbService {
     totalBuses: number; busesActivos: number; totalRutas: number;
     totalViajes: number; totalChoferes: number;
   }> {
-    const [buses, rutas, viajes, choferes] = await Promise.all([
+    const [buses, rutas, choferes] = await Promise.all([
       this.supabase.from('buses').select('id, estado').eq('empresa_id', empresaId),
       this.supabase.from('rutas').select('id').eq('empresa_id', empresaId),
-      this.supabase.from('viajes').select('id').eq('ruta_id', empresaId),
       this.supabase.from('profiles').select('id').eq('empresa_id', empresaId).eq('rol', 'chofer'),
     ]);
 
+    // Antes filtraba viajes por ruta_id = empresaId (ids de tablas distintas),
+    // así que el total siempre daba 0. Los viajes se cuentan por los buses de
+    // la empresa, y solo el número (head + count), sin bajar las filas.
     const busData = (buses.data || []) as any[];
+    let totalViajes = 0;
+    if (busData.length) {
+      const { count } = await this.supabase.from('viajes')
+        .select('id', { count: 'exact', head: true })
+        .in('bus_id', busData.map(b => b.id));
+      totalViajes = count || 0;
+    }
     return {
       totalBuses: busData.length,
       busesActivos: busData.filter(b => b.estado === 'en_ruta' || b.estado === 'activo').length,
       totalRutas: (rutas.data || []).length,
-      totalViajes: (viajes.data || []).length,
+      totalViajes,
       totalChoferes: (choferes.data || []).length,
     };
   }
+}
+
+export interface MetricasNegocio {
+  empresas_total: number;
+  empresas_activas: number;
+  empresas_sin_plan: number;
+  suscripciones: { activa: number; prueba: number; vencida: number; cancelada: number };
+  empresas_que_pagan: number;
+  mrr_estimado: number;
+  mrr_en_prueba: number;
+  vencen_30d: number;
+  bajas_30d: number;
+  buses_total: number;
+  buses_en_ruta: number;
+  viajes_30d: number;
+  pasajeros: number;
+  ingresos_por_mes: { mes: string; monto: number }[];
 }
 
 export interface CorreosAuth {
