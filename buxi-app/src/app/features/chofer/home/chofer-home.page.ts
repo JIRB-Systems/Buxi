@@ -199,9 +199,11 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
+    window.addEventListener('online', this.alVolverLaRed);
     try {
       this.profile = await this.supabase.getProfile();
       if (this.profile) {
+        this.vaciarCola();
         this.assignedBus = await this.choferService.getAssignedBus(this.profile.id);
         if (this.assignedBus?.ruta_id) {
           this.paradasReady = this.loadRutaParadas(this.assignedBus.ruta_id);
@@ -959,6 +961,19 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     await toast.present();
   }
 
+  private async vaciarCola() {
+    const n = await this.choferService.vaciarColaReportes().catch(() => 0);
+    if (n > 0) {
+      const t = await this.toastCtrl.create({
+        message: n === 1 ? 'Se envió el reporte que estaba pendiente' : `Se enviaron ${n} reportes pendientes`,
+        duration: 3000, color: 'success', position: 'top',
+      });
+      await t.present();
+    }
+  }
+
+  private readonly alVolverLaRed = () => this.vaciarCola();
+
   private async reintentar<T>(fn: () => Promise<T>, intentos = 3): Promise<T> {
     let ultimo: unknown;
     for (let i = 0; i < intentos; i++) {
@@ -1099,6 +1114,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       );
       this.enviosFallidos = 0;
       this.transmisionCaida = false;
+      // Hay red: si quedó alguna alerta o incidente sin enviar, sale ahora.
+      this.vaciarCola();
     } catch (e) {
       // Esto era un catch vacío, en el camino de datos más importante del
       // producto y corriendo cada 5 segundos.
@@ -1178,8 +1195,13 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         { text: 'Enviar', handler: async (d) => {
           if (!d.descripcion?.trim()) return false;
           try {
-            await this.choferService.createReporte(this.profile!.empresa_id!, this.profile!.id, tipo, d.descripcion.trim());
-            const toast = await this.toastCtrl.create({ message: 'Reporte enviado a tu empresa', duration: 2500, color: 'success', position: 'top' });
+            const r = await this.choferService.createReporteConCola(this.profile!.empresa_id!, this.profile!.id, tipo, d.descripcion.trim());
+            const toast = await this.toastCtrl.create({
+              message: r === 'enviado' ? 'Reporte enviado a tu empresa' : 'Sin señal: el reporte se envía solo apenas vuelva la conexión',
+              duration: r === 'enviado' ? 2500 : 4000,
+              color: r === 'enviado' ? 'success' : 'warning',
+              position: 'top',
+            });
             await toast.present();
           } catch {
             const toast = await this.toastCtrl.create({ message: 'No se pudo enviar el reporte', duration: 2500, color: 'danger', position: 'top' });
@@ -1238,14 +1260,23 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       const ubicacion = this.currentLat && this.currentLng
         ? `https://maps.google.com/?q=${this.currentLat},${this.currentLng}`
         : 'ubicación no disponible';
-      await this.choferService.createReporte(
+      const r = await this.choferService.createReporteConCola(
         this.profile.empresa_id,
         this.profile.id,
         'Emergencia',
         `Botón de pánico activado. Ubicación: ${ubicacion}`,
       );
-      this.notificar(NotificationType.Success);
-      const toast = await this.toastCtrl.create({ message: 'Alerta enviada a tu empresa', duration: 3000, color: 'danger', position: 'top' });
+      this.notificar(r === 'enviado' ? NotificationType.Success : NotificationType.Warning);
+      // Sin señal la alerta no se pierde, pero el chofer tiene que saber que
+      // todavía no llegó: puede necesitar llamar por teléfono mientras tanto.
+      const toast = await this.toastCtrl.create({
+        message: r === 'enviado'
+          ? 'Alerta enviada a tu empresa'
+          : 'Sin señal: la alerta se envía sola apenas haya conexión. Si es urgente, llamá al 911',
+        duration: r === 'enviado' ? 3000 : 8000,
+        color: 'danger',
+        position: 'top',
+      });
       await toast.present();
     } catch {
       this.notificar(NotificationType.Error);
@@ -1510,6 +1541,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyed = true;
+    window.removeEventListener('online', this.alVolverLaRed);
     if (this.panicoTimer) clearTimeout(this.panicoTimer);
     if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
     if (this.flotaChannel) supabaseClient().removeChannel(this.flotaChannel);

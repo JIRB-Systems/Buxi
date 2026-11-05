@@ -234,6 +234,79 @@ export class ChoferService {
     if (error) throw error;
   }
 
+  // ---- COLA SIN SEÑAL (pánico e incidentes) ----
+  // Sin señal, una emergencia o un incidente se perdían: solo quedaba un toast
+  // de error. Ahora se guardan en el teléfono (sobreviven a cerrar la app) y se
+  // reenvían apenas vuelve la conexión.
+  //
+  // Las ubicaciones NO van a esta cola a propósito: la base pone el timestamp
+  // de cada punto y el chofer no puede fijarlo (anti-spoofing, 20260823000000).
+  // Reenviar puntos viejos los guardaría con la hora de ahora y dibujaría
+  // saltos falsos. Para la ubicación vale solo la última, que ya se manda en
+  // el siguiente envío.
+  private readonly COLA_KEY = 'buxi-cola-reportes';
+  private vaciando = false;
+
+  // 'enviado' si llegó; 'encolado' si no había red. Si la base lo rechaza
+  // (permisos, datos inválidos) se lanza: reintentarlo fallaría igual.
+  async createReporteConCola(empresaId: string, autorId: string, titulo: string, descripcion: string): Promise<'enviado' | 'encolado'> {
+    try {
+      await this.createReporte(empresaId, autorId, titulo, descripcion);
+      return 'enviado';
+    } catch (e: any) {
+      if (e?.code) throw e;
+      const hora = new Date().toLocaleString('es-CR');
+      const cola = this.leerCola();
+      cola.push({ empresaId, autorId, titulo, descripcion: `${descripcion} (Registrado sin señal a las ${hora}; enviado con retraso.)` });
+      this.guardarCola(cola);
+      return 'encolado';
+    }
+  }
+
+  pendientesEnCola(): number {
+    return this.leerCola().length;
+  }
+
+  // Devuelve cuántos se enviaron. Se llama seguido (cada envío de ubicación
+  // que sale bien, al abrir la app y al volver la red): si no hay nada, no
+  // hace ningún pedido.
+  async vaciarColaReportes(): Promise<number> {
+    if (this.vaciando) return 0;
+    const cola = this.leerCola();
+    if (!cola.length) return 0;
+    this.vaciando = true;
+    let enviados = 0;
+    try {
+      const pendientes: typeof cola = [];
+      for (const r of cola) {
+        try {
+          await this.createReporte(r.empresaId, r.autorId, r.titulo, r.descripcion);
+          enviados++;
+        } catch (e: any) {
+          // Sin red: se conserva. Rechazado por la base: se descarta (no va a
+          // pasar nunca) pero se deja registro.
+          if (e?.code) logError('cola de reportes: descartado por la base', e);
+          else pendientes.push(r);
+        }
+      }
+      this.guardarCola(pendientes);
+    } finally {
+      this.vaciando = false;
+    }
+    return enviados;
+  }
+
+  private leerCola(): { empresaId: string; autorId: string; titulo: string; descripcion: string }[] {
+    try { return JSON.parse(localStorage.getItem(this.COLA_KEY) || '[]'); } catch { return []; }
+  }
+
+  private guardarCola(cola: unknown[]) {
+    try {
+      if (cola.length) localStorage.setItem(this.COLA_KEY, JSON.stringify(cola));
+      else localStorage.removeItem(this.COLA_KEY);
+    } catch {}
+  }
+
   // ---- LÍMITE DE VELOCIDAD ----
   async getMaxSpeedKmh(): Promise<number> {
     const { data, error } = await this.supabase
