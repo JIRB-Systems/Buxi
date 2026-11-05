@@ -518,6 +518,30 @@ export class AdminJirbService {
     return data;
   }
 
+  // Aprobar y rechazar pasan por la función aprobar-solicitud: crea la
+  // empresa y la cuenta en el servidor y, si algo falla a mitad, deshace lo
+  // creado. Antes eran pasos sueltos desde el navegador y podía quedar una
+  // empresa sin cuenta.
+  async aprobarSolicitud(solicitudId: string, password: string): Promise<{ empresaId: string; email: string }> {
+    return this.invocarSolicitud({ solicitudId, accion: 'aprobar', password });
+  }
+
+  async rechazarSolicitud(solicitudId: string, motivo: string | null): Promise<void> {
+    await this.invocarSolicitud({ solicitudId, accion: 'rechazar', motivo });
+  }
+
+  private async invocarSolicitud(body: Record<string, unknown>): Promise<any> {
+    const { data, error } = await this.supabase.functions.invoke('aprobar-solicitud', { body });
+    if (error) {
+      // El mensaje útil ("Ya existe una cuenta con ese correo"...) viene en el
+      // cuerpo de la respuesta, no en error.message.
+      let msg = error.message;
+      try { msg = (await (error as any).context.json()).error || msg; } catch {}
+      throw new Error(msg);
+    }
+    return data;
+  }
+
   async updateSolicitud(id: string, estado: string): Promise<void> {
     const { error } = await this.supabase.from('solicitudes_empresa').update({ estado }).eq('id', id);
     if (error) throw error;

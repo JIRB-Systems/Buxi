@@ -1581,22 +1581,9 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
           const loading = await this.loadingCtrl.create({ message: 'Creando empresa y cuenta...' });
           await loading.present();
           try {
-            const empresa = await this.admin.createEmpresa({
-              nombre: sol.nombre_empresa,
-              cedula_juridica: sol.cedula_juridica || null,
-              telefono: sol.telefono || null,
-              email: sol.email || null,
-              logo_url: sol.logo_url || null,
-              estado: 'activo',
-            });
-
-            await this.admin.createAdminEmpresa(
-              sol.email, clave,
-              sol.nombre_contacto, empresa.id
-            );
-
-            await this.admin.updateSolicitud(sol.id, 'aprobada');
-            await this.logAction('Aprobar solicitud', `${sol.nombre_empresa} + cuenta ${sol.email}`, 'solicitud', sol.id);
+            // Todo en el servidor y en un solo paso (también deja el registro
+            // en el log de actividad): si algo falla no queda nada a medias.
+            await this.admin.aprobarSolicitud(sol.id, clave);
             await this.loadData();
             await loading.dismiss();
             await this.mostrarCredenciales(sol.email, clave);
@@ -1631,11 +1618,27 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     await aviso.present();
   }
 
+  // Antes rechazaba al primer toque, sin confirmar ni decir por qué.
   async rejectSolicitud(sol: any) {
-    await this.admin.updateSolicitud(sol.id, 'rechazada');
-    await this.logAction('Rechazar solicitud', sol.nombre_empresa, 'solicitud', sol.id);
-    await this.loadData();
-    this.showToast('Solicitud rechazada');
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert',
+      header: 'Rechazar solicitud',
+      message: `¿Rechazar la solicitud de "${esc(sol.nombre_empresa)}"? Podés anotar el motivo (opcional).`,
+      inputs: [{ name: 'motivo', type: 'textarea', placeholder: 'Ej.: falta la cédula jurídica' }],
+      buttons: [
+        { text: 'Cancelar', role: 'cancel' },
+        { text: 'Rechazar', role: 'destructive', handler: async (d) => {
+          try {
+            await this.admin.rechazarSolicitud(sol.id, (d?.motivo || '').trim() || null);
+            await this.loadData();
+            this.showToast('Solicitud rechazada');
+          } catch (e: any) {
+            this.showToast(e?.message || 'No se pudo rechazar', 'danger');
+          }
+          return true;
+        }},
+      ],
+    });
+    await alert.present();
   }
 
   // ---- REPORTES DE BUGS ----
