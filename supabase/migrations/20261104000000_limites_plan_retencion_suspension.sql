@@ -1,3 +1,7 @@
+-- Aplicada en produccion el 2026-11-04 en dos partes (limites_plan_y_suscripciones
+-- y purga_bus_locations): el conector de Supabase rechaza en silencio las
+-- migraciones con DROP, asi que se usa CREATE OR REPLACE TRIGGER en su lugar.
+
 -- Auditoría de noviembre 2026: hacer cumplir lo que los planes prometen y
 -- poner tope a lo que crece sin límite.
 
@@ -56,13 +60,11 @@ $$;
 
 revoke execute on function public.hacer_cumplir_limite_plan() from public, anon, authenticated;
 
-drop trigger if exists buses_limite_plan on public.buses;
-create trigger buses_limite_plan
+create or replace trigger buses_limite_plan
   before insert on public.buses
   for each row execute function public.hacer_cumplir_limite_plan();
 
-drop trigger if exists rutas_limite_plan on public.rutas;
-create trigger rutas_limite_plan
+create or replace trigger rutas_limite_plan
   before insert on public.rutas
   for each row execute function public.hacer_cumplir_limite_plan();
 
@@ -132,8 +134,7 @@ $$;
 
 revoke execute on function public.limitar_frecuencia_gps() from public, anon, authenticated;
 
-drop trigger if exists trg_00_limitar_frecuencia_gps on public.bus_locations;
-create trigger trg_00_limitar_frecuencia_gps
+create or replace trigger trg_00_limitar_frecuencia_gps
   before insert on public.bus_locations
   for each row execute function public.limitar_frecuencia_gps();
 
