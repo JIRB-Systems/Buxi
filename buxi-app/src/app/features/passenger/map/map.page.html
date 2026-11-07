@@ -137,10 +137,13 @@
       </div>
       <!-- La pregunta es corta a propósito: entra entera en cualquier teléfono.
            Con un destino elegido, el buscador lo muestra. -->
-      <div class="tb-search" (click)="openSearch()">
-        <ion-icon name="search-outline"></ion-icon>
-        <span [class.con-destino]="!!viaje">{{ viaje ? viaje.destino.nombre : '¿A dónde vas?' }}</span>
-      </div>
+      <button type="button" class="tb-search" (click)="openSearch()">
+        <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
+        <div class="tb-q">
+          <span [class.con-destino]="!!viaje">{{ viaje ? viaje.destino.nombre : '¿A dónde vas?' }}</span>
+          <small>{{ viaje ? 'Desde ' + (viaje.origen ? viaje.origen.nombre : 'tu ubicación') : (tieneUbicacion ? 'Desde tu ubicación' : 'Te digo qué bus tomar') }}</small>
+        </div>
+      </button>
       <!-- El ícono va siempre debajo y la foto encima: si la foto no carga,
            queda el ícono en vez de un círculo vacío. -->
       <div class="tb-profile" (click)="toggleProfilePanel()">
@@ -243,6 +246,26 @@
         </div>
       </div>
 
+      <!-- Compacta (teléfono): una fila de atajos en lugar de las filas de
+           abajo. En escritorio y con la hoja abierta no se ve. -->
+      <div class="rs-rapido">
+        <span class="rs-chip rs-chip--viaje" *ngIf="viajeElegido as o">
+          <ion-icon name="flag" aria-hidden="true"></ion-icon>Bajá en {{ nombreCorto(o.bajar) }} · {{ viajeMinutosTotal }} min
+        </span>
+        <button type="button" class="rs-chip" *ngIf="nearestStop && caminataInfo as c" [class.on]="caminataActiva"
+                [disabled]="caminataCargando || !sePuedeCaminar" (click)="caminataActiva ? quitarCaminata() : comoLlegar()">
+          <ion-icon name="walk" aria-hidden="true"></ion-icon>{{ c.minutos }} min a pie
+        </button>
+        <button type="button" class="rs-chip" *ngIf="paradaParaAviso" [class.on]="!!alertaLlegada"
+                [disabled]="alertaCargando" (click)="toggleAlertaLlegada()">
+          <ion-icon [name]="alertaLlegada ? 'notifications' : 'notifications-outline'" aria-hidden="true"></ion-icon>{{ alertaLlegada ? 'Aviso activo' : 'Avisame' }}
+        </button>
+        <button type="button" class="rs-chip rs-chip--rep" *ngIf="reportesRuta.length" (click)="hojaRutaAbierta = true; reportesAbiertos = true">
+          <ion-icon [name]="iconoReporte(reportesRuta[0].tipo)" aria-hidden="true"></ion-icon>{{ reportesRuta.length }} {{ reportesRuta.length === 1 ? 'aviso' : 'avisos' }}
+        </button>
+      </div>
+
+      <div class="rs-detalle">
       <ng-container *ngIf="nearestStop">
         <ng-container *ngTemplateOutlet="tplLlegar"></ng-container>
       </ng-container>
@@ -370,6 +393,7 @@
         <span class="rs-pill" *ngIf="conteoBuses.sinSenal">{{ conteoBuses.sinSenal }} sin señal reciente</span>
         <span class="rs-pill" *ngIf="proximaSalidaTexto" title="Según el horario de la empresa, no en vivo">{{ proximaSalidaTexto }} · horario</span>
       </div>
+      </div>
 
       <button class="bx-btn bx-btn--pri bx-btn--lg bx-btn--bloque rs-comprar" *ngIf="ruta.precio"
               [disabled]="comprandoBoleto" [attr.aria-busy]="comprandoBoleto" (click)="comprarBoleto()">
@@ -381,7 +405,15 @@
     </ng-container>
   </ng-template>
 
-  <section class="route-sheet" #hoja *ngIf="activeRuta && !selectedBus" aria-label="Ruta seleccionada">
+  <section class="route-sheet" #hoja data-hoja *ngIf="activeRuta && !selectedBus" aria-label="Ruta seleccionada"
+           [class.compacta]="!hojaRutaAbierta">
+    <div class="rs-asa" bxArrastreHoja (soltar)="soltarHojaRuta($event)">
+      <button type="button" class="rs-asa-btn" data-asa [attr.aria-expanded]="hojaRutaAbierta"
+              (click)="hojaRutaAbierta = !hojaRutaAbierta">
+        <span class="rs-grip" aria-hidden="true"></span>
+        <span class="rs-asa-txt">{{ hojaRutaAbierta ? 'Menos' : 'Más detalles' }}</span>
+      </button>
+    </div>
     <ng-container *ngTemplateOutlet="hojaRuta"></ng-container>
   </section>
 
@@ -391,15 +423,27 @@
        pasa a ser la de esa ruta, con el viaje marcado. -->
   <ng-template #tplViaje>
     <ng-container *ngIf="viaje as v">
-      <div class="vj-head">
-        <div class="vj-pin"><ion-icon name="location" aria-hidden="true"></ion-icon></div>
-        <div class="vj-dest">
-          <span class="vj-label">Tu viaje a</span>
-          <strong [title]="v.destino.detalle">{{ v.destino.nombre }}</strong>
+      <!-- Desde y hasta, cada uno se cambia tocándolo. -->
+      <div class="od" role="group" aria-label="Tu viaje">
+        <div class="od-riel" aria-hidden="true"><i class="od-punto"></i><i class="od-linea"></i><i class="od-punto od-punto--hasta"></i></div>
+        <div class="od-campos">
+          <button type="button" class="od-campo" (click)="openSearch('', 'origen')" aria-label="Cambiar desde dónde salís">
+            <span class="od-label">Desde</span>
+            <strong [class.od-yo]="!v.origen">{{ origenTexto }}</strong>
+          </button>
+          <button type="button" class="od-campo" (click)="openSearch('', 'destino')" aria-label="Cambiar a dónde vas">
+            <span class="od-label">Hasta</span>
+            <strong [title]="v.destino.detalle" [class.od-yo]="v.destino.miUbicacion">{{ v.destino.nombre }}</strong>
+          </button>
         </div>
-        <button type="button" class="vj-cerrar" (click)="cerrarViaje()" aria-label="Cerrar el viaje">
-          <ion-icon name="close" aria-hidden="true"></ion-icon>
-        </button>
+        <div class="od-acciones">
+          <button type="button" class="od-btn" (click)="cerrarViaje()" aria-label="Cerrar el viaje" title="Cerrar">
+            <ion-icon name="close" aria-hidden="true"></ion-icon>
+          </button>
+          <button type="button" class="od-btn" (click)="invertirViaje()" [disabled]="!puedeInvertir" aria-label="Invertir: la vuelta" title="Invertir">
+            <ion-icon name="swap-vertical" aria-hidden="true"></ion-icon>
+          </button>
+        </div>
       </div>
 
       <ng-container *ngIf="v.opciones.length">
@@ -873,6 +917,14 @@
 
       <!-- Lugares: geocodificador + los lugares propios de la base -->
       <ng-container *ngIf="activePanel === 'lugares'">
+        <div class="lp-row" *ngIf="buscarPara === 'origen' && tieneUbicacion" (click)="usarMiUbicacionComoOrigen()">
+          <div class="lp-place-icon lp-place-icon--yo"><ion-icon name="locate"></ion-icon></div>
+          <div class="lp-info">
+            <strong>Tu ubicación</strong>
+            <span class="lp-trip">Salir desde donde estás ahora</span>
+          </div>
+          <ion-icon name="chevron-forward" class="lp-sp-chevron"></ion-icon>
+        </div>
         <div class="lp-row" *ngFor="let p of placeResults" (click)="selectPlace(p)">
           <div class="lp-place-icon"><ion-icon name="location"></ion-icon></div>
           <div class="lp-info">
@@ -890,8 +942,10 @@
 
         <div class="lp-empty" *ngIf="placeQuery.length <= 1">
           <ion-icon name="location-outline"></ion-icon>
-          <strong>Escribí tu destino</strong>
-          <span>Te digo qué bus tomar, dónde subir, dónde bajar y cuánto hay que caminar.</span>
+          <strong>{{ buscarPara === 'origen' ? 'Escribí desde dónde salís' : 'Escribí tu destino' }}</strong>
+          <span>{{ buscarPara === 'origen'
+            ? 'Tu casa, el trabajo, una terminal: armo el viaje desde ahí.'
+            : 'Te digo qué bus tomar, dónde subir, dónde bajar y cuánto hay que caminar.' }}</span>
         </div>
       </ng-container>
 

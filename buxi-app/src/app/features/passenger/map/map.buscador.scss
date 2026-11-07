@@ -1,0 +1,253 @@
+// ====== BUSCADOR CON ORIGEN Y DESTINO + HOJA DE RUTA COMPACTA ======
+// Hoja aparte por el presupuesto de estilos de map.page.scss.
+
+// ---- Barra superior: el buscador manda ----
+// Más alto que el logo y el perfil, y en dos líneas: la pregunta y desde
+// dónde se calcula el viaje. Es un botón de verdad (teclado y lector).
+.tb-search {
+  height: 50px;
+  padding: 0 16px;
+  font-family: var(--bx-font);
+  text-align: left;
+  color: inherit;
+  border-color: rgba(0, 224, 106, 0.32);
+
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 2px; }
+  ion-icon { font-size: 20px; color: var(--bx-green-bright); }
+}
+
+.tb-q {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+
+  span { font-size: 15px; font-weight: 700; color: var(--bx-text); }
+  small {
+    font-size: 12px;
+    color: var(--bx-text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.light-map .tb-search .tb-q span { color: var(--bx-text); }
+
+// ---- Viaje: Desde / Hasta ----
+.od {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+// El riel de la izquierda: punto de salida, línea, punto de llegada.
+.od-riel {
+  flex: none;
+  width: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 21px 0;
+
+  .od-punto {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 3px solid var(--bx-text);
+    background: transparent;
+  }
+  .od-punto--hasta { border-color: var(--bx-blue-bright); background: var(--bx-blue-bright); }
+  .od-linea {
+    flex: 1;
+    width: 2px;
+    margin: 3px 0;
+    background: repeating-linear-gradient(to bottom, var(--bx-text-3) 0 3px, transparent 3px 6px);
+  }
+}
+
+.od-campos {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.od-campo {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 6px 12px;
+  border-radius: var(--bx-r-md);
+  border: 1px solid var(--bx-line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--bx-text);
+  font-family: var(--bx-font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--bx-t-fast) var(--bx-ease), background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover { border-color: var(--bx-line-strong); background: rgba(255, 255, 255, 0.08); }
+  &:active { transform: scale(0.99); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 1px; }
+
+  .od-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--bx-text-3);
+  }
+  strong {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  // "Tu ubicación" no es un lugar escrito: va en verde, como el punto del pasajero.
+  strong.od-yo { color: var(--bx-green-bright); }
+}
+
+.od-acciones {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.od-btn {
+  width: 44px; height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--bx-r-md);
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--bx-text-2);
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease);
+
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+  &:disabled { opacity: 0.35; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: -2px; }
+  ion-icon { font-size: 22px; }
+}
+
+// Las opciones arrancan un poco más abajo que antes: el bloque de arriba es más alto.
+.od + .vj-op { margin-top: 12px; }
+
+// Origen elegido a mano: un aro blanco (el destino es el pin azul).
+:host ::ng-deep .origen-pin {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #0b1626;
+  border: 4px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.lp-place-icon--yo {
+  background: var(--bx-green-soft);
+  border-color: rgba(0, 200, 83, 0.3);
+  ion-icon { color: var(--bx-green-bright); }
+}
+
+// ---- Hoja de ruta compacta ----
+.route-sheet[data-hoja] { padding-top: 4px; }
+
+.rs-asa {
+  margin: 0 -16px 6px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  &:active { cursor: grabbing; }
+}
+
+.rs-asa-btn {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--bx-text-3);
+  font-family: var(--bx-font);
+  cursor: inherit;
+
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: -2px; border-radius: 12px; }
+}
+
+.rs-grip {
+  width: 36px; height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.rs-asa-txt { font-size: 11px; font-weight: 600; }
+
+// Por defecto (escritorio, hoja abierta) el detalle va completo y sin atajos.
+.rs-detalle { display: contents; }
+.rs-rapido { display: none; }
+
+.route-sheet.compacta {
+  .rs-detalle { display: none; }
+  .rs-rapido {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+  .rs-comprar { margin-top: 12px; }
+}
+
+.rs-chip {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--bx-r-pill);
+  border: 1px solid var(--bx-line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--bx-text);
+  font-family: var(--bx-font);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+
+  ion-icon { font-size: 16px; color: var(--bx-text-2); }
+  &:disabled { opacity: 0.5; cursor: default; }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 1px; }
+  &.on {
+    color: var(--bx-blue-bright);
+    border-color: rgba(47, 139, 255, 0.4);
+    background: var(--bx-blue-soft);
+    ion-icon { color: var(--bx-blue-bright); }
+  }
+}
+
+// El paso del viaje no es un botón: es lo que hay que recordar.
+span.rs-chip--viaje {
+  cursor: default;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  ion-icon { color: var(--bx-blue-bright); }
+}
+
+.rs-chip--rep {
+  color: var(--bx-warning);
+  border-color: rgba(255, 176, 32, 0.3);
+  background: var(--bx-warning-soft);
+  ion-icon { color: var(--bx-warning); }
+}

@@ -3,49 +3,6 @@
 // una elegida, los pasos que faltan. Hoja aparte por el mismo motivo que
 // map.llegar.scss: map.page.scss está al borde del presupuesto de estilos.
 
-// ---- Cabecera: a dónde va ----
-.vj-head {
-  display: flex; align-items: center; gap: 12px;
-}
-
-// Azul, como el pin del destino en el mapa.
-.vj-pin {
-  flex: none;
-  width: 44px; height: 44px;
-  border-radius: var(--bx-r-md);
-  display: grid; place-items: center;
-  background: var(--bx-blue-soft);
-  color: var(--bx-blue-bright);
-  font-size: 22px;
-}
-
-.vj-dest {
-  flex: 1; min-width: 0;
-  display: flex; flex-direction: column;
-
-  .vj-label { font-size: 12px; font-weight: 600; color: var(--bx-text-3); }
-  strong {
-    font-size: 18px; font-weight: 800; color: var(--bx-text); letter-spacing: -0.02em;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-}
-
-.vj-cerrar {
-  flex: none;
-  width: 44px; height: 44px;
-  margin-right: -6px;
-  padding: 0; border: 0;
-  border-radius: 50%;
-  display: grid; place-items: center;
-  background: transparent;
-  color: var(--bx-text-2);
-  cursor: pointer;
-  transition: background var(--bx-t-fast) var(--bx-ease);
-
-  &:hover { background: rgba(255,255,255,0.08); }
-  ion-icon { font-size: 22px; }
-}
-
 // ---- Cuando no hay bus que ofrecer ----
 .vj-aviso {
   display: flex; align-items: flex-start; gap: 12px;

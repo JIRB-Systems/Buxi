@@ -105,8 +105,11 @@ interface OpcionVista extends OpcionViaje {
 }
 
 // El viaje que el pasajero está armando: a dónde va y cómo puede llegar.
+interface LugarViaje { nombre: string; detalle: string; lat: number; lng: number; miUbicacion?: boolean }
 interface Viaje {
-  destino: { nombre: string; detalle: string; lat: number; lng: number };
+  // Desde dónde sale. Null = desde donde está el pasajero (y se rehace si se mueve).
+  origen: LugarViaje | null;
+  destino: LugarViaje;
   // Desde dónde se calculó; null mientras no hay ubicación.
   desde: PuntoGeo | null;
   opciones: OpcionVista[];
@@ -121,7 +124,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -243,7 +246,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       case 'rutas': return 'Rutas y empresas';
       case 'favoritos': return 'Tus favoritos';
       case 'alertas': return 'Alertas';
-      case 'lugares': return '¿A dónde vas?';
+      case 'lugares': return this.buscarPara === 'origen' ? '¿Desde dónde salís?' : '¿A dónde vas?';
       default: return '';
     }
   }
@@ -468,7 +471,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // El buscador de la barra superior busca LUGARES; el boton verde del dock
   // lleva a rutas y empresas. Antes ambos abrian el mismo panel —que ademas
   // traia su propio buscador—, asi que habia tres entradas a lo mismo.
-  async openSearch(prefill = '') {
+  async openSearch(prefill = '', para: 'destino' | 'origen' = 'destino') {
+    // El origen solo se cambia con un viaje armado: sin destino no hay viaje.
+    this.buscarPara = para === 'origen' && this.viaje ? 'origen' : 'destino';
     await this.openPanel('lugares');
     this.activePanel = 'lugares';
     this.placeQuery = prefill;
@@ -478,6 +483,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   // ---- BUSQUEDA DE LUGARES ----
+  // El mismo buscador sirve para el destino y para el origen del viaje.
+  buscarPara: 'destino' | 'origen' = 'destino';
   placeQuery = '';
   placeResults: { label: string; lat: number; lng: number }[] = [];
   placeSearching = false;
@@ -510,6 +517,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   selectPlace(p: { label: string; lat: number; lng: number }) {
     this.closePanel();
     if (!this.mapReady) return;
+    const lugar: LugarViaje = { nombre: p.label.split(',')[0].trim() || p.label, detalle: p.label, lat: p.lat, lng: p.lng };
+
+    if (this.buscarPara === 'origen' && this.viaje) {
+      this.buscarPara = 'destino';
+      this.cambiarViaje({ ...this.viaje, origen: lugar });
+      return;
+    }
 
     // Un destino nuevo reemplaza lo que hubiera en pantalla.
     if (this.activeRuta) this.clearRoute();
@@ -517,14 +531,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.quitarTramoViaje();
     this.viajeElegido = null;
 
-    this.placeMarker?.remove();
-    const el = htmlMarkerEl('place-marker', '<div class="place-pin"></div>');
-    this.placeMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
-      .setLngLat([p.lng, p.lat])
-      .addTo(this.map);
-
     this.viaje = {
-      destino: { nombre: p.label.split(',')[0].trim() || p.label, detalle: p.label, lat: p.lat, lng: p.lng },
+      // Un destino nuevo conserva el origen que se hubiera elegido.
+      origen: this.viaje?.origen ?? null,
+      destino: lugar,
       desde: null,
       opciones: [],
       aPie: { metros: 0, minutos: 0 },
@@ -532,9 +542,77 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       paradaOrigenKm: null,
       paradaDestinoKm: null,
     };
+    this.marcarLugares();
     this.planificar();
     // Con la hoja ya dibujada, para encuadrar por encima de ella.
     setTimeout(() => this.encuadrarViaje(), 60);
+  }
+
+  // Salir desde donde está el pasajero (deja de lado el origen elegido).
+  usarMiUbicacionComoOrigen() {
+    this.closePanel();
+    this.buscarPara = 'destino';
+    const v = this.viaje;
+    // Si el destino es "Tu ubicación" (por haber invertido), ida y vuelta
+    // serían el mismo punto: se deja como estaba.
+    if (!v || v.destino.miUbicacion) return;
+    this.cambiarViaje({ ...v, origen: null });
+  }
+
+  // La vuelta: el destino pasa a ser el origen y al revés. "Tu ubicación"
+  // queda fija donde estaba el pasajero al invertir.
+  get puedeInvertir(): boolean {
+    return !!this.viaje && (!!this.viaje.origen || this.tieneUbicacion);
+  }
+
+  invertirViaje() {
+    const v = this.viaje;
+    if (!v || !this.puedeInvertir) return;
+    const yo: LugarViaje = { nombre: 'Tu ubicación', detalle: 'Donde estabas al invertir el viaje', lat: this.userLat, lng: this.userLng, miUbicacion: true };
+    this.cambiarViaje({ ...v, origen: v.destino.miUbicacion ? null : v.destino, destino: v.origen ?? yo });
+  }
+
+  // Cambia origen o destino de un viaje ya armado: vuelve a la lista de
+  // opciones, rehace el plan y encuadra.
+  private cambiarViaje(v: Viaje) {
+    if (this.activeRuta) this.clearRoute();
+    this.quitarTramoViaje();
+    this.viajeElegido = null;
+    this.viaje = { ...v, desde: null, opciones: [] };
+    this.marcarLugares();
+    this.planificar();
+    setTimeout(() => this.encuadrarViaje(), 60);
+  }
+
+  // Los pines del viaje: azul el destino y, si no sale de donde está el
+  // pasajero, un aro blanco en el origen.
+  private origenMarker: maplibregl.Marker | null = null;
+  private marcarLugares() {
+    this.placeMarker?.remove();
+    this.placeMarker = null;
+    this.origenMarker?.remove();
+    this.origenMarker = null;
+    const v = this.viaje;
+    if (!v || !this.map) return;
+    if (!v.destino.miUbicacion) {
+      const el = htmlMarkerEl('place-marker', '<div class="place-pin"></div>');
+      this.placeMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([v.destino.lng, v.destino.lat])
+        .addTo(this.map);
+    }
+    if (v.origen) {
+      const el = htmlMarkerEl('place-marker', '<div class="origen-pin"></div>');
+      this.origenMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+        .setLngLat([v.origen.lng, v.origen.lat])
+        .addTo(this.map);
+    }
+  }
+
+  // Lo que dice el campo "Desde".
+  get origenTexto(): string {
+    const v = this.viaje;
+    if (v?.origen) return v.origen.nombre;
+    return this.tieneUbicacion ? 'Tu ubicación' : 'Activá tu ubicación';
   }
 
   async openPanel(panel: 'rutas' | 'favoritos' | 'alertas' | 'lugares') {
@@ -986,6 +1064,15 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // ramal, con la tarifa de adulto mayor.
   tarifasRuta: TarifaAresep[] = [];
   tarifasAbiertas = false;
+
+  // ---- HOJA DE RUTA: compacta o con todo ----
+  // En el teléfono arranca compacta (cuánto falta, dónde y el boleto) para
+  // que el mapa se vea; el resto se abre tocando o arrastrando el asa.
+  hojaRutaAbierta = false;
+  soltarHojaRuta(dy: number) {
+    if (Math.abs(dy) < this.ARRASTRE_MIN_PX) return;
+    this.hojaRutaAbierta = dy < 0;
+  }
   readonly tituloAresep = tituloAresep;
   readonly tarifaAM = tarifaAdultoMayorTexto;
   readonly reglaAdultoMayor = REGLA_ADULTO_MAYOR;
@@ -2239,6 +2326,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // es la opción elegida, que era de esta ruta.
     this.quitarTramoViaje();
     this.viajeElegido = null;
+    this.hojaRutaAbierta = false;
     this.routeLayerIds.forEach(id => {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     });
@@ -3139,7 +3227,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private planificar() {
     const v = this.viaje;
     if (!v) return;
-    if (this.userLat === 0) {
+    const desde: PuntoGeo | null = v.origen
+      ? { lat: v.origen.lat, lng: v.origen.lng }
+      : (this.userLat === 0 ? null : { lat: this.userLat, lng: this.userLng });
+    if (!desde) {
       this.viaje = { ...v, desde: null, opciones: [], motivo: 'sin_ubicacion' };
       return;
     }
@@ -3164,7 +3255,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       });
     }
 
-    const plan = planificarViaje([this.userLat, this.userLng], [v.destino.lat, v.destino.lng], rutas);
+    const plan = planificarViaje([desde.lat, desde.lng], [v.destino.lat, v.destino.lng], rutas);
     const opciones: OpcionVista[] = [];
     for (const o of plan.opciones) {
       const ruta = this.allRutas.find(r => r.id === o.rutaId);
@@ -3177,7 +3268,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
     this.viaje = {
       ...v,
-      desde: { lat: this.userLat, lng: this.userLng },
+      desde,
       opciones,
       aPie: plan.aPie,
       // Si alguna opción no se pudo armar con los datos en memoria, no se
@@ -3193,7 +3284,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Con una opción ya elegida no se le cambia el viaje bajo los pies.
   private seguirViaje() {
     const v = this.viaje;
-    if (!v || this.viajeElegido) return;
+    // Con un origen elegido a mano, moverse no cambia nada.
+    if (!v || this.viajeElegido || v.origen) return;
     if (!v.desde) {
       this.planificar();
       setTimeout(() => this.encuadrarViaje(), 60);
@@ -3215,8 +3307,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.quitarTramoViaje();
     this.viaje = null;
     this.viajeElegido = null;
+    this.buscarPara = 'destino';
     this.placeMarker?.remove();
     this.placeMarker = null;
+    this.origenMarker?.remove();
+    this.origenMarker = null;
     if (this.activeRuta) this.updateETA();
   }
 
@@ -3245,14 +3340,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       case 'sin_parada_origen':
         return {
           icono: 'location-outline',
-          titulo: 'No hay paradas cerca tuyo',
+          titulo: v.origen ? `No hay paradas cerca de ${v.origen.nombre}` : 'No hay paradas cerca tuyo',
           texto: v.paradaOrigenKm === null ? 'Todavía no hay paradas cargadas.' : `La más cercana queda a ${km(v.paradaOrigenKm)}.`,
         };
       default:
         return {
           icono: 'git-branch-outline',
           titulo: 'No hay un bus directo',
-          texto: 'Hay paradas cerca tuyo y cerca de ese lugar, pero ninguna ruta las une. Buxci todavía no arma viajes con trasbordo.',
+          texto: `Hay paradas cerca ${v.origen ? 'de ' + v.origen.nombre : 'tuyo'} y cerca de ${v.destino.nombre}, pero ninguna ruta las une. Buxci todavía no arma viajes con trasbordo.`,
         };
     }
   }
@@ -3299,7 +3394,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     ];
 
     setTimeout(() => this.encuadrarViaje(), 60);
-    this.comoLlegar(false);
+    if (!v.origen) this.comoLlegar(false);
     this.pedirTramoViaje({ lat: o.bajar.latitud, lng: o.bajar.longitud }, v.destino);
   }
 
@@ -3315,9 +3410,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // El destino queda cerca: el camino directo, sin bus.
   async verCaminoDirecto() {
     const v = this.viaje;
-    if (!v || this.userLat === 0) return;
+    if (!v || !v.desde) return;
     if (this.viajeTramo) { this.quitarTramoViaje(); return; }
-    await this.pedirTramoViaje({ lat: this.userLat, lng: this.userLng }, v.destino);
+    await this.pedirTramoViaje(v.desde, v.destino);
     this.encuadrarViaje();
   }
 
@@ -3382,7 +3477,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const v = this.viaje;
     if (!v || !this.map) return;
     const puntos: [number, number][] = [[v.destino.lng, v.destino.lat]];
-    if (this.userLat !== 0) puntos.push([this.userLng, this.userLat]);
+    if (v.desde) puntos.push([v.desde.lng, v.desde.lat]);
     const o = this.viajeElegido;
     if (o) puntos.push([o.subir.longitud, o.subir.latitud], [o.bajar.longitud, o.bajar.latitud]);
     if (this.viajeTramoCoords) puntos.push(...this.viajeTramoCoords);
