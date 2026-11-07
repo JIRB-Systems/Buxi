@@ -184,7 +184,7 @@
   <!-- Live chip -->
   <div class="live-chip" *ngIf="activeBusCount > 0 && !activeRuta">
     <span class="live-dot"></span>
-    {{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
+    {{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo<ng-container *ngIf="conteoBuses.sinSenal"> · {{ conteoBuses.sinSenal }} sin señal reciente</ng-container>
   </div>
 
 
@@ -365,8 +365,9 @@
       <div class="rs-meta">
         <span class="rs-pill" *ngIf="ruta.codigo_ruta">Ruta {{ ruta.codigo_ruta }}</span>
         <span class="rs-pill live">
-          <i class="live-dot"></i>{{ activeBusCount }} {{ activeBusCount === 1 ? 'bus' : 'buses' }} en vivo
+          <i class="live-dot"></i>{{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo
         </span>
+        <span class="rs-pill" *ngIf="conteoBuses.sinSenal">{{ conteoBuses.sinSenal }} sin señal reciente</span>
         <span class="rs-pill" *ngIf="proximaSalidaTexto" title="Según el horario de la empresa, no en vivo">{{ proximaSalidaTexto }} · horario</span>
       </div>
 

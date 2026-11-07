@@ -171,7 +171,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private locationSub: Subscription | null = null;
   private watchId: string | null = null;
 
-  private readonly STALE_MS = 45000;
   private readonly REMOVE_MS = 5 * 60 * 1000;
 
   selectedBus: BusLocation | null = null;
@@ -2050,10 +2049,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           this.busAnim.delete(busId);
           this.busIcono.delete(busId);
           cambio = true;
-        } else if (age > this.STALE_MS) {
-          // La atenuación la resuelve `icon-opacity` leyendo la propiedad
-          // `stale`, que pintarBuses recalcula en cada volcado.
-          cambio = true;
+        } else {
+          // Un bus que no está en vivo se repinta aunque no lleguen puntos:
+          // su etiqueta ("hace 2 min") y su atenuación avanzan con el reloj.
+          const loc = this.busLocationsMap.get(busId);
+          if (loc && calidadSenal((now - Date.parse(loc.timestamp)) / 1000) !== 'en_vivo') cambio = true;
         }
       });
       if (cambio) {
@@ -2333,6 +2333,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private rotateEnganchado = false;
   private ultimoBearing = 0;
 
+  // La tipografía de las etiquetas sale del propio estilo de MapTiler: una
+  // fuente que el estilo no trae no se dibuja, sin error ni aviso.
+  private fuenteDelEstilo(): string[] {
+    for (const capa of this.map.getStyle()?.layers ?? []) {
+      const f = (capa as any).layout?.['text-font'];
+      if (Array.isArray(f) && f.every(x => typeof x === 'string')) return f;
+    }
+    return ['Noto Sans Regular'];
+  }
+
   private ensureBusLayer(): boolean {
     if (this.busLayerListo) return true;
     if (!this.map) return false;
@@ -2373,10 +2383,23 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'icon-size': 1,
+          // Debajo de un bus que no está en vivo, desde cuándo no reporta
+          // ("hace 2 min"): el pasajero lo ve sin tener que tocarlo.
+          'text-field': ['get', 'etiqueta'],
+          'text-font': this.fuenteDelEstilo(),
+          'text-size': 11,
+          'text-anchor': 'top',
+          'text-offset': [0, 0.25],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
         },
         paint: {
-          // Un bus sin señal reciente se atenúa en vez de desaparecer de golpe.
-          'icon-opacity': ['case', ['get', 'stale'], 0.35, 1],
+          // Misma regla que la ficha (calidadSenal, por la hora del GPS): en
+          // vivo entero, señal demorada a medias, sin señal casi transparente.
+          'icon-opacity': ['match', ['get', 'senal'], 'perdida', 0.4, 'demorada', 0.72, 1],
+          'text-color': ['match', ['get', 'senal'], 'perdida', '#ff7a73', '#ffb020'],
+          'text-halo-color': 'rgba(7, 15, 28, 0.92)',
+          'text-halo-width': 1.6,
         },
       });
 
@@ -2437,14 +2460,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         let d = ((a.head1 - a.head0 + 540) % 360) - 180;
         head = (a.head0 + d * e + 360) % 360;
       }
-      const lastSeen = this.busLastSeen.get(busId) ?? ahora;
+      const edadS = Math.max(0, (ahora - Date.parse(loc.timestamp)) / 1000);
+      const senal = calidadSenal(edadS);
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lng, lat] },
         properties: {
           bus_id: busId,
           heading: head,
-          stale: (ahora - lastSeen) > this.STALE_MS,
+          senal,
+          etiqueta: senal === 'en_vivo' ? '' : haceTexto(edadS),
           // El ícono se resuelve cuando llega un punto nuevo, no acá: esto
           // corre en cada cuadro y calcular estado + color 60 veces por segundo
           // por bus es trabajo tirado.
@@ -2753,6 +2778,25 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   sinBusEnCamino = false;
   private proximos: BusProximo[] = [];
 
+  // "En vivo" cuenta solo los buses con GPS de menos de 45 s; los demás se
+  // dicen aparte. Antes el contador decía "3 buses en vivo" con dos sin señal.
+  // nowTs (el reloj de la pantalla) hace que se recalcule solo.
+  get conteoBuses(): { enVivo: number; sinSenal: number } {
+    const ahora = this.nowTs;
+    let enVivo = 0, sinSenal = 0;
+    for (const loc of this.busLocationsMap.values()) {
+      if (this.activeRuta && this.rutaDelBus(loc.bus_id) !== this.activeRuta.id) continue;
+      if (this.gpsEnVivo(loc, ahora)) enVivo++; else sinSenal++;
+    }
+    return { enVivo, sinSenal };
+  }
+
+  // Un tiempo de llegada solo se calcula con el GPS en vivo (menos de 45 s,
+  // por la hora del punto, no por cuándo llegó a la app).
+  private gpsEnVivo(loc: BusLocation, ahora = Date.now()): boolean {
+    return calidadSenal((ahora - Date.parse(loc.timestamp)) / 1000) === 'en_vivo';
+  }
+
   private rutaDelBus(busId: string): string | null {
     return this.busRuta.get(busId) ?? this.activeRuta?.id ?? null;
   }
@@ -2952,14 +2996,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       const placa = (loc.bus as any)?.placa || 'Bus';
       const r = this.llegadaDe(loc, parada);
       const hacia = r?.sentido === -1 ? ruta.origen : ruta.destino;
-      const sinSenal = ahora - (this.busLastSeen.get(loc.bus_id) ?? ahora) > this.STALE_MS;
+      // Por la hora del GPS, igual que la ficha y el mapa (calidadSenal). Sin
+      // señal en vivo no se da un número de minutos: acá no hay lugar para el
+      // rango con su aclaración, que sí muestra la ficha del bus.
+      const edadS = Math.max(0, (ahora - Date.parse(loc.timestamp)) / 1000);
+      const senal = calidadSenal(edadS);
+      const sinSenal = senal !== 'en_vivo';
 
       let etaMinutes: number | null = null;
       let detalle: string;
       if (sinSenal) {
-        // Con la posición vieja no se promete nada: el bus puede estar en
-        // cualquier lado.
-        detalle = 'Sin señal';
+        detalle = senal === 'demorada' ? `Señal demorada · GPS ${haceTexto(edadS)}` : `Sin señal · GPS ${haceTexto(edadS)}`;
       } else if (!r) {
         detalle = 'Sin datos del recorrido';
       } else if (viaje && r.sentido !== viaje.sentido) {
@@ -3364,7 +3411,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     let enVivo: number | null = null;
     for (const loc of this.busLocationsMap.values()) {
       if (this.busRuta.get(loc.bus_id) !== o.ruta.id) continue;
-      if (ahora - (this.busLastSeen.get(loc.bus_id) ?? ahora) > this.STALE_MS) continue;
+      if (!this.gpsEnVivo(loc, ahora)) continue;
       const r = this.llegadaDe(loc, o.subir);
       if (!r || r.sentido !== o.sentido || r.llegada.minutos === null) continue;
       if (enVivo === null || r.llegada.minutos < enVivo) enVivo = r.llegada.minutos;
@@ -3447,7 +3494,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       let mejor: { minutos: number; hacia: string } | null = null;
       for (const loc of this.busLocationsMap.values()) {
         if (this.busRuta.get(loc.bus_id) !== ruta.id) continue;
-        if (ahora - (this.busLastSeen.get(loc.bus_id) ?? ahora) > this.STALE_MS) continue;
+        if (!this.gpsEnVivo(loc, ahora)) continue;
         const r = this.llegadaDe(loc, cerca.parada);
         if (!r || r.llegada.minutos === null) continue;
         if (!mejor || r.llegada.minutos < mejor.minutos) {
