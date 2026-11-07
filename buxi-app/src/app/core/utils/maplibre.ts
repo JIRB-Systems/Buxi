@@ -37,6 +37,14 @@ export function estiloCargo(map: maplibregl.Map): boolean {
   return conEstilo.has(map);
 }
 
+// Las paradas de bus de OpenStreetMap (capa "Station" de MapTiler) competían
+// con las de Buxci: el pasajero veía dos íconos de parada y no sabía cuál era
+// la real. Se dejan solo las estaciones de tren, que sí ayudan a ubicarse.
+export function soloParadasBuxci(map: maplibregl.Map) {
+  if (!map.getLayer('Station')) return;
+  map.setFilter('Station', ['all', ['==', 'class', 'railway'], ['has', 'name']] as any);
+}
+
 export function createMap(opts: {
   container: string | HTMLElement;
   center: [number, number];
@@ -87,6 +95,7 @@ export function createMap(opts: {
       // estilo de montaña crudo de MapTiler (relieve, curvas de nivel, nombres
       // en inglés).
       if (!dark) { try { tintLightMap(map); } catch {} }
+      try { soloParadasBuxci(map); } catch {}
       conEstilo.add(map);
       done();
     });

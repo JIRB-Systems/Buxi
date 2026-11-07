@@ -20,7 +20,7 @@ import {
   CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, estiloCargo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, estiloCargo, soloParadasBuxci, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
 import { esc, colorSeguro } from '../../../core/utils/html';
@@ -1722,16 +1722,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         if (this.cercaAltura === 'lista') this.zone.run(() => this.ponerCercaAltura('resumen', false));
       });
 
-      // Las etiquetas de parada solo se muestran con zoom suficiente. Se
-      // resuelve con una clase en el contenedor del mapa en vez de tocar cada
-      // marcador: son decenas, y esto es un unico cambio de clase.
-      const LABEL_MIN_ZOOM = 12.5;
-      const syncLabels = () => {
-        this.map.getContainer().classList.toggle('map-zoomed-in', this.map.getZoom() >= LABEL_MIN_ZOOM);
-      };
-      syncLabels();
-      this.map.on('zoom', syncLabels);
-
       // La aguja de la brújula se escribe directo en el DOM por el mismo
       // motivo: gira en cada frame.
       this.map.on('rotate', () => {
@@ -1936,6 +1926,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // del if de arriba, así que en 2D el modo claro quedaba con el estilo de
       // montaña crudo de MapTiler, con relieve y nombres en inglés.
       if (!this.darkMode) { try { tintLightMap(this.map); } catch {} }
+      try { soloParadasBuxci(this.map); } catch {}
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
 
       // El círculo se redibuja desde la última posición conocida.
@@ -1946,6 +1937,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // Y la ruta activa, si había uno dibujada.
       if (this.activeRuta && this.activeParadas.length >= 2) {
         this.routeLayerIds = [];
+        this.paradasFuentes = [];
         try {
           await this.drawRouteLayer(this.activeParadas, this.activeRuta.color, this.activeRuta.geometria);
         } catch {}
@@ -2116,11 +2108,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // vista inclinada, lo que queda cerca de la cámara se agranda y en un mapa
   // ancho el final de la ruta se salía de la pantalla. El margen lateral crece
   // con el ancho del mapa; en el teléfono sigue siendo el de siempre.
+  //
+  // En el teléfono la hoja de abajo tapa más o menos la mitad del mapa: con un
+  // margen parejo de 60 px la ruta, sus paradas y "Tu parada" quedaban
+  // dibujadas DEBAJO de la hoja. El margen de abajo es el alto de la hoja (o la
+  // mitad del mapa si todavía no se midió), dejando siempre 220 px de mapa.
   private margenDeEncuadre(): number | { top: number; bottom: number; left: number; right: number } {
-    const ancho = this.map?.getContainer().clientWidth ?? 0;
-    const lateral = Math.round(ancho * 0.13);
-    if (lateral <= 60) return 60;
-    return { top: 70, bottom: 70, left: lateral, right: lateral };
+    const cont = this.map?.getContainer();
+    const ancho = cont?.clientWidth ?? 0;
+    const alto = cont?.clientHeight ?? 0;
+    if (ancho >= 900) {
+      const lateral = Math.round(ancho * 0.13);
+      return { top: 70, bottom: 70, left: lateral, right: lateral };
+    }
+    const hoja = this.hojaAlto || Math.round(alto * 0.5);
+    return { top: 96, bottom: Math.max(60, Math.min(hoja + 24, alto - 220)), left: 40, right: 64 };
   }
 
   // Dibuja una ruta (línea + paradas) sin encuadrar el mapa, para poder
@@ -2161,18 +2163,56 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     });
     this.routeLayerIds.push(bgId, mainId);
 
-    paradas.forEach((parada, i) => {
-      const isTerminal = i === 0 || i === paradas.length - 1;
-      const nombreCorto = this.nombreParadaCorto(parada.nombre);
-      const html = isTerminal
-        ? `<div class="stop-terminal" style="border-color:${c}"><div class="stop-inner" style="background:${c}"></div></div><div class="stop-label" title="${esc(parada.nombre)}">${esc(nombreCorto)}</div>`
-        : `<div class="stop-dot" style="border-color:${c}"></div>`;
-      const el = htmlMarkerEl('stop-marker', html);
-      const m = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([parada.longitud, parada.latitud])
-        .addTo(this.map);
-      this.routeMarkers.push(m);
+    // Las paradas van como capas del mapa, igual que la línea y los buses.
+    // Eran marcadores HTML encima del mapa, y con el relieve 3D se corrían de
+    // la ruta cuando cargaba el terreno (quedaban dibujadas lejos de la línea).
+    const ultima = paradas.length - 1;
+    const features = paradas.map((parada, i) => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [parada.longitud, parada.latitud] },
+      properties: { id: parada.id, nombre: this.nombreParadaCorto(parada.nombre), terminal: i === 0 || i === ultima, tuya: false, etiqueta: '' },
+    }));
+    const paradasSrc = `${srcId}-paradas`;
+    this.map.addSource(paradasSrc, { type: 'geojson', data: { type: 'FeatureCollection', features } as any });
+    const fuente = this.fuenteDelEstilo();
+    const oscuro = this.darkMode;
+    const halo = oscuro ? 'rgba(7, 15, 28, 0.92)' : 'rgba(255, 255, 255, 0.95)';
+    this.map.addLayer({
+      id: `${paradasSrc}-halo`, type: 'circle', source: paradasSrc, filter: ['==', ['get', 'tuya'], true],
+      paint: { 'circle-radius': 15, 'circle-color': '#00c853', 'circle-opacity': 0.28 },
     });
+    this.map.addLayer({
+      id: `${paradasSrc}-circ`, type: 'circle', source: paradasSrc,
+      paint: {
+        'circle-radius': ['case', ['get', 'tuya'], 8, ['get', 'terminal'], 6.5, 4.5],
+        'circle-color': '#ffffff',
+        'circle-stroke-color': ['case', ['get', 'tuya'], '#00c853', c],
+        'circle-stroke-width': ['case', ['get', 'tuya'], 4, 2.5],
+      },
+    });
+    // El nombre de cada parada, solo de cerca: de lejos se amontonan.
+    this.map.addLayer({
+      id: `${paradasSrc}-txt`, type: 'symbol', source: paradasSrc, minzoom: 13,
+      filter: ['!=', ['get', 'tuya'], true],
+      layout: {
+        'text-field': ['get', 'nombre'], 'text-font': fuente, 'text-size': 11,
+        'text-anchor': 'top', 'text-offset': [0, 0.7], 'text-max-width': 10, 'text-optional': true,
+      },
+      paint: { 'text-color': oscuro ? '#e8eef7' : '#13243a', 'text-halo-color': halo, 'text-halo-width': 1.6 },
+    });
+    // "Tu parada" (o "Subí acá"), a todo zoom y sin que otra etiqueta la tape.
+    this.map.addLayer({
+      id: `${paradasSrc}-tuya`, type: 'symbol', source: paradasSrc,
+      filter: ['==', ['get', 'tuya'], true],
+      layout: {
+        'text-field': ['concat', ['get', 'etiqueta'], '\n', ['get', 'nombre']], 'text-font': fuente, 'text-size': 12,
+        'text-anchor': 'bottom', 'text-offset': [0, -1.1], 'text-allow-overlap': true, 'text-ignore-placement': true,
+      },
+      paint: { 'text-color': oscuro ? '#5dffa0' : '#00782f', 'text-halo-color': halo, 'text-halo-width': 2 },
+    });
+    this.routeLayerIds.push(`${paradasSrc}-halo`, `${paradasSrc}-circ`, `${paradasSrc}-txt`, `${paradasSrc}-tuya`);
+    this.paradasFuentes.push({ src: paradasSrc, features });
+    this.paradaMarcada = null;
 
     return coords;
   }
@@ -2203,12 +2243,15 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     });
     // Cada par de layers comparte un source (route-<ts>); quitarlos.
-    const srcIds = new Set(this.routeLayerIds.map(id => id.replace(/-bg$|-main$/, '')));
+    // Las de paradas (route-<ts>-paradas) también.
+    const srcIds = new Set(this.routeLayerIds.map(id => id.replace(/-(bg|main|halo|circ|txt|tuya)$/, '')));
     srcIds.forEach(sid => { if (this.map.getSource(sid)) this.map.removeSource(sid); });
     this.routeLayerIds = [];
 
     this.routeMarkers.forEach(m => m.remove());
     this.routeMarkers = [];
+    this.paradasFuentes = [];
+    this.paradaMarcada = null;
 
     this.busLocationsMap.clear();
     this.busLastSeen.clear();
@@ -2947,6 +2990,26 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.recorrido = items.map(({ km, orden, ...it }) => it);
   }
 
+  // "Tu parada" en el mapa: la parada donde esperar (la más cercana, o la de
+  // subir del viaje elegido) se agranda y lleva su etiqueta siempre visible,
+  // para que el pasajero no tenga que buscarla entre los puntos de la ruta.
+  private paradasFuentes: { src: string; features: any[] }[] = [];
+  private paradaMarcada: string | null = null;
+  private marcarTuParada(paradaId: string | null, esDeSubir: boolean) {
+    const etiqueta = esDeSubir ? 'Subí acá' : 'Tu parada';
+    const clave = paradaId ? `${paradaId}|${etiqueta}` : null;
+    if (this.paradaMarcada === clave) return;
+    this.paradaMarcada = clave;
+    for (const f of this.paradasFuentes) {
+      for (const ft of f.features) {
+        ft.properties.tuya = ft.properties.id === paradaId;
+        ft.properties.etiqueta = ft.properties.tuya ? etiqueta : '';
+      }
+      const src = this.map?.getSource(f.src) as maplibregl.GeoJSONSource | undefined;
+      src?.setData({ type: 'FeatureCollection', features: f.features } as any);
+    }
+  }
+
   // Se llama al elegir o soltar una ruta, al moverse el pasajero, al llegar un
   // punto de un bus y cada 10 s (para notar al bus que se quedó sin señal).
   private updateETA() {
@@ -2965,6 +3028,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         ? this.featuresService.findNearestStop(this.userLat, this.userLng, this.activeParadas)
         : null;
     }
+    this.marcarTuParada(this.nearestStop?.parada.id ?? null, !!subir);
 
     this.etaMinutes = null;
     this.etaHacia = null;
