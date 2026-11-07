@@ -196,3 +196,81 @@ export function estimarLlegada(o: {
   const minutos = (distancia / vel) * 60 + ((o.paradasEnMedio ?? 0) * DEMORA_POR_PARADA_S) / 60;
   return { estado: 'viene', minutos: Math.max(1, Math.round(minutos)), distanciaKm: distancia };
 }
+
+// ---- Qué tan fresco es el GPS ----
+//
+// Un tiempo de llegada calculado con una posición vieja no puede mostrarse
+// como si fuera exacto: el bus siguió andando (o se quedó parado) mientras no
+// reportaba. Tres niveles, según cuánto hace del último punto:
+//   en_vivo   menos de 45 s (el mismo umbral con que el mapa atenúa el bus)
+//   demorada  de 45 s a 3 min: se muestra un rango, nunca un número solo
+//   perdida   más de 3 min: no se muestra ningún tiempo
+export type CalidadSenal = 'en_vivo' | 'demorada' | 'perdida';
+export const SENAL_DEMORADA_S = 45;
+export const SENAL_PERDIDA_S = 180;
+
+export function calidadSenal(edadS: number): CalidadSenal {
+  if (!Number.isFinite(edadS) || edadS >= SENAL_PERDIDA_S) return 'perdida';
+  return edadS >= SENAL_DEMORADA_S ? 'demorada' : 'en_vivo';
+}
+
+/** "hace 12 s", "hace 3 min", "hace 2 h". */
+export function haceTexto(edadS: number): string {
+  const s = Math.max(0, Math.floor(edadS));
+  if (s < 60) return `hace ${s} s`;
+  const m = Math.floor(s / 60);
+  return m < 60 ? `hace ${m} min` : `hace ${Math.floor(m / 60)} h`;
+}
+
+export interface LlegadaMostrada {
+  /** Lo que se lee grande: "4 min", "3–5 min", "Llegando", "Sin dato". */
+  principal: string;
+  /** La aclaración debajo, o null si no hace falta. */
+  detalle: string | null;
+  /** true solo con GPS en vivo: es la única vez que el número va solo. */
+  confiable: boolean;
+}
+
+/**
+ * Cómo mostrar una llegada según la frescura del GPS. Con señal demorada el
+ * bus pudo avanzar todo lo que pasó desde el último punto, así que la llegada
+ * real cae entre "minutos − lo que pasó" y "minutos": se muestra ese rango.
+ */
+export function mostrarLlegada(l: Llegada | null, edadS: number): LlegadaMostrada | null {
+  if (!l) return null;
+  const calidad = calidadSenal(edadS);
+  const hace = haceTexto(edadS);
+  if (calidad === 'perdida') {
+    return { principal: 'Sin dato', detalle: `El bus no reporta su ubicación desde ${hace}`, confiable: false };
+  }
+  if (l.estado === 'fuera_de_ruta') {
+    return { principal: 'Fuera de ruta', detalle: 'Está lejos de su recorrido: no se puede estimar', confiable: false };
+  }
+  const aprox = calidad === 'demorada' ? `Aproximado: último GPS ${hace}` : null;
+  if (l.estado === 'ya_paso') return { principal: 'Ya pasó', detalle: aprox, confiable: calidad === 'en_vivo' };
+  if (l.estado === 'llegando') {
+    return calidad === 'en_vivo'
+      ? { principal: 'Llegando', detalle: null, confiable: true }
+      : { principal: 'Por llegar', detalle: aprox, confiable: false };
+  }
+  const m = l.minutos ?? 0;
+  if (calidad === 'en_vivo') return { principal: `${m} min`, detalle: null, confiable: true };
+  const desde = Math.max(1, m - Math.floor(edadS / 60));
+  return { principal: desde < m ? `${desde}–${m} min` : `~${m} min`, detalle: aprox, confiable: false };
+}
+
+/**
+ * La próxima parada del bus: la primera que tiene adelante en su sentido de
+ * marcha, a más de 30 m (si está parado en una, la próxima es la siguiente).
+ */
+export function proximaParada(
+  kmBus: number, sentido: Sentido, kmParadas: Map<string, number>,
+): { id: string; distanciaKm: number } | null {
+  let mejor: { id: string; distanciaKm: number } | null = null;
+  for (const [id, km] of kmParadas) {
+    const adelante = (km - kmBus) * sentido;
+    if (adelante <= 0.03) continue;
+    if (!mejor || adelante < mejor.distanciaKm) mejor = { id, distanciaKm: adelante };
+  }
+  return mejor;
+}

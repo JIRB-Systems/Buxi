@@ -1,0 +1,73 @@
+// Ficha del bus: conexión, dirección y llegada a tu parada.
+// Aparte de map.page.scss por el presupuesto de tamaño de cada hoja.
+// El color de la conexión nunca va solo: el texto dice lo mismo.
+.bs-senal {
+  display: inline-flex; align-items: center; gap: 6px;
+  align-self: flex-start;
+  padding: 3px 9px 3px 7px;
+  border-radius: var(--bx-r-pill);
+  font-size: 12px; font-weight: 700;
+  i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  &--en_vivo  { color: var(--bx-green-bright); background: var(--bx-green-soft); }
+  &--demorada { color: var(--bx-warning); background: var(--bx-warning-soft); }
+  &--perdida  { color: var(--bx-danger); background: rgba(255, 82, 82, 0.14); }
+}
+
+.sheet-route {
+  flex-wrap: wrap;
+  // El chip ya dice el nombre de la ruta; al lado, hacia dónde va.
+  .bs-hacia {
+    display: inline-flex; align-items: center; gap: 4px;
+    flex: 1; min-width: 0; justify-content: flex-end;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--bx-text); font-weight: 700;
+    ion-icon { font-size: 14px; color: var(--bx-text-3); }
+  }
+}
+
+.bs-llegada {
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--bx-green-soft);
+  border: 1px solid rgba(0, 200, 83, 0.3);
+
+  .bs-label { font-size: 12px; font-weight: 700; color: var(--bx-green-bright); }
+  strong {
+    font-family: var(--bx-font-mono);
+    font-size: 30px; line-height: 1.1; font-weight: 700; color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  small { font-size: 12px; color: var(--bx-text-2); line-height: 1.4; }
+
+  // Sin señal en vivo el número deja de ser protagonista: es una estimación.
+  &--duda {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--bx-line-strong);
+    .bs-label { color: var(--bx-text-3); }
+    strong { font-size: 24px; color: var(--bx-text); }
+  }
+}
+
+.sg-cell--ancha { flex: 2; min-width: 0; strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
+.sg-sub { font-size: 12px; color: var(--bx-text-3); }
+
+.sheet-updated {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 11px;
+  font-size: 12px;
+  color: var(--bx-text-3);
+  font-weight: 500;
+
+  .pulse-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--bx-green-bright);
+    animation: live-pulse 1.8s ease-out infinite;
+  }
+  &--demorada .pulse-dot { background: var(--bx-warning); animation: none; }
+  &--perdida { color: var(--bx-danger); .pulse-dot { background: var(--bx-danger); animation: none; } }
+}

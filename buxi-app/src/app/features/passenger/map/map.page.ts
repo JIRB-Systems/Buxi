@@ -17,6 +17,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import {
   TrazadoRuta, LatLng, Sentido, Llegada, estimarLlegada, sentidoSegunRumbo, suavizarVelocidad,
+  CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
 import { createMap, estiloCargo, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
@@ -120,7 +121,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -1132,20 +1133,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }
   }
 
-  // Distancia del bus al usuario, no a la parada: es la que el pasajero mira
-  // para saber si le da tiempo de llegar.
-  get selectedBusDistanceKm(): number | null {
-    if (!this.selectedBus || this.userLat === 0) return null;
-    return this.featuresService.distanceKm(
-      this.selectedBus.latitud, this.selectedBus.longitud, this.userLat, this.userLng,
-    );
-  }
-
   // Cuánto le falta al bus elegido para llegar a la parada del pasajero: la
-  // más cercana a él sobre la ruta de ESE bus. Antes era el tiempo en línea
-  // recta hasta donde está parado el pasajero, como si el bus fuera a
-  // buscarlo a la puerta.
-  get selectedBusLlegada(): string | null {
+  // más cercana a él sobre la ruta de ESE bus. Pasa por mostrarLlegada: con
+  // el GPS viejo nunca se muestra un número como si fuera exacto.
+  get selectedBusLlegada(): LlegadaMostrada | null {
     const loc = this.selectedBus;
     if (!loc || this.userLat === 0) return null;
     const rutaId = this.rutaDelBus(loc.bus_id);
@@ -1155,22 +1146,67 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const cercana = this.featuresService.findNearestStop(this.userLat, this.userLng, paradas);
     if (!cercana) return null;
     const r = this.llegadaDe(loc, cercana.parada);
-    if (!r) return null;
-    switch (r.llegada.estado) {
-      case 'llegando': return 'Llegando';
-      case 'viene':    return `${r.llegada.minutos} min`;
-      case 'ya_paso':  return 'Ya pasó';
-      default:         return null;
+    return r ? mostrarLlegada(r.llegada, this.selectedBusEdadS) : null;
+  }
+
+  // Segundos desde el último punto GPS del bus elegido.
+  get selectedBusEdadS(): number {
+    if (!this.selectedBus) return Infinity;
+    return Math.max(0, (this.nowTs - Date.parse(this.selectedBus.timestamp)) / 1000);
+  }
+
+  get selectedBusSenal(): CalidadSenal {
+    return calidadSenal(this.selectedBusEdadS);
+  }
+
+  get selectedBusSenalTexto(): string {
+    switch (this.selectedBusSenal) {
+      case 'en_vivo':  return 'En vivo';
+      case 'demorada': return 'Señal demorada';
+      default:         return 'Sin señal';
     }
+  }
+
+  get selectedBusUnidad(): string | null {
+    const n = (this.selectedBus?.bus as any)?.numero_unidad;
+    return n ? `Unidad ${n}` : null;
+  }
+
+  // "Hacia Cartago": el extremo de la ruta al que avanza, según su marcha.
+  get selectedBusHacia(): string | null {
+    const loc = this.selectedBus;
+    if (!loc) return null;
+    const rutaId = this.rutaDelBus(loc.bus_id);
+    const ruta = this.allRutas.find(r => r.id === rutaId) ?? (this.activeRuta?.id === rutaId ? this.activeRuta : null);
+    if (!ruta) return null;
+    if (!this.busMarcha.has(loc.bus_id)) this.actualizarMarcha(loc);
+    const sentido = this.busMarcha.get(loc.bus_id)?.sentido;
+    if (!sentido) return null;
+    return (sentido === -1 ? ruta.origen : ruta.destino) || null;
+  }
+
+  // La próxima parada que el bus tiene adelante y a cuánto está. Con la señal
+  // perdida no se dice: el bus pudo haberla pasado hace rato.
+  get selectedBusProximaParada(): { nombre: string; distancia: string } | null {
+    const loc = this.selectedBus;
+    if (!loc || this.selectedBusSenal === 'perdida') return null;
+    const rutaId = this.rutaDelBus(loc.bus_id);
+    const t = rutaId ? this.trazadoDe(rutaId) : null;
+    if (!t) return null;
+    if (!this.busMarcha.has(loc.bus_id)) this.actualizarMarcha(loc);
+    const m = this.busMarcha.get(loc.bus_id);
+    if (!m) return null;
+    const p = proximaParada(m.km, m.sentido, t.kmParadas);
+    if (!p) return null;
+    const paradas = this.paradasPorRuta.get(rutaId!) ?? (this.activeRuta?.id === rutaId ? this.activeParadas : []);
+    const parada = paradas.find(x => x.id === p.id);
+    return parada ? { nombre: parada.nombre, distancia: this.metrosTexto(p.distanciaKm * 1000) } : null;
   }
 
   get selectedBusAgeText(): string {
     if (!this.selectedBus) return '';
-    const seconds = Math.max(0, Math.floor((this.nowTs - Date.parse(this.selectedBus.timestamp)) / 1000));
-    if (seconds < 60) return `Hace ${seconds} segundo${seconds === 1 ? '' : 's'}`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `Hace ${minutes} minuto${minutes === 1 ? '' : 's'}`;
-    return `Hace ${Math.floor(minutes / 60)} h`;
+    const t = haceTexto(this.selectedBusEdadS);
+    return t.charAt(0).toUpperCase() + t.slice(1);
   }
 
   get followingBus(): boolean {
@@ -1183,15 +1219,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   get selectedBusPlaca(): string {
     return (this.selectedBus?.bus as any)?.placa || 'Bus';
-  }
-
-  get selectedBusSignalText(): string | null {
-    if (!this.selectedBus) return null;
-    const lastSeen = this.busLastSeen.get(this.selectedBus.bus_id);
-    if (!lastSeen) return null;
-    const minutes = Math.floor((Date.now() - lastSeen) / 60000);
-    if (minutes < 1) return null;
-    return `Sin señal hace ${minutes} min`;
   }
 
   get selectedBusRuta(): string {

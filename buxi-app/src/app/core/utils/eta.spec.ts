@@ -1,6 +1,6 @@
 import {
   TrazadoRuta, LatLng, distanciaKm, rumboEntre, sentidoSegunRumbo, suavizarVelocidad, estimarLlegada,
-  FUERA_DE_RUTA_KM, VEL_URBANA_KMH,
+  FUERA_DE_RUTA_KM, VEL_URBANA_KMH, calidadSenal, mostrarLlegada, proximaParada, haceTexto,
 } from './eta';
 
 // Un recorrido en "L": 2 km hacia el este y después 1 km hacia el norte.
@@ -147,5 +147,62 @@ describe('eta: estimarLlegada', () => {
     const l = estimarLlegada({ ...base, kmBus: 4.9, velocidadKmh: 60 });
     expect(l.estado).toBe('viene');
     expect(l.minutos).toBe(1);
+  });
+});
+
+describe('eta: frescura del GPS', () => {
+  const viene = { estado: 'viene' as const, minutos: 6, distanciaKm: 2 };
+
+  it('clasifica la señal por antigüedad', () => {
+    expect(calidadSenal(10)).toBe('en_vivo');
+    expect(calidadSenal(45)).toBe('demorada');
+    expect(calidadSenal(179)).toBe('demorada');
+    expect(calidadSenal(180)).toBe('perdida');
+    expect(calidadSenal(NaN)).toBe('perdida');
+  });
+
+  it('con GPS en vivo muestra el número solo', () => {
+    expect(mostrarLlegada(viene, 20)).toEqual({ principal: '6 min', detalle: null, confiable: true });
+  });
+
+  it('con GPS demorado nunca muestra un número solo: da un rango y lo aclara', () => {
+    const r = mostrarLlegada(viene, 130)!;
+    expect(r.principal).toBe('4–6 min');
+    expect(r.confiable).toBeFalse();
+    expect(r.detalle).toContain('hace 2 min');
+  });
+
+  it('con GPS perdido no muestra ningún tiempo', () => {
+    const r = mostrarLlegada(viene, 300)!;
+    expect(r.principal).toBe('Sin dato');
+    expect(r.principal).not.toMatch(/\d/);
+    expect(r.confiable).toBeFalse();
+  });
+
+  it('"llegando" con señal demorada pasa a "Por llegar"', () => {
+    expect(mostrarLlegada({ estado: 'llegando', minutos: 0, distanciaKm: 0 }, 60)!.principal).toBe('Por llegar');
+  });
+
+  it('texto de antigüedad', () => {
+    expect(haceTexto(12)).toBe('hace 12 s');
+    expect(haceTexto(185)).toBe('hace 3 min');
+    expect(haceTexto(7300)).toBe('hace 2 h');
+  });
+});
+
+describe('eta: próxima parada', () => {
+  const paradas = new Map([['a', 0], ['b', 1], ['c', 2.5]]);
+
+  it('es la primera que el bus tiene adelante en su sentido', () => {
+    expect(proximaParada(0.4, 1, paradas)).toEqual({ id: 'b', distanciaKm: 0.6 });
+    expect(proximaParada(2, -1, paradas)!.id).toBe('b');
+  });
+
+  it('si está parado en una, la próxima es la siguiente', () => {
+    expect(proximaParada(1.01, 1, paradas)!.id).toBe('c');
+  });
+
+  it('al final del recorrido no hay próxima', () => {
+    expect(proximaParada(2.6, 1, paradas)).toBeNull();
   });
 });

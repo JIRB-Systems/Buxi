@@ -470,17 +470,18 @@
   </div>
 
   <!-- ====== FICHA DEL BUS ====== -->
-  <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus">
+  <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus" role="dialog" aria-label="Detalle del bus">
     <div class="sheet-bar"></div>
 
     <div class="sheet-row">
       <bx-placa [placa]="selectedBusPlaca" [grande]="true"></bx-placa>
       <div class="sheet-info">
-        <span class="bx-estado"
-              [class.bx-estado--ruta]="selectedBusEstadoVivo === 'en_ruta'"
-              [class.bx-estado--detenido]="selectedBusEstadoVivo === 'en_parada'"
-              [class.bx-estado--alerta]="selectedBusEstadoVivo === 'retrasado'">{{ selectedBusEstado }}</span>
-        <span>{{ selectedBusEmpresa }}</span>
+        <!-- Estado de la conexión: con señal en vivo dice qué hace el bus;
+             si no, que la señal está demorada o perdida. -->
+        <span class="bs-senal" [ngClass]="'bs-senal--' + selectedBusSenal">
+          <i aria-hidden="true"></i>{{ selectedBusSenal === 'en_vivo' ? selectedBusEstado : selectedBusSenalTexto }}
+        </span>
+        <span>{{ selectedBusUnidad ? selectedBusUnidad + ' · ' : '' }}{{ selectedBusEmpresa }}</span>
       </div>
       <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono sheet-close" (click)="closeBusInfo()" aria-label="Cerrar la ficha del bus">
         <ion-icon name="close" aria-hidden="true"></ion-icon>
@@ -489,31 +490,35 @@
 
     <div class="sheet-route">
       <bx-ruta [nombre]="selectedBusRuta" [color]="selectedBus.bus?.ruta?.color"></bx-ruta>
-      <span>{{ selectedBusRuta }}</span>
+      <span class="bs-hacia" *ngIf="selectedBusHacia as hacia">
+        <ion-icon name="arrow-forward" aria-hidden="true"></ion-icon>Hacia {{ hacia }}
+      </span>
     </div>
 
-    <div class="sheet-grid">
+    <!-- Lo que más importa, grande. Con el GPS viejo nunca va un número solo:
+         un rango con la aclaración, o "Sin dato" (ver mostrarLlegada). -->
+    <div class="bs-llegada" *ngIf="selectedBusLlegada as llegada" [class.bs-llegada--duda]="!llegada.confiable" aria-live="polite">
+      <span class="bs-label">Llega a tu parada</span>
+      <strong>{{ llegada.principal }}</strong>
+      <small *ngIf="llegada.detalle">{{ llegada.detalle }}</small>
+    </div>
+
+    <!-- Sin señal no hay próxima parada ni velocidad que valgan. -->
+    <div class="sheet-grid" *ngIf="selectedBusSenal !== 'perdida'">
+      <div class="sg-cell sg-cell--ancha" *ngIf="selectedBusProximaParada as prox">
+        <span class="sg-label">Próxima parada</span>
+        <strong>{{ prox.nombre }}</strong>
+        <span class="sg-sub">a {{ prox.distancia }}</span>
+      </div>
       <div class="sg-cell">
         <span class="sg-label">Velocidad</span>
         <strong>{{ selectedBus.velocidad | number:'1.0-0' }} km/h</strong>
       </div>
-      <div class="sg-cell" *ngIf="selectedBusDistanceKm !== null">
-        <span class="sg-label">Distancia</span>
-        <strong>
-          {{ selectedBusDistanceKm! < 1
-              ? (selectedBusDistanceKm! * 1000 | number:'1.0-0') + ' m'
-              : (selectedBusDistanceKm! | number:'1.1-1') + ' km' }}
-        </strong>
-      </div>
-      <div class="sg-cell" *ngIf="selectedBusLlegada as llegada">
-        <span class="sg-label">A tu parada</span>
-        <strong [class.sg-eta]="llegada !== 'Ya pasó'">{{ llegada }}</strong>
-      </div>
     </div>
 
-    <div class="sheet-updated">
-      <span class="pulse-dot" [class.stale]="!!selectedBusSignalText"></span>
-      {{ selectedBusSignalText || selectedBusAgeText }}
+    <div class="sheet-updated" [ngClass]="'sheet-updated--' + selectedBusSenal">
+      <span class="pulse-dot" aria-hidden="true"></span>
+      Último GPS {{ selectedBusAgeText | lowercase }}
     </div>
 
     <button class="bx-btn bx-btn--lg bx-btn--bloque follow-btn" [class.bx-btn--pri]="!followingBus" [class.bx-btn--sec]="followingBus" (click)="toggleFollow()">
