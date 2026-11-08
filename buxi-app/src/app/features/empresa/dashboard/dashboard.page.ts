@@ -798,6 +798,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     return { texto: `${pct > 0 ? '+' : '−'}${Math.abs(pct)} % vs. ${ref}`, tono: (pct > 0) === subirEsBueno ? 'bien' : 'mal' };
   }
 
+  numInf(n: number): string { return this.num(Number(n) || 0); }
+
   private num(n: number): string {
     return n < 10 && n % 1 !== 0 ? n.toFixed(1).replace('.', ',') : Math.round(n).toLocaleString('es-CR');
   }

@@ -197,4 +197,4 @@ $serie-2: #d95926;
 
 // Las fechas de los extremos no se cortan contra el borde.
 .inf-col:first-child .inf-x { text-align: left; }
-.inf-col:last-child .inf-x { text-align: right; overflow: visible; direction: rtl; }
+.inf-col:last-child .inf-x { display: flex; justify-content: flex-end; overflow: visible; }

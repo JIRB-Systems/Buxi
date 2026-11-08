@@ -408,7 +408,7 @@
                   <bx-placa [placa]="b.placa"></bx-placa>
                   <div class="fm-ficha-tit">
                     <span class="bx-estado" [ngClass]="estadoClase(b)">{{ estadoTexto(b) }}<ng-container *ngIf="velocidadDe(b) !== null"> · <span class="bx-mono">{{ velocidadDe(b) }} km/h</span></ng-container></span>
-                    <small>{{ senales[b.id] ? 'Último GPS hace ' + senalDe(b) : 'Nunca transmitió' }}</small>
+                    <small>{{ senales[b.id] ? 'Último GPS hace ' + senalDe(b) : 'Sin GPS en 14 días' }}</small>
                   </div>
                   <button type="button" class="fm-cerrar" (click)="cerrarFicha()" aria-label="Cerrar el detalle">
                     <ion-icon name="close" aria-hidden="true"></ion-icon>
@@ -556,7 +556,7 @@
                       <span class="bx-mono" [class.vieja]="categoriaBus(b) === 'sin_senal'">{{ u.hace }}</span>
                       <span class="sub bx-mono">{{ u.cuando }}</span>
                     </div>
-                    <ng-template #nunca><span class="sub">Nunca transmitió</span></ng-template>
+                    <ng-template #nunca><span class="sub">Sin GPS en 14 días</span></ng-template>
                   </td>
                   <td class="col-acc">
                     <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm" [attr.aria-label]="'Acciones de ' + b.placa" [title]="'Acciones de ' + b.placa" (click)="accionesBus(b, $event)">
@@ -787,7 +787,7 @@
                         <td><bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta></td>
                         <td><div class="inf-barra-fila"><span class="inf-bar" *ngIf="r.completados" [style.width.%]="r.ancho"></span><span class="bx-mono">{{ r.completados }}</span></div></td>
                         <td class="num bx-mono" [class.alto]="r.pctCancel >= 15">{{ r.cancelados }}<small *ngIf="r.cancelados"> · {{ r.pctCancel }} %</small></td>
-                        <td class="num bx-mono">{{ r.horas }}</td>
+                        <td class="num bx-mono">{{ numInf(r.horas) }}</td>
                         <td class="num bx-mono">{{ r.puntual === null ? '—' : r.puntual + ' %' }}</td>
                       </tr>
                     </tbody>
@@ -815,8 +815,8 @@
                         <td>{{ c.nombre }}</td>
                         <td><div class="inf-barra-fila"><span class="inf-bar" *ngIf="c.completados" [style.width.%]="c.ancho"></span><span class="bx-mono">{{ c.completados }}</span></div></td>
                         <td class="num bx-mono" [class.alto]="c.pctCancel >= 15">{{ c.cancelados }}<small *ngIf="c.cancelados"> · {{ c.pctCancel }} %</small></td>
-                        <td class="num bx-mono">{{ c.horas }}</td>
-                        <td class="num bx-mono">{{ c.km }}</td>
+                        <td class="num bx-mono">{{ numInf(c.horas) }}</td>
+                        <td class="num bx-mono">{{ numInf(c.km) }}</td>
                         <td class="num bx-mono">{{ c.puntual === null ? '—' : c.puntual + ' %' }}</td>
                       </tr>
                     </tbody>

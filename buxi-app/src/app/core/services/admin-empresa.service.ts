@@ -381,7 +381,9 @@ export class AdminEmpresaService {
   async getUltimasSenales(busIds: string[]): Promise<BusLocation[]> {
     if (!busIds.length) return [];
     const { data, error } = await this.supabase
-      .rpc('latest_bus_locations')
+      // 14 días (lo que guarda la base): por defecto la función mira solo los
+      // últimos 15 minutos, y un bus que transmitió ayer figuraba como que nunca.
+      .rpc('latest_bus_locations', { p_max_age_minutes: 14 * 24 * 60 })
       .select('bus_id, latitud, longitud, velocidad, timestamp')
       .in('bus_id', busIds);
     if (error) throw error;
