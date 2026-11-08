@@ -2000,7 +2000,19 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   async assignBusChofer(bus: Bus) {
     const inputs = this.choferes.map(c => ({ type: 'radio' as const, label: c.nombre_completo, value: c.id, checked: bus.chofer_id === c.id }));
     inputs.unshift({ type: 'radio' as const, label: 'Sin chofer', value: '', checked: !bus.chofer_id });
-    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert', header: `Chofer de ${bus.placa}`, inputs, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Asignar', handler: async (v) => { await this.admin.updateBus(bus.id, { chofer_id: v || null }); await this.loadData(); } }] });
+    const alert = await this.alertCtrl.create({ cssClass: 'buxi-alert', header: `Chofer de ${bus.placa}`, inputs, buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Asignar', handler: async (v) => {
+      // La base valida que el chofer sea de esta empresa y, si manejaba otro
+      // bus, lo saca de ese. Si rechaza, se dice por qué en vez de no hacer nada.
+      try {
+        await this.admin.updateBus(bus.id, { chofer_id: v || null });
+        const otro = v ? this.buses.find(b => b.id !== bus.id && b.chofer_id === v) : null;
+        if (otro) this.showToast(`Listo. Ese chofer dejó de manejar ${otro.placa}`);
+      } catch (e: any) {
+        logError('asignar chofer a un bus', e);
+        this.showToast(e?.message || 'No se pudo asignar el chofer', 'danger');
+      }
+      await this.loadData();
+    } }] });
     await alert.present();
   }
 
