@@ -125,19 +125,6 @@
     .lp-trip { font-size: 12px; color: var(--bx-text-2); }
     .lp-empresa { font-size: 11px; color: var(--bx-text-3); font-weight: 600; }
   }
-
-  // La estrella quita un favorito (y en empresas, deja de seguirla): el área
-  // de toque se agranda con padding y se compensa con margen, para llegar a
-  // los 44px de dedo sin mover nada de sitio.
-  .lp-fav {
-    font-size: 20px; color: var(--bx-text-3); flex-shrink: 0;
-    box-sizing: content-box;
-    padding: 12px;
-    margin: -12px -8px -12px -4px;
-    transition: color 0.16s ease, transform 0.16s ease;
-    &.on { color: var(--bx-warning); }
-    &:active { transform: scale(0.85); }
-  }
 }
 
 // Tarjeta patrocinada: mismo alto y tipografía que una fila de ruta, para
@@ -248,18 +235,6 @@
 
   img { width: 100%; height: 100%; object-fit: cover; }
   ion-icon { font-size: 18px; color: var(--bx-text-3); }
-}
-
-// ---- ESTRELLA DE SEGUIR EMPRESA (barra lateral) ----
-// Vive acá y no en map.page.scss junto al resto de .empresa-row porque esa
-// hoja está a un pelo del presupuesto de 26kb por componente. Las tres hojas
-// se cargan juntas, así que para el navegador da igual.
-.empresa-fav {
-  font-size: 20px; color: var(--bx-text-3); flex-shrink: 0;
-  padding: 4px; margin-left: 2px;
-  transition: color 0.16s ease, transform 0.16s ease;
-  &.on { color: var(--bx-warning); }
-  &:active { transform: scale(0.85); }
 }
 
 // ---- GLOBITO DE LA CAMPANA ----
@@ -583,19 +558,6 @@
   display: flex; gap: 8px; margin-top: 14px;
 }
 
-
-.pp-danger {
-  display: flex; align-items: center; gap: 13px;
-  padding: 13px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background 0.16s ease;
-
-  &:active { background: rgba(255, 82, 82, 0.1); }
-
-  ion-icon { font-size: 20px; color: var(--bx-danger); flex-shrink: 0; }
-  span { flex: 1; font-size: 14px; color: var(--bx-danger); font-weight: 500; }
-}
 
 .pp-logout {
   display: flex;

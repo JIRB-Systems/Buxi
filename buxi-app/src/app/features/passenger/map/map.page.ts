@@ -124,7 +124,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss', './map.cuenta.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -263,6 +263,62 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     );
   }
 
+  // ---- RUTAS Y EMPRESAS: pestañas y filtros ----
+  // El panel "Rutas" muestra también las empresas: antes solo se llegaba a
+  // ellas por el tirador lateral del mapa, que en el teléfono casi no se ve.
+  rutasTab: 'rutas' | 'empresas' = 'rutas';
+  filtroRutas: 'todas' | 'cerca' | 'vivo' = 'todas';
+
+  // Buses con GPS al día de cada ruta, ahora.
+  private vivosPorRuta(): Map<string, number> {
+    const ahora = Date.now();
+    const m = new Map<string, number>();
+    for (const loc of this.busLocationsMap.values()) {
+      const r = this.busRuta.get(loc.bus_id);
+      if (!r || !this.gpsEnVivo(loc, ahora)) continue;
+      m.set(r, (m.get(r) ?? 0) + 1);
+    }
+    return m;
+  }
+
+  // Rutas con alguna parada a distancia de caminar. Se guarda por posición:
+  // el getter corre en cada detección de cambios y las paradas son cientos.
+  private cercaCache: { clave: string; ids: Set<string> } | null = null;
+  private rutasCercaIds(): Set<string> {
+    const clave = `${this.userLat.toFixed(3)},${this.userLng.toFixed(3)},${this.allParadas.length}`;
+    if (this.cercaCache?.clave === clave) return this.cercaCache.ids;
+    const ids = new Set<string>();
+    if (this.tieneUbicacion) {
+      for (const p of this.allParadas) {
+        if (ids.has(p.ruta_id)) continue;
+        if (this.featuresService.distanceKm(this.userLat, this.userLng, p.latitud, p.longitud) <= this.CERCANA_MAX_KM) ids.add(p.ruta_id);
+      }
+    }
+    this.cercaCache = { clave, ids };
+    return ids;
+  }
+
+  get panelFilas(): { ruta: Ruta; vivos: number }[] {
+    const vivos = this.vivosPorRuta();
+    let rutas = this.panelRutas;
+    if (this.activePanel === 'rutas' && this.filtroRutas === 'vivo') rutas = rutas.filter(r => (vivos.get(r.id) ?? 0) > 0);
+    if (this.activePanel === 'rutas' && this.filtroRutas === 'cerca') {
+      const ids = this.rutasCercaIds();
+      rutas = rutas.filter(r => ids.has(r.id));
+    }
+    return rutas.map(ruta => ({ ruta, vivos: vivos.get(ruta.id) ?? 0 }));
+  }
+
+  trackFila = (_: number, f: { ruta: Ruta }) => f.ruta.id;
+
+  // Todas las empresas, las más cercanas primero, pasadas por el buscador.
+  get panelEmpresas(): { empresa: EmpresaListItem; distanceKm: number | null }[] {
+    const q = this.panelSearch.trim().toLowerCase();
+    const base = this.empresasTodas.length ? this.empresasTodas : this.empresas.map(e => ({ empresa: e, distanceKm: null }));
+    if (!q) return base;
+    return base.filter(x => `${x.empresa.nombre} ${x.empresa.rutaResumen}`.toLowerCase().includes(q));
+  }
+
   // Empresas de la pestaña "Empresas" de favoritos: solo las que el pasajero
   // sigue, pasadas por el mismo buscador del panel.
   get panelEmpresasFavoritas(): EmpresaListItem[] {
@@ -358,6 +414,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // un array nuevo, obligando a *ngFor a reconstruir la lista entera cada vez.
   // El panel quedaba pesado y los toques se perdian.
   empresasCercanas: { empresa: EmpresaListItem; distanceKm: number | null }[] = [];
+  // Todas, ordenadas por distancia (las de arriba son solo las de la zona).
+  empresasTodas: { empresa: EmpresaListItem; distanceKm: number | null }[] = [];
   hayEmpresasCerca = false;
 
   // Identidad estable para *ngFor: sin esto Angular rehace cada fila aunque
@@ -367,6 +425,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private recomputeEmpresasCercanas() {
     if (this.userLat === 0 || this.allParadas.length === 0) {
       this.empresasCercanas = this.empresas.map(e => ({ empresa: e, distanceKm: null }));
+      this.empresasTodas = this.empresasCercanas;
       this.hayEmpresasCerca = false;
       return;
     }
@@ -391,6 +450,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // Si no hay ninguna en el radio se muestran todas: una lista vacia no le
     // sirve a nadie, y en zona rural el bus mas cercano puede estar lejos.
     this.empresasCercanas = cercanas.length ? cercanas : conDistancia;
+    this.empresasTodas = conDistancia;
   }
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
 
@@ -411,6 +471,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   empresaDetailOpen = false;
   empresaDetail: EmpresaListItem | null = null;
   empresaDetailRutas: (Ruta & { proximaSalidaTexto: string | null })[] = [];
+  empresaDetailBusqueda = '';
+
+  // Con muchas rutas (La Reina del Campo tiene decenas) se busca adentro.
+  get empresaDetailFiltradas() {
+    const q = this.empresaDetailBusqueda.trim().toLowerCase();
+    if (!q) return this.empresaDetailRutas;
+    return this.empresaDetailRutas.filter(r => `${r.nombre} ${r.origen} ${r.destino}`.toLowerCase().includes(q));
+  }
+
+  get empresaDetailVivos(): number {
+    const vivos = this.vivosPorRuta();
+    return this.empresaDetailRutas.reduce((n, r) => n + (vivos.get(r.id) ?? 0), 0);
+  }
 
   async openEmpresaDetail(empresa: EmpresaListItem) {
     const rutas = this.allRutas.filter(r => r.empresa_id === empresa.id);
@@ -420,6 +493,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }
 
     this.empresaDetail = empresa;
+    this.empresaDetailBusqueda = '';
     this.empresaDetailRutas = rutas.map(r => ({ ...r, proximaSalidaTexto: null }));
     this.empresaDetailOpen = true;
 
@@ -2046,9 +2120,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     });
   }
 
-  openFavoritosFromProfile() {
+  openFavoritosFromProfile(tab: 'rutas' | 'empresas' = 'rutas') {
     this.profilePanelOpen = false;
+    this.favoritosTab = tab;
     this.openPanel('favoritos');
+  }
+
+  // Debajo de "Editar perfil": lo que hay cargado, para no tener que entrar a ver.
+  get perfilResumen(): string {
+    const p = this.profile;
+    const partes = [p?.telefono, p?.provincia].filter(Boolean);
+    return partes.length ? partes.join(' · ') : 'Nombre, teléfono y provincia';
   }
 
   async confirmLogout() {

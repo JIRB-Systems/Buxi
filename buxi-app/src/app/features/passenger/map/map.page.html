@@ -64,15 +64,9 @@
           </span>
           <span class="empresa-freq" *ngIf="x.empresa.frecuencia">cada {{ x.empresa.frecuencia }} min</span>
         </div>
-        <!-- Seguir la empresa = ver sus buses y recibir sus avisos. El title lo
-             dice porque la estrella, sola, se lee como "guardar" y acá hace
-             bastante más. -->
-        <ion-icon
-          class="empresa-fav"
-          [class.on]="isFavoritoEmpresa(x.empresa.id)"
-          [name]="isFavoritoEmpresa(x.empresa.id) ? 'star' : 'star-outline'"
-          [title]="isFavoritoEmpresa(x.empresa.id) ? 'Dejar de seguir: ya no vas a ver sus buses ni recibir sus avisos' : 'Seguir para ver sus buses y recibir sus avisos'"
-          (click)="toggleFavoritoEmpresa(x.empresa, $event)"></ion-icon>
+        <!-- Seguir una empresa no es lo mismo que guardar una ruta (estrella):
+             es recibir sus avisos. Por eso es un botón con palabra. -->
+        <ng-container *ngTemplateOutlet="tplSeguir; context: { $implicit: x.empresa }"></ng-container>
       </div>
       <div class="ds-empty" *ngIf="empresas.length === 0">Sin empresas disponibles</div>
       <div class="ds-link" (click)="openPanel('rutas')">Ver todas las rutas <ion-icon name="chevron-forward"></ion-icon></div>
@@ -631,19 +625,26 @@
        no alcanza para mostrarlos todos con su horario. -->
   <section class="empresa-detail-screen" [class.open]="empresaDetailOpen" *ngIf="empresaDetail">
     <div class="ed-topbar">
-      <ion-icon name="chevron-back" class="ed-back" (click)="closeEmpresaDetail()"></ion-icon>
+      <button type="button" class="ed-back-btn" (click)="closeEmpresaDetail()" aria-label="Volver"><ion-icon name="chevron-back" class="ed-back" aria-hidden="true"></ion-icon></button>
       <div class="ed-logo">
         <img *ngIf="empresaDetail.logo_url" [src]="empresaDetail.logo_url" alt="" />
         <ion-icon *ngIf="!empresaDetail.logo_url" name="business"></ion-icon>
       </div>
       <div class="ed-info">
         <strong>{{ empresaDetail.nombre }}</strong>
-        <span>{{ empresaDetailRutas.length }} {{ empresaDetailRutas.length === 1 ? 'ruta' : 'rutas' }}</span>
+        <span>{{ empresaDetailRutas.length }} {{ empresaDetailRutas.length === 1 ? 'ruta' : 'rutas' }}<ng-container *ngIf="empresaDetailVivos"> · <b class="ed-vivos">{{ empresaDetailVivos }} {{ empresaDetailVivos === 1 ? 'bus' : 'buses' }} en vivo</b></ng-container></span>
       </div>
+      <ng-container *ngTemplateOutlet="tplSeguir; context: { $implicit: empresaDetail }"></ng-container>
+    </div>
+
+    <div class="lp-search ed-buscar" *ngIf="empresaDetailRutas.length > 6">
+      <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
+      <input type="text" placeholder="Buscar destino o ruta" aria-label="Buscar en las rutas de la empresa"
+             [value]="empresaDetailBusqueda" (input)="empresaDetailBusqueda = $any($event.target).value" />
     </div>
 
     <div class="ed-list">
-      <div class="ed-ruta-row" *ngFor="let r of empresaDetailRutas" (click)="selectRutaFromEmpresaDetail(r)">
+      <div class="ed-ruta-row" *ngFor="let r of empresaDetailFiltradas" (click)="selectRutaFromEmpresaDetail(r)">
         <div class="ed-ruta-info">
           <bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta>
           <span class="ed-ruta-destino">a {{ lugarCorto(r.destino) }}{{ r.precio ? ' · ₡' + (r.precio | number:'1.0-0') : '' }}</span>
@@ -654,6 +655,7 @@
         <ion-icon name="chevron-forward" class="ed-chevron"></ion-icon>
       </div>
       <div class="ed-empty" *ngIf="!empresaDetailRutas.length">Sin rutas activas</div>
+      <div class="ed-empty" *ngIf="empresaDetailRutas.length && !empresaDetailFiltradas.length">Ninguna ruta con ese nombre</div>
     </div>
 
     <button class="bx-btn bx-btn--sec bx-btn--bloque ed-ver-todas" (click)="verTodasEnMapa()">
@@ -860,24 +862,45 @@
       <ion-spinner *ngIf="placeSearching" name="crescent" class="lp-spin"></ion-spinner>
     </div>
 
-    <!-- Dos pestañas: rutas guardadas y empresas seguidas. Solo en favoritos:
-         en el panel de rutas no hay nada que separar. -->
-    <div class="lp-tabs" *ngIf="activePanel === 'favoritos' && !esInvitado">
-      <button type="button" [class.on]="favoritosTab === 'rutas'" (click)="favoritosTab = 'rutas'">
-        <ion-icon name="git-branch-outline"></ion-icon> Rutas
+    <!-- Rutas: todas las rutas, o las empresas. -->
+    <div class="lp-tabs" *ngIf="activePanel === 'rutas'" role="tablist">
+      <button type="button" role="tab" [attr.aria-selected]="rutasTab === 'rutas'" [class.on]="rutasTab === 'rutas'" (click)="rutasTab = 'rutas'">
+        <ion-icon name="git-branch-outline" aria-hidden="true"></ion-icon> Rutas
       </button>
-      <button type="button" [class.on]="favoritosTab === 'empresas'" (click)="favoritosTab = 'empresas'">
-        <ion-icon name="business-outline"></ion-icon> Empresas
+      <button type="button" role="tab" [attr.aria-selected]="rutasTab === 'empresas'" [class.on]="rutasTab === 'empresas'" (click)="rutasTab = 'empresas'">
+        <ion-icon name="business-outline" aria-hidden="true"></ion-icon> Empresas
+      </button>
+    </div>
+
+    <!-- Favoritos son dos cosas distintas: rutas guardadas (un atajo) y
+         empresas seguidas (sus avisos). -->
+    <div class="lp-tabs" *ngIf="activePanel === 'favoritos' && !esInvitado" role="tablist">
+      <button type="button" role="tab" [attr.aria-selected]="favoritosTab === 'rutas'" [class.on]="favoritosTab === 'rutas'" (click)="favoritosTab = 'rutas'">
+        <ion-icon name="star-outline" aria-hidden="true"></ion-icon> Rutas guardadas
+      </button>
+      <button type="button" role="tab" [attr.aria-selected]="favoritosTab === 'empresas'" [class.on]="favoritosTab === 'empresas'" (click)="favoritosTab = 'empresas'">
+        <ion-icon name="notifications-outline" aria-hidden="true"></ion-icon> Empresas que seguís
       </button>
     </div>
 
     <div class="lp-search" *ngIf="activePanel === 'rutas' || (activePanel === 'favoritos' && !esInvitado)">
-      <ion-icon name="search-outline"></ion-icon>
+      <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
       <input
         type="text"
-        placeholder="Buscar ruta o empresa"
+        [placeholder]="(activePanel === 'rutas' && rutasTab === 'empresas') || (activePanel === 'favoritos' && favoritosTab === 'empresas') ? 'Buscar empresa' : 'Buscar ruta, destino o empresa'"
+        [attr.aria-label]="panelTitle + ': buscar'"
         [value]="panelSearch"
         (input)="onPanelSearch($event)" />
+    </div>
+
+    <div class="lp-filtros" *ngIf="activePanel === 'rutas' && rutasTab === 'rutas'" role="group" aria-label="Filtrar rutas">
+      <button type="button" [class.on]="filtroRutas === 'todas'" [attr.aria-pressed]="filtroRutas === 'todas'" (click)="filtroRutas = 'todas'">Todas</button>
+      <button type="button" [class.on]="filtroRutas === 'cerca'" [attr.aria-pressed]="filtroRutas === 'cerca'" (click)="filtroRutas = 'cerca'">
+        <ion-icon name="walk" aria-hidden="true"></ion-icon>Cerca tuyo
+      </button>
+      <button type="button" [class.on]="filtroRutas === 'vivo'" [attr.aria-pressed]="filtroRutas === 'vivo'" (click)="filtroRutas = 'vivo'">
+        <i class="live-dot" aria-hidden="true"></i>Con buses ahora
+      </button>
     </div>
 
     <div class="lp-body">
@@ -892,7 +915,7 @@
       </div>
 
       <!-- Rutas y favoritos comparten la misma lista -->
-      <ng-container *ngIf="activePanel === 'rutas' || (activePanel === 'favoritos' && favoritosTab === 'rutas' && !esInvitado)">
+      <ng-container *ngIf="(activePanel === 'rutas' && rutasTab === 'rutas') || (activePanel === 'favoritos' && favoritosTab === 'rutas' && !esInvitado)">
         <a class="lp-sponsored" *ngIf="activePanel === 'rutas' && listAd" [class]="'anim-' + listAd.animacion"
            [href]="listAd.link_url || null" target="_blank" rel="noopener">
           <span class="lp-sp-tag">Patrocinado</span>
@@ -907,29 +930,57 @@
           <ion-icon name="chevron-forward" class="lp-sp-chevron"></ion-icon>
         </a>
 
-        <div class="lp-row" *ngFor="let r of panelRutas" (click)="selectRutaFromPanel(r)">
+        <div class="lp-row" *ngFor="let f of panelFilas; trackBy: trackFila" (click)="selectRutaFromPanel(f.ruta)">
           <div class="lp-info">
-            <bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta>
-            <strong>{{ lugarCorto(r.origen) }} → {{ lugarCorto(r.destino) }}</strong>
-            <span class="lp-empresa" *ngIf="empresaNombre(r)">{{ empresaNombre(r) }}</span>
+            <bx-ruta [nombre]="f.ruta.nombre" [color]="f.ruta.color"></bx-ruta>
+            <strong>{{ lugarCorto(f.ruta.origen) }} → {{ lugarCorto(f.ruta.destino) }}</strong>
+            <span class="lp-empresa" *ngIf="empresaNombre(f.ruta)">{{ empresaNombre(f.ruta) }}<ng-container *ngIf="f.ruta.precio"> · ₡{{ f.ruta.precio | number:'1.0-0' }}</ng-container></span>
+            <span class="lp-vivos" *ngIf="f.vivos"><i class="live-dot" aria-hidden="true"></i>{{ f.vivos }} {{ f.vivos === 1 ? 'bus' : 'buses' }} en vivo</span>
           </div>
-          <ion-icon
-            class="lp-fav"
-            [class.on]="isFavorito(r.id)"
-            [name]="isFavorito(r.id) ? 'star' : 'star-outline'"
-            (click)="toggleFavorito(r, $event)"></ion-icon>
+          <!-- La estrella guarda la ruta. Seguir una empresa es otra cosa. -->
+          <button type="button" class="lp-guardar" [class.on]="isFavorito(f.ruta.id)" [attr.aria-pressed]="isFavorito(f.ruta.id)"
+                  [attr.aria-label]="isFavorito(f.ruta.id) ? 'Quitar de rutas guardadas' : 'Guardar ruta'"
+                  [title]="isFavorito(f.ruta.id) ? 'Quitar de rutas guardadas' : 'Guardar ruta'"
+                  (click)="toggleFavorito(f.ruta, $event)">
+            <ion-icon [name]="isFavorito(f.ruta.id) ? 'star' : 'star-outline'" aria-hidden="true"></ion-icon>
+          </button>
         </div>
 
         <div class="lp-empty" *ngIf="favoritosLoading">
           <ion-spinner name="dots"></ion-spinner>
         </div>
 
-        <div class="lp-empty" *ngIf="!favoritosLoading && panelRutas.length === 0">
-          <ion-icon [name]="activePanel === 'favoritos' ? 'star-outline' : 'search-outline'"></ion-icon>
-          <strong *ngIf="activePanel === 'favoritos'">Todavía no tenés favoritos</strong>
-          <strong *ngIf="activePanel === 'rutas'">Sin resultados</strong>
-          <span *ngIf="activePanel === 'favoritos'">Tocá la estrella de una ruta para guardarla acá.</span>
-          <span *ngIf="activePanel === 'rutas'">Probá con otro nombre, empresa o destino.</span>
+        <div class="lp-empty" *ngIf="!favoritosLoading && panelFilas.length === 0">
+          <ion-icon [name]="activePanel === 'favoritos' ? 'star-outline' : (filtroRutas === 'vivo' ? 'radio-outline' : (filtroRutas === 'cerca' ? 'walk' : 'search-outline'))"></ion-icon>
+          <ng-container *ngIf="activePanel === 'favoritos'">
+            <strong>{{ panelSearch ? 'Sin resultados' : 'No guardaste ninguna ruta' }}</strong>
+            <span>Tocá la estrella de una ruta y queda acá, a un toque.</span>
+          </ng-container>
+          <ng-container *ngIf="activePanel === 'rutas'">
+            <strong>{{ panelSearch ? 'Sin resultados' : (filtroRutas === 'vivo' ? 'Ninguna ruta con buses en vivo ahora' : (filtroRutas === 'cerca' ? (tieneUbicacion ? 'Ninguna ruta pasa a menos de 2 km' : 'Falta tu ubicación') : 'Sin rutas')) }}</strong>
+            <span>{{ panelSearch ? 'Probá con otro nombre, empresa o destino.' : (filtroRutas === 'cerca' && !tieneUbicacion ? 'Activá tu ubicación para ver las rutas cercanas.' : 'Probá con otro filtro.') }}</span>
+          </ng-container>
+        </div>
+      </ng-container>
+
+      <!-- Rutas > Empresas: todas, las más cercanas primero. -->
+      <ng-container *ngIf="activePanel === 'rutas' && rutasTab === 'empresas'">
+        <div class="lp-row" *ngFor="let x of panelEmpresas; trackBy: trackEmpresa" (click)="openEmpresaDetail(x.empresa)">
+          <div class="lp-empresa-logo">
+            <img *ngIf="x.empresa.logo_url" [src]="x.empresa.logo_url" alt="" />
+            <ion-icon *ngIf="!x.empresa.logo_url" name="business"></ion-icon>
+          </div>
+          <div class="lp-info">
+            <strong>{{ x.empresa.nombre }}</strong>
+            <span class="lp-trip">{{ x.empresa.rutaCount }} {{ x.empresa.rutaCount === 1 ? 'ruta' : 'rutas' }}<ng-container *ngIf="x.distanceKm !== null"> · a {{ metrosTexto(x.distanceKm * 1000) }}</ng-container></span>
+            <span class="lp-empresa">{{ x.empresa.rutaResumen }}</span>
+          </div>
+          <ng-container *ngTemplateOutlet="tplSeguir; context: { $implicit: x.empresa }"></ng-container>
+        </div>
+        <div class="lp-empty" *ngIf="panelEmpresas.length === 0">
+          <ion-icon name="business-outline"></ion-icon>
+          <strong>{{ panelSearch ? 'Sin resultados' : 'Sin empresas todavía' }}</strong>
+          <span *ngIf="panelSearch">Probá con otro nombre.</span>
         </div>
       </ng-container>
 
@@ -944,13 +995,9 @@
           <div class="lp-info">
             <strong>{{ e.nombre }}</strong>
             <span class="lp-trip">{{ e.rutaResumen }}</span>
-            <span class="lp-empresa">Ves sus buses y recibís sus avisos</span>
+            <span class="lp-empresa">Te llegan sus avisos de atrasos y desvíos</span>
           </div>
-          <ion-icon
-            class="lp-fav on"
-            name="star"
-            title="Dejar de seguir: ya no vas a ver sus buses ni recibir sus avisos"
-            (click)="toggleFavoritoEmpresa(e, $event)"></ion-icon>
+          <ng-container *ngTemplateOutlet="tplSeguir; context: { $implicit: e }"></ng-container>
         </div>
 
         <div class="lp-empty" *ngIf="favoritosLoading">
@@ -960,9 +1007,21 @@
         <div class="lp-empty" *ngIf="!favoritosLoading && panelEmpresasFavoritas.length === 0">
           <ion-icon name="business-outline"></ion-icon>
           <strong>No seguís ninguna empresa</strong>
-          <span>Tocá la estrella de una empresa en la lista de empresas: vas a ver sus buses en el mapa y te van a llegar sus avisos de atrasos, desvíos y cancelaciones.</span>
+          <span>Al seguir una empresa te llegan sus avisos de atrasos, desvíos y cancelaciones.</span>
+          <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" (click)="openPanel('rutas'); rutasTab = 'empresas'">Ver empresas</button>
         </div>
       </ng-container>
+
+      <!-- Botón Seguir / Siguiendo: el mismo en la barra lateral, la lista de
+           empresas, favoritos y la ficha de la empresa. -->
+      <ng-template #tplSeguir let-e>
+        <button type="button" class="seguir" [class.on]="isFavoritoEmpresa(e.id)" [attr.aria-pressed]="isFavoritoEmpresa(e.id)"
+                [attr.aria-label]="(isFavoritoEmpresa(e.id) ? 'Dejar de seguir a ' : 'Seguir a ') + e.nombre"
+                [title]="isFavoritoEmpresa(e.id) ? 'Dejar de seguir: ya no te llegan sus avisos' : 'Seguir: te llegan sus avisos de atrasos y desvíos'"
+                (click)="toggleFavoritoEmpresa(e, $event)">
+          <ion-icon [name]="isFavoritoEmpresa(e.id) ? 'checkmark' : 'add'" aria-hidden="true"></ion-icon>{{ isFavoritoEmpresa(e.id) ? 'Siguiendo' : 'Seguir' }}
+        </button>
+      </ng-template>
 
       <!-- Lugares: geocodificador + los lugares propios de la base -->
       <ng-container *ngIf="activePanel === 'lugares'">
@@ -1077,11 +1136,13 @@
     </div>
 
     <div class="pp-links" *ngIf="!esInvitado">
+      <h3 class="pp-seccion">Tu cuenta</h3>
       <!-- ---- Editar perfil, en el mismo panel ---- -->
-      <div class="pp-link" *ngIf="!editingProfile" (click)="startEditProfile()">
-        <ion-icon name="create-outline"></ion-icon><span>Editar perfil</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
-      </div>
+      <button type="button" class="pp-link pp-link--btn" *ngIf="!editingProfile" (click)="startEditProfile()">
+        <ion-icon name="person-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Tus datos</span><small>{{ perfilResumen }}</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
 
       <div class="pp-form" *ngIf="editingProfile">
         <label>Nombre completo</label>
@@ -1107,24 +1168,29 @@
         </div>
       </div>
 
-      <div class="pp-link" (click)="openFavoritosFromProfile()">
-        <ion-icon name="star-outline"></ion-icon><span>Favoritos</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
-      </div>
+      <h3 class="pp-seccion">Lo tuyo</h3>
+      <button type="button" class="pp-link pp-link--btn" (click)="openMisBoletos()">
+        <ion-icon name="qr-code-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Mis boletos</span><small>El QR que escanea el chofer</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
+      <button type="button" class="pp-link pp-link--btn" (click)="openFavoritosFromProfile('rutas')">
+        <ion-icon name="star-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Rutas guardadas</span><small>Tus rutas de siempre, a un toque</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
+      <button type="button" class="pp-link pp-link--btn" (click)="openFavoritosFromProfile('empresas')">
+        <ion-icon name="notifications-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Empresas que seguís</span><small>{{ favoritoEmpresaIds.size ? favoritoEmpresaIds.size + (favoritoEmpresaIds.size === 1 ? ' empresa' : ' empresas') + ' · recibís sus avisos' : 'Ninguna todavía' }}</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
 
-      <div class="pp-link" (click)="openMisBoletos()">
-        <ion-icon name="qr-code-outline"></ion-icon><span>Mis boletos</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
-      </div>
-
-      <div class="pp-link" (click)="abrirAjustesDesdePerfil()">
-        <ion-icon name="settings-outline"></ion-icon><span>Ajustes</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
-      </div>
-
-      <div class="pp-danger" (click)="confirmDeleteAccount()">
-        <ion-icon name="trash-outline"></ion-icon><span>Eliminar cuenta</span>
-      </div>
+      <h3 class="pp-seccion">App</h3>
+      <button type="button" class="pp-link pp-link--btn" (click)="abrirAjustesDesdePerfil()">
+        <ion-icon name="settings-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Ajustes</span><small>Avisos, mapa y privacidad</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
     </div>
 
     <div class="pp-links" *ngIf="esInvitado">
@@ -1134,8 +1200,12 @@
       </div>
     </div>
 
-    <div class="pp-logout" *ngIf="!esInvitado" (click)="confirmLogout()">
-      <ion-icon name="log-out-outline"></ion-icon><span>Cerrar sesión</span>
+    <div class="pp-pie" *ngIf="!esInvitado">
+      <button type="button" class="pp-logout" (click)="confirmLogout()">
+        <ion-icon name="log-out-outline" aria-hidden="true"></ion-icon><span>Cerrar sesión</span>
+      </button>
+      <!-- Lo irreversible, chico y al final: no es algo que se busque a diario. -->
+      <button type="button" class="pp-borrar" (click)="confirmDeleteAccount()">Eliminar mi cuenta</button>
     </div>
   </aside>
 
@@ -1154,22 +1224,27 @@
     </div>
 
     <div class="pp-links">
-      <div class="pp-link" (click)="toggleNotifications()">
-        <ion-icon name="notifications-outline"></ion-icon><span>Notificaciones</span>
-        <div class="pp-switch" [class.on]="notificationsEnabled"><i></i></div>
-      </div>
+      <h3 class="pp-seccion">Avisos</h3>
+      <button type="button" class="pp-link pp-link--btn" role="switch" [attr.aria-checked]="notificationsEnabled" (click)="toggleNotifications()">
+        <ion-icon name="notifications-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Avisos de tus empresas</span><small>Atrasos y desvíos, en la campana de la app</small></span>
+        <span class="pp-switch" [class.on]="notificationsEnabled" aria-hidden="true"><i></i></span>
+      </button>
 
       <!-- Push: llegan con la app cerrada. Distinto del de arriba, que es la
            lista de avisos dentro de la app. -->
-      <div class="pp-link" (click)="togglePush()">
-        <ion-icon name="phone-portrait-outline"></ion-icon><span>Avisos en el teléfono</span>
-        <div class="pp-switch" [class.on]="pushActivo"><i></i></div>
-      </div>
+      <button type="button" class="pp-link pp-link--btn" role="switch" [attr.aria-checked]="pushActivo" (click)="togglePush()">
+        <ion-icon name="phone-portrait-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Avisos en el teléfono</span><small>Te llegan aunque la app esté cerrada</small></span>
+        <span class="pp-switch" [class.on]="pushActivo" aria-hidden="true"><i></i></span>
+      </button>
 
-      <div class="pp-link" (click)="toggleDarkMode()">
-        <ion-icon name="moon-outline"></ion-icon><span>Mapa oscuro</span>
-        <div class="pp-switch" [class.on]="darkMode"><i></i></div>
-      </div>
+      <h3 class="pp-seccion">Mapa</h3>
+      <button type="button" class="pp-link pp-link--btn" role="switch" [attr.aria-checked]="darkMode" (click)="toggleDarkMode()">
+        <ion-icon name="moon-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Mapa oscuro</span><small>Más cómodo de noche</small></span>
+        <span class="pp-switch" [class.on]="darkMode" aria-hidden="true"><i></i></span>
+      </button>
 
       <!-- Los nombres son los del menú Capas de Google Maps, que es la
            referencia que el pasajero ya conoce. -->
@@ -1185,20 +1260,22 @@
         </div>
       </div>
 
-      <div class="pp-link" (click)="toggle3D()">
-        <ion-icon name="cube-outline"></ion-icon><span>Vista en 3D</span>
-        <div class="pp-switch" [class.on]="is3D"><i></i></div>
-      </div>
+      <button type="button" class="pp-link pp-link--btn" role="switch" [attr.aria-checked]="is3D" (click)="toggle3D()">
+        <ion-icon name="cube-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Vista en 3D</span><small>Edificios y mapa inclinado</small></span>
+        <span class="pp-switch" [class.on]="is3D" aria-hidden="true"><i></i></span>
+      </button>
 
-      <div class="pp-link" routerLink="/legal/terms">
-        <ion-icon name="document-text-outline"></ion-icon><span>Términos y privacidad</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
-      </div>
+      <h3 class="pp-seccion">Legal</h3>
+      <a class="pp-link" routerLink="/legal/terms">
+        <ion-icon name="document-text-outline" aria-hidden="true"></ion-icon><span>Términos de uso</span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </a>
 
-      <div class="pp-link" routerLink="/legal/privacy">
-        <ion-icon name="shield-checkmark-outline"></ion-icon><span>Política de privacidad</span>
-        <ion-icon name="chevron-forward" class="pp-chev"></ion-icon>
-      </div>
+      <a class="pp-link" routerLink="/legal/privacy">
+        <ion-icon name="shield-checkmark-outline" aria-hidden="true"></ion-icon><span>Política de privacidad</span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </a>
 
       <div class="pp-version">Buxci · versión 1.0.0</div>
     </div>

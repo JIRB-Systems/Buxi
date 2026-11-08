@@ -1,0 +1,204 @@
+// ====== EMPRESAS, FAVORITOS Y PERFIL ======
+// Hoja aparte por el presupuesto de estilos de map.page.scss y map.panels.scss.
+
+// ---- Filtros de la lista de rutas ----
+.lp-filtros {
+  display: flex;
+  gap: 6px;
+  margin: 0 14px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+
+  button {
+    flex: none;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--bx-r-pill);
+    border: 1px solid var(--bx-line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--bx-text-2);
+    font-family: var(--bx-font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--bx-t-fast) var(--bx-ease), color var(--bx-t-fast) var(--bx-ease);
+
+    ion-icon { font-size: 15px; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bx-green-bright); }
+    &.on { background: var(--bx-text); border-color: var(--bx-text); color: var(--bx-bg-1, #070f1c); }
+    &.on .live-dot { background: var(--bx-green); }
+    &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 1px; }
+  }
+}
+
+// Cuántos buses de la ruta tienen GPS al día.
+.lp-row .lp-info .lp-vivos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bx-green-bright);
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+}
+
+// La estrella de guardar ruta, como botón de 44px.
+.lp-guardar {
+  flex: none;
+  width: 44px; height: 44px;
+  margin: -6px -6px -6px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--bx-text-3);
+  cursor: pointer;
+  transition: color 0.16s ease, transform 0.16s ease;
+
+  ion-icon { font-size: 21px; }
+  &.on { color: var(--bx-warning); }
+  &:active { transform: scale(0.88); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: -2px; }
+}
+
+// ---- Seguir / Siguiendo ----
+.seguir {
+  flex: none;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 6px 9px;
+  border-radius: var(--bx-r-pill);
+  border: 1px solid rgba(0, 224, 106, 0.45);
+  background: transparent;
+  color: var(--bx-green-bright);
+  font-family: var(--bx-font);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--bx-t-fast) var(--bx-ease), color var(--bx-t-fast) var(--bx-ease);
+
+  ion-icon { font-size: 16px; }
+  &:hover { background: rgba(0, 224, 106, 0.1); }
+  &.on {
+    border-color: var(--bx-line);
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--bx-text-2);
+  }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 1px; }
+}
+
+.lp-empty .bx-btn { margin-top: 10px; }
+
+// ---- Ficha de la empresa ----
+.ed-info .ed-vivos { font-weight: 700; color: var(--bx-green-bright); }
+.ed-topbar .seguir { margin-left: auto; }
+.lp-search.ed-buscar { margin: 0 16px 8px; }
+
+// ---- Perfil y ajustes: por secciones ----
+.pp-seccion {
+  margin: 14px 12px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bx-text-3);
+  &:first-child { margin-top: 4px; }
+}
+
+// Filas que son botones o enlaces de verdad (teclado y lector de pantalla).
+.pp-link--btn,
+a.pp-link {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: var(--bx-font);
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover { background: rgba(255, 255, 255, 0.05); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: -2px; }
+}
+
+.pp-link .pp-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  > span { font-size: 14px; color: var(--bx-text); font-weight: 600; }
+  small {
+    font-size: 12px;
+    color: var(--bx-text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.pp-pie {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+
+  .pp-logout {
+    font-family: var(--bx-font);
+    text-align: left;
+    &:focus-visible { outline: 2px solid var(--bx-danger); outline-offset: 2px; }
+  }
+}
+
+.pp-borrar {
+  align-self: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--bx-text-3);
+  font-family: var(--bx-font);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover { color: var(--bx-danger); }
+  &:focus-visible { outline: 2px solid var(--bx-danger); outline-offset: 1px; border-radius: 8px; }
+}
+
+.ed-back-btn {
+  flex: none;
+  width: 44px; height: 44px;
+  margin-left: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: -2px; }
+}
+
+// El interruptor ahora es un span: sin esto heredaba el `flex: 1` de los
+// textos de la fila y se estiraba a todo lo ancho.
+.pp-link .pp-switch { flex: none; }
+
+// Las pestañas en una línea; en el teléfono, sin ícono para que entre el texto.
+.lp-tabs button { white-space: nowrap; }
+@media (max-width: 420px) {
+  .lp-tabs button ion-icon { display: none; }
+}
