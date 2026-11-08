@@ -3361,7 +3361,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   get viajeMinutosTotal(): number {
     const o = this.viajeElegido;
     if (!o) return 0;
-    const alSubir = this.caminataActiva && this.caminata ? this.caminata.minutos : o.minutosAlSubir;
+    const alSubir = this.caminataActiva && this.caminata && !this.viaje?.origen ? this.caminata.minutos : o.minutosAlSubir;
     return alSubir + o.minutosEnBus + this.viajeMinutosAlDestino;
   }
 
@@ -3374,6 +3374,19 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (metros < 40) return 'Tu destino queda ahí mismo';
     if (metros <= 250) return `Tu destino queda a ${this.metrosTexto(metros)}`;
     return `y caminá ${this.viajeMinutosAlDestino} min hasta ${v.destino.nombre}`;
+  }
+
+  // Paso 1 del viaje elegido: caminar hasta la parada. Desde donde está el
+  // pasajero vale el camino real (si ya se pidió); con otro origen, la
+  // estimación del plan, porque ese camino no se puede pedir desde acá.
+  get pasoAlSubir(): { minutos: number; metros: number; exacta: boolean; desde: string } | null {
+    const o = this.viajeElegido, v = this.viaje;
+    if (!o || !v) return null;
+    if (v.origen) {
+      return { ...this.featuresService.estimarCaminata(o.alSubirKm), exacta: false, desde: 'Desde ' + v.origen.nombre };
+    }
+    const c = this.caminataInfo ?? { ...this.featuresService.estimarCaminata(o.alSubirKm), exacta: false };
+    return { ...c, desde: 'Desde donde estás' };
   }
 
   paradasDelViaje(o: OpcionVista): string {

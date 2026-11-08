@@ -164,7 +164,7 @@
   </div>
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
-  <div class="map-controls" [class.lifted]="selectedBus" [class.lifted-route]="(activeRuta || viaje) && !selectedBus" [class.lifted-cerca]="cercaVisible">
+  <div class="map-controls" [class.lifted]="selectedBus" [class.lifted-route]="(activeRuta || viaje) && !selectedBus" [class.lifted-cerca]="cercaVisible" [class.tapados]="!!activeRuta && hojaRutaAbierta && !selectedBus">
     <button class="mc-btn" (click)="resetNorth()" aria-label="Orientar al norte">
       <span class="mc-compass" #compassNeedle>
         <ion-icon name="navigate"></ion-icon>
@@ -252,7 +252,7 @@
         <span class="rs-chip rs-chip--viaje" *ngIf="viajeElegido as o">
           <ion-icon name="flag" aria-hidden="true"></ion-icon>Bajá en {{ nombreCorto(o.bajar) }} · {{ viajeMinutosTotal }} min
         </span>
-        <button type="button" class="rs-chip" *ngIf="nearestStop && caminataInfo as c" [class.on]="caminataActiva"
+        <button type="button" class="rs-chip" *ngIf="nearestStop && !viaje?.origen && caminataInfo as c" [class.on]="caminataActiva"
                 [disabled]="caminataCargando || !sePuedeCaminar" (click)="caminataActiva ? quitarCaminata() : comoLlegar()">
           <ion-icon name="walk" aria-hidden="true"></ion-icon>{{ c.minutos }} min a pie
         </button>
@@ -266,7 +266,7 @@
       </div>
 
       <div class="rs-detalle">
-      <ng-container *ngIf="nearestStop">
+      <ng-container *ngIf="nearestStop && !viajeElegido">
         <ng-container *ngTemplateOutlet="tplLlegar"></ng-container>
       </ng-container>
 
@@ -285,24 +285,69 @@
 
       <!-- El resto del viaje: el tramo en bus y dónde bajar. Subir y caminar
            hasta la parada ya lo dicen las dos filas de arriba. -->
-      <div class="vj-pasos" *ngIf="viajeElegido as o">
-        <div class="vj-paso">
-          <span class="vj-ic vj-ic--bus" [style.background]="colorRuta(o.ruta.color)" [style.color]="tintaRuta(o.ruta.color)"><ion-icon name="bus" aria-hidden="true"></ion-icon></span>
+      <!-- El viaje paso a paso: caminar, esperar, ir en el bus, bajar. Y al
+           final lo que se pregunta antes de salir: cuánto tarda, a qué hora
+           se llega y cuánto se paga. -->
+      <div class="itin" *ngIf="viajeElegido as o">
+        <ol class="itin-pasos" [style.--ruta]="colorRuta(o.ruta.color)">
+          <li class="itin-paso" *ngIf="pasoAlSubir as a">
+            <span class="itin-ic"><ion-icon name="walk" aria-hidden="true"></ion-icon></span>
+            <div class="itin-txt">
+              <strong>Caminá {{ a.minutos }} min hasta {{ nombreCorto(o.subir) }}</strong>
+              <span>{{ a.desde }} · {{ metrosTexto(a.metros) }}<ng-container *ngIf="!a.exacta"> aprox.</ng-container></span>
+            </div>
+            <button type="button" class="bx-btn bx-btn--sm" *ngIf="!viaje?.origen && sePuedeCaminar"
+                    [class.bx-btn--info]="!caminataActiva" [class.bx-btn--sec]="caminataActiva"
+                    [disabled]="caminataCargando" (click)="caminataActiva ? quitarCaminata() : comoLlegar()">
+              {{ caminataCargando ? '…' : (caminataActiva ? 'Ocultar' : 'Ver camino') }}
+            </button>
+          </li>
+          <li class="itin-paso">
+            <span class="itin-ic"><ion-icon name="time-outline" aria-hidden="true"></ion-icon></span>
+            <div class="itin-txt" *ngIf="esperaDe(o) as e; else sinEspera">
+              <strong [class.itin-vivo]="e.enVivo">{{ e.texto }}</strong>
+              <span>El bus que va hacia {{ o.hacia }}<ng-container *ngIf="e.siguiente"> · si lo perdés, el siguiente sale {{ e.siguiente.startsWith('mañana') ? '' : 'a las ' }}{{ e.siguiente }}</ng-container></span>
+            </div>
+            <ng-template #sinEspera>
+              <div class="itin-txt">
+                <strong>Ningún bus en camino</strong>
+                <span>La empresa no cargó horario para esta ruta</span>
+              </div>
+            </ng-template>
+          </li>
+          <li class="itin-paso itin-paso--bus">
+            <span class="itin-ic" [style.background]="colorRuta(o.ruta.color)" [style.color]="tintaRuta(o.ruta.color)"><ion-icon name="bus" aria-hidden="true"></ion-icon></span>
+            <div class="itin-txt">
+              <strong>{{ o.minutosEnBus }} min en el bus</strong>
+              <span>Hacia {{ o.hacia }} · {{ paradasDelViaje(o) }}</span>
+            </div>
+          </li>
+          <li class="itin-paso">
+            <span class="itin-ic itin-ic--fin"><ion-icon name="flag" aria-hidden="true"></ion-icon></span>
+            <div class="itin-txt">
+              <strong>Bajá en {{ nombreCorto(o.bajar) }}</strong>
+              <span>{{ viajeFinalTexto }}</span>
+            </div>
+          </li>
+        </ol>
+
+        <dl class="itin-resumen">
           <div>
-            <strong>{{ o.minutosEnBus }} min en el bus</strong>
-            <span>Hacia {{ o.hacia }} · {{ paradasDelViaje(o) }}</span>
-            <span class="vj-vivo" *ngIf="etaMinutes === null && sinBusEnCamino">Ningún bus viene hacia {{ o.hacia }} ahora</span>
+            <dt>Tardás</dt>
+            <dd class="bx-mono">~{{ viajeMinutosTotal }} min</dd>
+            <small>más la espera</small>
           </div>
-        </div>
-        <div class="vj-paso">
-          <span class="vj-ic"><ion-icon name="flag" aria-hidden="true"></ion-icon></span>
-          <div>
-            <strong>Bajá en {{ nombreCorto(o.bajar) }}</strong>
-            <span>{{ viajeFinalTexto }}</span>
+          <div *ngIf="esperaDe(o)?.llegas as h">
+            <dt>Llegás</dt>
+            <dd class="bx-mono">~{{ h }}</dd>
+            <small>{{ viaje?.origen ? 'si salís ya de ' + viaje!.origen!.nombre : 'si salís ya' }}</small>
           </div>
-        </div>
-        <p class="vj-resumen">Unos <b>{{ viajeMinutosTotal }} min</b> en total, sin contar la espera del bus</p>
-        <ng-container *ngTemplateOutlet="tplEspera; context: { $implicit: esperaDe(o) }"></ng-container>
+          <div *ngIf="o.ruta.precio">
+            <dt>Pagás</dt>
+            <dd class="bx-mono">₡{{ o.ruta.precio | number:'1.0-0' }}</dd>
+            <small *ngIf="tarifaPrincipal as t">65+: {{ tarifaAM(t.tarifa_adulto_mayor) }}</small>
+          </div>
+        </dl>
       </div>
 
       <!-- El recorrido: las paradas en orden y los buses entre ellas. -->
@@ -447,10 +492,11 @@
       </div>
 
       <ng-container *ngIf="v.opciones.length">
+        <h3 class="vj-titulo">{{ v.opciones.length === 1 ? 'Te sirve 1 ruta' : 'Te sirven ' + v.opciones.length + ' rutas' }}</h3>
         <button type="button" class="vj-op" *ngFor="let o of v.opciones" (click)="elegirOpcion(o)">
           <span class="vj-op-cabeza">
             <bx-ruta [nombre]="o.ruta.nombre" [color]="o.ruta.color"></bx-ruta>
-            <span class="vj-op-empresa">{{ empresaNombre(o.ruta) }}<ng-container *ngIf="o.ruta.precio"> · <span class="bx-mono">₡{{ o.ruta.precio | number:'1.0-0' }}</span></ng-container></span>
+            <span class="vj-op-empresa">{{ empresaNombre(o.ruta) }}</span>
             <span class="vj-total"><strong class="bx-mono">{{ o.minutosTotal }}</strong><span>min</span></span>
           </span>
           <!-- El viaje entero en una barra: cada tramo mide lo que dura. -->
@@ -460,9 +506,12 @@
             <span class="vj-tramo vj-tramo--pie" [style.flex-grow]="o.minutosAlDestino"><ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlDestino }}</span>
           </span>
           <span class="vj-paradas">Subí en {{ nombreCorto(o.subir) }} · bajá en {{ nombreCorto(o.bajar) }}</span>
-          <ng-container *ngTemplateOutlet="tplEspera; context: { $implicit: esperaDe(o) }"></ng-container>
+          <span class="vj-op-pie">
+            <ng-container *ngTemplateOutlet="tplEspera; context: { $implicit: esperaDe(o) }"></ng-container>
+            <span class="vj-precio bx-mono" *ngIf="o.ruta.precio">₡{{ o.ruta.precio | number:'1.0-0' }}</span>
+          </span>
         </button>
-        <p class="vj-nota">Tiempos aproximados.</p>
+        <p class="vj-nota">Tiempos aproximados, sin contar la espera del bus. Tocá una ruta para ver el viaje paso a paso.</p>
       </ng-container>
 
       <div class="vj-aviso" *ngIf="viajeAviso as a">

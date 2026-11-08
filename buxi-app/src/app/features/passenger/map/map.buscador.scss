@@ -251,3 +251,118 @@ span.rs-chip--viaje {
   background: var(--bx-warning-soft);
   ion-icon { color: var(--bx-warning); }
 }
+
+// ---- Planificador guiado ----
+.vj-titulo {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--bx-text-2);
+}
+.od + .vj-titulo + .vj-op { margin-top: 0; }
+
+.vj-op-pie {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  .vj-espera { flex: 1; min-width: 0; }
+}
+
+.vj-precio {
+  flex: none;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--bx-text);
+}
+
+.itin {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bx-line);
+}
+
+.itin-pasos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+// Un paso por fila, unidos por una línea; el tramo en bus va del color de la ruta.
+.itin-paso {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 17px;
+    top: calc(50% + 18px);
+    height: calc(100% - 36px);
+    border-left: 2px dotted var(--bx-text-3);
+  }
+  &--bus:not(:last-child)::after { border-left: 3px solid var(--ruta, var(--bx-blue-bright)); }
+
+  .bx-btn { flex: none; }
+}
+
+.itin-ic {
+  flex: none;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--bx-text);
+  ion-icon { font-size: 18px; }
+  &--fin { background: var(--bx-blue-soft); color: var(--bx-blue-bright); }
+}
+
+.itin-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  strong { font-size: 14px; font-weight: 700; color: var(--bx-text); }
+  strong.itin-vivo { color: var(--bx-green-bright); }
+  span { font-size: 12px; line-height: 1.35; color: var(--bx-text-2); }
+}
+
+.itin-resumen {
+  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+
+  > div {
+    padding: 8px 10px;
+    border-radius: var(--bx-r-md);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--bx-line);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  dt { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--bx-text-3); }
+  dd { margin: 0; font-size: 17px; font-weight: 800; color: var(--bx-text); }
+  small { font-size: 11px; color: var(--bx-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+// Abierta, la hoja no pasa por debajo de la barra de arriba: se desplaza adentro.
+.route-sheet[data-hoja]:not(.compacta) {
+  max-height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 110px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+// Con la hoja abierta del todo no queda mapa que orientar: los controles se van.
+@media (max-width: 899px) {
+  .map-controls.tapados { opacity: 0; visibility: hidden; pointer-events: none; }
+}

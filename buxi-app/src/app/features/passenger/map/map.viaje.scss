@@ -20,20 +20,6 @@
 
 .vj-btn { margin-top: 10px; }
 
-// ---- En la hoja de ruta: lo que queda del viaje ----
-.vj-pasos {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--bx-line);
-  display: flex; flex-direction: column; gap: 10px;
-}
-
-.vj-resumen {
-  margin: 0;
-  font-size: 12px; color: var(--bx-text-3);
-  b { font-weight: 700; color: var(--bx-text-2); }
-}
-
 // ---- Buscador con el destino elegido ----
 .tb-search span.con-destino,
 .desktop-topbar .dt-search span.con-destino { color: var(--bx-text); font-weight: 700; }
