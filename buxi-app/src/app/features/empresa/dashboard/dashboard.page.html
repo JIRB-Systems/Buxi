@@ -705,7 +705,129 @@
           </div>
         </div>
 
-        <!-- ===== REPORTES ===== -->
+        <!-- ===== INFORMES =====
+             Responden preguntas del negocio y siempre se comparan con el
+             período anterior de la misma duración. -->
+        <div *ngIf="activeTab==='informes'" class="page informes">
+          <div class="inf-barra">
+            <div class="inf-periodo" role="group" aria-label="Período">
+              <button type="button" *ngFor="let d of [7, 30, 90]" [class.on]="infDias === d" [attr.aria-pressed]="infDias === d"
+                      (click)="cambiarPeriodo($any(d))">{{ d }} días</button>
+            </div>
+            <span class="muted inf-rango">{{ infRango }} · comparado con los {{ infDias }} días anteriores</span>
+          </div>
+
+          <div class="card inf-estado" *ngIf="informeCargando && !informe">
+            <span class="bx-btn__giro" aria-hidden="true"></span> Armando el informe…
+          </div>
+          <div class="card inf-estado" *ngIf="informeError">
+            No se pudo armar el informe.
+            <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" (click)="cargarInforme()">Reintentar</button>
+          </div>
+
+          <ng-container *ngIf="informe && !informeError">
+            <section class="kpis kpis--5 inf-kpis" aria-label="Resumen del período" [class.cargando]="informeCargando">
+              <div class="kpi" *ngFor="let t of infTarjetas">
+                <span class="kpi-lbl">{{ t.label }}</span>
+                <div class="kpi-val"><span class="bx-mono">{{ t.valor }}</span><span class="kpi-de bx-mono" *ngIf="t.de">{{ t.de }}</span></div>
+                <span class="kpi-delta" *ngIf="t.delta as d" [ngClass]="'kpi-delta--' + d.tono">{{ d.texto }}</span>
+                <span class="kpi-nota" *ngIf="t.nota">{{ t.nota }}</span>
+              </div>
+            </section>
+
+            <!-- ¿Cuánto trabajamos? -->
+            <section class="card inf-card" aria-labelledby="inf-dias-tit">
+              <div class="card-header">
+                <h3 id="inf-dias-tit">¿Cuántos viajes hicimos cada día?</h3>
+                <div class="inf-leyenda" aria-hidden="true">
+                  <span><i class="sw sw--1"></i>Realizados</span>
+                  <span><i class="sw sw--2"></i>Cancelados</span>
+                </div>
+                <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm card-accion" (click)="infTabla = !infTabla">{{ infTabla ? 'Ver gráfico' : 'Ver como tabla' }}</button>
+              </div>
+              <p class="inf-hallazgo">{{ infHallazgoDias }}</p>
+              <div class="inf-barras" *ngIf="!infTabla" role="img" [attr.aria-label]="infHallazgoDias" (mouseleave)="infHover = null">
+                <div class="inf-eje"><span class="bx-mono">{{ infMaxDia }}</span><span class="bx-mono">0</span></div>
+                <div class="inf-cols" [class.densas]="infDias > 30">
+                  <div class="inf-col" *ngFor="let d of infDiasGrafico; let i = index" (mouseenter)="infHover = i" (focus)="infHover = i" tabindex="-1">
+                    <div class="inf-pila">
+                      <span class="seg seg--2" *ngIf="d.cancelados" [style.height.%]="d.hx"></span>
+                      <span class="seg seg--1" *ngIf="d.completados" [style.height.%]="d.hc"></span>
+                    </div>
+                    <span class="inf-x" [class.ver]="d.etiqueta">{{ d.corto }}</span>
+                    <div class="inf-tip" *ngIf="infHover === i" role="tooltip">
+                      <strong>{{ d.largo }}</strong>
+                      <span><i class="sw sw--1"></i>{{ d.completados }} realizados</span>
+                      <span><i class="sw sw--2"></i>{{ d.cancelados }} cancelados</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="inf-tabla-scroll" *ngIf="infTabla">
+                <table class="tabla">
+                  <thead><tr><th scope="col">Día</th><th scope="col" class="num">Realizados</th><th scope="col" class="num">Cancelados</th></tr></thead>
+                  <tbody><tr *ngFor="let d of infDiasGrafico"><td>{{ d.largo }}</td><td class="num bx-mono">{{ d.completados }}</td><td class="num bx-mono">{{ d.cancelados }}</td></tr></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="fila inf-fila">
+              <!-- ¿Qué rutas mueven la empresa y cuáles cumplen el horario? -->
+              <div class="card inf-card">
+                <div class="card-header"><h3>¿Cómo le va a cada ruta?</h3></div>
+                <p class="inf-hallazgo">{{ infHallazgoRutas }}</p>
+                <div class="inf-tabla-scroll">
+                  <table class="tabla inf-tabla">
+                    <thead><tr>
+                      <th scope="col">Ruta</th><th scope="col">Viajes</th><th scope="col" class="num">Cancelados</th>
+                      <th scope="col" class="num">Horas</th><th scope="col" class="num">A tiempo</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr *ngFor="let r of infRutas; trackBy: trackInf">
+                        <td><bx-ruta [nombre]="r.nombre" [color]="r.color"></bx-ruta></td>
+                        <td><div class="inf-barra-fila"><span class="inf-bar" *ngIf="r.completados" [style.width.%]="r.ancho"></span><span class="bx-mono">{{ r.completados }}</span></div></td>
+                        <td class="num bx-mono" [class.alto]="r.pctCancel >= 15">{{ r.cancelados }}<small *ngIf="r.cancelados"> · {{ r.pctCancel }} %</small></td>
+                        <td class="num bx-mono">{{ r.horas }}</td>
+                        <td class="num bx-mono">{{ r.puntual === null ? '—' : r.puntual + ' %' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="inf-aviso" *ngIf="!infHayPuntualidad">
+                  <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+                  <span>Para medir si las rutas salen a tiempo hace falta cargar las salidas programadas.</span>
+                  <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" (click)="switchTab('horarios')">Cargar horarios</button>
+                </div>
+              </div>
+
+              <!-- ¿Cómo rinde cada chofer? -->
+              <div class="card inf-card">
+                <div class="card-header"><h3>¿Cómo rinde cada chofer?</h3></div>
+                <p class="inf-hallazgo">{{ infHallazgoChoferes }}</p>
+                <div class="inf-tabla-scroll">
+                  <table class="tabla inf-tabla">
+                    <thead><tr>
+                      <th scope="col">Chofer</th><th scope="col">Viajes</th><th scope="col" class="num">Cancelados</th>
+                      <th scope="col" class="num">Horas</th><th scope="col" class="num">Km</th><th scope="col" class="num">A tiempo</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr *ngFor="let c of infChoferes; trackBy: trackInf">
+                        <td>{{ c.nombre }}</td>
+                        <td><div class="inf-barra-fila"><span class="inf-bar" *ngIf="c.completados" [style.width.%]="c.ancho"></span><span class="bx-mono">{{ c.completados }}</span></div></td>
+                        <td class="num bx-mono" [class.alto]="c.pctCancel >= 15">{{ c.cancelados }}<small *ngIf="c.cancelados"> · {{ c.pctCancel }} %</small></td>
+                        <td class="num bx-mono">{{ c.horas }}</td>
+                        <td class="num bx-mono">{{ c.km }}</td>
+                        <td class="num bx-mono">{{ c.puntual === null ? '—' : c.puntual + ' %' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+          </ng-container>
+        </div>
+
+        <!-- ===== REPORTES (soporte: problemas que se le reportan a JIRB) ===== -->
         <div *ngIf="activeTab==='reportes'" class="page">
           <div class="page-toolbar">
             <button type="button" class="bx-btn bx-btn--pri btn-action" (click)="addReporte()"><ion-icon name="add" aria-hidden="true"></ion-icon>Reportar problema</button>

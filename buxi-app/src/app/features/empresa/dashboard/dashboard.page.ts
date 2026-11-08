@@ -11,7 +11,7 @@ import * as maplibregl from 'maplibre-gl';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { SupabaseService } from '../../../core/services/supabase.service';
-import { AdminEmpresaService, PuntualidadRuta } from '../../../core/services/admin-empresa.service';
+import { AdminEmpresaService, InformeEmpresa, PuntualidadRuta } from '../../../core/services/admin-empresa.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation, Empresa } from '../../../core/models/transport.model';
@@ -44,7 +44,7 @@ interface Atencion {
 @Component({
   selector: 'app-empresa-dashboard',
   templateUrl: './dashboard.page.html',
-  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss', './dashboard.inicio.scss', './dashboard.flota.scss', './dashboard.buses.scss'],
+  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss', './dashboard.inicio.scss', './dashboard.flota.scss', './dashboard.buses.scss', './dashboard.informes.scss'],
   standalone: false,
 })
 export class EmpresaDashboardPage implements OnInit, OnDestroy {
@@ -69,6 +69,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       { id: 'choferes', icon: 'people-outline', label: 'Choferes' },
       { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
       { id: 'horarios', icon: 'time-outline', label: 'Horarios' },
+      { id: 'informes', icon: 'bar-chart-outline', label: 'Informes' },
     ]},
     { titulo: 'Pasajeros', items: [
       { id: 'notificaciones', icon: 'notifications-outline', label: 'Avisos a pasajeros' },
@@ -77,7 +78,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     ]},
     { titulo: 'Cuenta', items: [
       { id: 'avisos', icon: 'megaphone-outline', label: 'Avisos de JIRB' },
-      { id: 'reportes', icon: 'bug-outline', label: 'Reportes' },
+      // Problemas que la empresa le reporta a JIRB (no confundir con Informes).
+      { id: 'reportes', icon: 'bug-outline', label: 'Soporte' },
       { id: 'planes', icon: 'card-outline', label: 'Planes' },
       { id: 'facturas', icon: 'receipt-outline', label: 'Facturas' },
       { id: 'equipo', icon: 'people-circle-outline', label: 'Mi equipo' },
@@ -739,6 +741,169 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     };
   }
 
+  // ---- INFORMES ----
+  // Responden preguntas del negocio: cuánto se trabajó, qué se canceló, qué
+  // rutas cumplen el horario y cómo rinde cada chofer. Siempre contra el
+  // período anterior de la misma duración.
+  infDias: 7 | 30 | 90 = 30;
+  informe: InformeEmpresa | null = null;
+  informePrev: InformeEmpresa | null = null;
+  informeCargando = false;
+  informeError = false;
+  infTabla = false;
+  infHover: number | null = null;
+
+  private rangoInforme(atras: 0 | 1): { desde: string; hasta: string } {
+    const hasta = new Date();
+    hasta.setDate(hasta.getDate() - this.infDias * atras);
+    const desde = new Date(hasta);
+    desde.setDate(desde.getDate() - (this.infDias - 1));
+    return { desde: this.diaLocal(desde), hasta: this.diaLocal(hasta) };
+  }
+
+  async cargarInforme() {
+    this.informeCargando = true;
+    this.informeError = false;
+    const a = this.rangoInforme(0), b = this.rangoInforme(1);
+    try {
+      const [ahora, antes] = await Promise.all([this.admin.getInforme(a.desde, a.hasta), this.admin.getInforme(b.desde, b.hasta)]);
+      this.informe = ahora;
+      this.informePrev = antes;
+    } catch (e) {
+      logError('cargar el informe', e);
+      this.informeError = true;
+    } finally {
+      this.informeCargando = false;
+    }
+  }
+
+  cambiarPeriodo(d: 7 | 30 | 90) {
+    if (this.infDias === d) return;
+    this.infDias = d;
+    this.infHover = null;
+    this.cargarInforme();
+  }
+
+  get infRango(): string {
+    const f = (s: string) => new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short' }).format(new Date(s + 'T12:00:00')).replace('.', '');
+    const a = this.rangoInforme(0);
+    return `${f(a.desde)} – ${f(a.hasta)}`;
+  }
+
+  private deltaPeriodo(actual: number, antes: number, subirEsBueno = true): { texto: string; tono: 'bien' | 'mal' | 'igual' } | null {
+    const ref = `${this.infDias} días anteriores`;
+    if (antes === 0) return actual === 0 ? null : { texto: `Sin datos de los ${ref}`, tono: 'igual' };
+    const pct = Math.round(((actual - antes) / antes) * 100);
+    if (pct === 0) return { texto: `Igual que los ${ref}`, tono: 'igual' };
+    return { texto: `${pct > 0 ? '+' : '−'}${Math.abs(pct)} % vs. ${ref}`, tono: (pct > 0) === subirEsBueno ? 'bien' : 'mal' };
+  }
+
+  private num(n: number): string {
+    return n < 10 && n % 1 !== 0 ? n.toFixed(1).replace('.', ',') : Math.round(n).toLocaleString('es-CR');
+  }
+
+  get infTarjetas() {
+    const t = this.informe?.totales, p = this.informePrev?.totales;
+    if (!t || !p) return [];
+    const total = t.completados + t.cancelados, totalP = p.completados + p.cancelados;
+    const pctC = total ? Math.round((t.cancelados / total) * 100) : 0;
+    const pctCp = totalP ? Math.round((p.cancelados / totalP) * 100) : 0;
+    const pu = this.informe!.puntualidad, puP = this.informePrev!.puntualidad;
+    const pctP = pu.comparables ? Math.round((pu.a_tiempo / pu.comparables) * 100) : null;
+    const pctPp = puP.comparables ? Math.round((puP.a_tiempo / puP.comparables) * 100) : null;
+    return [
+      { label: 'Viajes realizados', valor: this.num(t.completados), de: '', delta: this.deltaPeriodo(t.completados, p.completados), nota: '' },
+      { label: 'Viajes cancelados', valor: this.num(t.cancelados), de: total ? `· ${pctC} %` : '', delta: this.deltaPeriodo(pctC, pctCp, false), nota: total ? '' : 'Ninguno en el período' },
+      { label: 'Horas de operación', valor: this.num(t.horas), de: 'h', delta: this.deltaPeriodo(t.horas, p.horas), nota: '' },
+      { label: 'Kilómetros recorridos', valor: this.num(t.km), de: 'km', delta: this.deltaPeriodo(t.km, p.km), nota: '' },
+      { label: 'Salidas a tiempo', valor: pctP === null ? '—' : String(pctP), de: pctP === null ? '' : '%',
+        delta: pctP !== null && pctPp !== null ? this.deltaPeriodo(pctP, pctPp) : null,
+        nota: pctP === null ? 'Cargá tus horarios para medirla' : `${pu.a_tiempo} de ${pu.comparables} salidas` },
+    ];
+  }
+
+  // Barras de viajes por día: completados abajo, cancelados arriba.
+  get infDiasGrafico(): { dia: string; corto: string; largo: string; completados: number; cancelados: number; hc: number; hx: number; etiqueta: boolean }[] {
+    const dias = this.informe?.por_dia || [];
+    const max = Math.max(1, ...dias.map(d => d.completados + d.cancelados));
+    const cada = this.infDias === 7 ? 1 : this.infDias === 30 ? 5 : 15;
+    const corto = new Intl.DateTimeFormat('es-CR', this.infDias === 7 ? { weekday: 'short' } : { day: 'numeric', month: 'short' });
+    const largo = new Intl.DateTimeFormat('es-CR', { weekday: 'long', day: 'numeric', month: 'long' });
+    return dias.map((d, i) => {
+      const f = new Date(d.dia + 'T12:00:00');
+      return {
+        dia: d.dia, corto: corto.format(f).replace('.', ''), largo: largo.format(f),
+        completados: d.completados, cancelados: d.cancelados,
+        hc: (d.completados / max) * 100, hx: (d.cancelados / max) * 100,
+        etiqueta: (dias.length - 1 - i) % cada === 0,
+      };
+    });
+  }
+
+  get infMaxDia(): number {
+    return Math.max(0, ...(this.informe?.por_dia || []).map(d => d.completados + d.cancelados));
+  }
+
+  // Una frase con lo que dice el gráfico, no solo el gráfico.
+  get infHallazgoDias(): string {
+    const dias = this.informe?.por_dia || [];
+    const conViajes = dias.filter(d => d.completados + d.cancelados > 0);
+    if (!conViajes.length) return 'No hubo viajes en este período.';
+    const mejor = conViajes.reduce((m, d) => d.completados > m.completados ? d : m, conViajes[0]);
+    const f = new Intl.DateTimeFormat('es-CR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(mejor.dia + 'T12:00:00'));
+    const sin = dias.length - conViajes.length;
+    return `El día con más viajes fue el ${f}, con ${mejor.completados}.` + (sin ? ` Hubo ${sin} ${sin === 1 ? 'día' : 'días'} sin ningún viaje.` : '');
+  }
+
+  get infRutas() {
+    const r = this.informe?.por_ruta || [];
+    const max = Math.max(1, ...r.map(x => x.completados));
+    return r.map(x => ({
+      ...x,
+      pctCancel: x.completados + x.cancelados ? Math.round((x.cancelados / (x.completados + x.cancelados)) * 100) : 0,
+      puntual: x.comparables ? Math.round((x.a_tiempo / x.comparables) * 100) : null,
+      ancho: (x.completados / max) * 100,
+    }));
+  }
+
+  get infHayPuntualidad(): boolean {
+    return (this.informe?.puntualidad.comparables || 0) > 0;
+  }
+
+  get infHallazgoRutas(): string {
+    const r = this.infRutas.filter(x => x.completados + x.cancelados > 0);
+    const total = r.reduce((s, x) => s + x.completados, 0);
+    if (!r.length || !total) return 'Ninguna ruta tuvo viajes en este período.';
+    const top = r[0];
+    const pct = Math.round((top.completados / total) * 100);
+    const peor = [...r].sort((a, b) => b.pctCancel - a.pctCancel)[0];
+    let t = r.length === 1 ? `Todos los viajes fueron de ${top.nombre}.` : `${top.nombre} hizo el ${pct} % de los viajes.`;
+    if (peor && peor.pctCancel >= 15) t += ` ${peor.nombre} canceló el ${peor.pctCancel} % de sus salidas.`;
+    return t;
+  }
+
+  get infChoferes() {
+    const c = this.informe?.por_chofer || [];
+    const max = Math.max(1, ...c.map(x => x.completados));
+    return c.map(x => ({
+      ...x,
+      pctCancel: x.completados + x.cancelados ? Math.round((x.cancelados / (x.completados + x.cancelados)) * 100) : 0,
+      puntual: x.comparables ? Math.round((x.a_tiempo / x.comparables) * 100) : null,
+      ancho: (x.completados / max) * 100,
+    }));
+  }
+
+  get infHallazgoChoferes(): string {
+    const c = this.infChoferes.filter(x => x.completados + x.cancelados > 0);
+    if (!c.length) return 'Ningún chofer hizo viajes en este período.';
+    const sin = this.infChoferes.length - c.length;
+    let t = `${c[0].nombre} hizo más viajes (${c[0].completados}).`;
+    if (sin) t += ` ${sin} ${sin === 1 ? 'chofer no hizo' : 'choferes no hicieron'} ninguno.`;
+    return t;
+  }
+
+  trackInf = (_: number, x: { id: string }) => x.id;
+
   // ---- BUSCADOR (choferes/buses) ----
   choferQuery = '';
   busQuery = '';
@@ -1233,6 +1398,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.loadHorariosResumen();
     }
     if (tab === 'gtfs') this.cargarEstadoGtfs();
+    if (tab === 'informes') this.cargarInforme();
     if (tab === 'personalizacion') {
       // Los canvas recién existen cuando Angular pintó el panel.
       setTimeout(() => this.prepararPreview(), 0);

@@ -364,6 +364,13 @@ export class AdminEmpresaService {
   // solo avisa de los puntos NUEVOS, así que sin esto un bus que ya venía
   // transmitiendo aparecía recién con su próximo punto. Mismo recorte por ids
   // que ChoferService.getUbicacionesFlota (ver el porqué ahí).
+  // El informe de un período (días en hora de Costa Rica): ver informe_empresa.
+  async getInforme(desde: string, hasta: string): Promise<InformeEmpresa> {
+    const { data, error } = await this.supabase.rpc('informe_empresa', { p_desde: desde, p_hasta: hasta });
+    if (error) throw error;
+    return data as InformeEmpresa;
+  }
+
   // El recorrido de un bus en un día (hora de Costa Rica), un punto cada 20 s.
   async getRecorrido(busId: string, dia: string): Promise<{ latitud: number; longitud: number; velocidad: number; ts: string }[]> {
     const { data, error } = await this.supabase.rpc('recorrido_bus', { p_bus_id: busId, p_dia: dia });
@@ -699,4 +706,12 @@ export class AdminEmpresaService {
     });
     if (error) throw error;
   }
+}
+
+export interface InformeEmpresa {
+  totales: { completados: number; cancelados: number; abiertos: number; horas: number; km: number };
+  puntualidad: { comparables: number; a_tiempo: number; tarde: number; temprano: number };
+  por_dia: { dia: string; completados: number; cancelados: number }[];
+  por_ruta: { id: string; nombre: string; color: string | null; completados: number; cancelados: number; horas: number; comparables: number; a_tiempo: number }[];
+  por_chofer: { id: string; nombre: string; completados: number; cancelados: number; horas: number; km: number; comparables: number; a_tiempo: number }[];
 }
