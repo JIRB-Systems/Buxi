@@ -1,0 +1,29 @@
+<ion-content [fullscreen]="true" class="auth-content" [scrollY]="true">
+  <app-auth-shell>
+    <div *ngIf="motivo === 'cargando'" class="auth-in" aria-busy="true">
+      <ion-spinner name="crescent" aria-label="Cargando"></ion-spinner>
+    </div>
+
+    <div *ngIf="motivo !== 'cargando'" class="auth-in">
+      <div class="auth-badge">
+        <ion-icon name="pause-circle-outline" aria-hidden="true"></ion-icon>
+      </div>
+
+      <div class="auth-head">
+        <h1>{{ motivo === 'perfil' ? 'Tu cuenta está pausada' : 'Tu empresa está pausada' }}</h1>
+        <p *ngIf="motivo === 'empresa'">
+          {{ empresa ? empresa + ' no' : 'Tu empresa no' }} está activa en Buxci por ahora, así que el panel, el GPS
+          y la validación de boletos están detenidos. Tus datos siguen guardados.
+        </p>
+        <p *ngIf="motivo === 'perfil'">
+          Tu cuenta fue pausada y por ahora no podés usar el panel ni transmitir la ubicación del bus.
+        </p>
+        <p>Para reactivarla, escribinos a <strong>hola&#64;buxci.com</strong>.</p>
+      </div>
+
+      <ion-button class="auth-btn" (click)="salir()" [disabled]="saliendo">
+        {{ saliendo ? 'Saliendo…' : 'Cerrar sesión' }}
+      </ion-button>
+    </div>
+  </app-auth-shell>
+</ion-content>

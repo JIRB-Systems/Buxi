@@ -47,6 +47,8 @@ const routes: Routes = [
     loadChildren: () => import('./features/chofer/home/chofer-home.module').then(m => m.ChoferHomePageModule),
     canActivate: [RoleGuard], data: { roles: ['chofer', 'admin_jirb'] },
   },
+  // Personal de una empresa con la cuenta o la empresa pausada (ver RoleGuard).
+  { path: 'acceso-pausado', loadChildren: () => import('./features/auth/acceso-pausado/acceso-pausado.module').then(m => m.AccesoPausadoPageModule) },
   { path: '**', redirectTo: 'splash' },
 ];
 

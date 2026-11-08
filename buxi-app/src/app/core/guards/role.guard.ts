@@ -27,7 +27,18 @@ export class RoleGuard implements CanActivate {
 
     try {
       const profile = await this.supabase.getProfile();
-      if (profile && allowedRoles.includes(profile.rol)) return true;
+      if (profile && allowedRoles.includes(profile.rol)) {
+        // Personal de una empresa: si la cuenta o la empresa están pausadas, la
+        // base ya no le deja hacer nada. Mejor decirlo que mostrar un panel vacío.
+        if (profile.rol === 'admin_empresa' || profile.rol === 'chofer') {
+          const acceso = await this.supabase.miAcceso().catch(e => { logError('RoleGuard: mi_acceso', e); return null; });
+          if (acceso && (!acceso.perfil_activo || !acceso.empresa_activa)) {
+            this.router.navigate(['/acceso-pausado'], { replaceUrl: true });
+            return false;
+          }
+        }
+        return true;
+      }
       if (profile) {
         this.router.navigate(this.supabase.homeRouteForRole(profile.rol));
         return false;

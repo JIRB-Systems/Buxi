@@ -181,6 +181,14 @@ export class SupabaseService {
     if (error) throw error;
   }
 
+  // Si la persona puede operar: su perfil y su empresa activos. La base ya le
+  // niega todo si no; esto es para poder decirle por qué (función mi_acceso).
+  async miAcceso(): Promise<{ perfil_activo: boolean; empresa_activa: boolean; empresa: string | null } | null> {
+    const { data, error } = await this.supabase.rpc('mi_acceso');
+    if (error) throw error;
+    return data ?? null;
+  }
+
   async deleteAccount(): Promise<void> {
     const { data, error } = await this.supabase.functions.invoke('delete-account', { method: 'POST' });
     if (error) throw error;
