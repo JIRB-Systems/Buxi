@@ -44,7 +44,7 @@ interface Atencion {
 @Component({
   selector: 'app-empresa-dashboard',
   templateUrl: './dashboard.page.html',
-  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss'],
+  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss', './dashboard.inicio.scss'],
   standalone: false,
 })
 export class EmpresaDashboardPage implements OnInit, OnDestroy {
@@ -606,9 +606,152 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.senales = { ...this.senales, [loc.bus_id]: { ts, kmh: loc.velocidad || 0, lat: loc.latitud, lng: loc.longitud } };
   }
 
+  private diaLocal(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // ---- ESTADO DE LA OPERACIÓN (Inicio) ----
+  // Lo primero que ve el administrador: qué está pasando ahora mismo. Cada
+  // indicador lleva a la lista ya filtrada, para actuar sin buscar.
+  categoriaBus(b: Bus): CategoriaBus {
+    switch (b.estado) {
+      case 'en_ruta': {
+        const s = this.senalFresca(b);
+        if (!s) return 'sin_senal';
+        return s.kmh < 3 ? 'detenido' : 'ruta';
+      }
+      case 'mantenimiento': return 'taller';
+      case 'inactivo': return 'inactivo';
+      default: return 'disponible';
+    }
+  }
+
+  private contarCategoria(c: CategoriaBus): number {
+    return this.buses.filter(b => this.categoriaBus(b) === c).length;
+  }
+
+  get viajesEnCurso(): Viaje[] {
+    // Un viaje "en curso" de hace más de un día es uno que el chofer no cerró:
+    // no cuenta como operación de ahora.
+    const limite = this.ahora - 24 * 3600 * 1000;
+    return this.viajesRecientes.filter(v => v.estado === 'en_curso' && !v.fin && Date.parse(v.inicio) > limite);
+  }
+
+  get incidenciasPendientes(): number {
+    return this.emergencias.filter(e => e.estado === 'pendiente').length + this.anomalias.length;
+  }
+
+  get operacion(): TarjetaOperacion[] {
+    const enRuta = this.buses.filter(b => b.estado === 'en_ruta').length;
+    const activos = this.contarCategoria('ruta');
+    const detenidos = this.contarCategoria('detenido');
+    const sinSenal = this.contarCategoria('sin_senal');
+    const enCurso = this.viajesEnCurso.length;
+    const p = this.puntualidad;
+    const inc = this.incidenciasPendientes;
+    const emerg = this.emergencias.filter(e => e.estado === 'pendiente').length;
+    return [
+      {
+        clave: 'ruta', label: 'Buses en movimiento', valor: String(activos), de: enRuta ? `/ ${enRuta}` : '',
+        nota: enRuta ? `De los ${enRuta} en ruta, avanzando` : 'Ningún bus salió todavía', tono: activos ? 'ok' : 'neutro',
+        accion: () => this.verBuses('ruta'),
+      },
+      {
+        clave: 'detenido', label: 'Detenidos', valor: String(detenidos), de: '',
+        nota: detenidos ? 'En ruta, quietos: parada o tráfico' : 'Ninguno quieto ahora', tono: detenidos ? 'aviso' : 'neutro',
+        accion: () => this.verBuses('detenido'),
+      },
+      {
+        clave: 'sin_senal', label: 'Sin conexión', valor: String(sinSenal), de: '',
+        nota: sinSenal ? 'En ruta pero sin mandar posición' : 'Todos transmiten', tono: sinSenal ? 'grave' : 'neutro',
+        accion: () => this.verBuses('sin_senal'),
+      },
+      {
+        clave: 'viajes', label: 'Viajes en curso', valor: String(enCurso), de: '',
+        nota: enCurso ? 'Abiertos por tus choferes' : 'Ninguno abierto', tono: enCurso ? 'ok' : 'neutro',
+        accion: () => this.switchTab('mapa'),
+      },
+      {
+        clave: 'horarios', label: 'Cumplimiento horario', valor: p ? String(p.pct) : '—', de: p ? '%' : '',
+        nota: p ? `${p.aTiempo} de ${p.comparables} salidas a tiempo · 30 días` : 'Cargá tus horarios para medirlo',
+        tono: !p ? 'neutro' : p.pct >= 85 ? 'ok' : p.pct >= 70 ? 'aviso' : 'grave',
+        accion: () => this.switchTab('horarios'),
+      },
+      {
+        clave: 'incidencias', label: 'Incidencias', valor: String(inc), de: '',
+        nota: emerg ? `${emerg} ${emerg === 1 ? 'emergencia abierta' : 'emergencias abiertas'}` : inc ? 'Saltos de GPS sin revisar' : 'Nada pendiente',
+        tono: emerg ? 'grave' : inc ? 'aviso' : 'neutro',
+        accion: () => emerg ? this.switchTab('emergencias') : (this.verAnomalias = true),
+      },
+    ];
+  }
+
+  trackOperacion = (_: number, t: TarjetaOperacion) => t.clave;
+
+  verBuses(c: CategoriaBus) {
+    this.busQuery = '';
+    this.switchTab('buses');
+    // Después del cambio de pestaña: entrar a Buses desde el menú limpia el filtro.
+    this.filtroEstadoBus = c;
+  }
+
+  // ---- TENDENCIAS: esta semana contra la anterior ----
+  private viajesDeSemana(atras: 0 | 1): Viaje[] {
+    const fin = new Date();
+    fin.setHours(23, 59, 59, 999);
+    fin.setDate(fin.getDate() - 7 * atras);
+    const ini = new Date(fin);
+    ini.setDate(ini.getDate() - 6);
+    ini.setHours(0, 0, 0, 0);
+    return this.viajesRecientes.filter(v => {
+      const t = Date.parse(v.inicio);
+      return t >= ini.getTime() && t <= fin.getTime();
+    });
+  }
+
+  private horasDe(viajes: Viaje[]): number {
+    const ms = viajes.filter(v => v.estado === 'completado' && v.fin)
+      .reduce((s, v) => s + Math.max(0, Date.parse(v.fin!) - Date.parse(v.inicio)), 0);
+    return ms / 3600000;
+  }
+
+  // "+12 % vs. semana anterior". Sin semana anterior no se inventa un porcentaje.
+  private delta(actual: number, antes: number, subirEsBueno = true): { texto: string; tono: 'bien' | 'mal' | 'igual' } | null {
+    if (antes === 0) return actual === 0 ? null : { texto: 'Sin datos de la semana anterior', tono: 'igual' };
+    const pct = Math.round(((actual - antes) / antes) * 100);
+    if (pct === 0) return { texto: 'Igual que la semana anterior', tono: 'igual' };
+    const bueno = (pct > 0) === subirEsBueno;
+    return { texto: `${pct > 0 ? '+' : '−'}${Math.abs(pct)} % vs. semana anterior`, tono: bueno ? 'bien' : 'mal' };
+  }
+
+  get tendencias() {
+    const ahora = this.viajesDeSemana(0), antes = this.viajesDeSemana(1);
+    const cancel = (vs: Viaje[]) => vs.filter(v => v.estado === 'cancelado').length;
+    const hechos = (vs: Viaje[]) => vs.filter(v => v.estado !== 'cancelado').length;
+    const h0 = this.horasDe(ahora), h1 = this.horasDe(antes);
+    return {
+      viajes: { valor: hechos(ahora), delta: this.delta(hechos(ahora), hechos(antes)) },
+      cancelados: {
+        valor: cancel(ahora), delta: this.delta(cancel(ahora), cancel(antes), false),
+        pct: ahora.length ? Math.round((cancel(ahora) / ahora.length) * 100) : 0,
+      },
+      horas: { valor: h0 < 10 ? h0.toFixed(1).replace('.', ',') : String(Math.round(h0)), delta: this.delta(Math.round(h0 * 10), Math.round(h1 * 10)) },
+    };
+  }
+
   // ---- BUSCADOR (choferes/buses) ----
   choferQuery = '';
   busQuery = '';
+  // Filtro por estado de la lista de buses (lo pone el Inicio al tocar un indicador).
+  filtroEstadoBus: CategoriaBus | '' = '';
+  readonly FILTROS_BUS: { c: CategoriaBus | ''; t: string }[] = [
+    { c: '', t: 'Todos' }, { c: 'ruta', t: 'En movimiento' }, { c: 'detenido', t: 'Detenidos' },
+    { c: 'sin_senal', t: 'Sin conexión' }, { c: 'disponible', t: 'Disponibles' }, { c: 'taller', t: 'En taller' }, { c: 'inactivo', t: 'Inactivos' },
+  ];
+
+  cuantosEn(c: CategoriaBus | ''): number {
+    return c ? this.contarCategoria(c) : this.buses.length;
+  }
 
   get filteredChoferes(): UserProfile[] {
     const q = this.choferQuery.trim().toLowerCase();
@@ -618,8 +761,9 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
 
   get filteredBuses(): Bus[] {
     const q = this.busQuery.trim().toLowerCase();
-    if (!q) return this.buses;
-    return this.buses.filter(b =>
+    const base = this.filtroEstadoBus ? this.buses.filter(b => this.categoriaBus(b) === this.filtroEstadoBus) : this.buses;
+    if (!q) return base;
+    return base.filter(b =>
       b.placa.toLowerCase().includes(q) ||
       (b.numero_unidad || '').toLowerCase().includes(q) ||
       (b.ruta?.nombre || '').toLowerCase().includes(q)
@@ -633,12 +777,14 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = this.diaLocal(d);
       const label = fmt.format(d).replace('.', '');
       days.push({ label: label.charAt(0).toUpperCase() + label.slice(1), key, count: 0 });
     }
     for (const v of this.viajesRecientes) {
-      const key = v.inicio.slice(0, 10);
+      // El día en Costa Rica: con la fecha UTC, un viaje de las 7 p. m.
+      // caía en el día siguiente.
+      const key = this.diaLocal(new Date(v.inicio));
       const day = days.find(d => d.key === key);
       if (day) day.count++;
     }
@@ -734,7 +880,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.admin.getSolicitudPlanPendiente(eid),
       this.admin.getFacturas(eid),
       this.admin.getEmpresa(eid).catch(() => null),
-      this.admin.getViajesRecientes(eid),
+      // Dos semanas: la actual y la anterior, para comparar.
+      this.admin.getViajesRecientes(eid, 14),
       this.admin.getEquipo(eid).catch(() => []),
       // Estas dos no deben tumbar el panel entero si fallan: son de una
       // funcionalidad nueva y el resto del dashboard no depende de ellas.
@@ -1079,6 +1226,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       this.exitEditMode();
     }
     this.activeTab = tab;
+    if (tab === 'buses') this.filtroEstadoBus = '';
     if (tab === 'mapa' || tab === 'inicio') {
       setTimeout(() => this.initLiveMap(), 150);
     }
@@ -1481,7 +1629,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     // nunca, aunque los marcadores sí se hubieran dibujado bien.
     setTimeout(() => {
       map.resize();
-      if (!focus) this.fitEmergencyBounds(map);
+      if (!focus) this.encuadrar(map);
     }, 200);
   }
 
@@ -1835,12 +1983,28 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   // misma razón que resize() en initLiveMap: para no terminar operando
   // sobre una instancia de mapa vieja si mientras tanto se disparó otro
   // initLiveMap().
-  private fitEmergencyBounds(map: maplibregl.Map) {
-    const coordsList = this.emergencias
+  // Qué encuadrar al abrir el mapa: las emergencias abiertas si hay; si no,
+  // los buses que transmitieron hace poco; si no, el trazado de las rutas.
+  // Antes solo miraba emergencias y, sin ninguna, el mapa quedaba en San José
+  // aunque la flota anduviera en Guanacaste.
+  private encuadrar(map: maplibregl.Map) {
+    const emergencias = this.emergencias
       .filter(e => e.estado === 'pendiente')
       .map(e => this.getEmergenciaCoords(e))
       .filter((c): c is [number, number] => !!c);
-    if (coordsList.length === 0) return;
+    if (emergencias.length) { this.encuadrarPuntos(map, emergencias); return; }
+    const buses = Object.values(this.senales)
+      .filter(s => this.ahora - s.ts < this.REMOVE_MS)
+      .map(s => [s.lat, s.lng] as [number, number]);
+    if (buses.length) { this.encuadrarPuntos(map, buses); return; }
+    const rutas: [number, number][] = [];
+    for (const r of this.rutas) for (const pt of (r.geometria as any[] || [])) {
+      if (Array.isArray(pt) && pt.length >= 2) rutas.push([Number(pt[0]), Number(pt[1])]);
+    }
+    if (rutas.length) this.encuadrarPuntos(map, rutas);
+  }
+
+  private encuadrarPuntos(map: maplibregl.Map, coordsList: [number, number][]) {
 
     // Cámara armada a mano en vez de fitBounds(): centro = punto medio de
     // las emergencias, zoom aproximado según qué tan separadas están entre
@@ -2276,4 +2440,17 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       supabaseClient().removeChannel(this.realtimeChannel);
     }
   }
+}
+
+// Cómo está cada bus ahora, para el Inicio y el filtro de la lista.
+type CategoriaBus = 'ruta' | 'detenido' | 'sin_senal' | 'disponible' | 'taller' | 'inactivo';
+
+interface TarjetaOperacion {
+  clave: string;
+  label: string;
+  valor: string;
+  de: string;
+  nota: string;
+  tono: 'ok' | 'aviso' | 'grave' | 'neutro';
+  accion: () => void;
 }

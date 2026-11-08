@@ -101,6 +101,23 @@
         <!-- ===== RESUMEN ===== -->
         <div *ngIf="activeTab==='inicio'" class="page resumen">
 
+          <!-- Qué está pasando ahora. Cada indicador lleva a la lista filtrada. -->
+          <section class="op" aria-labelledby="op-titulo">
+            <div class="op-cabeza">
+              <h2 id="op-titulo">Estado de la operación</h2>
+              <span class="op-vivo"><span class="pulse-dot" aria-hidden="true"></span>En vivo · {{ fechaHora }}</span>
+            </div>
+            <div class="op-grilla">
+              <button type="button" class="op-tarjeta" *ngFor="let t of operacion; trackBy: trackOperacion"
+                      [ngClass]="'op-tarjeta--' + t.tono" (click)="t.accion()">
+                <span class="op-lbl">{{ t.label }}</span>
+                <span class="op-val"><span class="bx-mono">{{ t.valor }}</span><span class="op-de bx-mono" *ngIf="t.de">{{ t.de }}</span></span>
+                <span class="op-nota">{{ t.nota }}</span>
+                <ion-icon name="arrow-forward" class="op-ir" aria-hidden="true"></ion-icon>
+              </button>
+            </div>
+          </section>
+
           <!-- Lo que pide una decisión, primero -->
           <section class="atencion" aria-labelledby="atencion-titulo" *ngIf="atencion.length; else todoEnOrden">
             <div class="atencion-cabeza">
@@ -155,40 +172,31 @@
             </p>
           </ng-template>
 
-          <!-- Cuatro números con su contexto, en una sola banda -->
-          <section class="kpis kpis--5" aria-label="Indicadores">
-            <div class="kpi">
-              <span class="kpi-lbl">Buses en ruta</span>
-              <div class="kpi-val">
-                <span class="bx-mono">{{ activeBusCount }}</span><span class="kpi-de bx-mono">/ {{ buses.length }}</span>
-              </div>
-              <div class="kpi-viz kpi-seg" aria-hidden="true">
-                <span *ngFor="let e of segmentosFlota" [ngClass]="'seg--' + e"></span>
-              </div>
-              <span class="kpi-nota">{{ restoFlota }}</span>
-            </div>
-            <div class="kpi">
+          <!-- La semana contra la anterior: si la operación mejora o empeora. -->
+          <section class="kpis kpis--5" aria-label="Últimos 7 días">
+            <div class="kpi" *ngIf="tendencias as t">
               <span class="kpi-lbl">Viajes · últimos 7 días</span>
-              <div class="kpi-val"><span class="bx-mono">{{ tripsChartTotal }}</span></div>
+              <div class="kpi-val"><span class="bx-mono">{{ t.viajes.valor }}</span></div>
               <div class="kpi-viz kpi-barras" aria-hidden="true">
                 <span *ngFor="let d of tripsChartData; let ult = last" [class.hoy]="ult"
                       [style.height.%]="d.count ? 20 + 80 * d.count / tripsChartMax : 0"></span>
               </div>
-              <span class="kpi-nota">{{ hallazgoViajes }}</span>
+              <span class="kpi-delta" *ngIf="t.viajes.delta as d" [ngClass]="'kpi-delta--' + d.tono">{{ d.texto }}</span>
+              <span class="kpi-nota" *ngIf="!t.viajes.delta">{{ hallazgoViajes }}</span>
             </div>
-            <div class="kpi">
-              <span class="kpi-lbl">Salidas a tiempo · 30 días</span>
-              <div class="kpi-val">
-                <span class="bx-mono">{{ puntualidad ? puntualidad.pct : '—' }}</span><span class="kpi-de bx-mono" *ngIf="puntualidad">%</span>
-              </div>
-              <div class="kpi-viz kpi-seg kpi-seg--reparto kpi-puntual" aria-hidden="true">
-                <ng-container *ngIf="puntualidad as p">
-                  <span class="a-tiempo" [style.flex-grow]="p.aTiempo"></span>
-                  <span class="tarde" [style.flex-grow]="p.tarde"></span>
-                  <span class="antes" [style.flex-grow]="p.temprano"></span>
-                </ng-container>
-              </div>
-              <span class="kpi-nota">{{ notaPuntualidad }}</span>
+            <div class="kpi" *ngIf="tendencias as t">
+              <span class="kpi-lbl">Viajes cancelados · 7 días</span>
+              <div class="kpi-val"><span class="bx-mono">{{ t.cancelados.valor }}</span><span class="kpi-de bx-mono" *ngIf="t.cancelados.valor">· {{ t.cancelados.pct }} %</span></div>
+              <div class="kpi-viz" aria-hidden="true"></div>
+              <span class="kpi-delta" *ngIf="t.cancelados.delta as d" [ngClass]="'kpi-delta--' + d.tono">{{ d.texto }}</span>
+              <span class="kpi-nota" *ngIf="!t.cancelados.delta">Ninguno esta semana</span>
+            </div>
+            <div class="kpi" *ngIf="tendencias as t">
+              <span class="kpi-lbl">Horas de operación · 7 días</span>
+              <div class="kpi-val"><span class="bx-mono">{{ t.horas.valor }}</span><span class="kpi-de bx-mono">h</span></div>
+              <div class="kpi-viz" aria-hidden="true"></div>
+              <span class="kpi-delta" *ngIf="t.horas.delta as d" [ngClass]="'kpi-delta--' + d.tono">{{ d.texto }}</span>
+              <span class="kpi-nota" *ngIf="!t.horas.delta">Suma de los viajes completados</span>
             </div>
             <div class="kpi">
               <span class="kpi-lbl">Calificación de pasajeros</span>
@@ -403,6 +411,12 @@
               <input type="text" placeholder="Buscar por placa, unidad o ruta..." [(ngModel)]="busQuery" />
             </div>
           </div>
+          <div class="filtros-estado" role="group" aria-label="Filtrar por estado" *ngIf="buses.length > 0">
+            <button type="button" *ngFor="let f of FILTROS_BUS" [class.on]="filtroEstadoBus === f.c"
+                    [attr.aria-pressed]="filtroEstadoBus === f.c" (click)="filtroEstadoBus = f.c">
+              {{ f.t }} <span class="bx-mono">{{ cuantosEn(f.c) }}</span>
+            </button>
+          </div>
           <div class="card">
             <div class="table-row bus-row" *ngFor="let b of filteredBuses; trackBy: trackBus">
               <bx-placa [placa]="b.placa" [apagada]="b.estado==='inactivo'"></bx-placa>
@@ -428,7 +442,7 @@
               <span>Agregá tu primer bus para empezar a armar rutas.</span>
               <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" (click)="addBus()">Nuevo bus</button>
             </div>
-            <div class="empty" *ngIf="buses.length > 0 && filteredBuses.length===0">Sin resultados para "{{ busQuery }}"</div>
+            <div class="empty" *ngIf="buses.length > 0 && filteredBuses.length===0">{{ busQuery ? 'Sin resultados para "' + busQuery + '"' : 'Ningún bus en ese estado' }}</div>
           </div>
         </div>
 

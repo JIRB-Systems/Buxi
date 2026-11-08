@@ -1,0 +1,116 @@
+// ====== INICIO: estado de la operación y tendencias ======
+
+.op { display: flex; flex-direction: column; gap: 12px; }
+
+.op-cabeza {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--bx-text); }
+}
+
+.op-vivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--bx-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.op-grilla {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 1200px) { .op-grilla { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .op-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+// Cada indicador es un botón: lleva a la lista filtrada. El color va en el
+// borde de arriba y en el número, nunca solo en el fondo.
+.op-tarjeta {
+  position: relative;
+  min-width: 0;
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 14px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--bx-line);
+  border-top: 3px solid var(--bx-line-strong);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--bx-text);
+  font-family: var(--bx-font);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+
+  &:hover { background: rgba(255, 255, 255, 0.05); }
+  &:active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 2px; }
+
+  .op-lbl { font-size: 12px; font-weight: 600; color: var(--bx-text-2); padding-right: 18px; }
+  .op-val { display: flex; align-items: baseline; gap: 4px; margin-top: 2px; }
+  .op-val .bx-mono { font-size: 30px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
+  .op-de { font-size: 14px; font-weight: 600; color: var(--bx-text-3); }
+  .op-nota { font-size: 12px; line-height: 1.35; color: var(--bx-text-3); }
+  .op-ir {
+    position: absolute; top: 14px; right: 12px;
+    font-size: 14px; color: var(--bx-text-3);
+    opacity: 0; transition: opacity 0.16s ease;
+  }
+  &:hover .op-ir, &:focus-visible .op-ir { opacity: 1; }
+
+  &--ok { border-top-color: var(--bx-green-bright); .op-val .bx-mono { color: var(--bx-green-bright); } }
+  &--aviso { border-top-color: var(--bx-warning); .op-val .bx-mono { color: var(--bx-warning); } }
+  &--grave { border-top-color: var(--bx-danger); .op-val .bx-mono { color: var(--bx-danger); } }
+  &--neutro .op-val .bx-mono { color: var(--bx-text-2); }
+}
+
+// La comparación contra la semana anterior: verde si mejora, rojo si empeora.
+.kpi-delta {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  &--bien { color: var(--bx-green-bright); }
+  &--mal { color: var(--bx-danger); }
+  &--igual { color: var(--bx-text-3); font-weight: 600; }
+}
+
+// Filtro por estado de la lista de buses.
+.filtros-estado {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+
+  button {
+    flex: none;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--bx-line);
+    background: transparent;
+    color: var(--bx-text-2);
+    font-family: var(--bx-font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    .bx-mono { font-size: 12px; color: var(--bx-text-3); }
+    &:hover { background: rgba(255, 255, 255, 0.05); }
+    &.on { background: var(--bx-text); border-color: var(--bx-text); color: var(--bx-bg-1, #0b1626); .bx-mono { color: inherit; opacity: 0.7; } }
+    &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 1px; }
+  }
+}
+
+// Entre el estado de la operación y "Requiere tu atención", aire.
+.op + .atencion, .op + .en-orden { margin-top: 8px; }
