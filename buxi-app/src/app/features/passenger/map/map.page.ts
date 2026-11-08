@@ -148,6 +148,48 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   //    principal; la capa nativa la dibuja la GPU y el costo por bus es marginal.
   private readonly BUSES_SRC = 'buses-src';
   private readonly BUSES_LAYER = 'buses-layer';
+  // El código de la ruta ("101") al lado de cada bus, para saber cuál es sin tocarlo.
+  private readonly BUSES_COD_LAYER = 'buses-codigo-layer';
+  private codigoPorRuta = new Map<string, { codigo: string; fondo: string; tinta: string }>();
+  // La pastilla de fondo: una imagen estirable por color, que MapLibre ajusta
+  // al largo del texto (icon-text-fit). Se registra la primera vez que hace falta.
+  private pastillaDe(fondo: string): string {
+    const id = 'pastilla-' + fondo;
+    if (this.map.hasImage(id)) return id;
+    // Alto y ancho de más para que las zonas estirables no queden en cero
+    // (MapLibre descarta la imagen si una zona mide 0).
+    const r = 2, w = 24 * r, h = 22 * r, rad = 9 * r;
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return id;
+    ctx.fillStyle = fondo;
+    ctx.strokeStyle = 'rgba(7, 15, 28, 0.85)';
+    ctx.lineWidth = 2 * r;
+    ctx.beginPath();
+    ctx.roundRect(r, r, w - 2 * r, h - 2 * r, rad - r);
+    ctx.fill();
+    ctx.stroke();
+    this.map.addImage(id, ctx.getImageData(0, 0, w, h), {
+      pixelRatio: r,
+      stretchX: [[rad, w - rad]],
+      stretchY: [[rad, h - rad]],
+      content: [rad - 3 * r, 4 * r, w - rad + 3 * r, h - 4 * r],
+    });
+    return id;
+  }
+
+  private codigoDeRuta(rutaId: string | undefined): { codigo: string; fondo: string; tinta: string } | null {
+    if (!rutaId) return null;
+    const hecho = this.codigoPorRuta.get(rutaId);
+    if (hecho) return hecho;
+    const r = this.allRutas.find(x => x.id === rutaId);
+    if (!r) return null;
+    const fondo = colorSeguro(r.color, '#8292aa');
+    const c = { codigo: (r.codigo_ruta || rutaCorta(r.nombre)).trim(), fondo, tinta: tintaSobre(fondo) };
+    this.codigoPorRuta.set(rutaId, c);
+    return c;
+  }
   private busLayerListo = false;
   private busIconosRegistrados = new Set<string>();
   private busLocationsMap = new Map<string, BusLocation>();
@@ -246,7 +288,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       case 'rutas': return 'Rutas y empresas';
       case 'favoritos': return 'Tus favoritos';
       case 'alertas': return 'Alertas';
-      case 'lugares': return this.buscarPara === 'origen' ? '¿Desde dónde salís?' : '¿A dónde vas?';
+      case 'lugares':
+        switch (this.buscarPara) {
+          case 'origen': return '¿Desde dónde salís?';
+          case 'casa': return '¿Dónde es tu casa?';
+          case 'trabajo': return '¿Dónde trabajás?';
+          default: return '¿A dónde vas?';
+        }
       default: return '';
     }
   }
@@ -545,9 +593,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // El buscador de la barra superior busca LUGARES; el boton verde del dock
   // lleva a rutas y empresas. Antes ambos abrian el mismo panel —que ademas
   // traia su propio buscador—, asi que habia tres entradas a lo mismo.
-  async openSearch(prefill = '', para: 'destino' | 'origen' = 'destino') {
+  async openSearch(prefill = '', para: 'destino' | 'origen' | 'casa' | 'trabajo' = 'destino') {
     // El origen solo se cambia con un viaje armado: sin destino no hay viaje.
-    this.buscarPara = para === 'origen' && this.viaje ? 'origen' : 'destino';
+    this.buscarPara = para === 'origen' && !this.viaje ? 'destino' : para;
     await this.openPanel('lugares');
     this.activePanel = 'lugares';
     this.placeQuery = prefill;
@@ -558,7 +606,53 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // ---- BUSQUEDA DE LUGARES ----
   // El mismo buscador sirve para el destino y para el origen del viaje.
-  buscarPara: 'destino' | 'origen' = 'destino';
+  // 'casa' y 'trabajo': se está guardando ese lugar, no armando un viaje.
+  buscarPara: 'destino' | 'origen' | 'casa' | 'trabajo' = 'destino';
+
+  // ---- RECIENTES Y LUGARES GUARDADOS ----
+  // Como "Seneste Rejser" de Rejseplanen: al abrir el buscador, los últimos
+  // destinos y Casa/Trabajo a un toque. Viven en este teléfono (localStorage).
+  lugaresGuardados: { casa?: LugarViaje; trabajo?: LugarViaje } = this.leerLocal('buxci.lugares.v1', {});
+  recientes: LugarViaje[] = this.leerLocal('buxci.recientes.v1', []);
+  private readonly MAX_RECIENTES = 6;
+
+  private leerLocal<T>(clave: string, porDefecto: T): T {
+    try {
+      const v = localStorage.getItem(clave);
+      return v ? JSON.parse(v) as T : porDefecto;
+    } catch { return porDefecto; }
+  }
+
+  private escribirLocal(clave: string, valor: unknown) {
+    try { localStorage.setItem(clave, JSON.stringify(valor)); } catch { /* sin almacenamiento: se pierde al cerrar */ }
+  }
+
+  private mismoLugar(a: LugarViaje, b: LugarViaje): boolean {
+    return this.featuresService.distanceKm(a.lat, a.lng, b.lat, b.lng) < 0.05;
+  }
+
+  private guardarReciente(l: LugarViaje) {
+    if (l.miUbicacion) return;
+    const { casa, trabajo } = this.lugaresGuardados;
+    if ((casa && this.mismoLugar(casa, l)) || (trabajo && this.mismoLugar(trabajo, l))) return;
+    this.recientes = [l, ...this.recientes.filter(r => !this.mismoLugar(r, l))].slice(0, this.MAX_RECIENTES);
+    this.escribirLocal('buxci.recientes.v1', this.recientes);
+  }
+
+  borrarRecientes() {
+    this.recientes = [];
+    this.escribirLocal('buxci.recientes.v1', []);
+  }
+
+  // Tocar Casa, Trabajo o un reciente: es el destino (o el origen, si se
+  // estaba eligiendo desde dónde salir).
+  elegirLugar(l: LugarViaje) {
+    this.selectPlace({ label: l.detalle, lat: l.lat, lng: l.lng, nombre: l.nombre });
+  }
+
+  get recientesVisibles(): LugarViaje[] {
+    return this.buscarPara === 'casa' || this.buscarPara === 'trabajo' ? [] : this.recientes;
+  }
   placeQuery = '';
   placeResults: { label: string; lat: number; lng: number }[] = [];
   placeSearching = false;
@@ -588,10 +682,22 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Elegir un lugar es decir a dónde se va: se marca en el mapa y se arma el
   // viaje hasta ahí. Antes solo movía el mapa y dejaba al pasajero deducir
   // qué bus le servía.
-  selectPlace(p: { label: string; lat: number; lng: number }) {
+  selectPlace(p: { label: string; lat: number; lng: number; nombre?: string }) {
+    const lugar: LugarViaje = { nombre: p.nombre || p.label.split(',')[0].trim() || p.label, detalle: p.label, lat: p.lat, lng: p.lng };
+
+    // Guardando Casa o Trabajo: se guarda y se vuelve al buscador, que ahora
+    // ya lo muestra arriba.
+    if (this.buscarPara === 'casa' || this.buscarPara === 'trabajo') {
+      const cual = this.buscarPara;
+      this.lugaresGuardados = { ...this.lugaresGuardados, [cual]: { ...lugar, nombre: cual === 'casa' ? 'Casa' : 'Trabajo' } };
+      this.escribirLocal('buxci.lugares.v1', this.lugaresGuardados);
+      this.toast(cual === 'casa' ? 'Casa guardada' : 'Trabajo guardado');
+      this.openSearch();
+      return;
+    }
+
     this.closePanel();
     if (!this.mapReady) return;
-    const lugar: LugarViaje = { nombre: p.label.split(',')[0].trim() || p.label, detalle: p.label, lat: p.lat, lng: p.lng };
 
     if (this.buscarPara === 'origen' && this.viaje) {
       this.buscarPara = 'destino';
@@ -616,6 +722,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       paradaOrigenKm: null,
       paradaDestinoKm: null,
     };
+    this.guardarReciente(lugar);
     this.marcarLugares();
     this.planificar();
     // Con la hoja ya dibujada, para encuadrar por encima de ella.
@@ -1664,8 +1771,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       ]);
       this.empresas = empresas;
       this.allRutas = rutas;
+      this.codigoPorRuta.clear();
       this.recalcularParadaCercana();
       this.allParadas = paradas;
+      this.dibujarParadasTodas();
       this.recomputeEmpresasCercanas();
     } catch {}
 
@@ -1829,6 +1938,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // quedaba para siempre tapando toda la pantalla.
     try {
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
+      this.engancharToqueParadas();
 
       const rutaId = this.route.snapshot.queryParams['ruta'] || null;
       if (rutaId) {
@@ -2089,6 +2199,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       if (!this.darkMode) { try { tintLightMap(this.map); } catch {} }
       try { soloParadasBuxci(this.map); } catch {}
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
+      this.dibujarParadasTodas();
 
       // El círculo se redibuja desde la última posición conocida.
       if (this.userLat !== 0) {
@@ -2229,6 +2340,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   private async loadRoute(rutaId: string) {
+    // Entrando directo a una ruta (link compartido, aviso) no pasa por
+    // loadBusLocations: sin esto los buses quedaban sin dibujo, solo con su
+    // etiqueta.
+    this.cargarSprites();
     this.loading = true;
     try {
       const [ruta, paradas] = await Promise.all([
@@ -2341,6 +2456,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       geometry: { type: 'Point', coordinates: [parada.longitud, parada.latitud] },
       properties: { id: parada.id, nombre: this.nombreParadaCorto(parada.nombre), terminal: i === 0 || i === ultima, tuya: false, etiqueta: '' },
     }));
+    this.mostrarParadasTodas(false);
     const paradasSrc = `${srcId}-paradas`;
     this.map.addSource(paradasSrc, { type: 'geojson', data: { type: 'FeatureCollection', features } as any });
     const fuente = this.fuenteDelEstilo();
@@ -2409,6 +2525,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.quitarTramoViaje();
     this.viajeElegido = null;
     this.hojaRutaAbierta = false;
+    this.mostrarParadasTodas(true);
     this.routeLayerIds.forEach(id => {
       if (this.map.getLayer(id)) this.map.removeLayer(id);
     });
@@ -2548,6 +2665,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // La tipografía de las etiquetas sale del propio estilo de MapTiler: una
   // fuente que el estilo no trae no se dibuja, sin error ni aviso.
+  // La negrita del estilo, si tiene: el código de ruta y los nombres que se
+  // leen de un vistazo. Si no hay, la misma que el resto.
+  private fuenteNegrita(): string[] {
+    for (const capa of this.map.getStyle()?.layers ?? []) {
+      const f = (capa as any).layout?.['text-font'];
+      if (Array.isArray(f) && f.every(x => typeof x === 'string') && f.some((x: string) => /bold/i.test(x) && !/italic/i.test(x))) return f;
+    }
+    return this.fuenteDelEstilo();
+  }
+
   private fuenteDelEstilo(): string[] {
     for (const capa of this.map.getStyle()?.layers ?? []) {
       const f = (capa as any).layout?.['text-font'];
@@ -2620,7 +2747,44 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         const id = e.features?.[0]?.properties?.['bus_id'];
         if (!id) return;
         const loc = this.busLocationsMap.get(String(id));
-        if (loc) this.zone.run(() => { this.selectedBus = loc; });
+        if (loc) this.zone.run(() => { this.paradaAbierta = null; this.selectedBus = loc; });
+      });
+    }
+
+    // El código va en su propia capa: si dos chocan, se esconde uno de los
+    // códigos pero ningún bus. Encima del bus, a la derecha, con el color de
+    // la ruta de fondo (el halo grueso hace de pastilla).
+    if (!this.map.getLayer(this.BUSES_COD_LAYER)) {
+      this.map.addLayer({
+        id: this.BUSES_COD_LAYER,
+        type: 'symbol',
+        source: this.BUSES_SRC,
+        minzoom: 11.5,
+        filter: ['!=', ['get', 'codigo'], ''],
+        layout: {
+          'text-field': ['get', 'codigo'],
+          'text-font': this.fuenteNegrita(),
+          'text-size': 11,
+          'text-anchor': 'bottom-left',
+          'text-offset': [1, -2.5],
+          'text-max-width': 8,
+          'text-padding': 2,
+          'icon-image': ['get', 'pastilla'],
+          'icon-text-fit': 'both',
+          'icon-text-fit-padding': [2, 6, 2, 6],
+          'icon-anchor': 'bottom-left',
+          'icon-offset': [0, 0],
+        },
+        paint: {
+          'text-color': ['get', 'tinta'],
+          'text-opacity': ['match', ['get', 'senal'], 'perdida', 0.55, 1],
+          'icon-opacity': ['match', ['get', 'senal'], 'perdida', 0.55, 1],
+        },
+      });
+      this.map.on('click', this.BUSES_COD_LAYER, (e) => {
+        const id = e.features?.[0]?.properties?.['bus_id'];
+        const loc = id ? this.busLocationsMap.get(String(id)) : undefined;
+        if (loc) this.zone.run(() => { this.paradaAbierta = null; this.selectedBus = loc; });
       });
       this.map.on('mouseenter', this.BUSES_LAYER, () => {
         this.map.getCanvas().style.cursor = 'pointer';
@@ -2675,6 +2839,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       }
       const edadS = Math.max(0, (ahora - Date.parse(loc.timestamp)) / 1000);
       const senal = calidadSenal(edadS);
+      const cod = this.codigoDeRuta(this.busRuta.get(busId));
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lng, lat] },
@@ -2683,6 +2848,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           heading: head,
           senal,
           etiqueta: senal === 'en_vivo' ? '' : haceTexto(edadS),
+          codigo: cod?.codigo ?? '',
+          pastilla: cod ? this.pastillaDe(cod.fondo) : '',
+          fondo: cod?.fondo ?? '#8292aa',
+          tinta: cod?.tinta ?? '#ffffff',
           // El ícono se resuelve cuando llega un punto nuevo, no acá: esto
           // corre en cada cuadro y calcular estado + color 60 veces por segundo
           // por bus es trabajo tirado.
@@ -3289,6 +3458,145 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }
   }
 
+  // ====== PARADAS: TOCAR UNA Y VER QUÉ PASA POR AHÍ ======
+  // Como movemad o Rejseplanen: se toca una parada del mapa y se ven los
+  // próximos buses de todas las rutas que paran ahí. En vivo si hay un bus
+  // con GPS al día en camino; si no, la próxima salida del horario.
+  private readonly PARADAS_TODAS = 'paradas-todas';
+  private readonly PARADA_JUNTAS_KM = 0.06;
+
+  // Todas las paradas, de cerca (zoom 14+), para poder tocarlas sin elegir
+  // antes una ruta. Las que están a pocos metros (una por ruta en la misma
+  // esquina) se dibujan como un solo punto.
+  private dibujarParadasTodas() {
+    if (!this.map || !this.map.isStyleLoaded() || !this.allParadas.length) return;
+    const vistas = new Map<string, any>();
+    for (const p of this.allParadas) {
+      const clave = `${Math.round(p.latitud * 2500)},${Math.round(p.longitud * 2500)}`;
+      if (vistas.has(clave)) continue;
+      vistas.set(clave, {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.longitud, p.latitud] },
+        properties: { nombre: this.nombreParadaCorto(p.nombre) },
+      });
+    }
+    const data = { type: 'FeatureCollection', features: [...vistas.values()] } as any;
+    const src = this.map.getSource(this.PARADAS_TODAS) as maplibregl.GeoJSONSource | undefined;
+    if (src) { src.setData(data); return; }
+    this.map.addSource(this.PARADAS_TODAS, { type: 'geojson', data });
+    const antes = this.map.getLayer(this.BUSES_LAYER) ? this.BUSES_LAYER : undefined;
+    this.map.addLayer({
+      id: `${this.PARADAS_TODAS}-circ`, type: 'circle', source: this.PARADAS_TODAS, minzoom: 14,
+      layout: { visibility: this.activeRuta ? 'none' : 'visible' },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 3.5, 17, 6],
+        'circle-color': '#ffffff',
+        'circle-stroke-color': '#2f6fe0',
+        'circle-stroke-width': 2,
+      },
+    }, antes);
+  }
+
+  // Con una ruta en pantalla, sus paradas ya están dibujadas: las otras se esconden.
+  private mostrarParadasTodas(si: boolean) {
+    const id = `${this.PARADAS_TODAS}-circ`;
+    if (this.map?.getLayer(id)) this.map.setLayoutProperty(id, 'visibility', si ? 'visible' : 'none');
+  }
+
+  // Un solo manejador de toques para todas las capas de paradas (la general y
+  // la de cada ruta, que cambia de id cada vez que se dibuja). Si el toque cae
+  // sobre un bus, gana el bus.
+  private toqueParadasListo = false;
+  private engancharToqueParadas() {
+    if (this.toqueParadasListo || !this.map) return;
+    this.toqueParadasListo = true;
+    this.map.on('click', (e) => {
+      const caja: [maplibregl.PointLike, maplibregl.PointLike] = [[e.point.x - 10, e.point.y - 10], [e.point.x + 10, e.point.y + 10]];
+      const capas = (this.map.getStyle()?.layers ?? []).map(l => l.id);
+      const deBuses = capas.filter(id => id === this.BUSES_LAYER || id === this.BUSES_COD_LAYER);
+      if (deBuses.length && this.map.queryRenderedFeatures(caja, { layers: deBuses }).length) return;
+      const deParadas = capas.filter(id => id === `${this.PARADAS_TODAS}-circ` || id.endsWith('-paradas-circ'));
+      if (!deParadas.length) return;
+      const f = this.map.queryRenderedFeatures(caja, { layers: deParadas })[0];
+      if (!f || f.geometry.type !== 'Point') return;
+      const [lng, lat] = (f.geometry as any).coordinates as [number, number];
+      this.zone.run(() => this.abrirParada(lat, lng));
+    });
+    this.map.on('mousemove', (e) => {
+      const capas = (this.map.getStyle()?.layers ?? []).map(l => l.id)
+        .filter(id => id === `${this.PARADAS_TODAS}-circ` || id.endsWith('-paradas-circ'));
+      if (!capas.length) return;
+      const hay = this.map.queryRenderedFeatures(e.point, { layers: capas }).length > 0;
+      if (hay) this.map.getCanvas().style.cursor = 'pointer';
+      else if (this.map.getCanvas().style.cursor === 'pointer' && !this.map.queryRenderedFeatures(e.point, { layers: [this.BUSES_LAYER].filter(id => this.map.getLayer(id)) }).length) this.map.getCanvas().style.cursor = '';
+    });
+  }
+
+  // La parada abierta: el punto tocado y las paradas (una por ruta) que hay ahí.
+  paradaAbierta: { nombre: string; lat: number; lng: number; paradas: Parada[] } | null = null;
+
+  abrirParada(lat: number, lng: number) {
+    const juntas = this.allParadas
+      .map(p => ({ p, d: this.featuresService.distanceKm(lat, lng, p.latitud, p.longitud) }))
+      .filter(x => x.d <= this.PARADA_JUNTAS_KM)
+      .sort((a, b) => a.d - b.d);
+    // Una por ruta: la más cercana al toque.
+    const porRuta = new Map<string, Parada>();
+    for (const { p } of juntas) if (!porRuta.has(p.ruta_id)) porRuta.set(p.ruta_id, p);
+    const paradas = [...porRuta.values()];
+    if (!paradas.length) return;
+    this.selectedBus = null;
+    this.paradaAbierta = { nombre: this.nombreParadaCorto(paradas[0].nombre), lat, lng, paradas };
+  }
+
+  cerrarParada() { this.paradaAbierta = null; }
+
+  // Qué viene a esta parada, ruta por ruta y para cada lado. Se recalcula en
+  // cada detección de cambios: los buses se mueven y el número tiene que seguirlos.
+  get paradaFilas(): { clave: string; ruta: Ruta; hacia: string; minutos: number | null; horario: string | null }[] {
+    const pa = this.paradaAbierta;
+    if (!pa) return [];
+    const ahora = Date.now();
+    const filas: { clave: string; ruta: Ruta; hacia: string; minutos: number | null; horario: string | null }[] = [];
+    for (const parada of pa.paradas) {
+      const ruta = this.allRutas.find(r => r.id === parada.ruta_id);
+      if (!ruta) continue;
+      const mejor = new Map<number, number>();
+      for (const loc of this.busLocationsMap.values()) {
+        if (this.busRuta.get(loc.bus_id) !== ruta.id || !this.gpsEnVivo(loc, ahora)) continue;
+        const r = this.llegadaDe(loc, parada);
+        if (!r || r.llegada.minutos === null) continue;
+        const antes = mejor.get(r.sentido);
+        if (antes === undefined || r.llegada.minutos < antes) mejor.set(r.sentido, r.llegada.minutos);
+      }
+      if (mejor.size) {
+        for (const [sentido, minutos] of mejor) {
+          filas.push({ clave: `${ruta.id}${sentido}`, ruta, hacia: sentido === 1 ? ruta.destino : ruta.origen, minutos, horario: null });
+        }
+        continue;
+      }
+      const p = proximaSalida(this.salidasPorRuta.get(ruta.id) || []);
+      filas.push({ clave: ruta.id, ruta, hacia: `${this.lugarCorto(ruta.origen)} ↔ ${this.lugarCorto(ruta.destino)}`, minutos: null, horario: p ? salidaTexto(p) : null });
+    }
+    // Primero lo que viene en vivo (lo más cerca arriba), después el horario.
+    return filas.sort((a, b) => (a.minutos ?? 9999) - (b.minutos ?? 9999) || (a.horario ? 0 : 1) - (b.horario ? 0 : 1));
+  }
+
+  trackParadaFila = (_: number, f: { clave: string }) => f.clave;
+
+  get paradaDistancia(): string | null {
+    const pa = this.paradaAbierta;
+    if (!pa || !this.tieneUbicacion) return null;
+    const km = this.featuresService.distanceKm(this.userLat, this.userLng, pa.lat, pa.lng);
+    const c = this.featuresService.estimarCaminata(km);
+    return `A ${this.metrosTexto(c.metros)} de vos · ${c.minutos} min a pie`;
+  }
+
+  async verRutaDesdeParada(ruta: Ruta) {
+    this.paradaAbierta = null;
+    await this.selectRutaFromPanel(ruta);
+  }
+
   // ====== ¿A DÓNDE VAS? ======
   // El pasajero elige un destino en el buscador y la app le dice qué ruta
   // tomar, en qué parada subir, en cuál bajar y cuánto caminar. El cálculo es
@@ -3685,7 +3993,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (!p) return null;
     const despues = proximaSalida(salidas, new Date(ahora + (p.minutos + 1) * 60000));
     return {
-      texto: salidaTexto(p) + ' (horario)',
+      // El reloj gris de bx-dato ya dice que es por horario.
+      texto: salidaTexto(p),
       enVivo: false,
       llegas: p.diasDespues === 0 ? llegasEn(p.minutos) : null,
       siguiente: despues ? (despues.diasDespues === 1 ? 'mañana ' : '') + horaCorta(despues.hora) : null,

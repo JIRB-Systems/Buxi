@@ -452,3 +452,38 @@ ion-button.button-large {
   .bx-btn__giro { animation-duration: 2s; }
   .bx-flap.gira { animation: none; }
 }
+
+// ---- Dato en vivo / por horario (bx-dato) ----
+// La misma señal en toda la app: en vivo, verde y en negrita con ondas que
+// laten; por horario, gris con un reloj. Nunca un número suelto sin fuente.
+.bx-dato {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  min-width: 0;
+  max-width: 100%;
+}
+.bx-dato__ic { width: 1.1em; height: 1.1em; flex: none; }
+.bx-dato__txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bx-dato--vivo { color: var(--bx-green-bright); font-weight: 800; }
+.bx-dato--horario { color: var(--bx-text-2); font-weight: 600; }
+.bx-dato__ola { animation: bx-ola 1.8s ease-in-out infinite; }
+.bx-dato__ola--2 { animation-delay: 0.3s; }
+@keyframes bx-ola {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bx-dato__ola { animation: none; }
+}
+
+// Texto solo para lectores de pantalla.
+.bx-sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

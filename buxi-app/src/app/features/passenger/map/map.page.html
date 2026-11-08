@@ -180,8 +180,7 @@
 
   <!-- Live chip -->
   <div class="live-chip" *ngIf="activeBusCount > 0 && !activeRuta">
-    <span class="live-dot"></span>
-    {{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo<ng-container *ngIf="conteoBuses.sinSenal"> · {{ conteoBuses.sinSenal }} sin señal reciente</ng-container>
+    <bx-dato [vivo]="true">{{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo</bx-dato><ng-container *ngIf="conteoBuses.sinSenal"> · {{ conteoBuses.sinSenal }} sin señal reciente</ng-container>
   </div>
 
 
@@ -221,7 +220,11 @@
         </div>
 
         <div class="rs-info" *ngIf="nearestStop">
-          <span class="rs-label">{{ viajeElegido ? 'Subí acá' : (etaMinutes !== null ? 'Llega a tu parada · en vivo' : 'Tu parada más cercana') }}</span>
+          <span class="rs-label">
+            <ng-container *ngIf="viajeElegido">Subí acá</ng-container>
+            <bx-dato *ngIf="!viajeElegido && etaMinutes !== null" [vivo]="true">Llega a tu parada</bx-dato>
+            <ng-container *ngIf="!viajeElegido && etaMinutes === null">Tu parada más cercana</ng-container>
+          </span>
           <strong [title]="nearestStop.parada.nombre">{{ nombreCorto(nearestStop.parada) }}</strong>
           <span class="rs-sub rs-proximo" *ngIf="proximoPlaca">
             <bx-placa [placa]="proximoPlaca"></bx-placa>
@@ -299,7 +302,7 @@
           <li class="itin-paso">
             <span class="itin-ic"><ion-icon name="time-outline" aria-hidden="true"></ion-icon></span>
             <div class="itin-txt" *ngIf="esperaDe(o) as e; else sinEspera">
-              <strong [class.itin-vivo]="e.enVivo">{{ e.texto }}</strong>
+              <strong><bx-dato [vivo]="e.enVivo">{{ e.texto }}</bx-dato></strong>
               <span>El bus que va hacia {{ o.hacia }}<ng-container *ngIf="e.siguiente"> · si lo perdés, el siguiente sale {{ e.siguiente.startsWith('mañana') ? '' : 'a las ' }}{{ e.siguiente }}</ng-container></span>
             </div>
             <ng-template #sinEspera>
@@ -427,10 +430,10 @@
       <div class="rs-meta">
         <span class="rs-pill" *ngIf="ruta.codigo_ruta">Ruta {{ ruta.codigo_ruta }}</span>
         <span class="rs-pill live">
-          <i class="live-dot"></i>{{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo
+          <bx-dato [vivo]="true">{{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo</bx-dato>
         </span>
         <span class="rs-pill" *ngIf="conteoBuses.sinSenal">{{ conteoBuses.sinSenal }} sin señal reciente</span>
-        <span class="rs-pill" *ngIf="proximaSalidaTexto" title="Según el horario de la empresa, no en vivo">{{ proximaSalidaTexto }} · horario</span>
+        <span class="rs-pill" *ngIf="proximaSalidaTexto" title="Según el horario de la empresa, no en vivo"><bx-dato [vivo]="false">{{ proximaSalidaTexto }}</bx-dato></span>
       </div>
       </div>
 
@@ -444,7 +447,7 @@
     </ng-container>
   </ng-template>
 
-  <section class="route-sheet" #hoja data-hoja *ngIf="activeRuta && !selectedBus" aria-label="Ruta seleccionada"
+  <section class="route-sheet" #hoja data-hoja *ngIf="activeRuta && !selectedBus && !paradaAbierta" aria-label="Ruta seleccionada"
            [class.compacta]="!hojaRutaAbierta">
     <div class="rs-asa" bxArrastreHoja (soltar)="soltarHojaRuta($event)">
       <button type="button" class="rs-asa-btn" data-asa [attr.aria-expanded]="hojaRutaAbierta"
@@ -532,13 +535,13 @@
   <ng-template #tplEspera let-e>
     <span class="vj-espera" *ngIf="e" [class.vivo]="e.enVivo">
       <span class="vj-espera-linea">
-        <i class="live-dot" *ngIf="e.enVivo" aria-hidden="true"></i>{{ e.texto }}<ng-container *ngIf="e.llegas"> · llegás ~{{ e.llegas }}</ng-container>
+        <bx-dato [vivo]="e.enVivo">{{ e.texto }}</bx-dato><ng-container *ngIf="e.llegas"> · llegás ~{{ e.llegas }}</ng-container>
       </span>
       <small *ngIf="e.siguiente">Si lo perdés, el siguiente sale {{ e.siguiente.startsWith('mañana') ? '' : 'a las ' }}{{ e.siguiente }}</small>
     </span>
   </ng-template>
 
-  <section class="route-sheet viaje-sheet" #hoja *ngIf="viaje && !activeRuta && !selectedBus" aria-label="Tu viaje">
+  <section class="route-sheet viaje-sheet" #hoja *ngIf="viaje && !activeRuta && !selectedBus && !paradaAbierta" aria-label="Tu viaje">
     <ng-container *ngTemplateOutlet="tplViaje"></ng-container>
   </section>
 
@@ -619,6 +622,42 @@
     </button>
   </div>
 
+  <!-- ====== FICHA DE PARADA ======
+       Se toca una parada del mapa: los próximos buses de todas las rutas que
+       paran ahí. En vivo (GPS al día) o según el horario, y lo dice. -->
+  <section class="parada-sheet" *ngIf="paradaAbierta as pa" role="dialog" aria-label="Parada">
+    <div class="ps-cabeza">
+      <span class="ps-ic" aria-hidden="true"><ion-icon name="location"></ion-icon></span>
+      <div class="ps-tit">
+        <span class="ps-label">Parada</span>
+        <strong [title]="pa.paradas[0].nombre">{{ pa.nombre }}</strong>
+        <small *ngIf="paradaDistancia as d">{{ d }}</small>
+      </div>
+      <button type="button" class="ps-cerrar" (click)="cerrarParada()" aria-label="Cerrar la parada">
+        <ion-icon name="close" aria-hidden="true"></ion-icon>
+      </button>
+    </div>
+
+    <h3 class="ps-sub">Próximos buses</h3>
+    <ul class="ps-lista">
+      <li *ngFor="let f of paradaFilas; trackBy: trackParadaFila">
+        <button type="button" class="ps-fila" (click)="verRutaDesdeParada(f.ruta)">
+          <span class="ps-ruta">
+            <bx-ruta [nombre]="f.ruta.nombre" [color]="f.ruta.color"></bx-ruta>
+            <span class="ps-hacia">{{ f.minutos !== null ? 'hacia ' + lugarCorto(f.hacia) : f.hacia }}</span>
+          </span>
+          <span class="ps-cuando">
+            <bx-dato *ngIf="f.minutos !== null" [vivo]="true">{{ f.minutos === 0 ? 'Llegando' : f.minutos + ' min' }}</bx-dato>
+            <bx-dato *ngIf="f.minutos === null && f.horario" [vivo]="false">{{ f.horario }}</bx-dato>
+            <span class="ps-nada" *ngIf="f.minutos === null && !f.horario">Sin datos</span>
+          </span>
+          <ion-icon name="chevron-forward" class="ps-chev" aria-hidden="true"></ion-icon>
+        </button>
+      </li>
+    </ul>
+    <p class="ps-nota">En vivo es lo que marca el GPS del bus; con reloj, lo que publicó la empresa.</p>
+  </section>
+
   <!-- ====== PANTALLA DE EMPRESA (rutas + horarios) ====== -->
   <!-- Pantalla completa, no una ficha flotante sobre el mapa: la empresa
        puede tener muchos destinos (ej. La Reina del Campo) y una lista corta
@@ -650,7 +689,7 @@
           <span class="ed-ruta-destino">a {{ lugarCorto(r.destino) }}{{ r.precio ? ' · ₡' + (r.precio | number:'1.0-0') : '' }}</span>
           <span class="ed-ruta-origen">desde {{ lugarCorto(r.origen) }}</span>
         </div>
-        <span class="ed-ruta-salida" *ngIf="r.proximaSalidaTexto">{{ r.proximaSalidaTexto }}</span>
+        <span class="ed-ruta-salida" *ngIf="r.proximaSalidaTexto"><bx-dato [vivo]="false">{{ r.proximaSalidaTexto }}</bx-dato></span>
         <span class="ed-ruta-salida sin-horario" *ngIf="!r.proximaSalidaTexto">Sin horario</span>
         <ion-icon name="chevron-forward" class="ed-chevron"></ion-icon>
       </div>
@@ -721,7 +760,7 @@
   <ng-template #tplCerca let-cabeza="cabeza">
     <div class="cerca-cabeza" *ngIf="cabeza !== false">
       <h2 class="cerca-titulo">Cerca tuyo</h2>
-      <span class="cerca-vivo" *ngIf="hayCercaEnVivo"><i></i>en vivo</span>
+      <bx-dato class="cerca-vivo" *ngIf="hayCercaEnVivo" [vivo]="true">en vivo</bx-dato>
     </div>
 
     <ng-container *ngFor="let c of cercanas; trackBy: trackCercana">
@@ -742,12 +781,12 @@
       </span>
       <!-- "llega en": el número solo es ambiguo (¿llega o se camina?). -->
       <span class="cerca-eta" *ngIf="c.minutos !== null">
-        <span class="cerca-llega">llega en</span>
+        <span class="cerca-llega"><bx-dato [vivo]="true">llega en</bx-dato></span>
         <span class="cerca-min"><b class="bx-mono">{{ c.minutos === 0 ? '&lt;1' : c.minutos }}</b>min</span>
         <span class="cerca-hacia">hacia {{ c.hacia }}</span>
       </span>
       <span class="cerca-nada" *ngIf="c.minutos === null && !c.salida">Ninguno<br>en camino</span>
-      <span class="cerca-nada cerca-horario" *ngIf="c.minutos === null && c.salida">{{ c.salida }}<br><small>según horario</small></span>
+      <span class="cerca-nada cerca-horario" *ngIf="c.minutos === null && c.salida"><bx-dato [vivo]="false">{{ c.salida }}</bx-dato><br><small>según horario</small></span>
     </button>
   </ng-template>
 
@@ -769,7 +808,7 @@
   <!-- Teléfono: hoja con tres alturas (mini, resumen, lista). Se cambia
        arrastrando el asa o tocando el encabezado. -->
   <section class="cerca-hoja" #hoja data-hoja [attr.data-altura]="cercaAltura"
-           *ngIf="!activeRuta && !viaje && (cercanas.length || paradaCercana || tieneUbicacion)"
+           *ngIf="!activeRuta && !viaje && !paradaAbierta && (cercanas.length || paradaCercana || tieneUbicacion)"
            [class.oculta]="!cercaVisible" aria-label="Cerca tuyo">
     <div class="cerca-asa" bxArrastreHoja (soltar)="soltarCerca($event)">
       <div class="cerca-grip" aria-hidden="true"></div>
@@ -781,7 +820,7 @@
             <span class="cerca-titulo">Cerca tuyo</span>
             <span class="cerca-linea" *ngIf="cercaAltura === 'mini' || (cercaAltura === 'resumen' && !cercaDestacada)">{{ cercaLinea }}</span>
           </span>
-          <span class="cerca-vivo" *ngIf="hayCercaEnVivo && cercaAltura !== 'mini'"><i></i>en vivo</span>
+          <bx-dato class="cerca-vivo" *ngIf="hayCercaEnVivo && cercaAltura !== 'mini'" [vivo]="true">en vivo</bx-dato>
           <ion-icon class="cerca-flecha" [name]="cercaAltura === 'lista' ? 'chevron-down' : 'chevron-up'" aria-hidden="true"></ion-icon>
         </button>
         <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm cerca-achicar"
@@ -935,7 +974,7 @@
             <bx-ruta [nombre]="f.ruta.nombre" [color]="f.ruta.color"></bx-ruta>
             <strong>{{ lugarCorto(f.ruta.origen) }} → {{ lugarCorto(f.ruta.destino) }}</strong>
             <span class="lp-empresa" *ngIf="empresaNombre(f.ruta)">{{ empresaNombre(f.ruta) }}<ng-container *ngIf="f.ruta.precio"> · ₡{{ f.ruta.precio | number:'1.0-0' }}</ng-container></span>
-            <span class="lp-vivos" *ngIf="f.vivos"><i class="live-dot" aria-hidden="true"></i>{{ f.vivos }} {{ f.vivos === 1 ? 'bus' : 'buses' }} en vivo</span>
+            <bx-dato class="lp-vivos" *ngIf="f.vivos" [vivo]="true">{{ f.vivos }} {{ f.vivos === 1 ? 'bus' : 'buses' }} en vivo</bx-dato>
           </div>
           <!-- La estrella guarda la ruta. Seguir una empresa es otra cosa. -->
           <button type="button" class="lp-guardar" [class.on]="isFavorito(f.ruta.id)" [attr.aria-pressed]="isFavorito(f.ruta.id)"
@@ -1025,6 +1064,40 @@
 
       <!-- Lugares: geocodificador + los lugares propios de la base -->
       <ng-container *ngIf="activePanel === 'lugares'">
+        <!-- Casa y Trabajo arriba, y los últimos destinos: el viaje de siempre
+             en un toque. Solo con el campo vacío. -->
+        <ng-container *ngIf="placeQuery.length <= 1 && (buscarPara === 'destino' || buscarPara === 'origen')">
+          <div class="lp-atajos">
+            <div class="lp-atajo" *ngFor="let a of [{ k: 'casa', t: 'Casa', i: 'home' }, { k: 'trabajo', t: 'Trabajo', i: 'briefcase' }]">
+              <button type="button" class="lp-atajo-btn"
+                      (click)="$any(lugaresGuardados)[a.k] ? elegirLugar($any(lugaresGuardados)[a.k]) : openSearch('', $any(a.k))">
+                <span class="lp-atajo-ic" aria-hidden="true"><ion-icon [name]="a.i"></ion-icon></span>
+                <span class="lp-atajo-txt">
+                  <strong>{{ a.t }}</strong>
+                  <small>{{ $any(lugaresGuardados)[a.k]?.detalle || 'Agregar' }}</small>
+                </span>
+              </button>
+              <button type="button" class="lp-atajo-editar" *ngIf="$any(lugaresGuardados)[a.k]"
+                      [attr.aria-label]="'Cambiar ' + a.t" [title]="'Cambiar ' + a.t" (click)="openSearch('', $any(a.k))">
+                <ion-icon name="create-outline" aria-hidden="true"></ion-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="lp-sub" *ngIf="recientesVisibles.length">
+            <span>Recientes</span>
+            <button type="button" (click)="borrarRecientes()">Borrar</button>
+          </div>
+          <div class="lp-row" *ngFor="let r of recientesVisibles" (click)="elegirLugar(r)">
+            <div class="lp-place-icon lp-place-icon--reciente"><ion-icon name="time-outline"></ion-icon></div>
+            <div class="lp-info">
+              <strong>{{ r.nombre }}</strong>
+              <span class="lp-trip">{{ r.detalle }}</span>
+            </div>
+            <ion-icon name="chevron-forward" class="lp-sp-chevron"></ion-icon>
+          </div>
+        </ng-container>
+
         <div class="lp-row" *ngIf="buscarPara === 'origen' && tieneUbicacion" (click)="usarMiUbicacionComoOrigen()">
           <div class="lp-place-icon lp-place-icon--yo"><ion-icon name="locate"></ion-icon></div>
           <div class="lp-info">
@@ -1048,12 +1121,15 @@
           <span>Probá con una terminal, un parque o una dirección.</span>
         </div>
 
-        <div class="lp-empty" *ngIf="placeQuery.length <= 1">
+        <div class="lp-empty" *ngIf="placeQuery.length <= 1 && !recientesVisibles.length">
           <ion-icon name="location-outline"></ion-icon>
-          <strong>{{ buscarPara === 'origen' ? 'Escribí desde dónde salís' : 'Escribí tu destino' }}</strong>
-          <span>{{ buscarPara === 'origen'
-            ? 'Tu casa, el trabajo, una terminal: armo el viaje desde ahí.'
-            : 'Te digo qué bus tomar, dónde subir, dónde bajar y cuánto hay que caminar.' }}</span>
+          <strong>{{ buscarPara === 'origen' ? 'Escribí desde dónde salís'
+                    : buscarPara === 'casa' ? 'Escribí la dirección de tu casa'
+                    : buscarPara === 'trabajo' ? 'Escribí dónde trabajás'
+                    : 'Escribí tu destino' }}</strong>
+          <span>{{ buscarPara === 'origen' ? 'Una terminal, un parque, una dirección: armo el viaje desde ahí.'
+                  : buscarPara === 'casa' || buscarPara === 'trabajo' ? 'Queda guardado en este teléfono para planear el viaje con un toque.'
+                  : 'Te digo qué bus tomar, dónde subir, dónde bajar y cuánto hay que caminar.' }}</span>
         </div>
       </ng-container>
 

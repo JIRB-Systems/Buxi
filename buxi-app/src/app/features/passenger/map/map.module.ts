@@ -4,7 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { MapPage } from './map.page';
-import { PlacaComponent, RutaInsigniaComponent } from '../../../shared/transporte/transporte';
+import { DatoComponent, PlacaComponent, RutaInsigniaComponent } from '../../../shared/transporte/transporte';
 import { ArrastreHojaDirective } from '../../../shared/arrastre-hoja.directive';
 
 @NgModule({
@@ -15,6 +15,7 @@ import { ArrastreHojaDirective } from '../../../shared/arrastre-hoja.directive';
     FormsModule,
     RouterModule.forChild([{ path: '', component: MapPage }]),
     RutaInsigniaComponent,
+    DatoComponent,
     ArrastreHojaDirective,
     PlacaComponent,
   ],
