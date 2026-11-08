@@ -6,7 +6,7 @@ import { logError } from '../../../core/utils/log';
 import { SpritesBus, cargarSpritesBus, tintarSpriteBus } from '../../../core/utils/bus-sprite';
 import { MODELOS_BUS, MODELO_BUS_DEFECTO, ModeloBus, esModeloBus, nombreModeloBus } from '../../../core/utils/bus-modelos';
 import { Router } from '@angular/router';
-import { AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
+import { ActionSheetController, AlertController, LoadingController, ModalController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
@@ -44,7 +44,7 @@ interface Atencion {
 @Component({
   selector: 'app-empresa-dashboard',
   templateUrl: './dashboard.page.html',
-  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss', './dashboard.inicio.scss', './dashboard.flota.scss'],
+  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss', './dashboard.inicio.scss', './dashboard.flota.scss', './dashboard.buses.scss'],
   standalone: false,
 })
 export class EmpresaDashboardPage implements OnInit, OnDestroy {
@@ -826,6 +826,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     private features: FeaturesService,
     private router: Router,
     private alertCtrl: AlertController,
+    private actionSheetCtrl: ActionSheetController,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
     private modalCtrl: ModalController,
@@ -2348,6 +2349,135 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       }
       await this.loadData();
     } }] });
+    await alert.present();
+  }
+
+  // ---- GESTIÓN DE BUSES: tabla ordenable y un menú por fila ----
+  ordenBus: { col: 'unidad' | 'ruta' | 'chofer' | 'estado' | 'senal'; dir: 1 | -1 } = { col: 'estado', dir: 1 };
+
+  ordenarBuses(col: 'unidad' | 'ruta' | 'chofer' | 'estado' | 'senal') {
+    this.ordenBus = this.ordenBus.col === col ? { col, dir: (this.ordenBus.dir * -1) as 1 | -1 } : { col, dir: 1 };
+  }
+
+  ariaOrden(col: string): string {
+    return this.ordenBus.col !== col ? 'none' : this.ordenBus.dir === 1 ? 'ascending' : 'descending';
+  }
+
+  private readonly ORDEN_CATEGORIA: Record<string, number> = { sin_senal: 0, detenido: 1, ruta: 2, disponible: 3, taller: 4, inactivo: 5 };
+
+  get busesOrdenados(): Bus[] {
+    const { col, dir } = this.ordenBus;
+    const clave = (b: Bus): string | number => {
+      switch (col) {
+        case 'unidad': return b.placa;
+        case 'ruta': return b.ruta?.nombre || '~';
+        case 'chofer': return b.chofer?.nombre_completo || '~';
+        case 'senal': return -(this.senales[b.id]?.ts || 0);
+        default: return this.ORDEN_CATEGORIA[this.categoriaBus(b)] ?? 9;
+      }
+    };
+    return [...this.filteredBuses].sort((a, b) => {
+      const x = clave(a), y = clave(b);
+      const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+      return (c || a.placa.localeCompare(b.placa)) * dir;
+    });
+  }
+
+  // "hace 12 s" y la hora exacta, para la columna de última conexión.
+  ultimaConexion(b: Bus): { hace: string; cuando: string } | null {
+    const s = this.senales[b.id];
+    if (!s) return null;
+    const d = new Date(s.ts);
+    const hoy = this.diaLocal(d) === this.diaLocal(new Date());
+    const hora = new Intl.DateTimeFormat('es-CR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+    const fecha = new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short' }).format(d).replace('.', '');
+    return { hace: 'hace ' + this.edad(s.ts), cuando: hoy ? `hoy ${hora}` : `${fecha} ${hora}` };
+  }
+
+  get resumenBuses(): string {
+    const n = (c: CategoriaBus) => this.contarCategoria(c);
+    const partes = [
+      [n('ruta') + n('detenido') + n('sin_senal'), 'en ruta'],
+      [n('disponible'), n('disponible') === 1 ? 'disponible' : 'disponibles'],
+      [n('taller'), 'en taller'],
+      [n('inactivo'), n('inactivo') === 1 ? 'inactivo' : 'inactivos'],
+    ].filter(([c]) => (c as number) > 0).map(([c, t]) => `${c} ${t}`);
+    return `${this.buses.length} ${this.buses.length === 1 ? 'bus' : 'buses'}` + (partes.length ? ' · ' + partes.join(' · ') : '');
+  }
+
+  // Todas las acciones de un bus en un solo menú, en vez de cuatro íconos por fila.
+  async accionesBus(b: Bus, ev?: Event) {
+    ev?.stopPropagation();
+    const sheet = await this.actionSheetCtrl.create({
+      header: b.numero_unidad ? `${b.placa} · unidad ${b.numero_unidad}` : b.placa,
+      cssClass: 'buxi-sheet',
+      buttons: [
+        { text: 'Ver en el mapa', icon: 'map-outline', handler: () => { this.busSel = b; this.switchTab('mapa'); } },
+        { text: b.ruta_id ? 'Cambiar ruta' : 'Asignar ruta', icon: 'git-branch-outline', handler: () => { this.assignBusRoute(b); } },
+        { text: b.chofer_id ? 'Cambiar chofer' : 'Asignar chofer', icon: 'person-outline', handler: () => { this.assignBusChofer(b); } },
+        { text: 'Cambiar estado', icon: 'swap-horizontal-outline', handler: () => { this.cambiarEstadoBus(b); } },
+        { text: 'Editar datos', icon: 'create-outline', handler: () => { this.editarBus(b); } },
+        { text: 'Avisar un atraso a los pasajeros', icon: 'time-outline', handler: () => { this.avisarAtrasoDeBus(b); } },
+        { text: 'Eliminar bus', icon: 'trash-outline', role: 'destructive', handler: () => { this.deleteBus(b); } },
+        { text: 'Cancelar', role: 'cancel' },
+      ],
+    });
+    await sheet.present();
+  }
+
+  // "En ruta" lo pone la app del chofer al arrancar; acá se manda al taller,
+  // se deja disponible o se saca de servicio.
+  async cambiarEstadoBus(b: Bus) {
+    const opciones = [
+      { v: 'activo', t: 'Disponible' },
+      { v: 'mantenimiento', t: 'En taller' },
+      { v: 'inactivo', t: 'Inactivo (fuera de servicio)' },
+    ];
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: `Estado de ${b.placa}`,
+      message: b.estado === 'en_ruta' ? 'Está en ruta: si lo cambiás, deja de figurar como en servicio.' : undefined,
+      inputs: opciones.map(o => ({ type: 'radio' as const, label: o.t, value: o.v, checked: b.estado === o.v })),
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (v) => {
+        if (!v || v === b.estado) return true;
+        try {
+          await this.admin.updateBus(b.id, { estado: v });
+          this.showToast(`${b.placa}: ${opciones.find(o => o.v === v)?.t.toLowerCase()}`);
+        } catch (e: any) {
+          logError('cambiar el estado del bus', e);
+          this.showToast(e?.message || 'No se pudo cambiar el estado', 'danger');
+        }
+        await this.loadData();
+        return true;
+      } }],
+    });
+    await alert.present();
+  }
+
+  async editarBus(b: Bus) {
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: `Datos de ${b.placa}`,
+      inputs: [
+        { name: 'placa', placeholder: 'Placa', type: 'text', value: b.placa, attributes: { 'aria-label': 'Placa' } },
+        { name: 'numero_unidad', placeholder: 'Número de unidad', type: 'text', value: b.numero_unidad || '', attributes: { 'aria-label': 'Número de unidad' } },
+        { name: 'capacidad', placeholder: 'Capacidad', type: 'number', value: String(b.capacidad || 40), attributes: { 'aria-label': 'Capacidad' } },
+      ],
+      buttons: [{ text: 'Cancelar', role: 'cancel' }, { text: 'Guardar', handler: async (d) => {
+        const placa = (d.placa || '').trim().toUpperCase();
+        if (!placa) { this.showToast('La placa no puede quedar vacía', 'danger'); return false; }
+        try {
+          await this.admin.updateBus(b.id, { placa, numero_unidad: (d.numero_unidad || '').trim() || null, capacidad: parseInt(d.capacidad) || 40 });
+          this.showToast('Datos guardados');
+        } catch (e: any) {
+          logError('editar los datos del bus', e);
+          this.showToast(e?.message || 'No se pudieron guardar los datos', 'danger');
+          return false;
+        }
+        await this.loadData();
+        return true;
+      } }],
+    });
     await alert.present();
   }
 

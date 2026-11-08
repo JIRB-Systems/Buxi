@@ -1,0 +1,87 @@
+// ====== GESTIÓN DE BUSES: tabla ======
+
+.buses-resumen { margin: -4px 0 10px; font-size: 13px; color: var(--bx-text-3); }
+
+.tabla-buses-card { padding: 0; overflow: hidden; }
+
+.tabla-buses {
+  th { padding-top: 12px; padding-bottom: 10px; }
+  td { padding-top: 12px; padding-bottom: 12px; }
+  .col-acc { width: 56px; text-align: right; }
+  tr.fila-apagada td { color: var(--bx-text-3); }
+}
+
+// Encabezado que ordena: un botón de verdad, con la flecha del sentido.
+.th-orden {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  ion-icon { font-size: 12px; color: var(--bx-text-2); }
+  &:hover { color: var(--bx-text); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 2px; border-radius: 4px; }
+}
+
+// Lo que falta se arregla ahí mismo.
+.asignar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed rgba(255, 176, 32, 0.6);
+  background: transparent;
+  color: #ffcf73;
+  font-family: var(--bx-font);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  ion-icon { font-size: 14px; }
+  &:hover { background: rgba(255, 176, 32, 0.1); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 1px; }
+}
+
+.celda-senal {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  .bx-mono { font-size: 13px; }
+  .vieja { color: var(--bx-danger); font-weight: 700; }
+}
+
+// Teléfono: cada bus es una tarjeta con sus datos en pares etiqueta/valor.
+@media (max-width: 768px) {
+  .tabla-buses thead { display: none; }
+  .tabla-buses, .tabla-buses tbody { display: block; }
+  .tabla-buses tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--bx-line);
+    &:first-child { border-top: 0; }
+  }
+  .tabla-buses td {
+    padding: 0 !important;
+    border: 0;
+    min-width: 0;
+    &[data-label]::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--bx-text-3);
+    }
+    &:first-child { grid-column: 1 / -1; &::before { display: none; } }
+  }
+  .tabla-buses .col-acc { position: absolute; top: 10px; right: 8px; width: auto; }
+}

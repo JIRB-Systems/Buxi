@@ -487,3 +487,10 @@ ion-button.button-large {
   white-space: nowrap;
   border: 0;
 }
+
+// Menús de acciones (ActionSheet): lo que borra, en rojo, para que no se toque
+// por error entre las otras opciones.
+ion-action-sheet.buxi-sheet .action-sheet-destructive {
+  --button-color: var(--bx-danger);
+  color: var(--bx-danger);
+}

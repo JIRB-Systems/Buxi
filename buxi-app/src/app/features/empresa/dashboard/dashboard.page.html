@@ -519,25 +519,53 @@
               {{ f.t }} <span class="bx-mono">{{ cuantosEn(f.c) }}</span>
             </button>
           </div>
-          <div class="card">
-            <div class="table-row bus-row" *ngFor="let b of filteredBuses; trackBy: trackBus">
-              <bx-placa [placa]="b.placa" [apagada]="b.estado==='inactivo'"></bx-placa>
-              <div class="row-main">
-                <div class="row-linea">
-                  <bx-ruta *ngIf="b.ruta" [nombre]="b.ruta.nombre" [color]="b.ruta.color"></bx-ruta>
-                  <span class="falta" *ngIf="!b.ruta">Sin ruta</span>
-                  <span class="unit-tag bx-mono" *ngIf="b.numero_unidad">Unidad {{ b.numero_unidad }}</span>
-                </div>
-                <span class="muted" [class.falta]="!b.chofer">{{ b.chofer?.nombre_completo ? 'Chofer: ' + b.chofer?.nombre_completo : 'Sin chofer' }}</span>
-              </div>
-              <span class="bx-estado" [ngClass]="estadoClase(b)">{{ estadoTexto(b) }}</span>
-              <div class="act-group">
-                <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Asignar ruta" title="Asignar ruta" (click)="assignBusRoute(b)"><ion-icon name="git-branch-outline" aria-hidden="true"></ion-icon></button>
-                <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn" aria-label="Asignar chofer" title="Asignar chofer" (click)="assignBusChofer(b)"><ion-icon name="person-outline" aria-hidden="true"></ion-icon></button>
-                <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn warn" aria-label="Avisar atraso de este bus" title="Avisar atraso de este bus" (click)="avisarAtrasoDeBus(b, $event)"><ion-icon name="time-outline" aria-hidden="true"></ion-icon></button>
-                <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm act-btn danger" aria-label="Eliminar bus" title="Eliminar bus" (click)="deleteBus(b)"><ion-icon name="trash-outline" aria-hidden="true"></ion-icon></button>
-              </div>
-            </div>
+          <p class="buses-resumen" *ngIf="buses.length">{{ resumenBuses }}</p>
+          <div class="card tabla-buses-card">
+            <table class="tabla tabla-buses" *ngIf="buses.length > 0 && busesOrdenados.length > 0">
+              <thead>
+                <tr>
+                  <th scope="col" [attr.aria-sort]="ariaOrden('unidad')"><button type="button" class="th-orden" (click)="ordenarBuses('unidad')">Unidad<ion-icon *ngIf="ordenBus.col === 'unidad'" [name]="ordenBus.dir === 1 ? 'arrow-up' : 'arrow-down'" aria-hidden="true"></ion-icon></button></th>
+                  <th scope="col" [attr.aria-sort]="ariaOrden('ruta')"><button type="button" class="th-orden" (click)="ordenarBuses('ruta')">Ruta<ion-icon *ngIf="ordenBus.col === 'ruta'" [name]="ordenBus.dir === 1 ? 'arrow-up' : 'arrow-down'" aria-hidden="true"></ion-icon></button></th>
+                  <th scope="col" [attr.aria-sort]="ariaOrden('chofer')"><button type="button" class="th-orden" (click)="ordenarBuses('chofer')">Chofer<ion-icon *ngIf="ordenBus.col === 'chofer'" [name]="ordenBus.dir === 1 ? 'arrow-up' : 'arrow-down'" aria-hidden="true"></ion-icon></button></th>
+                  <th scope="col" [attr.aria-sort]="ariaOrden('estado')"><button type="button" class="th-orden" (click)="ordenarBuses('estado')">Estado<ion-icon *ngIf="ordenBus.col === 'estado'" [name]="ordenBus.dir === 1 ? 'arrow-up' : 'arrow-down'" aria-hidden="true"></ion-icon></button></th>
+                  <th scope="col" [attr.aria-sort]="ariaOrden('senal')"><button type="button" class="th-orden" (click)="ordenarBuses('senal')">Última conexión<ion-icon *ngIf="ordenBus.col === 'senal'" [name]="ordenBus.dir === 1 ? 'arrow-up' : 'arrow-down'" aria-hidden="true"></ion-icon></button></th>
+                  <th scope="col" class="col-acc"><span class="bx-sr">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let b of busesOrdenados; trackBy: trackBus" [class.fila-apagada]="b.estado === 'inactivo'">
+                  <td data-label="Unidad">
+                    <div class="celda-unidad">
+                      <bx-placa [placa]="b.placa" [apagada]="b.estado==='inactivo'"></bx-placa>
+                      <span class="sub">{{ b.numero_unidad ? 'Unidad ' + b.numero_unidad + ' · ' : '' }}{{ b.capacidad || 40 }} plazas</span>
+                    </div>
+                  </td>
+                  <td data-label="Ruta">
+                    <bx-ruta *ngIf="b.ruta; else asignarRuta" [nombre]="b.ruta.nombre" [color]="b.ruta.color" [apagada]="b.estado==='inactivo'"></bx-ruta>
+                    <ng-template #asignarRuta><button type="button" class="asignar" (click)="assignBusRoute(b)"><ion-icon name="add" aria-hidden="true"></ion-icon>Asignar ruta</button></ng-template>
+                  </td>
+                  <td data-label="Chofer">
+                    <span *ngIf="b.chofer; else asignarChofer">{{ b.chofer.nombre_completo }}</span>
+                    <ng-template #asignarChofer><button type="button" class="asignar" (click)="assignBusChofer(b)"><ion-icon name="add" aria-hidden="true"></ion-icon>Asignar chofer</button></ng-template>
+                  </td>
+                  <td data-label="Estado">
+                    <span class="bx-estado" [ngClass]="estadoClase(b)">{{ estadoTexto(b) }}<ng-container *ngIf="velocidadDe(b) !== null"> · <span class="bx-mono">{{ velocidadDe(b) }} km/h</span></ng-container></span>
+                  </td>
+                  <td data-label="Última conexión">
+                    <div class="celda-senal" *ngIf="ultimaConexion(b) as u; else nunca">
+                      <span class="bx-mono" [class.vieja]="categoriaBus(b) === 'sin_senal'">{{ u.hace }}</span>
+                      <span class="sub bx-mono">{{ u.cuando }}</span>
+                    </div>
+                    <ng-template #nunca><span class="sub">Nunca transmitió</span></ng-template>
+                  </td>
+                  <td class="col-acc">
+                    <button type="button" class="bx-btn bx-btn--ghost bx-btn--icono bx-btn--sm" [attr.aria-label]="'Acciones de ' + b.placa" [title]="'Acciones de ' + b.placa" (click)="accionesBus(b, $event)">
+                      <ion-icon name="ellipsis-horizontal" aria-hidden="true"></ion-icon>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
             <div class="empty-state" *ngIf="buses.length===0">
               <ion-icon name="bus-outline"></ion-icon>
               <strong>Todavía no tenés buses</strong>
