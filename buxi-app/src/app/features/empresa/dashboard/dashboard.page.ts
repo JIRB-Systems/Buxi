@@ -44,7 +44,7 @@ interface Atencion {
 @Component({
   selector: 'app-empresa-dashboard',
   templateUrl: './dashboard.page.html',
-  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss', './dashboard.inicio.scss'],
+  styleUrls: ['./dashboard.page.scss', '../../../shared/consola/consola.scss', './dashboard.perso.scss', './dashboard.diseno.scss', './dashboard.inicio.scss', './dashboard.flota.scss'],
   standalone: false,
 })
 export class EmpresaDashboardPage implements OnInit, OnDestroy {
@@ -800,8 +800,6 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
   }
 
   private liveMap: maplibregl.Map | null = null;
-  private liveMarkers = new Map<string, maplibregl.Marker>();
-  private liveMarkersLastSeen = new Map<string, number>();
   private staleCheckInterval: any = null;
   private realtimeChannel: RealtimeChannel | null = null;
   // Canal de DATOS, aparte del canal del mapa. El del mapa se crea al iniciar
@@ -1575,12 +1573,10 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     });
     this.liveMap = map;
     if (isFull) {
-      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      // Abajo a la izquierda: arriba van las alertas y a la derecha la ficha del bus.
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-left');
     }
 
-    this.liveMarkers.forEach(m => m.remove());
-    this.liveMarkers.clear();
-    this.liveMarkersLastSeen.clear();
     this.clearRutaLayers();
     this.drawEmergencyMarkers(map);
 
@@ -1591,17 +1587,19 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bus_locations' }, (payload) => {
           const loc = payload.new as BusLocation;
           this.registrarSenal(loc);
-          this.updateMapMarker(loc.bus_id, loc.latitud, loc.longitud, loc.timestamp);
+          this.pintarFlota();
         })
         .subscribe();
     }
 
-    if (!this.staleCheckInterval) this.startStaleBusWatcher();
+    // El estado de cada bus cambia con el tiempo aunque no llegue un punto
+    // nuevo (un bus deja de transmitir): se repinta cada 10 s.
+    if (!this.staleCheckInterval) this.staleCheckInterval = setInterval(() => this.pintarFlota(), 10000);
 
     // Los buses que ya venían transmitiendo, sin esperar su próximo punto.
-    for (const [busId, s] of Object.entries(this.senales)) {
-      if (this.ahora - s.ts < this.REMOVE_MS) this.updateMapMarker(busId, s.lat, s.lng, new Date(s.ts).toISOString());
-    }
+    this.flotaLista = false;
+    this.pintarFlota();
+    if (this.busSel && isFull) this.cargarRecorrido();
 
     if (this.editingRuta) {
       this.mapClickHandler = (e) => this.onMapClickAddParada(e);
@@ -1875,28 +1873,229 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     }
   }
 
-  private updateMapMarker(busId: string, lat: number, lng: number, timestamp?: string) {
-    if (!this.liveMap) return;
-    this.liveMarkersLastSeen.set(busId, timestamp ? (Date.parse(timestamp) || Date.now()) : Date.now());
-    const lngLat: [number, number] = [lng, lat];
+  // ---- FLOTA EN EL MAPA ----
+  // Los buses van como capas del mapa (círculo + placa), no como marcadores
+  // HTML: con el terreno 3D los marcadores se corrían cientos de píxeles (el
+  // mismo bug que llevó las emergencias a capas). Además así se colorean por
+  // estado y se marca el elegido sin tocar el DOM.
+  private readonly FLOTA_SRC = 'flota-src';
+  private readonly RECORRIDO_SRC = 'recorrido-src';
+  private flotaLista = false;
+  // Hasta cuándo se sigue mostrando la última posición de un bus que no transmite.
+  private readonly ULTIMA_POSICION_MS = 12 * 3600 * 1000;
 
-    if (this.liveMarkers.has(busId)) {
-      const marker = this.liveMarkers.get(busId)!;
-      animateMarkerTo(marker, lngLat);
-      marker.getElement().style.opacity = '1';
-      this.refreshMarkerTooltip(busId, marker, false);
-    } else {
-      const el = htmlMarkerEl('emp-bus-marker', this.busMarkerHtml());
-      const m = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat(lngLat)
-        .addTo(this.liveMap);
-      this.liveMarkers.set(busId, m);
-      this.refreshMarkerTooltip(busId, m, false);
+  private fuenteMapa(map: maplibregl.Map): string[] {
+    for (const capa of map.getStyle()?.layers ?? []) {
+      const f = (capa as any).layout?.['text-font'];
+      if (Array.isArray(f) && f.every((x: any) => typeof x === 'string')) return f;
+    }
+    return ['Noto Sans Regular'];
+  }
+
+  private pintarFlota() {
+    const map = this.liveMap;
+    if (!map) return;
+    this.ahora = Date.now();
+    const features: any[] = [];
+    for (const b of this.buses) {
+      const s = this.senales[b.id];
+      if (!s || this.ahora - s.ts > this.ULTIMA_POSICION_MS) continue;
+      features.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
+        properties: { id: b.id, placa: b.placa, cat: this.categoriaBus(b), sel: this.busSel?.id === b.id },
+      });
+    }
+    const data = { type: 'FeatureCollection', features } as any;
+    try {
+      const src = map.getSource(this.FLOTA_SRC) as maplibregl.GeoJSONSource | undefined;
+      if (src) { src.setData(data); return; }
+      map.addSource(this.FLOTA_SRC, { type: 'geojson', data });
+      const color: any = ['match', ['get', 'cat'], 'ruta', '#00e06a', 'detenido', '#ffb020', 'sin_senal', '#ff5a5a', '#8292aa'];
+      map.addLayer({
+        id: 'flota-sel', type: 'circle', source: this.FLOTA_SRC, filter: ['==', ['get', 'sel'], true],
+        paint: { 'circle-radius': 18, 'circle-color': '#ffffff', 'circle-opacity': 0.18, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 },
+      });
+      map.addLayer({
+        id: 'flota-circ', type: 'circle', source: this.FLOTA_SRC,
+        paint: {
+          'circle-radius': ['case', ['get', 'sel'], 9, 7],
+          'circle-color': color,
+          'circle-stroke-color': '#0b1626',
+          'circle-stroke-width': 2.5,
+          'circle-opacity': ['match', ['get', 'cat'], 'sin_senal', 0.7, 1],
+        },
+      });
+      map.addLayer({
+        id: 'flota-txt', type: 'symbol', source: this.FLOTA_SRC, minzoom: 9,
+        layout: {
+          'text-field': ['get', 'placa'], 'text-font': this.fuenteMapa(map), 'text-size': 11,
+          'text-anchor': 'top', 'text-offset': [0, 1], 'text-allow-overlap': false, 'text-optional': true,
+        },
+        paint: { 'text-color': '#e8eef7', 'text-halo-color': 'rgba(7, 15, 28, 0.92)', 'text-halo-width': 1.6 },
+      });
+      if (!this.flotaLista) {
+        this.flotaLista = true;
+        map.on('click', 'flota-circ', (e) => {
+          const id = e.features?.[0]?.properties?.['id'];
+          const b = id ? this.buses.find(x => x.id === String(id)) : null;
+          if (!b) return;
+          if (this.activeTab === 'mapa') this.seleccionarBus(b);
+          else { this.busSel = b; this.switchTab('mapa'); }
+        });
+        map.on('mouseenter', 'flota-circ', () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', 'flota-circ', () => { map.getCanvas().style.cursor = ''; });
+      }
+    } catch (e) {
+      // El estilo todavía no terminó: se reintenta en el próximo repintado.
     }
   }
 
-  private busMarkerHtml(): string {
-    return `<div class="emp-bus-icon"><svg viewBox="0 0 24 24" fill="white" width="12" height="12"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div><div class="emp-bus-label"></div>`;
+  // ---- MAPA DE FLOTA: lista, filtros y ficha del bus ----
+  fmQuery = '';
+  fmRuta = '';
+  fmChofer = '';
+  fmEstado: CategoriaBus | '' = '';
+  busSel: Bus | null = null;
+  recorridoDia = this.diaLocal(new Date());
+  recorrido: { latitud: number; longitud: number; velocidad: number; ts: string }[] = [];
+  recorridoCargando = false;
+
+  get busesMapa(): Bus[] {
+    const q = this.fmQuery.trim().toLowerCase();
+    return this.flota.filter(b =>
+      (!this.fmEstado || this.categoriaBus(b) === this.fmEstado) &&
+      (!this.fmRuta || b.ruta_id === this.fmRuta) &&
+      (!this.fmChofer || b.chofer_id === this.fmChofer) &&
+      (!q || b.placa.toLowerCase().includes(q) || (b.numero_unidad || '').toLowerCase().includes(q)));
+  }
+
+  cuantosMapa(c: CategoriaBus | ''): number {
+    return c ? this.buses.filter(b => this.categoriaBus(b) === c).length : this.buses.length;
+  }
+
+  get sinSenalLista(): Bus[] {
+    return this.buses.filter(b => this.categoriaBus(b) === 'sin_senal');
+  }
+
+  // Los últimos 14 días (lo que guarda la base), para ver el recorrido de cada uno.
+  get diasRecorrido(): { v: string; t: string }[] {
+    const fmt = new Intl.DateTimeFormat('es-CR', { weekday: 'short', day: 'numeric', month: 'short' });
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return { v: this.diaLocal(d), t: i === 0 ? 'Hoy' : i === 1 ? 'Ayer' : fmt.format(d).replace(/\./g, '') };
+    });
+  }
+
+  seleccionarBus(b: Bus) {
+    this.busSel = this.busSel?.id === b.id ? null : b;
+    this.recorridoDia = this.diaLocal(new Date());
+    this.pintarFlota();
+    if (!this.busSel) { this.quitarRecorrido(); return; }
+    const s = this.senales[b.id];
+    if (s && this.liveMap) this.liveMap.easeTo({ center: [s.lng, s.lat], zoom: Math.max(this.liveMap.getZoom(), 13), duration: 600 });
+    this.cargarRecorrido();
+  }
+
+  cerrarFicha() {
+    this.busSel = null;
+    this.pintarFlota();
+    this.quitarRecorrido();
+  }
+
+  async cargarRecorrido() {
+    const b = this.busSel;
+    if (!b) return;
+    this.recorridoCargando = true;
+    try {
+      const pts = await this.admin.getRecorrido(b.id, this.recorridoDia);
+      if (this.busSel?.id !== b.id) return;
+      this.recorrido = pts;
+      this.dibujarRecorrido();
+    } catch (e) {
+      logError('cargar el recorrido del bus', e);
+      this.recorrido = [];
+      this.quitarRecorrido();
+    } finally {
+      this.recorridoCargando = false;
+    }
+  }
+
+  private dibujarRecorrido() {
+    const map = this.liveMap;
+    if (!map) return;
+    const coords = this.recorrido.map(p => [p.longitud, p.latitud]);
+    const data = { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } } as any;
+    const color = this.busSel?.ruta?.color ? colorSeguro(this.busSel.ruta.color, '#2f8bff') : '#2f8bff';
+    try {
+      const src = map.getSource(this.RECORRIDO_SRC) as maplibregl.GeoJSONSource | undefined;
+      if (src) src.setData(data);
+      else {
+        map.addSource(this.RECORRIDO_SRC, { type: 'geojson', data });
+        const antes = map.getLayer('flota-sel') ? 'flota-sel' : undefined;
+        map.addLayer({ id: 'recorrido-borde', type: 'line', source: this.RECORRIDO_SRC, layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': '#04101f', 'line-width': 7, 'line-opacity': 0.7 } }, antes);
+        map.addLayer({ id: 'recorrido-linea', type: 'line', source: this.RECORRIDO_SRC, layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': color, 'line-width': 4 } }, antes);
+      }
+      map.setPaintProperty('recorrido-linea', 'line-color', color);
+      if (coords.length > 1) {
+        const lats = coords.map(c => c[1]), lngs = coords.map(c => c[0]);
+        map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+          { padding: window.innerWidth < 900 ? { top: 70, bottom: 40, left: 40, right: 40 } : { top: 70, bottom: 70, left: 60, right: 420 }, maxZoom: 15, duration: 600 });
+      }
+    } catch { /* estilo cargando */ }
+  }
+
+  private quitarRecorrido() {
+    this.recorrido = [];
+    const map = this.liveMap;
+    if (!map) return;
+    for (const id of ['recorrido-linea', 'recorrido-borde']) if (map.getLayer(id)) map.removeLayer(id);
+    if (map.getSource(this.RECORRIDO_SRC)) map.removeSource(this.RECORRIDO_SRC);
+  }
+
+  // Lo que se dice del recorrido elegido.
+  get resumenRecorrido(): { km: string; desde: string; hasta: string; puntos: number } | null {
+    const r = this.recorrido;
+    if (r.length < 2) return null;
+    let km = 0;
+    for (let i = 1; i < r.length; i++) km += this.distKm(r[i - 1].latitud, r[i - 1].longitud, r[i].latitud, r[i].longitud);
+    const h = (iso: string) => new Intl.DateTimeFormat('es-CR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+    return { km: km < 10 ? km.toFixed(1).replace('.', ',') : String(Math.round(km)), desde: h(r[0].ts), hasta: h(r[r.length - 1].ts), puntos: r.length };
+  }
+
+  private distKm(a: number, b: number, c: number, d: number): number {
+    const R = 6371, rad = Math.PI / 180;
+    const x = Math.sin((c - a) * rad / 2) ** 2 + Math.cos(a * rad) * Math.cos(c * rad) * Math.sin((d - b) * rad / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(x));
+  }
+
+  viajeDe(b: Bus): Viaje | null {
+    return this.viajesEnCurso.find(v => (v as any).bus_id === b.id) || null;
+  }
+
+  choferDe(b: Bus): UserProfile | null {
+    return b.chofer_id ? this.choferes.find(c => c.id === b.chofer_id) || null : null;
+  }
+
+  horaDe(iso: string): string {
+    return new Intl.DateTimeFormat('es-CR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+  }
+
+  haceDe(iso: string): string {
+    return this.hace(iso) || '';
+  }
+
+  centrarEnBus(b: Bus) {
+    const s = this.senales[b.id];
+    if (s && this.liveMap) this.liveMap.easeTo({ center: [s.lng, s.lat], zoom: 15, duration: 600 });
+  }
+
+  verEnLista(b: Bus) {
+    this.switchTab('buses');
+    this.busQuery = b.placa;
   }
 
   // ---- MARCADORES DE EMERGENCIA EN EL MAPA ----
@@ -2024,34 +2223,6 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     else if (spread > 0.03) zoom = 13;
 
     map.jumpTo({ center, zoom });
-  }
-
-  private refreshMarkerTooltip(busId: string, marker: maplibregl.Marker, stale: boolean) {
-    const placa = this.buses.find(b => b.id === busId)?.placa || 'Bus';
-    const label = marker.getElement().querySelector('.emp-bus-label');
-    if (!label) return;
-    label.textContent = stale ? `${placa} · sin señal` : placa;
-    label.className = `emp-bus-label${stale ? ' stale' : ''}`;
-  }
-
-  private startStaleBusWatcher() {
-    this.staleCheckInterval = setInterval(() => {
-      if (!this.liveMap) return;
-      const now = Date.now();
-      this.liveMarkersLastSeen.forEach((lastSeen, busId) => {
-        const marker = this.liveMarkers.get(busId);
-        if (!marker) return;
-        const age = now - lastSeen;
-        if (age > this.REMOVE_MS) {
-          marker.remove();
-          this.liveMarkers.delete(busId);
-          this.liveMarkersLastSeen.delete(busId);
-        } else if (age > this.STALE_MS) {
-          marker.getElement().style.opacity = '0.35';
-          this.refreshMarkerTooltip(busId, marker, true);
-        }
-      });
-    }, 10000);
   }
 
   get activeBusCount(): number { return this.buses.filter(b => b.estado === 'en_ruta').length; }

@@ -364,6 +364,13 @@ export class AdminEmpresaService {
   // solo avisa de los puntos NUEVOS, así que sin esto un bus que ya venía
   // transmitiendo aparecía recién con su próximo punto. Mismo recorte por ids
   // que ChoferService.getUbicacionesFlota (ver el porqué ahí).
+  // El recorrido de un bus en un día (hora de Costa Rica), un punto cada 20 s.
+  async getRecorrido(busId: string, dia: string): Promise<{ latitud: number; longitud: number; velocidad: number; ts: string }[]> {
+    const { data, error } = await this.supabase.rpc('recorrido_bus', { p_bus_id: busId, p_dia: dia });
+    if (error) throw error;
+    return (data || []) as any[];
+  }
+
   async getUltimasSenales(busIds: string[]): Promise<BusLocation[]> {
     if (!busIds.length) return [];
     const { data, error } = await this.supabase
@@ -597,7 +604,7 @@ export class AdminEmpresaService {
     desde.setHours(0, 0, 0, 0);
     const { data, error } = await this.supabase
       .from('viajes')
-      .select('id, inicio, fin, estado, distancia_km')
+      .select('id, bus_id, chofer_id, ruta_id, inicio, fin, estado, distancia_km')
       .gte('inicio', desde.toISOString())
       .order('inicio', { ascending: true });
     if (error) return [];

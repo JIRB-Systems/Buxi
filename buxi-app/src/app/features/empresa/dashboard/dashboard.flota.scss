@@ -1,0 +1,258 @@
+// ====== MAPA DE FLOTA: lista, mapa y ficha del bus ======
+
+.flota-mapa {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 12px;
+  height: calc(100vh - 150px);
+  min-height: 520px;
+
+  &.editando { grid-template-columns: minmax(0, 1fr); }
+}
+
+.fm-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid var(--bx-line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fm-cabeza {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--bx-text); }
+}
+
+.fm-buscar { width: 100%; max-width: none; }
+
+.fm-selects {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  select {
+    min-width: 0;
+    min-height: 36px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--bx-line);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--bx-text);
+    font-family: var(--bx-font);
+    font-size: 13px;
+  }
+}
+
+.fm-estados { margin-bottom: 0; flex-wrap: wrap; overflow: visible; }
+
+.fm-lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0 -6px;
+  padding: 0;
+}
+
+.fm-unidad {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--bx-text);
+  font-family: var(--bx-font);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: rgba(255, 255, 255, 0.05); }
+  &.sel { background: rgba(47, 139, 255, 0.14); box-shadow: inset 3px 0 0 var(--bx-blue-bright); }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: -2px; }
+}
+
+.fm-dot {
+  flex: none;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #8292aa;
+  &--ruta { background: #00e06a; }
+  &--detenido { background: #ffb020; }
+  &--sin_senal { background: #ff5a5a; }
+}
+
+.fm-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  strong { font-size: 13px; font-weight: 700; }
+  span { font-size: 12px; color: var(--bx-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+.fm-der {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  small { font-size: 11px; color: var(--bx-text-3); }
+}
+
+.fm-vacio { padding: 18px 8px; font-size: 13px; color: var(--bx-text-3); text-align: center; }
+
+.fm-mapa {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  .mapa-completo { height: 100%; }
+}
+
+// Las unidades sin conexión, siempre a la vista arriba del mapa.
+.fm-alertas {
+  position: absolute;
+  top: 12px; left: 12px; right: 60px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 90, 90, 0.4);
+  background: rgba(40, 12, 14, 0.92);
+  color: #ffb3b3;
+  font-size: 13px;
+  font-weight: 600;
+
+  ion-icon { font-size: 16px; color: var(--bx-danger); }
+  button {
+    min-height: 30px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 90, 90, 0.45);
+    background: transparent;
+    color: #ffd6d6;
+    font-family: var(--bx-font);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    &:hover { background: rgba(255, 90, 90, 0.15); }
+  }
+}
+
+// La ficha del bus, flotando sobre el mapa a la derecha.
+.fm-ficha {
+  position: absolute;
+  top: 12px; right: 12px;
+  max-height: calc(100% - 24px);
+  z-index: 3;
+  width: 380px;
+  max-width: calc(100% - 24px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--bx-line-strong);
+  background: rgba(11, 22, 38, 0.97);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.fm-alertas + .mapa-completo + .fm-ficha { top: 64px; }
+
+.fm-ficha-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fm-ficha-tit {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  small { font-size: 12px; color: var(--bx-text-3); }
+}
+.fm-cerrar {
+  flex: none;
+  width: 40px; height: 40px;
+  padding: 0; border: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: transparent; color: var(--bx-text-2); cursor: pointer;
+  ion-icon { font-size: 20px; }
+  &:hover { background: rgba(255, 255, 255, 0.08); }
+}
+
+.fm-datos {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  > div { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: center; }
+  dt { font-size: 12px; font-weight: 600; color: var(--bx-text-3); }
+  dd { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--bx-text); }
+}
+
+.fm-recorrido {
+  padding-top: 12px;
+  border-top: 1px solid var(--bx-line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  p { margin: 0; font-size: 13px; }
+}
+.fm-recorrido-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  h3 { margin: 0; font-size: 13px; font-weight: 700; color: var(--bx-text); }
+  select {
+    min-height: 34px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--bx-line);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--bx-text);
+    font-family: var(--bx-font);
+    font-size: 13px;
+  }
+}
+.fm-recorrido-dato strong { font-size: 16px; }
+
+.fm-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+
+// Teléfono: la lista arriba (corta) y el mapa abajo; la ficha, sobre el mapa.
+@media (max-width: 900px) {
+  .flota-mapa {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(420px, 1fr);
+    height: auto;
+  }
+  .fm-panel { max-height: 46vh; }
+  // La ficha va debajo del mapa: encima no dejaba ver nada en un teléfono.
+  .fm-mapa { height: auto; }
+  .fm-mapa .mapa-completo { height: 380px; }
+  .fm-ficha {
+    position: static;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border-width: 1px 0 0;
+    box-shadow: none;
+  }
+  .fm-alertas { right: 12px; }
+}

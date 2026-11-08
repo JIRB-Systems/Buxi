@@ -347,8 +347,110 @@
               <button type="button" class="bx-btn bx-btn--pri bx-btn--sm" (click)="stopEditRuta()">Terminar</button>
             </div>
           </div>
-          <div class="card mapa-completo-card">
-            <div id="emp-map-full" class="mapa-completo"></div>
+          <!-- Mapa de flota: la lista de unidades a la izquierda, el mapa al
+               centro y la ficha del bus elegido encima. Mientras se edita el
+               trazado de una ruta, solo el mapa. -->
+          <div class="flota-mapa" [class.editando]="editingRuta">
+            <aside class="fm-panel" *ngIf="!editingRuta" aria-label="Unidades">
+              <div class="fm-cabeza">
+                <h2>Flota</h2>
+                <span class="muted cifra">{{ busesMapa.length }} de {{ buses.length }}</span>
+              </div>
+              <div class="search-bar fm-buscar">
+                <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
+                <input type="text" placeholder="Placa o unidad" aria-label="Buscar bus" [(ngModel)]="fmQuery" />
+              </div>
+              <div class="fm-selects">
+                <select [(ngModel)]="fmRuta" aria-label="Filtrar por ruta">
+                  <option value="">Todas las rutas</option>
+                  <option *ngFor="let r of rutas" [value]="r.id">{{ r.nombre }}</option>
+                </select>
+                <select [(ngModel)]="fmChofer" aria-label="Filtrar por chofer">
+                  <option value="">Todos los choferes</option>
+                  <option *ngFor="let c of choferes" [value]="c.id">{{ c.nombre_completo }}</option>
+                </select>
+              </div>
+              <div class="filtros-estado fm-estados" role="group" aria-label="Filtrar por estado">
+                <button type="button" *ngFor="let f of FILTROS_BUS" [class.on]="fmEstado === f.c"
+                        [attr.aria-pressed]="fmEstado === f.c" (click)="fmEstado = f.c">
+                  {{ f.t }} <span class="bx-mono">{{ cuantosMapa(f.c) }}</span>
+                </button>
+              </div>
+              <ul class="fm-lista">
+                <li *ngFor="let b of busesMapa; trackBy: trackBus">
+                  <button type="button" class="fm-unidad" [class.sel]="busSel?.id === b.id" (click)="seleccionarBus(b)"
+                          [attr.aria-pressed]="busSel?.id === b.id">
+                    <span class="fm-dot" [ngClass]="'fm-dot--' + categoriaBus(b)" aria-hidden="true"></span>
+                    <span class="fm-info">
+                      <strong class="bx-mono">{{ b.placa }}<ng-container *ngIf="b.numero_unidad"> · {{ b.numero_unidad }}</ng-container></strong>
+                      <span>{{ b.ruta?.nombre || 'Sin ruta' }} · {{ b.chofer?.nombre_completo || 'Sin chofer' }}</span>
+                    </span>
+                    <span class="fm-der">
+                      <span class="bx-estado" [ngClass]="estadoClase(b)">{{ estadoTexto(b) }}</span>
+                      <small class="bx-mono">{{ senalDe(b) }}</small>
+                    </span>
+                  </button>
+                </li>
+                <li class="fm-vacio" *ngIf="!busesMapa.length">Ningún bus con esos filtros</li>
+              </ul>
+            </aside>
+
+            <div class="card mapa-completo-card fm-mapa">
+              <div class="fm-alertas" *ngIf="!editingRuta && sinSenalLista.length" role="status">
+                <ion-icon name="warning" aria-hidden="true"></ion-icon>
+                <span>{{ sinSenalLista.length === 1 ? '1 bus sin conexión' : sinSenalLista.length + ' buses sin conexión' }}:</span>
+                <button type="button" *ngFor="let b of sinSenalLista" (click)="seleccionarBus(b)">{{ b.placa }} · hace {{ senalDe(b) }}</button>
+              </div>
+              <div id="emp-map-full" class="mapa-completo"></div>
+
+              <section class="fm-ficha" *ngIf="busSel as b" aria-label="Detalle del bus">
+                <div class="fm-ficha-cabeza">
+                  <bx-placa [placa]="b.placa"></bx-placa>
+                  <div class="fm-ficha-tit">
+                    <span class="bx-estado" [ngClass]="estadoClase(b)">{{ estadoTexto(b) }}<ng-container *ngIf="velocidadDe(b) !== null"> · <span class="bx-mono">{{ velocidadDe(b) }} km/h</span></ng-container></span>
+                    <small>{{ senales[b.id] ? 'Último GPS hace ' + senalDe(b) : 'Nunca transmitió' }}</small>
+                  </div>
+                  <button type="button" class="fm-cerrar" (click)="cerrarFicha()" aria-label="Cerrar el detalle">
+                    <ion-icon name="close" aria-hidden="true"></ion-icon>
+                  </button>
+                </div>
+
+                <dl class="fm-datos">
+                  <div><dt>Ruta</dt><dd><bx-ruta *ngIf="b.ruta; else fichaSinRuta" [nombre]="b.ruta.nombre" [color]="b.ruta.color"></bx-ruta><ng-template #fichaSinRuta><span class="falta">Sin ruta</span></ng-template></dd></div>
+                  <div><dt>Chofer</dt><dd>
+                    <span [class.falta]="!b.chofer">{{ b.chofer?.nombre_completo || 'Sin chofer' }}</span>
+                    <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm" *ngIf="choferDe(b) as c" (click)="mensajeChofer(c)">
+                      <ion-icon name="chatbubble-ellipses-outline" aria-hidden="true"></ion-icon>Mensaje
+                    </button>
+                  </dd></div>
+                  <div><dt>Viaje</dt><dd>
+                    <ng-container *ngIf="viajeDe(b) as v; else sinViaje">En curso desde las {{ horaDe(v.inicio) }} <span class="muted">({{ haceDe(v.inicio) }})</span></ng-container>
+                    <ng-template #sinViaje><span class="muted">Ninguno abierto</span></ng-template>
+                  </dd></div>
+                </dl>
+
+                <div class="fm-recorrido">
+                  <div class="fm-recorrido-cabeza">
+                    <h3>Recorrido</h3>
+                    <select [(ngModel)]="recorridoDia" (ngModelChange)="cargarRecorrido()" aria-label="Día del recorrido">
+                      <option *ngFor="let d of diasRecorrido" [value]="d.v">{{ d.t }}</option>
+                    </select>
+                  </div>
+                  <p class="muted" *ngIf="recorridoCargando">Cargando…</p>
+                  <p class="fm-recorrido-dato" *ngIf="!recorridoCargando && resumenRecorrido as r">
+                    <strong class="bx-mono">{{ r.km }} km</strong> de {{ r.desde }} a {{ r.hasta }}
+                  </p>
+                  <p class="muted" *ngIf="!recorridoCargando && !resumenRecorrido">Sin recorrido registrado ese día.</p>
+                </div>
+
+                <div class="fm-acciones">
+                  <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" *ngIf="senales[b.id]" (click)="centrarEnBus(b)">
+                    <ion-icon name="locate-outline" aria-hidden="true"></ion-icon>Centrar
+                  </button>
+                  <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm" (click)="verEnLista(b)">Ver en Buses</button>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
 
