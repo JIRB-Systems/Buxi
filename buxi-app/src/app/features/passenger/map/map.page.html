@@ -429,8 +429,10 @@
 
       <div class="rs-meta">
         <span class="rs-pill" *ngIf="ruta.codigo_ruta">Ruta {{ ruta.codigo_ruta }}</span>
-        <span class="rs-pill live">
-          <bx-dato [vivo]="true">{{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo</bx-dato>
+        <!-- Con cero buses no hay nada en vivo: sin ondas ni verde. -->
+        <span class="rs-pill" [class.live]="conteoBuses.enVivo > 0">
+          <bx-dato *ngIf="conteoBuses.enVivo > 0" [vivo]="true">{{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo</bx-dato>
+          <ng-container *ngIf="!conteoBuses.enVivo">Ningún bus en vivo</ng-container>
         </span>
         <span class="rs-pill" *ngIf="conteoBuses.sinSenal">{{ conteoBuses.sinSenal }} sin señal reciente</span>
         <span class="rs-pill" *ngIf="proximaSalidaTexto" title="Según el horario de la empresa, no en vivo"><bx-dato [vivo]="false">{{ proximaSalidaTexto }}</bx-dato></span>
