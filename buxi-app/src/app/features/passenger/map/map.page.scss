@@ -770,32 +770,15 @@
   .up-cabeza { fill: var(--um-neon); }
   .up-trazo { stroke: var(--um-neon); }
 
-  // Halo difuso, no anillo: un borde circular volvería a leerse como la chapa
-  // que se quitó. Sólo marca presencia detrás de la figura.
-  .user-pulse {
-    position: absolute;
-    top: 50%; left: 50%;
-    width: 34px; height: 34px;
-    margin: -17px 0 0 -17px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(var(--um-halo), 0.3) 0%, rgba(var(--um-halo), 0) 70%);
-    animation: pulsate 2s ease-out infinite;
-    z-index: 1;
-  }
+  // Sin halo ni círculo alrededor: la figura sola. Con una lectura poco fiable
+  // se queda igual, en su color neón; la advertencia va donde no estorba (el
+  // botón de ubicación se pone ámbar y el aviso lo explica).
 
-  // Lectura por red con kilómetros de error: se apaga y pierde el borde sólido
-  // para que no se lea como una posición confirmada.
-  // La figura se queda SIEMPRE en su color neón, también con una lectura poco
-  // fiable. Antes se agrisaba para avisarlo, pero eso apagaba lo único que
-  // representa al usuario en pantalla. La advertencia sigue estando donde no
-  // estorba: el botón de ubicación se pone ámbar y el aviso lo explica.
-  //
-  // Lo único que cambia es el halo: sin latido, porque un pulso vivo sobre una
-  // posición dudosa afirmaba una certeza que no había.
-  .user-marker.coarse .user-pulse {
-    animation: none;
-    background: radial-gradient(circle, rgba(var(--um-halo), 0.16) 0%, rgba(var(--um-halo), 0) 70%);
-  }
+  // Arriba de un bus el muñequito se esconde: el bus lo representa (ver
+  // revisarABordo). visibility y no display, para no tocar lo que MapLibre
+  // le escribe a la raíz del marcador.
+  .user-marker.a-bordo,
+  .user-cone-marker.a-bordo { visibility: hidden; }
 
   // Haz de luz sobre el suelo. El degradado se apaga hacia afuera y los bordes
   // se suavizan, para que parezca luz y no un triángulo pegado.
@@ -823,15 +806,10 @@
   // información inventada.
   .user-cone-marker.has-heading .user-cone { opacity: 1; }
 
-  @keyframes pulsate {
-    0% { transform: scale(1); opacity: 0.6; }
-    100% { transform: scale(2.2); opacity: 0; }
-  }
-
   // ---- Ajustes MapLibre ----
   // MapLibre posiciona el marker por transform (no por iconSize como Leaflet),
   // así que el contenedor del user marker necesita un tamaño explícito para
-  // que el punto y el pulso (absolute/inset) se ubiquen bien.
+  // que la figura (absolute/inset) se ubique bien.
 
 
   // Ocultar todo el chrome de MapLibre (logo, atribución, controles).

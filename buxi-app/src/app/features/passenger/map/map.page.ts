@@ -20,7 +20,7 @@ import {
   CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
 import { claveValida, REGLA_CLAVE } from '../../../core/utils/clave';
@@ -219,7 +219,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private userConeMarker: maplibregl.Marker | null = null;
   private gpsHeading: number | null = null;
   private compassHeading: number | null = null;
-  private lastAccuracy: number | null = null;
   private compassHandler?: (e: DeviceOrientationEvent) => void;
   locating = false;
   locationError: string | null = null;
@@ -2602,11 +2601,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
       this.dibujarParadasTodas();
 
-      // El círculo se redibuja desde la última posición conocida.
-      if (this.userLat !== 0) {
-        this.updateAccuracyCircle(this.userLng, this.userLat, this.lastAccuracy);
-      }
-
       // Y la ruta activa, si había uno dibujada.
       if (this.activeRuta && this.activeParadas.length >= 2) {
         this.routeLayerIds = [];
@@ -3320,6 +3314,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
     this.actualizarMarcha(location);
+    this.revisarABordo(location);
     if (this.activeRuta) this.updateETA();
     else this.programarCercanas();
     if (location.bus?.empresa_id) this.busEmpresa.set(location.bus_id, location.bus.empresa_id);
@@ -3438,7 +3433,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // position y transform, y pisárselos desancla el marcador del mapa.
       const el = htmlMarkerEl(
         'user-marker',
-        `<div class="um-inner"><div class="user-pulse"></div>${this.userPuckHtml()}</div>`,
+        `<div class="um-inner">${this.userPuckHtml()}</div>`,
       );
       this.userMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
         .setLngLat([lng, lat])
@@ -3452,16 +3447,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.userMarker.getElement().classList.toggle('coarse', unreliable);
     this.locationError = unreliable ? 'Ubicación poco fiable' : null;
 
-    // Se recuerda para poder redibujar el círculo tras un cambio de estilo,
-    // que borra todas las capas propias.
-    this.lastAccuracy = accuracy ?? null;
+    this.recordarPosicion(lat, lng, accuracy);
+    this.revisarBusMudo();
 
     // La distancia a cada empresa depende de donde estas: se recalcula al
     // moverte, no en cada render.
     this.recomputeEmpresasCercanas();
 
     this.applyUserHeading();
-    this.updateAccuracyCircle(lng, lat, accuracy);
     this.updateETA();
     this.recalcularParadaCercana();
     this.seguirCaminata();
@@ -3539,36 +3532,117 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }
   }
 
-  // Radio de precisión como capa GeoJSON en metros reales: si el navegador
-  // ubica por WiFi y erra kilómetros, el círculo lo muestra grande y honesto
-  // en vez de fingir un punto exacto.
-  private updateAccuracyCircle(lng: number, lat: number, accuracy?: number | null) {
-    if (!this.mapReady || !accuracy || accuracy <= 0) return;
+  // El muñequito va solo, sin el círculo de precisión ni el halo que latía:
+  // tapaban la calle y los buses de alrededor. Una lectura poco fiable se
+  // sigue avisando donde no estorba (el botón de ubicación en ámbar).
 
-    const data = circlePolygon(lng, lat, accuracy);
-    const existing = this.map.getSource('user-accuracy') as maplibregl.GeoJSONSource | undefined;
+  // ---- ¿VA ARRIBA DE UN BUS? ----
+  //
+  // Subido al bus, el muñequito y el bus quedan uno encima del otro y el
+  // muñequito tapa el bus, que es lo que importa: por dónde va. Ahí el
+  // muñequito se esconde y el bus pasa a representarlo.
+  //
+  // No hay un botón de "me subí": se deduce. Va arriba de un bus cuando su
+  // teléfono y el GPS del bus coinciden en dos lecturas seguidas del bus y
+  // además se mueve más rápido que caminando. Sin esa condición, esperar en la
+  // parada al lado de un bus detenido lo escondería. Para bajarse alcanzan dos
+  // lecturas del bus que ya no coinciden, o que el bus deje de transmitir; ahí
+  // no se pide movimiento, porque el bus para en las paradas con él adentro.
+  //
+  // Se compara con dónde estaba el pasajero CUANDO se tomó esa lectura del
+  // bus, no con su última posición: a 50 km/h son 14 m por segundo y el punto
+  // del bus llega con unos segundos de atraso.
+  private aBordoBusId: string | null = null;
+  private aBordoCandidato: { busId: string; veces: number } | null = null;
+  private aBordoFallos = 0;
+  private posicionesRecientes: { t: number; lat: number; lng: number; precision: number }[] = [];
+  private readonly ABORDO_M = 45;
+  private readonly ABORDO_PRECISION_MAX_M = 30;
+  private readonly ABORDO_VEL_MIN_MS = 2.8;      // ~10 km/h
+  private readonly ABORDO_BUS_MUDO_MS = 30000;
+  private readonly ABORDO_LECTURA_MAX_MS = 20000;
 
-    if (existing) {
-      existing.setData(data);
+  private recordarPosicion(lat: number, lng: number, precision?: number | null) {
+    const t = Date.now();
+    this.posicionesRecientes.push({ t, lat, lng, precision: precision && precision > 0 ? precision : 0 });
+    while (this.posicionesRecientes.length && t - this.posicionesRecientes[0].t > 60000) this.posicionesRecientes.shift();
+  }
+
+  // La posición del pasajero más cercana en el tiempo a ese instante.
+  private posicionEn(t: number) {
+    let mejor: { t: number; lat: number; lng: number; precision: number } | null = null;
+    let dif = Infinity;
+    for (const p of this.posicionesRecientes) {
+      const d = Math.abs(p.t - t);
+      if (d < dif) { dif = d; mejor = p; }
+    }
+    return mejor && dif <= 6000 ? mejor : null;
+  }
+
+  // Metros por segundo en los últimos 5 a 20 s. Con la distancia entre dos
+  // lecturas y no con coords.speed, que muchos navegadores no informan.
+  private velocidadPasajero(): number | null {
+    const ps = this.posicionesRecientes;
+    const ult = ps[ps.length - 1];
+    if (!ult) return null;
+    let ref: typeof ult | null = null;
+    for (let i = ps.length - 2; i >= 0; i--) {
+      if (ult.t - ps[i].t >= 5000) { ref = ps[i]; break; }
+    }
+    if (!ref || ult.t - ref.t > 20000) return null;
+    const m = this.featuresService.distanceKm(ref.lat, ref.lng, ult.lat, ult.lng) * 1000;
+    return m / ((ult.t - ref.t) / 1000);
+  }
+
+  // Con cada lectura de un bus.
+  private revisarABordo(loc: BusLocation) {
+    if (!this.posicionesRecientes.length) return;
+    // Una lectura vieja (la carga inicial, un bus sin señal) no dice nada de
+    // dónde está el bus ahora. La edad se acota por si el reloj del teléfono
+    // del chofer viene corrido.
+    const edad = Date.now() - Date.parse(loc.timestamp);
+    if (!(edad <= this.ABORDO_LECTURA_MAX_MS)) return;
+    const p = this.posicionEn(Date.now() - Math.max(0, edad));
+    if (!p) return;
+    const metros = this.featuresService.distanceKm(p.lat, p.lng, loc.latitud, loc.longitud) * 1000;
+    const coincide = metros <= this.ABORDO_M + Math.min(p.precision, this.ABORDO_PRECISION_MAX_M);
+
+    if (this.aBordoBusId === loc.bus_id) {
+      if (coincide) { this.aBordoFallos = 0; return; }
+      if (++this.aBordoFallos >= 2) this.ponerABordo(null);
       return;
     }
+    if (this.aBordoBusId) return;
+    if (!coincide) {
+      if (this.aBordoCandidato?.busId === loc.bus_id) this.aBordoCandidato = null;
+      return;
+    }
+    const vel = this.velocidadPasajero();
+    if (vel === null || vel < this.ABORDO_VEL_MIN_MS) return;
+    const veces = this.aBordoCandidato?.busId === loc.bus_id ? this.aBordoCandidato.veces + 1 : 1;
+    this.aBordoCandidato = { busId: loc.bus_id, veces };
+    if (veces >= 2) this.ponerABordo(loc.bus_id);
+  }
 
-    // Del mismo color que el muñequito. No hace falta cambiarlo al pasar de
-    // modo: setStyle borra el círculo y se vuelve a crear con el color nuevo.
-    const color = this.darkMode ? '#00e06a' : '#00a8ff';
-    this.map.addSource('user-accuracy', { type: 'geojson', data });
-    this.map.addLayer({
-      id: 'user-accuracy-fill',
-      type: 'fill',
-      source: 'user-accuracy',
-      paint: { 'fill-color': color, 'fill-opacity': 0.13 },
-    });
-    this.map.addLayer({
-      id: 'user-accuracy-line',
-      type: 'line',
-      source: 'user-accuracy',
-      paint: { 'line-color': color, 'line-width': 1.2, 'line-opacity': 0.45 },
-    });
+  // Con cada lectura del pasajero: si el bus en el que iba dejó de
+  // transmitir (o se fue del mapa), el muñequito vuelve.
+  private revisarBusMudo() {
+    const id = this.aBordoBusId;
+    if (!id) return;
+    const visto = this.busLastSeen.get(id);
+    if (!this.busLocationsMap.has(id) || !visto || Date.now() - visto > this.ABORDO_BUS_MUDO_MS) {
+      this.ponerABordo(null);
+    }
+  }
+
+  private ponerABordo(busId: string | null) {
+    this.aBordoCandidato = null;
+    this.aBordoFallos = 0;
+    if (this.aBordoBusId === busId) return;
+    this.aBordoBusId = busId;
+    for (const m of [this.userMarker, this.userConeMarker]) {
+      m?.getElement().classList.toggle('a-bordo', !!busId);
+    }
   }
 
   // ====== TIEMPO DE LLEGADA ======
