@@ -821,6 +821,17 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
     this.is3D = true;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
+    // Los buses son marcadores HTML: para que crezcan al acercarse (de cerca
+    // un ícono de 28 px se perdía entre las calles) se les pasa la escala por
+    // una variable CSS del contenedor, que heredan.
+    const escalarBuses = () => {
+      const z = map.getZoom();
+      const escala = z <= 15 ? 1 : Math.min(1.8, 1 + (z - 15) * 0.2);
+      map.getContainer().style.setProperty('--bus-escala', escala.toFixed(2));
+    };
+    escalarBuses();
+    map.on('zoom', escalarBuses);
+
 
     // El contenedor de la pestaña "Mapa en vivo" recién aparece por el
     // *ngIf al cambiar de tab: MapLibre mide su tamaño en el momento de

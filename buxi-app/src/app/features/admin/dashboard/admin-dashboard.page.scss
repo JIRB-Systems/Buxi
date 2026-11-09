@@ -345,7 +345,11 @@
     position: absolute; top: 0; left: 0; will-change: transform;
   }
 
+  // --bus-escala lo pone el mapa según el zoom (ver initAdminMap). El
+  // transform va en el ícono y no en la raíz del marcador, que es de MapLibre.
   .admin-bus-icon {
+    transform: scale(var(--bus-escala, 1));
+    transition: transform 0.15s ease-out;
     width: 28px; height: 28px; border-radius: 50%;
     border: 2px solid #fff; display: grid; place-items: center;
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);

@@ -33,7 +33,7 @@ import { nombreCortoLugar } from '../../../core/utils/lugar';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
-  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO,
+  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO, segunEscalaBus,
 } from '../../../core/utils/bus-sprite';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
@@ -1677,19 +1677,33 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // Ajusta la capa de buses a la vista: en 3D el sprite va parado y anclado
   // abajo; en 2D va acostado, centrado y girado con el rumbo. Las etiquetas
-  // se corren porque el bus ya no queda por encima del punto sino encima.
+  // se corren porque el bus ya no queda por encima del punto sino encima, y
+  // se alejan a medida que el bus crece con el zoom.
   private aplicarVistaBuses() {
     if (!this.map) return;
     aplicarLayoutIconoBus(this.map, this.BUSES_LAYER, this.is3D);
     try {
       if (this.map.getLayer(this.BUSES_LAYER)) {
-        this.map.setLayoutProperty(this.BUSES_LAYER, 'text-offset', this.is3D ? [0, 0.25] : [0, 2]);
+        this.map.setLayoutProperty(this.BUSES_LAYER, 'text-offset', this.offsetEtiquetaBus());
       }
       if (this.map.getLayer(this.BUSES_COD_LAYER)) {
-        this.map.setLayoutProperty(this.BUSES_COD_LAYER, 'text-offset', this.is3D ? [1, -2.5] : [1.2, -1.2]);
+        this.map.setLayoutProperty(this.BUSES_COD_LAYER, 'text-offset', this.offsetCodigoBus());
       }
     } catch { /* el estilo se está cambiando */ }
     this.refrescarIconos();
+  }
+
+  // "hace 2 min", debajo del bus. En 3D el bus crece hacia arriba (está
+  // anclado abajo) y la etiqueta no se mueve; en 2D crece para los dos lados.
+  private offsetEtiquetaBus(): any {
+    return this.is3D ? [0, 0.25] : segunEscalaBus(false, e => [0, 2 * e]);
+  }
+
+  // El código de la ruta, arriba a la derecha del bus.
+  private offsetCodigoBus(): any {
+    return this.is3D
+      ? segunEscalaBus(true, e => [e, -2.5 * e])
+      : segunEscalaBus(false, e => [1.2 * e, -1.2 * e]);
   }
 
   // Lo propio del pasajero es el color: el estado vivo del bus (retrasado, en
@@ -3140,14 +3154,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           ...layoutIconoBus(this.is3D),
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
-          'icon-size': 1,
           // Debajo de un bus que no está en vivo, desde cuándo no reporta
           // ("hace 2 min"): el pasajero lo ve sin tener que tocarlo.
           'text-field': ['get', 'etiqueta'],
           'text-font': this.fuenteDelEstilo(),
           'text-size': 11,
           'text-anchor': 'top',
-          'text-offset': this.is3D ? [0, 0.25] : [0, 2],
+          'text-offset': this.offsetEtiquetaBus(),
           'text-allow-overlap': true,
           'text-ignore-placement': true,
         },
@@ -3184,7 +3197,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           'text-font': this.fuenteNegrita(),
           'text-size': 11,
           'text-anchor': 'bottom-left',
-          'text-offset': this.is3D ? [1, -2.5] : [1.2, -1.2],
+          'text-offset': this.offsetCodigoBus(),
           'text-max-width': 8,
           'text-padding': 2,
           'icon-image': ['get', 'pastilla'],

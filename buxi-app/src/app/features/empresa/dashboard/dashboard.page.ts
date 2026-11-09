@@ -2083,12 +2083,16 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
       const color: any = ['match', ['get', 'cat'], 'ruta', '#00e06a', 'detenido', '#ffb020', 'sin_senal', '#ff5a5a', '#8292aa'];
       map.addLayer({
         id: 'flota-sel', type: 'circle', source: this.FLOTA_SRC, filter: ['==', ['get', 'sel'], true],
-        paint: { 'circle-radius': 18, 'circle-color': '#ffffff', 'circle-opacity': 0.18, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 },
+        paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 15, 18, 17, 23, 19, 30], 'circle-color': '#ffffff', 'circle-opacity': 0.18, 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 1.5 },
       });
       map.addLayer({
         id: 'flota-circ', type: 'circle', source: this.FLOTA_SRC,
         paint: {
-          'circle-radius': ['case', ['get', 'sel'], 9, 7],
+          // Crecen con el zoom: de cerca un punto de 7 px se perdía entre las calles.
+          'circle-radius': ['interpolate', ['linear'], ['zoom'],
+            15, ['case', ['get', 'sel'], 9, 7],
+            17, ['case', ['get', 'sel'], 12, 10],
+            19, ['case', ['get', 'sel'], 16, 13]],
           'circle-color': color,
           'circle-stroke-color': '#0b1626',
           'circle-stroke-width': 2.5,
@@ -2099,7 +2103,7 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         id: 'flota-txt', type: 'symbol', source: this.FLOTA_SRC, minzoom: 9,
         layout: {
           'text-field': ['get', 'placa'], 'text-font': this.fuenteMapa(map), 'text-size': 11,
-          'text-anchor': 'top', 'text-offset': [0, 1], 'text-allow-overlap': false, 'text-optional': true,
+          'text-anchor': 'top', 'text-offset': ['interpolate', ['linear'], ['zoom'], 15, ['literal', [0, 1]], 19, ['literal', [0, 1.6]]], 'text-allow-overlap': false, 'text-optional': true,
         },
         paint: { 'text-color': '#e8eef7', 'text-halo-color': 'rgba(7, 15, 28, 0.92)', 'text-halo-width': 1.6 },
       });

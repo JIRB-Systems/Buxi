@@ -22,7 +22,7 @@ import { colorSeguro } from '../../../core/utils/html';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
-  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO,
+  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO, segunEscalaBus,
 } from '../../../core/utils/bus-sprite';
 import { supabaseClient } from '../../../core/supabase-client';
 import { suscribirCambios } from '../../../core/utils/live';
@@ -558,6 +558,16 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     return this.sprites ? id : 'chofer-bus-icon';
   }
 
+  // El halo del bus propio y la placa de los demás siguen al bus cuando crece
+  // con el zoom. En 3D la placa no se mueve: el bus crece hacia arriba.
+  private radioHalo(): any {
+    return segunEscalaBus(this.is3D, e => (this.is3D ? 12 : 18) * e);
+  }
+
+  private offsetEtiquetaFlota(): any {
+    return this.is3D ? [0, 1.4] : segunEscalaBus(false, e => [0, 2.2 * e]);
+  }
+
   // Cuando el bus visto desde arriba termina de dibujarse, se repintan el
   // propio y la flota (hasta ahí iban con el isométrico).
   private alCargarPlano = () => {
@@ -590,8 +600,9 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.map.addLayer({
       id: this.USER_HALO_LAYER, type: 'circle', source: this.USER_SRC,
       paint: {
-        // En 2D el bus va acostado encima del punto: el halo lo rodea.
-        'circle-radius': this.is3D ? 12 : 18,
+        // En 2D el bus va acostado encima del punto: el halo lo rodea. Crece
+        // con el zoom, como el bus.
+        'circle-radius': this.radioHalo(),
         'circle-color': '#00c853',
         'circle-opacity': 0.22,
         'circle-stroke-width': 2,
@@ -607,7 +618,6 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         // con el rumbo horneado en el sprite (un dibujo isométrico rotado en
         // pantalla se ve torcido); en 2D el bus visto desde arriba, acostado
         // sobre el mapa y girado con icon-rotate.
-        'icon-size': 1,
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
         ...layoutIconoBus(this.is3D),
@@ -785,7 +795,6 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       id: this.FLOTA_LAYER, type: 'symbol', source: this.FLOTA_SRC,
       layout: {
         'icon-image': ['get', 'icon'],
-        'icon-size': 1,
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
         ...layoutIconoBus(this.is3D),
@@ -798,7 +807,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       layout: {
         'text-field': ['get', 'etiqueta'],
         'text-size': 10,
-        'text-offset': this.is3D ? [0, 1.4] : [0, 2.2],
+        'text-offset': this.offsetEtiquetaFlota(),
         'text-anchor': 'top',
         'text-allow-overlap': false,
         'text-pitch-alignment': 'viewport',
@@ -1227,8 +1236,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D);
     aplicarLayoutIconoBus(this.map, this.FLOTA_LAYER, this.is3D);
     try {
-      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.is3D ? 12 : 18);
-      if (this.map.getLayer(this.FLOTA_LABEL_LAYER)) this.map.setLayoutProperty(this.FLOTA_LABEL_LAYER, 'text-offset', this.is3D ? [0, 1.4] : [0, 2.2]);
+      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.radioHalo());
+      if (this.map.getLayer(this.FLOTA_LABEL_LAYER)) this.map.setLayoutProperty(this.FLOTA_LABEL_LAYER, 'text-offset', this.offsetEtiquetaFlota());
     } catch { /* el estilo no está listo */ }
     try {
       if (this.currentLat !== 0 || this.currentLng !== 0) this.updateUserMarkerLayer(this.currentLng, this.currentLat);

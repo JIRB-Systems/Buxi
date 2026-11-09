@@ -135,7 +135,10 @@ export function registrarIconoBus(
 // con `alCargar` cuando ya se puede registrar. Mientras tanto (o si falla) el
 // que llama usa el sprite isométrico.
 const PLANO_ESCALA = 0.36;            // px de pantalla por unidad del dibujo
-const PLANO_PR = 3;                   // nitidez en pantallas de alta densidad
+// Nitidez: 3 px por px de pantalla (teléfonos de alta densidad) multiplicado
+// por cuánto llega a agrandarse con el zoom (ver ESCALA_PLANO). Con menos, el
+// bus de cerca se ve borroso, que es justo cuando se lo quiere mirar.
+const PLANO_PR = 8;
 const PLANO_ANCHO = 34, PLANO_ALTO = 184; // el recorte de svgBus(…, 'arriba')
 
 // Compartido por todos los mapas: el dibujo no depende del mapa, solo el
@@ -213,12 +216,14 @@ export function registrarIconoPlano(
 export function layoutIconoBus(is3D: boolean): Record<string, any> {
   return is3D
     ? {
+      'icon-size': escalaBus(true),
       'icon-rotate': 0,
       'icon-rotation-alignment': 'viewport',
       'icon-pitch-alignment': 'viewport',
       'icon-anchor': 'bottom',
     }
     : {
+      'icon-size': escalaBus(false),
       'icon-rotate': ['coalesce', ['get', 'rot'], 0],
       'icon-rotation-alignment': 'map',
       'icon-pitch-alignment': 'map',
@@ -231,4 +236,29 @@ export function aplicarLayoutIconoBus(map: maplibregl.Map, capa: string, is3D: b
   for (const [k, v] of Object.entries(layoutIconoBus(is3D))) {
     try { map.setLayoutProperty(capa, k, v); } catch { /* capa de otro tipo */ }
   }
+}
+
+// ---- EL BUS CRECE AL ACERCARSE ----
+//
+// Con un tamaño fijo, el bus de cerca quedaba igual de chico que de lejos y
+// el diseño (vidrios, techo, el modelo que eligió la empresa) no se llegaba a
+// ver. Desde zoom 15 crece. El de arriba crece más que el isométrico: está
+// dibujado a mayor resolución (PLANO_PR) y el isométrico sale de renders de
+// 126 px, que agrandados de más se ven borrosos.
+const ESCALA_PLANO: [number, number][] = [[15, 1], [17, 1.45], [19, 2.2], [20, 2.6]];
+const ESCALA_ISO: [number, number][] = [[15, 1], [17, 1.3], [19, 1.7], [20, 1.9]];
+
+// Cualquier medida que dependa del tamaño del bus (el halo, lo que se escribe
+// al lado) siguiendo la misma curva. Los arreglos (text-offset) van como
+// literal, que es lo que pide MapLibre dentro de una interpolación.
+export function segunEscalaBus(is3D: boolean, valor: (escala: number) => number | number[]): any {
+  const pasos = (is3D ? ESCALA_ISO : ESCALA_PLANO).flatMap(([z, e]) => {
+    const v = valor(e);
+    return [z, Array.isArray(v) ? ['literal', v.map(n => +n.toFixed(2))] : +v.toFixed(2)];
+  });
+  return ['interpolate', ['linear'], ['zoom'], ...pasos];
+}
+
+export function escalaBus(is3D: boolean): any {
+  return segunEscalaBus(is3D, e => e);
 }
