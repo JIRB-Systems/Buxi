@@ -381,6 +381,12 @@
             </div>
           </div>
 
+          <!-- ========== PARADAS MUNICIPALES ========== -->
+          <!-- Solo JIRB pone o cambia nombres de paradas (ver el componente). -->
+          <div *ngIf="activeTab==='paradas'" class="section">
+            <bx-paradas-municipales></bx-paradas-municipales>
+          </div>
+
           <!-- ========== CALIFICACIONES ========== -->
           <div *ngIf="activeTab==='calificaciones'" class="section">
             <div class="rating-banner">

@@ -157,35 +157,55 @@ export function capaComercios(map: maplibregl.Map, dark: boolean): void {
   });
 }
 
-export function paradasDelMapaBase(map: maplibregl.Map, dark: boolean): void {
-  const fuente = 'maptiler_planet';
-  if (!map.getSource(fuente)) return;
+// Opacidad de lo del mapa base que JIRB corrigió o escondió: la parada
+// original queda transparente (feature-state "buxci") y se dibuja la de JIRB.
+const siNoCorregida = (v: number) => ['case', ['boolean', ['feature-state', 'buxci'], false], 0, v] as any;
+
+interface CapasParadas {
+  source: string;
+  sourceLayer?: string;
+  ids: { terminalCirc: string; terminalTxt: string; parada: string };
+  terminal: any;
+  parada: any;
+  // Expresión del nombre (OpenStreetMap: name; las de JIRB: nombre).
+  nombre: any;
+  // Las del mapa base se pueden esconder cuando JIRB las corrige.
+  corregibles: boolean;
+}
+
+function agregarCapasParadas(map: maplibregl.Map, dark: boolean, o: CapasParadas) {
   const letra = (map.getLayer('Station') && map.getLayoutProperty('Station', 'text-font')) || ['Noto Sans Regular'];
   const halo = dark ? 'rgba(7, 15, 28, 0.92)' : 'rgba(255, 255, 255, 0.95)';
-  const terminal = ['all', ['==', ['get', 'class'], 'bus'], ['==', ['get', 'subclass'], 'bus_station']];
+  const op = (v: number) => (o.corregibles ? siNoCorregida(v) : v);
+  const base: any = o.sourceLayer ? { source: o.source, 'source-layer': o.sourceLayer } : { source: o.source };
+  // Sin nombre (o con nombre vacío): "Parada de bus" / "Terminal de buses".
+  const conNombre = (porDefecto: string) =>
+    ['case', ['>', ['length', ['coalesce', o.nombre, '']], 0], o.nombre, porDefecto] as any;
 
-  if (!map.getLayer('buxci-terminales-circ')) {
+  if (!map.getLayer(o.ids.terminalCirc)) {
     map.addLayer({
-      id: 'buxci-terminales-circ', type: 'circle', source: fuente, 'source-layer': 'poi', minzoom: 11,
-      filter: terminal as any,
+      ...base, id: o.ids.terminalCirc, type: 'circle', minzoom: 11,
+      filter: o.terminal,
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 6, 14, 10, 17, 13],
         'circle-color': '#2f6fe0',
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2.5,
+        'circle-opacity': op(1),
+        'circle-stroke-opacity': op(1),
       },
     });
   }
-  if (!map.getLayer('buxci-terminales-txt')) {
+  if (!map.getLayer(o.ids.terminalTxt)) {
     map.addLayer({
-      id: 'buxci-terminales-txt', type: 'symbol', source: fuente, 'source-layer': 'poi', minzoom: 11,
-      filter: terminal as any,
+      ...base, id: o.ids.terminalTxt, type: 'symbol', minzoom: 11,
+      filter: o.terminal,
       layout: {
         'icon-image': 'bus_stop',
         'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.5, 14, 0.75, 17, 0.95],
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
-        'text-field': ['step', ['zoom'], '', 12.5, ['get', 'name']],
+        'text-field': ['step', ['zoom'], '', 12.5, conNombre('Terminal de buses')],
         'text-font': letra,
         'text-size': 12,
         'text-anchor': 'top',
@@ -195,21 +215,23 @@ export function paradasDelMapaBase(map: maplibregl.Map, dark: boolean): void {
       },
       paint: {
         'icon-color': '#ffffff',
+        'icon-opacity': op(1),
         'text-color': dark ? '#dbe7ff' : '#1d4fb8',
         'text-halo-color': halo,
         'text-halo-width': 1.6,
+        'text-opacity': op(1),
       },
     });
   }
-  if (!map.getLayer(CAPA_PARADAS_MUNICIPALES)) {
+  if (!map.getLayer(o.ids.parada)) {
     map.addLayer({
-      id: CAPA_PARADAS_MUNICIPALES, type: 'symbol', source: fuente, 'source-layer': 'poi', minzoom: 15,
-      filter: ['all', ['==', ['get', 'class'], 'bus'], ['==', ['get', 'subclass'], 'bus_stop']] as any,
+      ...base, id: o.ids.parada, type: 'symbol', minzoom: 15,
+      filter: o.parada,
       layout: {
         'icon-image': 'bus_stop',
         'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.7, 18, 0.95],
         'icon-allow-overlap': true,
-        'text-field': ['step', ['zoom'], '', 16.5, ['coalesce', ['get', 'name'], '']],
+        'text-field': ['step', ['zoom'], '', 16.5, conNombre('Parada de bus')],
         'text-font': letra,
         'text-size': 11,
         'text-anchor': 'top',
@@ -221,12 +243,87 @@ export function paradasDelMapaBase(map: maplibregl.Map, dark: boolean): void {
         'icon-color': '#f5a623',
         'icon-halo-color': halo,
         'icon-halo-width': 1.2,
+        'icon-opacity': op(1),
         'text-color': dark ? '#ffd28a' : '#9a5b00',
         'text-halo-color': halo,
         'text-halo-width': 1.4,
+        'text-opacity': op(1),
       },
     });
   }
+}
+
+// Las capas de terminales que se pueden tocar (abren la ficha con "Cómo
+// llegar") y las de paradas municipales (se esconden con una ruta en pantalla).
+export const CAPAS_TERMINALES_MAPA = [
+  'buxci-terminales-circ', 'buxci-terminales-txt',
+  'buxci-propias-terminales-circ', 'buxci-propias-terminales-txt',
+];
+export const CAPAS_PARADAS_MUNICIPALES = [CAPA_PARADAS_MUNICIPALES, 'buxci-propias-paradas'];
+
+export function paradasDelMapaBase(map: maplibregl.Map, dark: boolean): void {
+  const fuente = 'maptiler_planet';
+  if (!map.getSource(fuente)) return;
+  agregarCapasParadas(map, dark, {
+    source: fuente,
+    sourceLayer: 'poi',
+    ids: { terminalCirc: 'buxci-terminales-circ', terminalTxt: 'buxci-terminales-txt', parada: CAPA_PARADAS_MUNICIPALES },
+    terminal: ['all', ['==', ['get', 'class'], 'bus'], ['==', ['get', 'subclass'], 'bus_station']],
+    parada: ['all', ['==', ['get', 'class'], 'bus'], ['==', ['get', 'subclass'], 'bus_stop']],
+    nombre: ['get', 'name'],
+    corregibles: true,
+  });
+}
+
+// ---- Paradas municipales de JIRB (tabla paradas_municipales) ----
+// Las que faltan en OpenStreetMap, y las correcciones de las que están (con
+// osm_id): a esas se les esconde la original y se dibuja la de JIRB.
+export interface ParadaPropiaMapa {
+  id: string;
+  nombre: string;
+  tipo: 'parada' | 'terminal';
+  latitud: number;
+  longitud: number;
+  osm_id: number | null;
+  oculta: boolean;
+}
+
+const FUENTE_PROPIAS = 'buxci-paradas-propias';
+const corregidasPorMapa = new WeakMap<maplibregl.Map, Set<number>>();
+
+export function paradasMunicipalesPropias(map: maplibregl.Map, dark: boolean, filas: ParadaPropiaMapa[]): void {
+  if (!map.getSource('maptiler_planet')) return;
+
+  // Esconder en el mapa base las corregidas; destapar las que ya no lo están.
+  const antes = corregidasPorMapa.get(map) ?? new Set<number>();
+  const ahora = new Set(filas.filter(f => f.osm_id != null).map(f => Number(f.osm_id)));
+  for (const id of antes) {
+    if (!ahora.has(id)) try { map.removeFeatureState({ source: 'maptiler_planet', sourceLayer: 'poi', id }, 'buxci'); } catch {}
+  }
+  for (const id of ahora) {
+    try { map.setFeatureState({ source: 'maptiler_planet', sourceLayer: 'poi', id }, { buxci: true }); } catch {}
+  }
+  corregidasPorMapa.set(map, ahora);
+
+  const data = {
+    type: 'FeatureCollection',
+    features: filas.filter(f => !f.oculta).map(f => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [f.longitud, f.latitud] },
+      properties: { pid: f.id, nombre: f.nombre, tipo: f.tipo },
+    })),
+  } as any;
+  const src = map.getSource(FUENTE_PROPIAS) as maplibregl.GeoJSONSource | undefined;
+  if (src) { src.setData(data); return; }
+  map.addSource(FUENTE_PROPIAS, { type: 'geojson', data });
+  agregarCapasParadas(map, dark, {
+    source: FUENTE_PROPIAS,
+    ids: { terminalCirc: 'buxci-propias-terminales-circ', terminalTxt: 'buxci-propias-terminales-txt', parada: 'buxci-propias-paradas' },
+    terminal: ['==', ['get', 'tipo'], 'terminal'],
+    parada: ['==', ['get', 'tipo'], 'parada'],
+    nombre: ['get', 'nombre'],
+    corregibles: false,
+  });
 }
 
 export function createMap(opts: {

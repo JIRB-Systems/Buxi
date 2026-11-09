@@ -1,0 +1,173 @@
+:host { display: block; }
+
+.pm-intro {
+  margin: 0 0 10px;
+  font-size: 13px; line-height: 1.5;
+  color: var(--bx-text-2);
+}
+
+.pm-cuentas {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-bottom: 12px;
+  font-size: 12px; color: var(--bx-text-3);
+  b { color: var(--bx-text); font-size: 14px; }
+}
+
+.pm-grilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 14px;
+  align-items: start;
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+.pm-mapa-caja {
+  position: relative;
+  border-radius: var(--bx-r-lg, 16px);
+  overflow: hidden;
+  border: 1px solid var(--bx-line);
+}
+
+.pm-mapa {
+  width: 100%;
+  height: 560px;
+  @media (max-width: 900px) { height: 420px; }
+}
+
+.pm-buscar {
+  position: absolute; top: 10px; left: 10px; right: 54px; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+  max-width: 420px;
+  padding: 0 12px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(10, 22, 40, 0.92);
+  border: 1px solid var(--bx-line-strong);
+  ion-icon { color: var(--bx-text-3); flex: none; }
+  input {
+    flex: 1; min-width: 0;
+    border: 0; outline: none; background: transparent;
+    color: #fff; font: inherit; font-size: 13px;
+    &::placeholder { color: var(--bx-text-3); }
+  }
+  ion-spinner { width: 16px; height: 16px; }
+}
+
+.pm-lado { display: flex; flex-direction: column; gap: 14px; }
+
+.pm-form, .pm-lista {
+  padding: 14px;
+  border-radius: var(--bx-r-lg, 16px);
+  border: 1px solid var(--bx-line);
+  background: rgba(255, 255, 255, 0.03);
+
+  h3 { margin: 0 0 10px; font-size: 14px; color: #fff; }
+}
+
+.pm-form {
+  label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+    color: var(--bx-text-3);
+  }
+  input[type='text'] {
+    width: 100%; height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--bx-line);
+    color: #fff; font: inherit; font-size: 14px;
+    outline: none;
+    &:focus { border-color: rgba(0, 224, 106, 0.55); }
+  }
+}
+
+.pm-osm { margin: 0 0 4px; font-size: 12px; color: var(--bx-text-2); }
+
+.pm-tipos {
+  display: flex; gap: 6px;
+  button {
+    flex: 1;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--bx-line);
+    background: transparent;
+    color: var(--bx-text-2);
+    font: inherit; font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    &.on { border-color: rgba(255, 255, 255, 0.55); color: #fff; background: rgba(255, 255, 255, 0.06); }
+    &:focus-visible { outline: 2px solid rgba(255, 255, 255, 0.7); outline-offset: 1px; }
+  }
+}
+
+.pm-punto {
+  display: inline-block; flex: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--bx-text-3);
+  &--parada { background: #f5a623; }
+  &--terminal { background: #2f6fe0; box-shadow: 0 0 0 2px #fff; }
+  &--oculta { background: transparent; box-shadow: inset 0 0 0 2px var(--bx-text-3); }
+}
+
+.pm-coords { margin: 10px 0 0; font-size: 11px; color: var(--bx-text-3); }
+
+.pm-acciones {
+  display: flex; gap: 8px; margin-top: 14px;
+  .bx-btn { flex: 1; }
+  &--peligro { margin-top: 8px; .bx-btn { flex: 0 1 auto; } }
+}
+.pm-borrar { color: var(--bx-danger); }
+
+.pm-ayuda ul {
+  margin: 0; padding-left: 18px;
+  font-size: 13px; line-height: 1.6; color: var(--bx-text-2);
+}
+
+.pm-lista-cab {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 6px;
+  h3 { margin: 0; }
+  input {
+    width: 130px; height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--bx-line);
+    color: #fff; font: inherit; font-size: 12px;
+    outline: none;
+  }
+}
+
+.pm-vacio { padding: 16px 4px; font-size: 13px; color: var(--bx-text-3); text-align: center; }
+
+.pm-fila {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 10px 4px;
+  border: 0; border-top: 1px solid var(--bx-line);
+  background: transparent;
+  text-align: left; font: inherit;
+  cursor: pointer;
+  &:hover { background: rgba(255, 255, 255, 0.04); }
+  ion-icon { color: var(--bx-text-3); flex: none; }
+}
+.pm-fila-txt {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+  strong { font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  small { font-size: 11px; color: var(--bx-text-3); }
+}
+
+// El pin del mapa vive fuera del componente (lo inserta MapLibre): ::ng-deep.
+::ng-deep .pm-pin {
+  width: 22px; height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #00c853;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+}

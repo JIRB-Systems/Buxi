@@ -99,6 +99,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       { id: 'mapa', icon: 'map-outline', label: 'Mapa en vivo' },
       { id: 'buses', icon: 'bus-outline', label: 'Flota' },
       { id: 'rutas', icon: 'git-branch-outline', label: 'Rutas' },
+      { id: 'paradas', icon: 'location-outline', label: 'Paradas municipales' },
       { id: 'empresas', icon: 'business-outline', label: 'Empresas' },
     ]},
     { titulo: 'Control', items: [
@@ -1844,7 +1845,7 @@ export class AdminDashboardPage implements OnInit, OnDestroy {
       alertas: 'Alertas de GPS sospechoso', reportes: 'Reportes de empresas',
       solicitudes: 'Solicitudes de empresas', avisos: 'Avisos del sistema',
       publicidad: 'Publicidad', logs: 'Registro de actividad', planes: 'Planes y suscripciones',
-      config: 'Configuración del sistema',
+      config: 'Configuración del sistema', paradas: 'Paradas municipales y terminales',
     };
     return titles[this.activeTab] || '';
   }

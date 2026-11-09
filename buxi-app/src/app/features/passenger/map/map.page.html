@@ -697,10 +697,10 @@
        paran ahí. En vivo (GPS al día) o según el horario, y lo dice. -->
   <section class="parada-sheet" *ngIf="paradaAbierta as pa" role="dialog" aria-label="Parada">
     <div class="ps-cabeza">
-      <span class="ps-ic" aria-hidden="true"><ion-icon name="location"></ion-icon></span>
+      <span class="ps-ic" [class.ps-ic--terminal]="pa.terminal" aria-hidden="true"><ion-icon [name]="pa.terminal ? 'bus' : 'location'"></ion-icon></span>
       <div class="ps-tit">
-        <span class="ps-label">Parada</span>
-        <strong [title]="pa.paradas[0].nombre">{{ pa.nombre }}</strong>
+        <span class="ps-label">{{ pa.terminal ? 'Terminal' : 'Parada' }}</span>
+        <strong [title]="pa.paradas[0]?.nombre || pa.nombre">{{ pa.nombre }}</strong>
         <small *ngIf="paradaDistancia as d">{{ d }}</small>
       </div>
       <button type="button" class="ps-cerrar" (click)="cerrarParada()" aria-label="Cerrar la parada">
@@ -708,6 +708,12 @@
       </button>
     </div>
 
+    <!-- Cómo llegar: la parada pasa a ser el destino del viaje. -->
+    <button type="button" class="bx-btn bx-btn--bloque ps-llegar" [class.bx-btn--pri]="pa.terminal" [class.bx-btn--sec]="!pa.terminal" (click)="comoLlegarAParada()">
+      <ion-icon name="navigate-outline" aria-hidden="true"></ion-icon> Cómo llegar
+    </button>
+
+    <ng-container *ngIf="pa.paradas.length">
     <h3 class="ps-sub">Próximos buses</h3>
     <ul class="ps-lista">
       <li *ngFor="let f of paradaFilas; trackBy: trackParadaFila">
@@ -726,6 +732,8 @@
       </li>
     </ul>
     <p class="ps-nota">En vivo es lo que marca el GPS del bus; con reloj, lo que publicó la empresa.</p>
+    </ng-container>
+    <p class="ps-nota" *ngIf="!pa.paradas.length">Todavía no pasa por acá ninguna ruta de Buxci.</p>
   </section>
 
   <!-- ====== PANTALLA DE EMPRESA (rutas + horarios) ====== -->

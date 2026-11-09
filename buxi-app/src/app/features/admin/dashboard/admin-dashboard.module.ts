@@ -8,6 +8,7 @@ import { AvisoFormComponent } from './aviso-form.component';
 import { ResponderReporteComponent } from './responder-reporte.component';
 import { AnuncioFormComponent } from './anuncio-form.component';
 import { RutaInsigniaComponent, PlacaComponent } from '../../../shared/transporte/transporte';
+import { ParadasMunicipalesComponent } from './paradas-municipales.component';
 
 @NgModule({
   declarations: [AdminDashboardPage, AvisoFormComponent, ResponderReporteComponent, AnuncioFormComponent],
@@ -17,6 +18,7 @@ import { RutaInsigniaComponent, PlacaComponent } from '../../../shared/transport
     IonicModule,
     RutaInsigniaComponent,
     PlacaComponent,
+    ParadasMunicipalesComponent,
     RouterModule.forChild([{ path: '', component: AdminDashboardPage }]),
   ],
 })

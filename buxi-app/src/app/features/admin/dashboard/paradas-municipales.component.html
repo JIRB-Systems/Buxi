@@ -1,0 +1,92 @@
+<p class="pm-intro">
+  Tocá el mapa para agregar una parada donde falte. Tocá una parada ámbar o una terminal azul para
+  ponerle nombre, cambiarla o esconderla si no existe. Solo JIRB puede editar los nombres.
+</p>
+
+<div class="pm-cuentas">
+  <span><b>{{ cuentas.nuevas }}</b> agregadas</span>
+  <span><b>{{ cuentas.corregidas }}</b> corregidas</span>
+  <span><b>{{ cuentas.ocultas }}</b> escondidas</span>
+</div>
+
+<div class="pm-grilla">
+  <div class="pm-mapa-caja">
+    <form class="pm-buscar" (ngSubmit)="buscar()">
+      <ion-icon name="search-outline" aria-hidden="true"></ion-icon>
+      <input type="text" name="busqueda" [(ngModel)]="busqueda" placeholder="Ir a un lugar: Aeropuerto, Terminal 7-10…" />
+      <ion-spinner *ngIf="buscando" name="crescent"></ion-spinner>
+    </form>
+    <div #mapa class="pm-mapa"></div>
+  </div>
+
+  <aside class="pm-lado">
+    <!-- Formulario de lo que se está editando -->
+    <section class="pm-form" *ngIf="edicion as ed; else ayuda">
+      <h3>{{ ed.id ? 'Editar parada' : (ed.osm_id ? 'Corregir parada de OpenStreetMap' : 'Parada nueva') }}</h3>
+      <p class="pm-osm" *ngIf="ed.osm_id && !ed.id">
+        En OpenStreetMap: <b>{{ ed.nombreOsm || 'sin nombre' }}</b>
+      </p>
+      <p class="pm-osm" *ngIf="ed.oculta">Escondida: no se ve en el mapa de los pasajeros.</p>
+
+      <label for="pm-nombre">Nombre</label>
+      <input id="pm-nombre" type="text" name="nombre" [(ngModel)]="ed.nombre" maxlength="80"
+             [placeholder]="ed.tipo === 'terminal' ? 'Terminal de buses' : 'Parada de bus'" />
+
+      <label>Tipo</label>
+      <div class="pm-tipos" role="radiogroup" aria-label="Tipo">
+        <button type="button" role="radio" [class.on]="ed.tipo === 'parada'" [attr.aria-checked]="ed.tipo === 'parada'" (click)="ed.tipo = 'parada'">
+          <i class="pm-punto pm-punto--parada"></i> Parada
+        </button>
+        <button type="button" role="radio" [class.on]="ed.tipo === 'terminal'" [attr.aria-checked]="ed.tipo === 'terminal'" (click)="ed.tipo = 'terminal'">
+          <i class="pm-punto pm-punto--terminal"></i> Terminal
+        </button>
+      </div>
+
+      <p class="pm-coords">{{ ed.latitud | number:'1.5-5' }}, {{ ed.longitud | number:'1.5-5' }} · arrastrá el pin para moverla</p>
+
+      <div class="pm-acciones">
+        <button type="button" class="bx-btn bx-btn--pri" [disabled]="guardando" (click)="guardar()">
+          {{ guardando ? 'Guardando…' : (ed.oculta ? 'Mostrar con este nombre' : 'Guardar') }}
+        </button>
+        <button type="button" class="bx-btn bx-btn--ghost" (click)="cancelar()">Cancelar</button>
+      </div>
+      <div class="pm-acciones pm-acciones--peligro">
+        <button type="button" class="bx-btn bx-btn--sec bx-btn--sm" *ngIf="ed.osm_id && !ed.oculta" [disabled]="guardando" (click)="esconder()">
+          <ion-icon name="eye-off-outline" aria-hidden="true"></ion-icon> Esconder (no existe)
+        </button>
+        <button type="button" class="bx-btn bx-btn--ghost bx-btn--sm pm-borrar" *ngIf="ed.id" (click)="borrar()">
+          <ion-icon name="trash-outline" aria-hidden="true"></ion-icon> {{ ed.osm_id ? 'Quitar corrección' : 'Borrar' }}
+        </button>
+      </div>
+    </section>
+
+    <ng-template #ayuda>
+      <section class="pm-form pm-ayuda">
+        <h3>¿Qué querés hacer?</h3>
+        <ul>
+          <li><b>Agregar una parada:</b> tocá el mapa donde está.</li>
+          <li><b>Ponerle nombre o corregir una:</b> tocá la parada ámbar o la terminal azul.</li>
+          <li><b>Una que no existe:</b> tocala y elegí «Esconder».</li>
+        </ul>
+      </section>
+    </ng-template>
+
+    <!-- Lo cargado por JIRB -->
+    <section class="pm-lista">
+      <div class="pm-lista-cab">
+        <h3>Cargadas por JIRB</h3>
+        <input type="search" name="filtro" [(ngModel)]="filtro" placeholder="Filtrar" aria-label="Filtrar paradas" />
+      </div>
+      <div class="pm-vacio" *ngIf="cargando"><ion-spinner name="dots"></ion-spinner></div>
+      <div class="pm-vacio" *ngIf="!cargando && !paradas.length">Todavía no hay paradas cargadas.</div>
+      <button type="button" class="pm-fila" *ngFor="let p of paradasFiltradas" (click)="editar(p)">
+        <i class="pm-punto" [class.pm-punto--terminal]="p.tipo === 'terminal'" [class.pm-punto--parada]="p.tipo === 'parada'" [class.pm-punto--oculta]="p.oculta"></i>
+        <span class="pm-fila-txt">
+          <strong>{{ p.nombre }}</strong>
+          <small>{{ p.tipo === 'terminal' ? 'Terminal' : 'Parada' }} · {{ etiqueta(p) }}</small>
+        </span>
+        <ion-icon name="chevron-forward" aria-hidden="true"></ion-icon>
+      </button>
+    </section>
+  </aside>
+</div>

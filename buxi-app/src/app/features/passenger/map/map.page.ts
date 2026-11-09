@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, ViewChild, ViewChildren, QueryList, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, NgZone, ViewChild, ViewChildren, QueryList, ElementRef, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ViewWillEnter, ViewDidEnter, AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -20,10 +20,11 @@ import {
   CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, estiloCargo, soloParadasBuxci, paradasDelMapaBase, capaComercios, CAPA_PARADAS_MUNICIPALES, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
 import { claveValida, REGLA_CLAVE } from '../../../core/utils/clave';
+import { ParadaMunicipal, ParadasMunicipalesService } from '../../../core/services/paradas-municipales.service';
 import { ModeloBus, esModeloBus, nombreModeloBus } from '../../../core/utils/bus-modelos';
 import { fotoCuadrada } from '../../../core/utils/imagen';
 import { esc, colorSeguro } from '../../../core/utils/html';
@@ -2078,6 +2079,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
       try { capaComercios(this.map, this.darkMode); } catch {}
       try { paradasDelMapaBase(this.map, this.darkMode); } catch {}
+      this.cargarParadasPropias();
       this.engancharToqueParadas();
 
       const rutaId = this.route.snapshot.queryParams['ruta'] || null;
@@ -2559,6 +2561,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // los comercios de Overture.
       try { capaComercios(this.map, this.darkMode); } catch {}
       try { paradasDelMapaBase(this.map, this.darkMode); } catch {}
+      try { paradasMunicipalesPropias(this.map, this.darkMode, this.paradasPropias); } catch {}
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
       this.dibujarParadasTodas();
 
@@ -3937,7 +3940,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // del mapa base quedan: son referencia.
   private readonly CAPAS_PARADAS_TODAS = [
     ...['-circ', '-terminal-circ', '-terminal-txt'].map(s => `paradas-todas${s}`),
-    CAPA_PARADAS_MUNICIPALES,
+    ...CAPAS_PARADAS_MUNICIPALES,
   ];
 
   // Capas donde un toque abre la parada: las generales (también las
@@ -3966,15 +3969,26 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       const deBuses = capas.filter(id => id === this.BUSES_LAYER || id === this.BUSES_COD_LAYER);
       if (deBuses.length && this.map.queryRenderedFeatures(caja, { layers: deBuses }).length) return;
       const deParadas = capas.filter(id => this.esCapaDeParada(id));
-      if (!deParadas.length) return;
-      const f = this.map.queryRenderedFeatures(caja, { layers: deParadas })[0];
-      if (!f || f.geometry.type !== 'Point') return;
-      const [lng, lat] = (f.geometry as any).coordinates as [number, number];
-      this.zone.run(() => this.abrirParada(lat, lng));
+      const f = deParadas.length ? this.map.queryRenderedFeatures(caja, { layers: deParadas })[0] : undefined;
+      if (f && f.geometry.type === 'Point') {
+        const [lng, lat] = (f.geometry as any).coordinates as [number, number];
+        this.zone.run(() => this.abrirParada(lat, lng));
+        return;
+      }
+      // Una terminal del mapa base (OpenStreetMap): si coincide con paradas
+      // de Buxi se abre esa ficha; si no, la de la terminal sola, para el
+      // botón "Cómo llegar".
+      const deTerminales = CAPAS_TERMINALES_MAPA.filter(id => capas.includes(id));
+      const t = deTerminales.length ? this.map.queryRenderedFeatures(caja, { layers: deTerminales })[0] : undefined;
+      if (t && t.geometry.type === 'Point') {
+        const [lng, lat] = (t.geometry as any).coordinates as [number, number];
+        const nombre = String(t.properties?.['name'] || t.properties?.['nombre'] || 'Terminal de buses');
+        this.zone.run(() => this.abrirParada(lat, lng, nombre));
+      }
     });
     this.map.on('mousemove', (e) => {
       const capas = (this.map.getStyle()?.layers ?? []).map(l => l.id)
-        .filter(id => this.esCapaDeParada(id));
+        .filter(id => this.esCapaDeParada(id) || CAPAS_TERMINALES_MAPA.includes(id));
       if (!capas.length) return;
       const hay = this.map.queryRenderedFeatures(e.point, { layers: capas }).length > 0;
       if (hay) this.map.getCanvas().style.cursor = 'pointer';
@@ -3982,24 +3996,65 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     });
   }
 
-  // La parada abierta: el punto tocado y las paradas (una por ruta) que hay ahí.
-  paradaAbierta: { nombre: string; lat: number; lng: number; paradas: Parada[] } | null = null;
+  // Paradas municipales y terminales que cargó JIRB (las que le faltan a
+  // OpenStreetMap y las correcciones de las que tiene). Se piden una vez y se
+  // guardan para volver a dibujarlas cuando cambia el tema del mapa.
+  private readonly paradasMunicipalesSrv = inject(ParadasMunicipalesService);
+  private paradasPropias: ParadaMunicipal[] = [];
 
-  abrirParada(lat: number, lng: number) {
+  private async cargarParadasPropias() {
+    try {
+      this.paradasPropias = await this.paradasMunicipalesSrv.listar();
+    } catch (e) {
+      // Sin la migración la tabla no existe: quedan solo las de OpenStreetMap.
+      logError('cargar las paradas municipales', e);
+      this.paradasPropias = [];
+    }
+    if (!this.mapReady || this.destroyed) return;
+    try { paradasMunicipalesPropias(this.map, this.darkMode, this.paradasPropias); } catch {}
+    this.mostrarParadasTodas(!this.activeRuta);
+  }
+
+  // La parada abierta: el punto tocado y las paradas (una por ruta) que hay
+  // ahí. `paradas` puede venir vacío: una terminal del mapa base por donde
+  // todavía no pasa ninguna ruta de Buxi.
+  paradaAbierta: { nombre: string; lat: number; lng: number; paradas: Parada[]; terminal: boolean } | null = null;
+
+  // `terminalBase`: el nombre de una terminal del mapa base tocada; con él la
+  // ficha se abre aunque no haya paradas de Buxi en ese punto.
+  abrirParada(lat: number, lng: number, terminalBase?: string) {
     const juntas = this.allParadas
       .map(p => ({ p, d: this.featuresService.distanceKm(lat, lng, p.latitud, p.longitud) }))
-      .filter(x => x.d <= this.PARADA_JUNTAS_KM)
+      .filter(x => x.d <= (terminalBase ? 0.15 : this.PARADA_JUNTAS_KM))
       .sort((a, b) => a.d - b.d);
     // Una por ruta: la más cercana al toque.
     const porRuta = new Map<string, Parada>();
     for (const { p } of juntas) if (!porRuta.has(p.ruta_id)) porRuta.set(p.ruta_id, p);
     const paradas = [...porRuta.values()];
-    if (!paradas.length) return;
+    if (!paradas.length && !terminalBase) return;
     this.selectedBus = null;
-    this.paradaAbierta = { nombre: this.nombreParadaCorto(paradas[0].nombre), lat, lng, paradas };
+    const nombre = paradas.length && !terminalBase ? this.nombreParadaCorto(paradas[0].nombre) : (terminalBase || '');
+    this.paradaAbierta = {
+      nombre, lat, lng, paradas,
+      terminal: !!terminalBase || paradas.some(p => this.esTerminal(p.nombre)),
+    };
   }
 
   cerrarParada() { this.paradaAbierta = null; }
+
+  // "Cómo llegar" desde la ficha: la parada pasa a ser el destino del viaje,
+  // igual que si se la hubiera buscado en "¿A dónde vas?".
+  comoLlegarAParada() {
+    const pa = this.paradaAbierta;
+    if (!pa) return;
+    this.paradaAbierta = null;
+    this.buscarPara = 'destino';
+    // El nombre de la ficha viene recortado con "…": para el destino va el
+    // nombre de la parada hasta la primera coma ("Terminal de Buses Municipal").
+    const completo = pa.paradas[0]?.nombre;
+    const nombre = pa.terminal && !completo ? pa.nombre : (completo ? completo.split(',')[0].trim() : pa.nombre);
+    this.selectPlace({ label: completo || pa.nombre, lat: pa.lat, lng: pa.lng, nombre });
+  }
 
   // Qué viene a esta parada, ruta por ruta y para cada lado. Se recalcula en
   // cada detección de cambios: los buses se mueven y el número tiene que seguirlos.
