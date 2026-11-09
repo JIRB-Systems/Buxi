@@ -39,6 +39,7 @@
     "ionicons": "^7.0.0",
     "jspdf": "^4.2.1",
     "maplibre-gl": "^5.24.0",
+    "pmtiles": "^4.5.0",
     "qrcode": "^1.5.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

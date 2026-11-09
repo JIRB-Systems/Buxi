@@ -1,5 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 import type { Feature, Polygon } from 'geojson';
+import { Protocol } from 'pmtiles';
 import { environment } from '../../../environments/environment';
 
 // `dataviz-dark` es plano y minimal: sirve para paneles donde el mapa es sólo
@@ -43,6 +44,189 @@ export function estiloCargo(map: maplibregl.Map): boolean {
 export function soloParadasBuxci(map: maplibregl.Map) {
   if (!map.getLayer('Station')) return;
   map.setFilter('Station', ['all', ['==', 'class', 'railway'], ['has', 'name']] as any);
+}
+
+// Las paradas municipales (las oficiales de la calle) y las terminales del
+// mapa base vuelven, pero con un estilo propio que no se confunde con las
+// paradas de Buxci (punto blanco con borde azul):
+//   - terminales: círculo azul con el ícono de bus y el nombre, desde lejos;
+//     son el punto de referencia de cualquier pueblo;
+//   - paradas municipales: el ícono de parada en ámbar, solo de cerca.
+// Salen de OpenStreetMap, por la misma fuente que el resto del mapa. Las de
+// Buxi se dibujan después, encima de estas.
+export const CAPA_PARADAS_MUNICIPALES = 'buxci-paradas-municipales';
+
+// ---- Comercios de Overture ----
+// Los comercios del mapa base salen de OpenStreetMap, que en Costa Rica tiene
+// muchos cerrados y le faltan los nuevos. Cada mes un workflow
+// (.github/workflows/comercios-mapa.yml) arma un PMTiles con los de Overture
+// Maps: abiertos, con buena confianza, y con el mismo ícono del sprite de
+// MapTiler (propiedad `c`). El mapa lee solo las teselas de la zona que mira.
+//
+// Los comercios de MapTiler se esconden recién cuando el archivo propio
+// respondió: si no está (todavía no se publicó, o falló), el mapa queda como
+// estaba en vez de quedar sin comercios.
+let protocoloPmtiles = false;
+function registrarPmtiles() {
+  if (protocoloPmtiles) return;
+  protocoloPmtiles = true;
+  maplibregl.addProtocol('pmtiles', new Protocol().tile);
+}
+
+const FUENTE_COMERCIOS = 'buxci-comercios';
+const CAPA_COMERCIOS = 'buxci-comercios';
+
+// Lo que de MapTiler pasa a mostrar Overture: las capas enteras de comida y
+// tiendas, y las clases comerciales de otras capas (bancos, hoteles, bombas).
+const CAPAS_COMERCIO_MAPTILER = ['Food', 'Shopping'];
+const CLASES_COMERCIO_MAPTILER: Record<string, string[]> = {
+  Public: ['atm', 'bank', 'hairdresser'],
+  Tourism: ['apartment', 'chalet', 'guest_house', 'hostel', 'hotel', 'lodging', 'motel'],
+  Transport: ['car_rental', 'car_repair', 'fuel'],
+};
+
+function esconderComerciosMapTiler(map: maplibregl.Map) {
+  for (const id of CAPAS_COMERCIO_MAPTILER) {
+    if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+  }
+  for (const [id, clases] of Object.entries(CLASES_COMERCIO_MAPTILER)) {
+    if (!map.getLayer(id)) continue;
+    const filtro = map.getFilter(id);
+    map.setFilter(id, (filtro ? ['all', filtro, ['!in', 'class', ...clases]] : ['!in', 'class', ...clases]) as any);
+  }
+}
+
+export function capaComercios(map: maplibregl.Map, dark: boolean): void {
+  const url = environment.comerciosUrl;
+  if (!url || map.getSource(FUENTE_COMERCIOS)) return;
+  registrarPmtiles();
+  const letra = (map.getLayer('Food') && map.getLayoutProperty('Food', 'text-font')) || ['Noto Sans Regular'];
+
+  map.addSource(FUENTE_COMERCIOS, { type: 'vector', url: `pmtiles://${url}` });
+
+  const listo = (e: any) => {
+    // 'metadata': el encabezado del archivo llegó bien, o sea que existe.
+    if (e.sourceId !== FUENTE_COMERCIOS || e.sourceDataType !== 'metadata') return;
+    map.off('sourcedata', listo);
+    map.off('error', fallo);
+    try { esconderComerciosMapTiler(map); } catch {}
+  };
+  const fallo = (e: any) => {
+    if (e?.sourceId !== FUENTE_COMERCIOS) return;
+    map.off('sourcedata', listo);
+    map.off('error', fallo);
+    // Sin archivo: fuera la capa propia y quedan los de MapTiler.
+    try {
+      if (map.getLayer(CAPA_COMERCIOS)) map.removeLayer(CAPA_COMERCIOS);
+      if (map.getSource(FUENTE_COMERCIOS)) map.removeSource(FUENTE_COMERCIOS);
+    } catch {}
+  };
+  map.on('sourcedata', listo);
+  map.on('error', fallo);
+
+  // Colores por grupo, los mismos tonos que usa MapTiler para cada tipo.
+  const color = dark
+    ? ['match', ['get', 'g'], 'comida', 'hsl(18, 39%, 78%)', 'tiendas', 'hsl(18, 25%, 70%)', 'hospedaje', 'hsl(283, 55%, 75%)',
+        'auto', 'hsl(215, 81%, 66%)', 'finanzas', 'hsl(51, 30%, 70%)', 'hsl(0, 0%, 75%)']
+    : ['match', ['get', 'g'], 'comida', 'hsl(18, 60%, 45%)', 'tiendas', 'hsl(200, 45%, 40%)', 'hospedaje', 'hsl(283, 45%, 45%)',
+        'auto', 'hsl(215, 70%, 45%)', 'finanzas', 'hsl(40, 45%, 35%)', 'hsl(0, 0%, 40%)'];
+
+  map.addLayer({
+    id: CAPA_COMERCIOS, type: 'symbol', source: FUENTE_COMERCIOS, 'source-layer': 'comercios', minzoom: 15,
+    layout: {
+      'icon-image': ['coalesce', ['image', ['get', 'c']], ['image', 'shop']] as any,
+      'icon-size': 0.85,
+      'text-field': ['step', ['zoom'], '', 16, ['get', 'n']],
+      'text-font': letra,
+      'text-size': ['interpolate', ['linear'], ['zoom'], 16, 11, 19, 13],
+      'text-anchor': 'top',
+      'text-offset': [0, 0.8],
+      'text-max-width': 8,
+      'text-optional': true,
+      // Si chocan, gana el de más confianza (r chico).
+      'symbol-sort-key': ['get', 'r'],
+    },
+    paint: {
+      'icon-color': color as any,
+      'icon-halo-color': dark ? 'hsl(0, 0%, 0%)' : '#ffffff',
+      'icon-halo-width': 1.2,
+      'text-color': color as any,
+      'text-halo-color': dark ? 'rgba(7, 15, 28, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+      'text-halo-width': 1.4,
+    },
+  });
+}
+
+export function paradasDelMapaBase(map: maplibregl.Map, dark: boolean): void {
+  const fuente = 'maptiler_planet';
+  if (!map.getSource(fuente)) return;
+  const letra = (map.getLayer('Station') && map.getLayoutProperty('Station', 'text-font')) || ['Noto Sans Regular'];
+  const halo = dark ? 'rgba(7, 15, 28, 0.92)' : 'rgba(255, 255, 255, 0.95)';
+  const terminal = ['all', ['==', ['get', 'class'], 'bus'], ['==', ['get', 'subclass'], 'bus_station']];
+
+  if (!map.getLayer('buxci-terminales-circ')) {
+    map.addLayer({
+      id: 'buxci-terminales-circ', type: 'circle', source: fuente, 'source-layer': 'poi', minzoom: 11,
+      filter: terminal as any,
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 6, 14, 10, 17, 13],
+        'circle-color': '#2f6fe0',
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2.5,
+      },
+    });
+  }
+  if (!map.getLayer('buxci-terminales-txt')) {
+    map.addLayer({
+      id: 'buxci-terminales-txt', type: 'symbol', source: fuente, 'source-layer': 'poi', minzoom: 11,
+      filter: terminal as any,
+      layout: {
+        'icon-image': 'bus_stop',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.5, 14, 0.75, 17, 0.95],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'text-field': ['step', ['zoom'], '', 12.5, ['get', 'name']],
+        'text-font': letra,
+        'text-size': 12,
+        'text-anchor': 'top',
+        'text-offset': [0, 1.15],
+        'text-max-width': 9,
+        'text-optional': true,
+      },
+      paint: {
+        'icon-color': '#ffffff',
+        'text-color': dark ? '#dbe7ff' : '#1d4fb8',
+        'text-halo-color': halo,
+        'text-halo-width': 1.6,
+      },
+    });
+  }
+  if (!map.getLayer(CAPA_PARADAS_MUNICIPALES)) {
+    map.addLayer({
+      id: CAPA_PARADAS_MUNICIPALES, type: 'symbol', source: fuente, 'source-layer': 'poi', minzoom: 15,
+      filter: ['all', ['==', ['get', 'class'], 'bus'], ['==', ['get', 'subclass'], 'bus_stop']] as any,
+      layout: {
+        'icon-image': 'bus_stop',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 15, 0.7, 18, 0.95],
+        'icon-allow-overlap': true,
+        'text-field': ['step', ['zoom'], '', 16.5, ['coalesce', ['get', 'name'], '']],
+        'text-font': letra,
+        'text-size': 11,
+        'text-anchor': 'top',
+        'text-offset': [0, 0.9],
+        'text-max-width': 8,
+        'text-optional': true,
+      },
+      paint: {
+        'icon-color': '#f5a623',
+        'icon-halo-color': halo,
+        'icon-halo-width': 1.2,
+        'text-color': dark ? '#ffd28a' : '#9a5b00',
+        'text-halo-color': halo,
+        'text-halo-width': 1.4,
+      },
+    });
+  }
 }
 
 export function createMap(opts: {

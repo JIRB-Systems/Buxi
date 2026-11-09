@@ -1,0 +1,107 @@
+# Comercios del mapa del pasajero, actualizados cada mes desde Overture Maps.
+#
+# Por qué existe: los comercios del mapa base (MapTiler) salen de
+# OpenStreetMap, que en Costa Rica tiene muchos cerrados y le faltan los
+# nuevos. Overture publica cada mes lugares de varias fuentes (Meta,
+# Microsoft, Foursquare) con un puntaje de confianza de que existen.
+#
+# Qué hace:
+#   1. Busca la última versión de Overture y saca con DuckDB los lugares de
+#      Costa Rica (scripts/comercios/extraer.sql).
+#   2. Deja solo comercios abiertos y confiables, con su ícono
+#      (scripts/comercios/preparar.mjs). El resumen queda en la página del run.
+#   3. Arma un solo archivo PMTiles con tippecanoe: el mapa baja solo las
+#      teselas de la zona que se está mirando.
+#   4. Lo sube a Supabase Storage (balde público `mapa`), de donde lo lee la app.
+#
+# Necesita el secreto SUPABASE_SERVICE_ROLE_KEY (Settings → Secrets and
+# variables → Actions) para poder subir el archivo.
+#
+# Licencias: los datos de Overture son CDLA-Permissive-2.0, Apache-2.0 (los
+# de Foursquare) o CC0 según la fuente; la app los cita en Ajustes → Legal.
+
+name: Comercios del mapa
+
+on:
+  schedule:
+    # Overture publica a mediados de mes: el 25 ya está la versión nueva.
+    - cron: '0 9 25 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: comercios-mapa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_URL: https://gduxelmqqnqupimfcdeb.supabase.co
+  DUCKDB_VERSION: v1.3.2
+
+jobs:
+  comercios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar DuckDB y tippecanoe
+        run: |
+          curl -sSL -o duckdb.zip "https://github.com/duckdb/duckdb/releases/download/${DUCKDB_VERSION}/duckdb_cli-linux-amd64.zip"
+          unzip -q duckdb.zip -d "$HOME/bin"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          # El tippecanoe de Felt escribe PMTiles directo.
+          git clone --depth 1 https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+          make -C /tmp/tippecanoe -j"$(nproc)"
+          sudo make -C /tmp/tippecanoe install
+
+      - name: Última versión de Overture
+        id: version
+        run: |
+          RELEASE=$(aws s3 ls --no-sign-request s3://overturemaps-us-west-2/release/ | awk '{print $2}' | sort | tail -1)
+          echo "Versión: $RELEASE"
+          echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+          echo "**Versión de Overture:** \`$RELEASE\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sacar los lugares de Costa Rica
+        run: |
+          sed "s#__RELEASE__#${{ steps.version.outputs.release }}#" scripts/comercios/extraer.sql > /tmp/extraer.sql
+          duckdb < /tmp/extraer.sql
+          ls -lh comercios-cr.json
+
+      - name: Quedarse con los comercios
+        run: node scripts/comercios/preparar.mjs comercios-cr.json comercios-cr.geojsonl "$GITHUB_STEP_SUMMARY"
+
+      - name: Armar el PMTiles
+        run: |
+          # z13-z15: los comercios se ven de cerca; más allá MapLibre agranda
+          # la tesela 15. Si una tesela queda muy cargada se sueltan los de
+          # menos confianza (r más alto) antes que los demás.
+          tippecanoe -o comercios-cr.pmtiles -l comercios -Z13 -z15 \
+            --drop-densest-as-needed --extend-zooms-if-still-dropping \
+            --order-by=r --force comercios-cr.geojsonl
+          ls -lh comercios-cr.pmtiles
+          echo "**Archivo:** $(du -h comercios-cr.pmtiles | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Subir a Supabase Storage
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Falta el secreto SUPABASE_SERVICE_ROLE_KEY: el archivo se armó pero no se sube."
+            exit 1
+          fi
+          curl -sS --fail-with-body -X POST "$SUPABASE_URL/storage/v1/object/mapa/comercios-cr.pmtiles" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "x-upsert: true" \
+            -H "cache-control: max-age=3600" \
+            -H "Content-Type: application/octet-stream" \
+            --data-binary @comercios-cr.pmtiles
+          echo
+          echo "**Publicado:** $SUPABASE_URL/storage/v1/object/public/mapa/comercios-cr.pmtiles" >> "$GITHUB_STEP_SUMMARY"

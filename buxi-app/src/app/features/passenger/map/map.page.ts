@@ -20,7 +20,7 @@ import {
   CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, estiloCargo, soloParadasBuxci, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, estiloCargo, soloParadasBuxci, paradasDelMapaBase, capaComercios, CAPA_PARADAS_MUNICIPALES, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
 import { claveValida, REGLA_CLAVE } from '../../../core/utils/clave';
@@ -2076,6 +2076,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // quedaba para siempre tapando toda la pantalla.
     try {
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
+      try { capaComercios(this.map, this.darkMode); } catch {}
+      try { paradasDelMapaBase(this.map, this.darkMode); } catch {}
       this.engancharToqueParadas();
 
       const rutaId = this.route.snapshot.queryParams['ruta'] || null;
@@ -2552,6 +2554,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // montaña crudo de MapTiler, con relieve y nombres en inglés.
       if (!this.darkMode) { try { tintLightMap(this.map); } catch {} }
       try { soloParadasBuxci(this.map); } catch {}
+      // El estilo nuevo trae el mapa base limpio: las terminales y paradas
+      // municipales hay que volver a ponerlas (antes que las de Buxi). Lo mismo
+      // los comercios de Overture.
+      try { capaComercios(this.map, this.darkMode); } catch {}
+      try { paradasDelMapaBase(this.map, this.darkMode); } catch {}
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
       this.dibujarParadasTodas();
 
@@ -3848,16 +3855,25 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Todas las paradas, de cerca (zoom 14+), para poder tocarlas sin elegir
   // antes una ruta. Las que están a pocos metros (una por ruta en la misma
   // esquina) se dibujan como un solo punto.
+  // Las terminales ("la parada municipal" de cada pueblo) se resaltan: son
+  // donde sale y llega casi todo, y el punto de referencia de cualquiera.
+  // Se reconocen por el nombre que les puso la empresa.
+  private esTerminal(nombre: string): boolean {
+    return /\b(terminal|parada municipal|estaci[oó]n de (buses|autobuses))\b/i.test(nombre);
+  }
+
   private dibujarParadasTodas() {
     if (!this.map || !this.map.isStyleLoaded() || !this.allParadas.length) return;
     const vistas = new Map<string, any>();
     for (const p of this.allParadas) {
       const clave = `${Math.round(p.latitud * 2500)},${Math.round(p.longitud * 2500)}`;
-      if (vistas.has(clave)) continue;
+      const terminal = this.esTerminal(p.nombre);
+      // En la misma esquina, si alguna de las paradas es la terminal, gana esa.
+      if (vistas.has(clave) && !(terminal && !vistas.get(clave).properties.terminal)) continue;
       vistas.set(clave, {
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [p.longitud, p.latitud] },
-        properties: { nombre: this.nombreParadaCorto(p.nombre) },
+        properties: { nombre: this.nombreParadaCorto(p.nombre), terminal },
       });
     }
     const data = { type: 'FeatureCollection', features: [...vistas.values()] } as any;
@@ -3865,9 +3881,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (src) { src.setData(data); return; }
     this.map.addSource(this.PARADAS_TODAS, { type: 'geojson', data });
     const antes = this.map.getLayer(this.BUSES_LAYER) ? this.BUSES_LAYER : undefined;
+    const visibility = this.activeRuta ? 'none' : 'visible';
     this.map.addLayer({
       id: `${this.PARADAS_TODAS}-circ`, type: 'circle', source: this.PARADAS_TODAS, minzoom: 14,
-      layout: { visibility: this.activeRuta ? 'none' : 'visible' },
+      filter: ['!', ['get', 'terminal']],
+      layout: { visibility },
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 3.5, 17, 6],
         'circle-color': '#ffffff',
@@ -3875,12 +3893,64 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         'circle-stroke-width': 2,
       },
     }, antes);
+    // Terminales: desde más lejos, más grandes y azules, con el ícono de bus
+    // adentro y el nombre abajo.
+    this.map.addLayer({
+      id: `${this.PARADAS_TODAS}-terminal-circ`, type: 'circle', source: this.PARADAS_TODAS, minzoom: 11,
+      filter: ['==', ['get', 'terminal'], true],
+      layout: { visibility },
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 6, 14, 10, 17, 13],
+        'circle-color': '#2f6fe0',
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 2.5,
+      },
+    }, antes);
+    this.map.addLayer({
+      id: `${this.PARADAS_TODAS}-terminal-txt`, type: 'symbol', source: this.PARADAS_TODAS, minzoom: 11,
+      filter: ['==', ['get', 'terminal'], true],
+      layout: {
+        visibility,
+        'icon-image': 'bus_stop',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, 0.5, 14, 0.75, 17, 0.95],
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'text-field': ['step', ['zoom'], '', 12.5, ['get', 'nombre']],
+        'text-font': this.fuenteNegrita(),
+        'text-size': 12,
+        'text-anchor': 'top',
+        'text-offset': [0, 1.15],
+        'text-max-width': 9,
+        'text-optional': true,
+      },
+      paint: {
+        'icon-color': '#ffffff',
+        'text-color': this.darkMode ? '#dbe7ff' : '#1d4fb8',
+        'text-halo-color': this.darkMode ? 'rgba(7, 15, 28, 0.92)' : 'rgba(255, 255, 255, 0.95)',
+        'text-halo-width': 1.6,
+      },
+    }, antes);
+  }
+
+  // Con una ruta en pantalla se esconden también las paradas municipales: con
+  // las de la ruta alcanza, y dos íconos por esquina confunden. Las terminales
+  // del mapa base quedan: son referencia.
+  private readonly CAPAS_PARADAS_TODAS = [
+    ...['-circ', '-terminal-circ', '-terminal-txt'].map(s => `paradas-todas${s}`),
+    CAPA_PARADAS_MUNICIPALES,
+  ];
+
+  // Capas donde un toque abre la parada: las generales (también las
+  // terminales) y las de la ruta en pantalla.
+  private esCapaDeParada(id: string): boolean {
+    return id === `${this.PARADAS_TODAS}-circ` || id === `${this.PARADAS_TODAS}-terminal-circ` || id.endsWith('-paradas-circ');
   }
 
   // Con una ruta en pantalla, sus paradas ya están dibujadas: las otras se esconden.
   private mostrarParadasTodas(si: boolean) {
-    const id = `${this.PARADAS_TODAS}-circ`;
-    if (this.map?.getLayer(id)) this.map.setLayoutProperty(id, 'visibility', si ? 'visible' : 'none');
+    for (const id of this.CAPAS_PARADAS_TODAS) {
+      if (this.map?.getLayer(id)) this.map.setLayoutProperty(id, 'visibility', si ? 'visible' : 'none');
+    }
   }
 
   // Un solo manejador de toques para todas las capas de paradas (la general y
@@ -3895,7 +3965,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       const capas = (this.map.getStyle()?.layers ?? []).map(l => l.id);
       const deBuses = capas.filter(id => id === this.BUSES_LAYER || id === this.BUSES_COD_LAYER);
       if (deBuses.length && this.map.queryRenderedFeatures(caja, { layers: deBuses }).length) return;
-      const deParadas = capas.filter(id => id === `${this.PARADAS_TODAS}-circ` || id.endsWith('-paradas-circ'));
+      const deParadas = capas.filter(id => this.esCapaDeParada(id));
       if (!deParadas.length) return;
       const f = this.map.queryRenderedFeatures(caja, { layers: deParadas })[0];
       if (!f || f.geometry.type !== 'Point') return;
@@ -3904,7 +3974,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     });
     this.map.on('mousemove', (e) => {
       const capas = (this.map.getStyle()?.layers ?? []).map(l => l.id)
-        .filter(id => id === `${this.PARADAS_TODAS}-circ` || id.endsWith('-paradas-circ'));
+        .filter(id => this.esCapaDeParada(id));
       if (!capas.length) return;
       const hay = this.map.queryRenderedFeatures(e.point, { layers: capas }).length > 0;
       if (hay) this.map.getCanvas().style.cursor = 'pointer';

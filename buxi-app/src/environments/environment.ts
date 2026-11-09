@@ -3,6 +3,9 @@ export const environment = {
   supabaseUrl: 'https://gduxelmqqnqupimfcdeb.supabase.co',
   supabaseAnonKey: 'sb_publishable_s8kfM1PQVM125VtKlCK2uA_ZwGgA-d8',
   maptilerKey: 'amhmtiayzOfzYvqSpmlE',
+  // Comercios del mapa del pasajero (Overture, ver .github/workflows/
+  // comercios-mapa.yml). Si el archivo no está, el mapa usa los de MapTiler.
+  comerciosUrl: 'https://gduxelmqqnqupimfcdeb.supabase.co/storage/v1/object/public/mapa/comercios-cr.pmtiles',
   // Clave de PRUEBA de Cloudflare Turnstile: siempre pasa. Sirve para ver el
   // captcha en desarrollo; la función del servidor la acepta mientras no tenga
   // configurado TURNSTILE_SECRET.
