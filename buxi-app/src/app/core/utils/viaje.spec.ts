@@ -114,6 +114,33 @@ describe('viaje: planificarViaje', () => {
     expect(plan.motivo).toBe('sin_ruta_directa');
   });
 
+  it('sin bus directo, arma el viaje con un transbordo', () => {
+    // Dos rutas paralelas a 200 m: A va del km 0 al 6 y B del 6 al 14. El
+    // pasajero está junto al km 1 de A y va al km 13 de B: ninguna sola sirve.
+    const a = rutaRecta('a', [0, 1, 2, 3, 4, 5, 6]);
+    const b = rutaRecta('b', [6, 7, 8, 9, 10, 11, 12, 13, 14], -0.2);
+    const plan = planificarViaje(punto(1, 0.1), punto(13, -0.3), [a, b]);
+    expect(plan.motivo).toBeNull();
+    expect(plan.opciones.length).toBe(1);
+    const o = plan.opciones[0];
+    expect(o.rutaId).toBe('a');
+    expect(o.subirId).toBe('a-1');
+    expect(o.bajarId).toBe('a-6');
+    expect(o.transbordo?.rutaId).toBe('b');
+    expect(o.transbordo?.subirId).toBe('b-6');
+    expect(o.transbordo?.bajarId).toBe('b-13');
+    expect(o.minutosTotal).toBe(o.minutosAlSubir + o.minutosEnBus + o.minutosAlDestino
+      + o.transbordo!.minutosEspera + o.transbordo!.minutosEnBus + o.transbordo!.minutosAlDestino);
+  });
+
+  it('no propone transbordo si las paradas de las dos rutas quedan lejos', () => {
+    const a = rutaRecta('a', [0, 1, 2, 3, 4, 5, 6]);
+    const b = rutaRecta('b', [6, 7, 8, 9, 10, 11, 12, 13, 14], -1);
+    const plan = planificarViaje(punto(1, 0.1), punto(13, -1.1), [a, b]);
+    expect(plan.opciones.length).toBe(0);
+    expect(plan.motivo).toBe('sin_ruta_directa');
+  });
+
   it('sin rutas no rompe', () => {
     const plan = planificarViaje(punto(0), punto(9), []);
     expect(plan.opciones).toEqual([]);

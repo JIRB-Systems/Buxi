@@ -1,0 +1,216 @@
+// ---- Pantallas de la cuenta del pasajero: Ayuda y contacto ----
+
+.ay-cuerpo {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+}
+
+.ay-titulo {
+  margin: 20px 0 10px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  color: var(--bx-text-3);
+}
+
+.ay-faq {
+  border: 1px solid var(--bx-line);
+  border-radius: var(--bx-r-md);
+  overflow: hidden;
+}
+
+.ay-q {
+  & + & { border-top: 1px solid var(--bx-line); }
+
+  button {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    padding: 13px 14px;
+    border: 0; background: transparent;
+    font: inherit; font-size: 14px; font-weight: 600; text-align: left;
+    color: #fff;
+    cursor: pointer;
+    span { flex: 1; }
+    ion-icon { color: var(--bx-text-3); flex: none; }
+    &:focus-visible { outline: 2px solid rgba(255,255,255,0.7); outline-offset: -2px; }
+  }
+
+  p {
+    margin: 0; padding: 0 14px 14px;
+    font-size: 13px; line-height: 1.5; color: var(--bx-text-2);
+  }
+}
+
+.ay-tipos { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ay-label {
+  display: block;
+  margin: 14px 0 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+  color: var(--bx-text-3);
+}
+
+.ay-campo {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--bx-line);
+  color: #fff; font: inherit; font-size: 14px;
+  outline: none;
+  resize: vertical;
+  &:focus { border-color: rgba(0, 224, 106, 0.55); }
+  &::placeholder { color: var(--bx-text-3); }
+  option { color: #111; }
+}
+select.ay-campo { height: 42px; padding: 0 10px; }
+
+.ay-nota {
+  margin: 8px 0 14px;
+  font-size: 12px; color: var(--bx-text-3);
+}
+
+.ay-msj {
+  padding: 12px 14px;
+  border: 1px solid var(--bx-line);
+  border-radius: var(--bx-r-md);
+  & + & { margin-top: 8px; }
+
+  p { margin: 6px 0 0; font-size: 13px; line-height: 1.45; color: var(--bx-text-2); white-space: pre-line; }
+  .ay-resp { color: #fff; b { color: var(--bx-green-bright); font-weight: 700; } }
+  small { display: block; margin-top: 8px; font-size: 11px; color: var(--bx-text-3); }
+}
+
+.ay-msj-cab {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  strong { font-size: 13px; color: #fff; }
+}
+
+.ay-estado {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: var(--bx-r-pill);
+  font-size: 11px; font-weight: 700;
+  color: var(--bx-text-2);
+  background: rgba(255,255,255,0.08);
+  &--hecho { color: var(--bx-green-bright); background: var(--bx-green-soft); }
+}
+
+.ay-correo {
+  margin: 22px 0 0;
+  font-size: 13px; color: var(--bx-text-3); text-align: center;
+  a { color: var(--bx-green-bright); }
+}
+
+// ---- Mis viajes ----
+.mv-fila {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--bx-line);
+  cursor: pointer;
+  transition: background 0.16s ease;
+  &:active, &:hover { background: rgba(255,255,255,0.04); }
+}
+
+.mv-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mv-fecha { font-size: 12px; color: var(--bx-text-3); }
+.mv-estado {
+  padding: 2px 8px;
+  border-radius: var(--bx-r-pill);
+  font-size: 11px; font-weight: 700;
+  color: var(--bx-text-2); background: rgba(255,255,255,0.08);
+  &.hecho { color: var(--bx-green-bright); background: var(--bx-green-soft); }
+}
+
+.mv-destino { display: block; margin-top: 6px; font-size: 15px; color: #fff; }
+
+.mv-rutas {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  margin-top: 8px;
+  > ion-icon { color: var(--bx-text-3); font-size: 14px; }
+}
+.mv-paradas { font-size: 12px; color: var(--bx-text-2); }
+
+.mv-acciones { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.mv-repetir {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 700; color: var(--bx-green-bright);
+}
+
+.mv-borrar {
+  flex: none;
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  padding: 0; border: 0; border-radius: 50%;
+  background: transparent;
+  color: var(--bx-text-3);
+  font-size: 16px;
+  cursor: pointer;
+  &:hover { background: rgba(255,255,255,0.08); color: var(--bx-text); }
+}
+
+// ---- Instalar la app ----
+// Aviso suelto, debajo de la barra de arriba: solo en iPhone sin instalar.
+.instalar-aviso {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 10px;
+  padding: 8px 6px 8px 10px;
+  border-radius: 16px;
+  background: rgba(10, 22, 40, 0.86);
+  border: 1px solid var(--bx-line-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
+  > img { width: 34px; height: 34px; border-radius: 9px; flex: none; }
+
+  .ia-texto {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; align-items: flex-start;
+    padding: 0; border: 0; background: transparent;
+    font: inherit; text-align: left; cursor: pointer;
+    strong { font-size: 13px; color: #fff; }
+    span { font-size: 12px; color: var(--bx-text-2); }
+  }
+
+  .ia-cerrar {
+    flex: none;
+    width: 32px; height: 32px;
+    display: grid; place-items: center;
+    padding: 0; border: 0; border-radius: 50%;
+    background: transparent;
+    color: var(--bx-text-3); font-size: 16px;
+    cursor: pointer;
+  }
+}
+
+.in-cabeza {
+  display: flex; align-items: center; gap: 14px;
+  margin: 16px 0 4px;
+  img { width: 56px; height: 56px; border-radius: 14px; flex: none; }
+  p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--bx-text-2); }
+}
+
+.in-pasos {
+  list-style: none;
+  margin: 0; padding: 0;
+  counter-reset: paso;
+
+  li {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0;
+    & + li { border-top: 1px solid var(--bx-line); }
+    div { display: flex; flex-direction: column; gap: 2px; }
+    strong { font-size: 14px; color: #fff; }
+    span:not(.in-ic) { font-size: 13px; color: var(--bx-text-2); line-height: 1.4; }
+  }
+}
+
+.in-ic {
+  flex: none;
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  border-radius: 10px;
+  background: rgba(0, 224, 106, 0.12);
+  color: var(--bx-green-bright);
+  font-size: 20px;
+}

@@ -1,0 +1,41 @@
+// ---- Agregados a la ficha del bus: su modelo y calificarlo ----
+.sheet-modelo {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 10px;
+
+  .bx-bus-modelo--lado { display: block; flex: none; width: 120px; aspect-ratio: 200 / 56; }
+  span { font-size: 13px; font-weight: 600; color: var(--bx-text-2); }
+}
+
+.sheet-calificar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 12px;
+  padding: 8px 6px 8px 12px;
+  border-radius: var(--bx-r-md);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--bx-line);
+
+  > span { font-size: 13px; font-weight: 600; color: var(--bx-text-2); }
+}
+
+.sc-estrellas {
+  display: flex; gap: 2px;
+
+  button {
+    display: grid; place-items: center;
+    width: 34px; height: 34px;
+    padding: 0;
+    border: 0; border-radius: 8px;
+    background: transparent;
+    color: var(--bx-text-3);
+    font-size: 20px;
+    cursor: pointer;
+    transition: color 0.15s ease, transform 0.15s ease;
+
+    &.on { color: #ffc531; }
+    &:not(:disabled):hover { color: #ffc531; transform: scale(1.12); }
+    &:focus-visible { outline: 2px solid rgba(255,255,255,0.7); outline-offset: 1px; }
+    &:disabled { cursor: default; }
+  }
+}
+

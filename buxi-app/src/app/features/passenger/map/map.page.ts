@@ -11,7 +11,7 @@ import { BusLocation, Ruta, Parada, TarifaAresep } from '../../../core/models/tr
 import { REGLA_ADULTO_MAYOR, tarifaAdultoMayorTexto, tituloAresep } from '../../../core/utils/aresep';
 import { diaHorario, horaCorta, proximaSalida, ProximaSalida, salidaTexto } from '../../../core/utils/horario';
 import { UserProfile } from '../../../core/models/user-profile.model';
-import { Anuncio, HorarioSalida, Boleto, NotificacionEmpresa } from '../../../core/models/features.model';
+import { Anuncio, HorarioSalida, Boleto, NotificacionEmpresa, ReporteBug, TipoMensajePasajero, ViajePasajero } from '../../../core/models/features.model';
 import { FeaturesService, PuntoGeo } from '../../../core/services/features.service';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -23,6 +23,9 @@ import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../
 import { createMap, estiloCargo, soloParadasBuxci, htmlMarkerEl, set3DEnabled, circlePolygon, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
+import { claveValida, REGLA_CLAVE } from '../../../core/utils/clave';
+import { ModeloBus, esModeloBus, nombreModeloBus } from '../../../core/utils/bus-modelos';
+import { fotoCuadrada } from '../../../core/utils/imagen';
 import { esc, colorSeguro } from '../../../core/utils/html';
 import { rutaCorta, tintaSobre } from '../../../core/utils/marca';
 import { nombreCortoLugar } from '../../../core/utils/lugar';
@@ -102,6 +105,11 @@ interface OpcionVista extends OpcionViaje {
   bajar: Parada;
   // Hacia dónde va el bus de este viaje ("Cartago").
   hacia: string;
+  // El segundo bus, si el viaje tiene transbordo (ver `transbordo`).
+  ruta2?: Ruta;
+  subir2?: Parada;
+  bajar2?: Parada;
+  hacia2?: string;
 }
 
 // El viaje que el pasajero está armando: a dónde va y cómo puede llegar.
@@ -124,7 +132,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss', './map.cuenta.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss', './map.cuenta.scss', './map.ficha.scss', './map.ayuda.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -232,7 +240,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // Panel aparte: el avatar abre IDENTIDAD (datos, favoritos, sesion) y el
   // dock abre AJUSTES (preferencias). Antes ambos abrian el mismo panel.
   settingsPanelOpen = false;
-  is3D = true;
+  // Arranca en 2D: el relieve y los edificios en 3D son lo más pesado de
+  // bajar y de dibujar, y el mapa abre bastante más rápido sin ellos. Quien
+  // prefiere el 3D lo prende con el botón o en Ajustes, y queda recordado en
+  // este teléfono (como el tipo de mapa).
+  is3D = (() => {
+    try { return localStorage.getItem('buxci.vista3d.v1') === '1'; } catch { return false; }
+  })();
   profile: UserProfile | null = null;
   private navIdleTimer: any = null;
   private initialCenter: [number, number] = [-84.0907, 9.9281];
@@ -868,10 +882,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return this.favoritoEmpresaIds.has(empresaId);
   }
 
-  // Seguir una empresa es lo que da acceso a sus buses y a sus avisos (RLS,
-  // 20260830000000 y 20260930000000). Por eso al marcarla se recargan las dos
-  // cosas: los buses y los avisos que ya existían aparecen de una, y no recién
-  // con el próximo punto GPS o la próxima vez que se abra la app.
+  // Seguir una empresa es lo que da acceso a sus avisos (RLS, 20260830000000).
+  // Los buses no dependen de esto: desde buses_en_vivo (20261021172627) se ven
+  // todos, se siga o no a la empresa. Al marcarla se recargan los avisos para
+  // que los que ya existían aparezcan de una.
   async toggleFavoritoEmpresa(empresa: EmpresaListItem, ev: Event) {
     // Sin esto, seguir la empresa además la seleccionaría en el mapa.
     ev.stopPropagation();
@@ -885,12 +899,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     try {
       if (seguia) await this.featuresService.removeFavoritoEmpresa(this.profile.id, empresa.id);
       else await this.featuresService.addFavoritoEmpresa(this.profile.id, empresa.id);
-      if (seguia) this.quitarBusesDeEmpresa(empresa.id);
-      else this.recargarBusesVisibles();
       this.programarCercanas();
       await this.toast(seguia
-        ? `Dejaste de seguir a ${empresa.nombre}: ya no ves sus buses ni recibís sus avisos`
-        : `Ahora ves los buses de ${empresa.nombre} y recibís sus avisos`);
+        ? `Dejaste de seguir a ${empresa.nombre}: ya no te llegan sus avisos`
+        : `Ahora seguís a ${empresa.nombre}: te van a llegar sus avisos`);
       await this.loadNotificaciones();
     } catch {
       // Revertir si el servidor rechazó, para no mentirle al usuario.
@@ -1130,7 +1142,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           cssClass: 'buxi-alert',
           header: 'Primero instalá Buxci',
           message: 'En iPhone los avisos solo llegan con la app en la pantalla de inicio: tocá Compartir y después "Agregar a inicio". Abrila desde ahí y activá los avisos.',
-          buttons: ['Entendido'],
+          buttons: [
+            { text: 'Ahora no', role: 'cancel', cssClass: 'ba-cancel' },
+            { text: 'Ver cómo', cssClass: 'ba-confirm', handler: () => { this.abrirInstalar(); } },
+          ],
         });
         await alert.present();
       }
@@ -1179,6 +1194,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const parada = this.nombreCorto(o.bajar);
     this.push.notificarLocal('Bajate en la próxima', `Tu parada: ${parada}`, 'bajada').catch(() => {});
     this.zone.run(() => this.toast(`Bajate en la próxima: ${parada}`, 'warning'));
+    // Llegó: el viaje del historial pasa a completado.
+    if (this.viajeAnotado && this.viajeAnotado.clave === clave) {
+      this.featuresService.completarViaje(this.viajeAnotado.id)
+        .catch(e => logError('completar el viaje del historial', e));
+    }
   }
 
   // ---- REPORTES DE PASAJEROS ----
@@ -1282,9 +1302,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   boletoDetalle: Boleto | null = null;
   boletoQrUrl: string | null = null;
   comprandoBoleto = false;
+  // Apagado hasta que haya una pasarela de pago de verdad: sin ella, comprar
+  // generaba un boleto vigente —que el chofer valida— sin cobrar nada.
+  readonly ventaBoletosActiva = false;
 
   async comprarBoleto() {
-    if (!this.activeRuta) return;
+    if (!this.ventaBoletosActiva || !this.activeRuta) return;
     if (!this.profile) { this.pedirCuenta('comprar boletos'); return; }
     const ruta = this.activeRuta;
     const precio = ruta.precio || 0;
@@ -1314,6 +1337,77 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       ],
     });
     await alert.present();
+  }
+
+  // ---- MIS VIAJES (historial, 20261109120400) ----
+  // Se anota un viaje al elegir cómo llegar a un destino, y se completa
+  // cuando la app avisa "bajate en la próxima". Volver a elegir la misma
+  // opción enseguida no anota otro: sería el mismo viaje.
+  viajesSheetOpen = false;
+  misViajes: ViajePasajero[] = [];
+  misViajesCargando = false;
+  private viajeAnotado: { id: string; clave: string; at: number } | null = null;
+
+  private async anotarViaje(o: OpcionVista, destino: { nombre: string; lat: number; lng: number }) {
+    if (!this.profile) return;
+    // La clave es la de la bajada final: con transbordo, la del segundo bus,
+    // que es donde revisarBajada da el viaje por completado.
+    const t = o.transbordo;
+    const clave = t ? t.rutaId + ':' + t.bajarId : o.rutaId + ':' + o.bajarId;
+    if (this.viajeAnotado?.clave === clave && Date.now() - this.viajeAnotado.at < 30 * 60_000) return;
+    try {
+      // user_id lo pone la base (auth.uid()).
+      const id = await this.featuresService.anotarViaje({
+        ruta_id: o.rutaId,
+        ruta2_id: t?.rutaId ?? null,
+        subir_parada_id: o.subirId,
+        bajar_parada_id: t?.bajarId ?? o.bajarId,
+        destino_nombre: destino.nombre.slice(0, 200),
+        destino_lat: destino.lat,
+        destino_lng: destino.lng,
+      });
+      this.viajeAnotado = { id, clave, at: Date.now() };
+    } catch (e) {
+      // Sin la migración la tabla no existe: el viaje sigue igual, solo no se anota.
+      logError('anotar el viaje en el historial', e);
+    }
+  }
+
+  async openMisViajes() {
+    if (!this.profile) { this.pedirCuenta('ver tus viajes'); return; }
+    this.profilePanelOpen = false;
+    this.viajesSheetOpen = true;
+    this.misViajesCargando = true;
+    try {
+      this.misViajes = await this.featuresService.getMisViajes();
+    } catch (e) {
+      logError('cargar mis viajes', e);
+      this.misViajes = [];
+    } finally {
+      this.misViajesCargando = false;
+    }
+  }
+
+  closeMisViajes() {
+    this.viajesSheetOpen = false;
+  }
+
+  repetirViaje(v: ViajePasajero) {
+    this.viajesSheetOpen = false;
+    this.selectPlace({ label: v.destino_nombre, lat: v.destino_lat, lng: v.destino_lng });
+  }
+
+  async borrarViaje(v: ViajePasajero, ev: Event) {
+    ev.stopPropagation();
+    const antes = this.misViajes;
+    this.misViajes = this.misViajes.filter(x => x.id !== v.id);
+    try {
+      await this.featuresService.borrarViaje(v.id);
+    } catch (e) {
+      logError('borrar un viaje del historial', e);
+      this.misViajes = antes;
+      await this.toast('No se pudo borrar el viaje', 'danger');
+    }
   }
 
   async openMisBoletos() {
@@ -1492,6 +1586,20 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return (this.selectedBus?.bus as any)?.ruta?.nombre || 'Sin ruta asignada';
   }
 
+  // El modelo del bus abierto, solo si la empresa eligió uno: sin elección no
+  // se dibuja nada, para no inventarle un aspecto que el bus real no tiene.
+  get selectedBusModelo(): ModeloBus | null {
+    return this.selectedBus ? this.busModelo.get(this.selectedBus.bus_id) || null : null;
+  }
+
+  get selectedBusColor(): string {
+    return this.selectedBus ? this.busColors.get(this.selectedBus.bus_id) || this.BUS_COLOR_FALLBACK : this.BUS_COLOR_FALLBACK;
+  }
+
+  nombreModelo(m: ModeloBus): string {
+    return nombreModeloBus(m);
+  }
+
   // Bus visto desde arriba, apuntando al norte (0°). El marcador se acuesta
   // sobre el plano del mapa (pitchAlignment) y gira con él (rotationAlignment),
   // así que con la cámara inclinada se lee como un vehículo sobre la calle —
@@ -1598,47 +1706,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return rutaId ? this.allRutas.find(r => r.id === rutaId)?.empresa_id : undefined;
   }
 
-  // Al dejar de seguir una empresa, RLS deja de mandar sus puntos, pero los
-  // buses que ya estaban dibujados seguirían ahí (atenuados) hasta REMOVE_MS.
-  // Se sacan en el momento: si no, el pasajero ve que "dejar de seguir" no hizo
-  // nada durante cinco minutos.
-  private quitarBusesDeEmpresa(empresaId: string) {
-    const ids: string[] = [];
-    this.busLocationsMap.forEach((loc, busId) => {
-      if (this.empresaDelBus(busId, loc) === empresaId) ids.push(busId);
-    });
-    if (!ids.length) return;
-
-    for (const id of ids) {
-      this.busLocationsMap.delete(id);
-      this.busLastSeen.delete(id);
-      this.busAnim.delete(id);
-      this.busIcono.delete(id);
-    }
-    this.tracking.olvidarBuses(ids);
-
-    if (this.selectedBus && ids.includes(this.selectedBus.bus_id)) this.closeBusInfo();
-    if (this.followBusId && ids.includes(this.followBusId)) this.stopFollowing();
-
-    this.activeBusCount = this.busLocationsMap.size;
-    if (this.busLayerListo) this.pintarBuses(performance.now());
-  }
-
-  // Al empezar a seguir una empresa, RLS ya deja ver sus buses: se piden de
-  // nuevo en vez de esperar a que cada uno mande su próximo punto.
-  private async recargarBusesVisibles() {
-    if (!this.activeRuta) {
-      await this.loadBusLocations();
-      return;
-    }
-    try {
-      const locations = await this.tracking.getLocationsByRuta(this.activeRuta.id);
-      for (const loc of locations) this.addOrUpdateBusMarker(loc);
-    } catch (e) {
-      logError('recargar los buses de la ruta', e);
-    }
-  }
-
   private estadoDeBus(loc: BusLocation): BusEstadoVivo {
     const paradas = this.paradasDelBus(loc);
     if ((loc.velocidad ?? 0) <= this.PARADA_VEL_MAX && paradas.length) {
@@ -1678,6 +1745,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // y manda sobre el color de la ruta (ver busColor).
   private coloresEmpresa = new Map<string, string>();
   private busColors = new Map<string, string>();
+  // Modelo elegido en Personalización (del bus o de su flota), por bus.
+  private busModelo = new Map<string, ModeloBus>();
   private readonly BUS_COLOR_FALLBACK = '#00c853';
 
   // El color de la empresa gana sobre el de la ruta: si una empresa eligió su
@@ -1689,9 +1758,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   //
   // Sin color_bus (el caso de toda empresa que no entró a personalizar) esto
   // se comporta exactamente como antes.
+  //
+  // Y por encima de todo, el color propio del bus: en Personalización la
+  // empresa puede pintar unidades sueltas distinto del resto de la flota.
   private busColor(loc: BusLocation): string {
     const bus = loc.bus as any;
-    const crudo = this.coloresEmpresa.get(bus?.empresa_id) || bus?.ruta?.color;
+    const crudo = bus?.color_bus || this.coloresEmpresa.get(bus?.empresa_id) || bus?.ruta?.color;
     if (crudo) {
       const color = colorSeguro(crudo);
       this.busColors.set(loc.bus_id, color);
@@ -1738,9 +1810,74 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   sinConexion = typeof navigator !== 'undefined' && navigator.onLine === false;
   private readonly alCambiarRed = () => this.zone.run(() => { this.sinConexion = !navigator.onLine; });
 
+  // ---- INSTALAR LA APP (web instalable) ----
+  // En iPhone, Buxci se instala desde Safari ("Agregar a inicio"): queda como
+  // una app, a pantalla completa y con avisos (Web Push solo funciona así en
+  // iOS). En Android, si el navegador ofrece instalar, se usa su propio
+  // diálogo; si no, se explican los pasos.
+  instalarOpen = false;
+  private eventoInstalar: any = null;
+  private avisoInstalarCerrado = (() => {
+    try { return localStorage.getItem('buxci.avisoInstalar.v1') === '1'; } catch { return false; }
+  })();
+  private readonly alPoderInstalar = (e: Event) => {
+    e.preventDefault(); // el aviso lo da la app, en su momento
+    this.zone.run(() => { this.eventoInstalar = e; });
+  };
+  private readonly alInstalarse = () => this.zone.run(() => {
+    this.eventoInstalar = null;
+    this.instalarOpen = false;
+    this.toast('Listo: Buxci quedó instalada');
+  });
+
+  get esIos(): boolean {
+    return this.push.esIos;
+  }
+
+  get estaInstalada(): boolean {
+    return Capacitor.isNativePlatform()
+      || (navigator as any).standalone === true
+      || window.matchMedia('(display-mode: standalone)').matches;
+  }
+
+  // El aviso suelto sobre el mapa: solo en iPhone, una vez, hasta que lo cierre.
+  get mostrarAvisoInstalar(): boolean {
+    return this.esIos && !this.estaInstalada && !this.avisoInstalarCerrado;
+  }
+
+  abrirInstalar() {
+    this.showMap();
+    this.instalarOpen = true;
+  }
+
+  cerrarInstalar() {
+    this.instalarOpen = false;
+  }
+
+  cerrarAvisoInstalar(ev?: Event) {
+    ev?.stopPropagation();
+    this.avisoInstalarCerrado = true;
+    try { localStorage.setItem('buxci.avisoInstalar.v1', '1'); } catch {}
+  }
+
+  async instalarAhora() {
+    const e = this.eventoInstalar;
+    if (!e) return;
+    this.eventoInstalar = null; // el diálogo del navegador se puede mostrar una sola vez
+    await e.prompt();
+    const { outcome } = await e.userChoice;
+    if (outcome !== 'accepted') await this.toast('Cuando quieras, la instalás desde Ajustes', 'medium');
+  }
+
+  get puedeInstalarDirecto(): boolean {
+    return !!this.eventoInstalar;
+  }
+
   async ngOnInit() {
     window.addEventListener('online', this.alCambiarRed);
     window.addEventListener('offline', this.alCambiarRed);
+    window.addEventListener('beforeinstallprompt', this.alPoderInstalar);
+    window.addEventListener('appinstalled', this.alInstalarse);
     this.profileReady = this.loadProfile();
     await this.profileReady;
   }
@@ -1924,8 +2061,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       container: 'map',
       center: this.initialCenter,
       zoom: 13,
-      pitch: 50,
-      threeD: true,
+      // En 2D ni se pide el relieve: createMap solo lo carga con threeD.
+      pitch: this.is3D ? 50 : 0,
+      threeD: this.is3D,
       style: this.darkMode ? 'streets-v2-dark' : 'outdoor-v2',
     });
     // Si el usuario navegó fuera mientras el estilo cargaba, no operar sobre
@@ -1990,8 +2128,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // es del usuario; 'movestart' también salta cuando la app mueve la
       // cámara sola. No se recuerda: la próxima vez sigue abriendo como la dejó.
       this.map.on('dragstart', () => {
+        this.usuarioMovioMapa = true;
         if (this.cercaAltura === 'lista') this.zone.run(() => this.ponerCercaAltura('resumen', false));
       });
+      // Zoom con los dedos o la rueda (trae originalEvent; el de la app, no):
+      // el pasajero ya eligió qué mirar y el encuadre automático no lo pisa.
+      this.map.on('zoomstart', (e: any) => { if (e?.originalEvent) this.usuarioMovioMapa = true; });
 
       // La aguja de la brújula se escribe directo en el DOM por el mismo
       // motivo: gira en cada frame.
@@ -2075,6 +2217,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       await this.loadPreferences();
     } else {
       this.editingProfile = false;
+      this.cancelCambiarClave();
     }
   }
 
@@ -2103,6 +2246,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   startEditProfile() {
     this.resetProfileForm();
+    this.cambiandoClave = false;
     this.editingProfile = true;
   }
 
@@ -2138,6 +2282,216 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       await this.toast('No se pudo guardar', 'danger');
     }
     this.savingProfile = false;
+  }
+
+  // ---- AYUDA Y CONTACTO ----
+  // Preguntas frecuentes y un formulario. Los mensajes van a reportes_bugs
+  // (20261109120200): los problemas y sugerencias los lee JIRB; las quejas y
+  // felicitaciones, también la empresa. Ahí mismo se responden, y el pasajero
+  // ve la respuesta en "Tus mensajes".
+  ayudaOpen = false;
+  faqAbierta: number | null = null;
+  ayudaTipo: TipoMensajePasajero = 'problema';
+  ayudaEmpresaId: string | null = null;
+  ayudaMensaje = '';
+  enviandoAyuda = false;
+  misMensajes: ReporteBug[] = [];
+
+  readonly TIPOS_AYUDA: { tipo: TipoMensajePasajero; texto: string }[] = [
+    { tipo: 'problema', texto: 'Un problema con la app' },
+    { tipo: 'sugerencia', texto: 'Una sugerencia' },
+    { tipo: 'queja', texto: 'Una queja de una empresa' },
+    { tipo: 'felicitacion', texto: 'Felicitar a una empresa' },
+  ];
+
+  readonly FAQ: { p: string; r: string }[] = [
+    {
+      p: '¿Por qué no veo buses en el mapa?',
+      r: 'Solo aparecen los buses que están transmitiendo en este momento. Si la empresa todavía no usa Buxci o el bus no salió, no se ve.',
+    },
+    {
+      p: '¿Qué tan exacto es el tiempo de llegada?',
+      r: 'Se calcula con la posición en vivo del bus, que se actualiza cada pocos segundos. Cuando dice "según horario", es el horario que publicó la empresa, no la posición en vivo.',
+    },
+    {
+      p: '¿Cómo recibo los avisos de una empresa?',
+      r: 'Tocá la estrella de la empresa para seguirla. Para recibirlos con la app cerrada, activá "Avisos en el teléfono" en Ajustes.',
+    },
+    {
+      p: '¿Puedo pagar el pasaje en la app?',
+      r: 'Todavía no: viene pronto. Por ahora ves el precio de cada ruta.',
+    },
+    {
+      p: '¿Cómo borro mi cuenta?',
+      r: 'Desde tu perfil, en "Eliminar cuenta". Se borran tu cuenta, tus favoritos, tus calificaciones y tus preferencias.',
+    },
+  ];
+
+  get ayudaNecesitaEmpresa(): boolean {
+    return this.ayudaTipo === 'queja' || this.ayudaTipo === 'felicitacion';
+  }
+
+  get ayudaPlaceholder(): string {
+    switch (this.ayudaTipo) {
+      case 'problema': return 'Contanos qué pasó y en qué pantalla';
+      case 'sugerencia': return '¿Qué te gustaría que tuviera Buxci?';
+      case 'queja': return 'Contanos qué pasó, en qué ruta y a qué hora';
+      default: return '¿Qué hicieron bien?';
+    }
+  }
+
+  async abrirAyuda() {
+    this.showMap();
+    this.faqAbierta = null;
+    this.ayudaOpen = true;
+    await this.cargarMisMensajes();
+  }
+
+  cerrarAyuda() {
+    this.ayudaOpen = false;
+  }
+
+  private async cargarMisMensajes() {
+    if (!this.profile) { this.misMensajes = []; return; }
+    try {
+      this.misMensajes = await this.featuresService.getMisMensajes(this.profile.id);
+    } catch (e) {
+      // Sin la migración la columna `origen` no existe: la lista queda vacía
+      // y el formulario sigue a mano.
+      logError('cargar los mensajes del pasajero', e);
+      this.misMensajes = [];
+    }
+  }
+
+  async enviarAyuda() {
+    if (!this.profile) { this.pedirCuenta('escribirnos'); return; }
+    const mensaje = this.ayudaMensaje.trim();
+    if (mensaje.length < 10) {
+      await this.toast('Contanos un poco más (al menos 10 letras)', 'warning');
+      return;
+    }
+    const empresaId = this.ayudaNecesitaEmpresa ? this.ayudaEmpresaId : null;
+    if (this.ayudaNecesitaEmpresa && !empresaId) {
+      await this.toast('Elegí la empresa', 'warning');
+      return;
+    }
+    this.enviandoAyuda = true;
+    try {
+      await this.featuresService.enviarMensajePasajero(this.profile.id, this.ayudaTipo, mensaje, empresaId);
+      this.ayudaMensaje = '';
+      this.ayudaEmpresaId = null;
+      await this.toast('Recibimos tu mensaje. Te respondemos acá mismo.');
+      await this.cargarMisMensajes();
+    } catch (e: any) {
+      logError('enviar mensaje del pasajero', e);
+      const msg = String(e?.message || '');
+      await this.toast(msg.startsWith('Mandaste') ? msg : 'No se pudo enviar el mensaje', 'danger');
+    } finally {
+      this.enviandoAyuda = false;
+    }
+  }
+
+  tituloMensaje(m: ReporteBug): string {
+    const tipo = m.titulo.replace(/^Pasajero:\s*/, '');
+    const texto = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+    return m.empresa?.nombre ? `${texto} · ${m.empresa.nombre}` : texto;
+  }
+
+  estadoMensaje(m: ReporteBug): string {
+    if (m.estado === 'resuelto') return 'Resuelto';
+    if (m.estado === 'en_revision') return 'En revisión';
+    return 'Recibido';
+  }
+
+  // ---- Foto de perfil ----
+  // Se toca la foto del panel y se elige una imagen; se recorta, se achica y
+  // se sube a la carpeta del usuario (20261109120100). La vieja se borra.
+  subiendoFoto = false;
+
+  async onFotoElegida(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    input.value = ''; // para que elegir la misma foto de nuevo vuelva a disparar
+    if (!archivo || !this.profile || this.subiendoFoto) return;
+    this.subiendoFoto = true;
+    try {
+      const foto = await fotoCuadrada(archivo);
+      const vieja = this.profile.foto_url;
+      const url = await this.supabase.subirFotoPerfil(foto);
+      this.profile = await this.supabase.updateProfile({ foto_url: url });
+      this.supabase.borrarFotoPerfil(vieja).catch(e => logError('borrar la foto de perfil vieja', e));
+      await this.toast('Foto actualizada');
+    } catch (e: any) {
+      logError('subir la foto de perfil', e);
+      const msg = String(e?.message || '');
+      await this.toast(msg.startsWith('La foto') ? msg : 'No se pudo subir la foto', 'danger');
+    } finally {
+      this.subiendoFoto = false;
+    }
+  }
+
+  async quitarFoto() {
+    if (!this.profile?.foto_url || this.subiendoFoto) return;
+    this.subiendoFoto = true;
+    try {
+      const vieja = this.profile.foto_url;
+      this.profile = await this.supabase.updateProfile({ foto_url: null });
+      this.supabase.borrarFotoPerfil(vieja).catch(e => logError('borrar la foto de perfil', e));
+      await this.toast('Foto quitada');
+    } catch (e) {
+      logError('quitar la foto de perfil', e);
+      await this.toast('No se pudo quitar la foto', 'danger');
+    } finally {
+      this.subiendoFoto = false;
+    }
+  }
+
+  // ---- Cambiar contraseña ----
+  // Antes la única forma era salir de la cuenta y usar "¿Olvidaste tu
+  // contraseña?". La regla es la misma que la de recuperarla (core/utils/clave).
+  cambiandoClave = false;
+  guardandoClave = false;
+  claveNueva = '';
+  claveConfirmar = '';
+  readonly reglaClave = REGLA_CLAVE;
+
+  startCambiarClave() {
+    this.editingProfile = false;
+    this.claveNueva = '';
+    this.claveConfirmar = '';
+    this.cambiandoClave = true;
+  }
+
+  cancelCambiarClave() {
+    this.cambiandoClave = false;
+    this.claveNueva = '';
+    this.claveConfirmar = '';
+  }
+
+  async guardarClave() {
+    if (!claveValida(this.claveNueva)) {
+      await this.toast(`La contraseña tiene que tener ${REGLA_CLAVE}`, 'warning');
+      return;
+    }
+    if (this.claveNueva !== this.claveConfirmar) {
+      await this.toast('Las dos contraseñas no coinciden', 'warning');
+      return;
+    }
+    this.guardandoClave = true;
+    try {
+      await this.supabase.actualizarClave(this.claveNueva);
+      this.cancelCambiarClave();
+      await this.toast('Contraseña actualizada');
+    } catch (e: any) {
+      const codigo = e?.code || '';
+      const msg = codigo === 'same_password' ? 'Esa es tu contraseña actual. Elegí una distinta.'
+        : codigo === 'weak_password' ? 'Esa contraseña es muy fácil de adivinar. Probá con otra.'
+        : codigo === 'reauthentication_needed' ? 'Por seguridad, cerrá sesión y usá "¿Olvidaste tu contraseña?" para cambiarla.'
+        : 'No se pudo cambiar la contraseña. Intentá de nuevo.';
+      await this.toast(msg, 'danger');
+    } finally {
+      this.guardandoClave = false;
+    }
   }
 
   async toggleNotifications() {
@@ -2278,6 +2632,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           cssClass: 'ba-danger',
           handler: async () => {
             try {
+              // La foto vive en Storage, fuera de las tablas que borra la
+              // cuenta: se borra antes, mientras todavía hay sesión.
+              await this.supabase.borrarFotoPerfil(this.profile?.foto_url)
+                .catch(e => logError('borrar la foto al eliminar la cuenta', e));
               await this.supabase.deleteAccount();
               this.router.navigate(['/auth/login'], { replaceUrl: true });
             } catch (e: any) {
@@ -2297,7 +2655,22 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   toggle3D() {
     this.is3D = !this.is3D;
-    set3DEnabled(this.map, this.is3D, this.darkMode);
+    try { localStorage.setItem('buxci.vista3d.v1', this.is3D ? '1' : '0'); } catch {}
+    // El relieve y los edificios se cargan recién acá, la primera vez que se pide.
+    // Si el estilo del mapa no cargó (sin red, clave rechazada), MapLibre no
+    // deja agregar fuentes: la preferencia queda guardada igual y no se rompe.
+    if (!this.mapReady) return;
+    try { set3DEnabled(this.map, this.is3D, this.darkMode); } catch (e) { logError('cambiar la vista 3D', e); }
+    // Mismo criterio que zoomDeVista: al aplanar se abre la vista para no
+    // perder los buses que se veían hacia el horizonte, y al inclinar se cierra.
+    // Va después de set3DEnabled porque reemplaza su animación.
+    const zoom = this.map.getZoom() + (this.is3D ? this.ZOOM_PLANO : -this.ZOOM_PLANO);
+    this.map.easeTo({
+      pitch: this.is3D ? 55 : 0,
+      bearing: this.is3D ? this.map.getBearing() : 0,
+      zoom: Math.min(18, Math.max(6, zoom)),
+      duration: 600,
+    });
   }
 
   resetNorth() {
@@ -2587,8 +2960,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         // gana sobre el de la ruta. Si acá se cebara solo con el de la ruta,
         // un bus que empieza a transmitir con el mapa ya abierto se quedaría
         // con el color viejo — que es justo el caso que este caché atiende.
-        const color = this.coloresEmpresa.get(b.empresa_id) || (b as any)?.ruta?.color;
+        const color = b.color_bus || this.coloresEmpresa.get(b.empresa_id) || (b as any)?.ruta?.color;
         if (color) this.busColors.set(b.id, colorSeguro(color));
+        if (esModeloBus(b.modelo_bus)) this.busModelo.set(b.id, b.modelo_bus);
         if (b.ruta_id) this.busRuta.set(b.id, b.ruta_id);
         if (b.empresa_id) this.busEmpresa.set(b.id, b.empresa_id);
       }
@@ -2608,6 +2982,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       for (const loc of locations) {
         this.addOrUpdateBusMarker(loc);
       }
+      // Si la ubicación llegó antes que los buses, el encuadre se hace ahora.
+      this.encuadrarBusCercano();
     } catch {}
   }
 
@@ -2899,6 +3275,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // Sin cuenta no se puede leer la tabla de buses, así que la ruta de cada
     // bus llega con su posición (buses_en_vivo).
     if (location.bus?.ruta_id) this.busRuta.set(location.bus_id, location.bus.ruta_id);
+    // Igual con el modelo: los puntos que llegan por Realtime no traen el bus.
+    const modelo = location.bus?.modelo_bus;
+    if (esModeloBus(modelo)) this.busModelo.set(location.bus_id, modelo);
     if (this.busPedido === location.bus_id) setTimeout(() => this.seguirBusCompartido(location));
     this.busIcono.set(
       location.bus_id,
@@ -2958,7 +3337,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       // usuario a Canadá apenas abre la app es peor que dejarlo en su provincia
       // y que el punto quede fuera de cuadro.
       if (!this.activeRuta && !this.isOutsideCostaRica(c.latitude, c.longitude)) {
-        this.map.jumpTo({ center: [c.longitude, c.latitude], zoom: this.zoomForAccuracy(c.accuracy) });
+        this.map.jumpTo({ center: [c.longitude, c.latitude], zoom: this.zoomDeVista(this.zoomForAccuracy(c.accuracy)) });
+        this.encuadrarBusCercano();
       }
       await this.startWatching();
     } catch (e) {
@@ -3653,7 +4033,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       const subir = paradas.find(p => p.id === o.subirId);
       const bajar = paradas.find(p => p.id === o.bajarId);
       if (!ruta || !subir || !bajar) continue;
-      opciones.push({ ...o, ruta, subir, bajar, hacia: o.sentido === 1 ? ruta.destino : ruta.origen });
+      const vista: OpcionVista = { ...o, ruta, subir, bajar, hacia: o.sentido === 1 ? ruta.destino : ruta.origen };
+      const t = o.transbordo;
+      if (t) {
+        const ruta2 = this.allRutas.find(r => r.id === t.rutaId);
+        const paradas2 = this.paradasPorRuta.get(t.rutaId) ?? [];
+        const subir2 = paradas2.find(p => p.id === t.subirId);
+        const bajar2 = paradas2.find(p => p.id === t.bajarId);
+        if (!ruta2 || !subir2 || !bajar2) continue;
+        Object.assign(vista, { ruta2, subir2, bajar2, hacia2: t.sentido === 1 ? ruta2.destino : ruta2.origen });
+      }
+      opciones.push(vista);
     }
 
     this.viaje = {
@@ -3687,7 +4077,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   async elegirOpcion(o: OpcionVista) {
+    const destino = this.viaje?.destino;
     await this.selectRutaFromPanel(o.ruta, o);
+    if (destino) this.anotarViaje(o, destino);
   }
 
   // Deja el viaje: se va el destino del mapa y, si había una ruta en pantalla,
@@ -3737,7 +4129,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         return {
           icono: 'git-branch-outline',
           titulo: 'No hay un bus directo',
-          texto: `Hay paradas cerca ${v.origen ? 'de ' + v.origen.nombre : 'tuyo'} y cerca de ${v.destino.nombre}, pero ninguna ruta las une. Buxci todavía no arma viajes con trasbordo.`,
+          texto: `Hay paradas cerca ${v.origen ? 'de ' + v.origen.nombre : 'tuyo'} y cerca de ${v.destino.nombre}, pero ninguna ruta las une, ni siquiera cambiando de bus una vez.`,
         };
     }
   }
@@ -3747,20 +4139,28 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return this.viajeTramo?.minutos ?? this.viajeElegido?.minutosAlDestino ?? 0;
   }
 
-  // El viaje completo, sin la espera del bus.
+  // El viaje completo, sin la espera del bus. Con transbordo suma el segundo
+  // bus, su margen de espera y la última caminata.
   get viajeMinutosTotal(): number {
     const o = this.viajeElegido;
     if (!o) return 0;
     const alSubir = this.caminataActiva && this.caminata && !this.viaje?.origen ? this.caminata.minutos : o.minutosAlSubir;
-    return alSubir + o.minutosEnBus + this.viajeMinutosAlDestino;
+    const t = o.transbordo;
+    const segundo = t ? t.minutosEspera + t.minutosEnBus + t.minutosAlDestino : 0;
+    return alSubir + o.minutosEnBus + this.viajeMinutosAlDestino + segundo;
   }
 
   // Qué hacer al bajar. Si la parada está pegada al destino no se manda a
   // "caminar 1 minuto hasta" un lugar que se llama igual que la parada.
+  // Con transbordo, "el destino" de este tramo es la parada del otro bus.
   get viajeFinalTexto(): string {
     const v = this.viaje, o = this.viajeElegido;
     if (!v || !o) return '';
     const metros = this.viajeTramo?.metros ?? this.featuresService.estimarCaminata(o.alDestinoKm).metros;
+    if (o.subir2) {
+      if (metros < 40) return `El otro bus para ahí mismo`;
+      return `y caminá ${this.viajeMinutosAlDestino} min hasta ${this.nombreCorto(o.subir2)}`;
+    }
     if (metros < 40) return 'Tu destino queda ahí mismo';
     if (metros <= 250) return `Tu destino queda a ${this.metrosTexto(metros)}`;
     return `y caminá ${this.viajeMinutosAlDestino} min hasta ${v.destino.nombre}`;
@@ -3779,9 +4179,54 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return { ...c, desde: 'Desde donde estás' };
   }
 
+  // El último paso de un viaje con transbordo: al bajar del segundo bus.
+  get viajeFinal2Texto(): string {
+    const v = this.viaje, t = this.viajeElegido?.transbordo;
+    if (!v || !t) return '';
+    const metros = this.featuresService.estimarCaminata(t.alDestinoKm).metros;
+    if (metros < 40) return 'Tu destino queda ahí mismo';
+    if (metros <= 250) return `Tu destino queda a ${this.metrosTexto(metros)}`;
+    return `y caminá ${t.minutosAlDestino} min hasta ${v.destino.nombre}`;
+  }
+
+  // Con el primer bus ya en pantalla: pasar al segundo. Arma su tramo como un
+  // viaje directo más (subir en la parada del transbordo, bajar en la final),
+  // así la hoja, las llegadas y el aviso de bajada funcionan igual.
+  async seguirTransbordo() {
+    const o = this.viajeElegido, t = o?.transbordo;
+    if (!o || !t || !o.ruta2 || !o.subir2 || !o.bajar2) return;
+    const tramo: OpcionVista = {
+      rutaId: t.rutaId,
+      subirId: t.subirId,
+      bajarId: t.bajarId,
+      sentido: t.sentido,
+      alSubirKm: o.alDestinoKm,
+      alDestinoKm: t.alDestinoKm,
+      enBusKm: t.enBusKm,
+      paradasEnMedio: t.paradasEnMedio,
+      minutosAlSubir: o.minutosAlDestino,
+      minutosEnBus: t.minutosEnBus,
+      minutosAlDestino: t.minutosAlDestino,
+      minutosTotal: t.minutosEnBus + t.minutosAlDestino,
+      ruta: o.ruta2,
+      subir: o.subir2,
+      bajar: o.bajar2,
+      hacia: o.hacia2 || '',
+    };
+    await this.selectRutaFromPanel(o.ruta2, tramo);
+  }
+
   paradasDelViaje(o: OpcionVista): string {
     const n = o.paradasEnMedio + 1;
     return n === 1 ? 'es la parada siguiente' : `${n} paradas`;
+  }
+
+  // Lo que se paga por el viaje: con transbordo, los dos pasajes. Si a alguna
+  // de las dos rutas le falta el precio, no se muestra un total incompleto.
+  precioOpcion(o: OpcionVista): number | null {
+    if (!o.ruta.precio) return null;
+    if (!o.ruta2) return o.ruta.precio;
+    return o.ruta2.precio ? o.ruta.precio + o.ruta2.precio : null;
   }
 
   // Con la ruta del viaje ya dibujada: marca dónde subir y dónde bajar, y pide
@@ -3793,12 +4238,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.viajeMarkers.forEach(m => m.remove());
     this.viajeMarkers = [
       this.marcaDeViaje(o.subir, 'subir', 'Subí acá'),
-      this.marcaDeViaje(o.bajar, 'bajar', 'Bajá acá'),
+      this.marcaDeViaje(o.bajar, 'bajar', o.subir2 ? 'Cambiá acá' : 'Bajá acá'),
     ];
 
     setTimeout(() => this.encuadrarViaje(), 60);
     if (!v.origen) this.comoLlegar(false);
-    this.pedirTramoViaje({ lat: o.bajar.latitud, lng: o.bajar.longitud }, v.destino);
+    // Con transbordo, el camino a pie de este tramo va hasta el otro bus.
+    const hasta = o.subir2 ? { lat: o.subir2.latitud, lng: o.subir2.longitud } : v.destino;
+    this.pedirTramoViaje({ lat: o.bajar.latitud, lng: o.bajar.longitud }, hasta);
   }
 
   private marcaDeViaje(parada: Parada, tipo: 'subir' | 'bajar', texto: string): maplibregl.Marker {
@@ -4342,7 +4789,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     await this.requestCompassPermission();
 
     if (this.userMarker) {
-      this.map.flyTo({ center: this.userMarker.getLngLat(), zoom: 16 });
+      this.map.flyTo({ center: this.userMarker.getLngLat(), zoom: this.zoomDeVista(16) });
       return;
     }
 
@@ -4362,7 +4809,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       if (!this.isOutsideCostaRica(coords.latitude, coords.longitude)) {
         this.map.flyTo({
           center: [coords.longitude, coords.latitude],
-          zoom: this.zoomForAccuracy(coords.accuracy),
+          zoom: this.zoomDeVista(this.zoomForAccuracy(coords.accuracy)),
         });
       }
       if (problem) await this.toast(problem, 'warning');
@@ -4379,6 +4826,42 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // es una mentira visual: el mapa afirma una precisión de calle que no existe.
   // El zoom se elige para que el círculo de precisión ENTRE en pantalla, así
   // el encuadre mismo comunica cuánto se sabe realmente.
+  // Inclinado (3D) se ve hasta el horizonte; plano, con el mismo zoom, apenas
+  // unas cuadras alrededor, y los demás buses quedan fuera de cuadro. En 2D se
+  // abre un poco la vista para cubrir un área parecida.
+  private readonly ZOOM_PLANO = 1.5;
+  private zoomDeVista(zoom: number): number {
+    return this.is3D ? zoom : Math.max(6, zoom - this.ZOOM_PLANO);
+  }
+
+  // Al abrir: si no se ve ningún bus, se abre la vista hasta el más cercano
+  // (dentro de 8 km), para que el mapa no arranque vacío. Una sola vez, y
+  // nunca si el pasajero ya movió el mapa o está mirando una ruta o un viaje.
+  private encuadreBusHecho = false;
+  private usuarioMovioMapa = false;
+  private encuadrarBusCercano() {
+    if (this.encuadreBusHecho || this.usuarioMovioMapa || !this.mapReady) return;
+    if (this.activeRuta || this.viaje || this.busPedido || this.userLat === 0) return;
+    if (!this.busLocationsMap.size) return; // se reintenta cuando lleguen los buses
+    this.encuadreBusHecho = true;
+
+    let cercano: BusLocation | null = null;
+    let km = Infinity;
+    this.busLocationsMap.forEach(loc => {
+      const d = this.featuresService.distanceKm(this.userLat, this.userLng, loc.latitud, loc.longitud);
+      if (d < km) { km = d; cercano = loc; }
+    });
+    const bus = cercano as BusLocation | null;
+    if (!bus || km > 8) return;
+    if (this.map.getBounds().contains([bus.longitud, bus.latitud])) return;
+
+    this.map.fitBounds(
+      [[Math.min(this.userLng, bus.longitud), Math.min(this.userLat, bus.latitud)],
+       [Math.max(this.userLng, bus.longitud), Math.max(this.userLat, bus.latitud)]],
+      { padding: { top: 140, bottom: 260, left: 60, right: 60 }, maxZoom: this.zoomDeVista(16), duration: 900 },
+    );
+  }
+
   private zoomForAccuracy(accuracy?: number | null): number {
     if (!accuracy || accuracy <= 0) return 16;
     if (accuracy < 50) return 16.5;
@@ -4502,6 +4985,75 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.selectedBus = null;
   }
 
+  // ---- CALIFICAR EL BUS ----
+  // Desde la ficha del bus, que es donde se sabe de qué bus se habla: la
+  // calificación va con su ruta (la ve la empresa) y con el bus (la ve su
+  // chofer). Una por bus y por día en este teléfono; el servidor pone el mismo
+  // tope para quien lo saltee.
+  readonly UNO_A_CINCO = [1, 2, 3, 4, 5];
+  calificandoBus = false;
+
+  private claveCalificacion(busId: string): string {
+    // Fecha local (en-CA da AAAA-MM-DD): el "día" es el de Costa Rica, no UTC.
+    return `buxi.calificado.${busId}.${new Date().toLocaleDateString('en-CA')}`;
+  }
+
+  // Las estrellas que este teléfono ya le dio hoy al bus abierto (0 si ninguna).
+  get estrellasDadas(): number {
+    if (!this.selectedBus) return 0;
+    try {
+      return Number(localStorage.getItem(this.claveCalificacion(this.selectedBus.bus_id))) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  async calificarBus(estrellas: number) {
+    const loc = this.selectedBus;
+    if (!loc || this.calificandoBus || this.estrellasDadas) return;
+    if (!this.profile) { this.pedirCuenta('calificar los buses'); return; }
+    const rutaId = this.rutaDelBus(loc.bus_id);
+    if (!rutaId) {
+      await this.toast('Este bus todavía no tiene una ruta asignada', 'warning');
+      return;
+    }
+    const alert = await this.alertCtrl.create({
+      cssClass: 'buxi-alert',
+      header: `${estrellas} ${estrellas === 1 ? 'estrella' : 'estrellas'}`,
+      message: '¿Querés contar algo más? Es opcional.',
+      inputs: [{ name: 'comentario', type: 'textarea', placeholder: 'Ej.: el chofer manejó muy bien', attributes: { maxlength: 300 } }],
+      buttons: [
+        { text: 'Cancelar', role: 'cancel', cssClass: 'ba-cancel' },
+        {
+          text: 'Enviar', role: 'confirm', cssClass: 'ba-confirm',
+          handler: (datos: { comentario?: string }) => {
+            this.enviarCalificacion(loc.bus_id, rutaId, estrellas, datos?.comentario);
+          },
+        },
+      ],
+    });
+    await alert.present();
+  }
+
+  private async enviarCalificacion(busId: string, rutaId: string, estrellas: number, comentario?: string) {
+    if (!this.profile) return;
+    this.calificandoBus = true;
+    try {
+      await this.featuresService.addCalificacion(this.profile.id, rutaId, estrellas, comentario?.trim() || undefined, busId);
+      try { localStorage.setItem(this.claveCalificacion(busId), String(estrellas)); } catch {}
+      await this.toast('¡Gracias por calificar!');
+    } catch (e: any) {
+      logError('calificar el bus', e);
+      // El tope del servidor (una por bus y por día) llega como este error.
+      const msg = /una calificaci/i.test(e?.message || '')
+        ? 'Ya calificaste este bus hoy'
+        : 'No se pudo enviar la calificación';
+      await this.toast(msg, 'danger');
+    } finally {
+      this.calificandoBus = false;
+    }
+  }
+
   // ---- MODO SEGUIMIENTO ----
   // Centra el bus, lo persigue, inclina y rota la cámara hacia su rumbo, y
   // dibuja su ruta con las paradas. El seguimiento se corta solo si el usuario
@@ -4534,7 +5086,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.map.flyTo({
       center: [bus.longitud, bus.latitud],
       zoom: 16.5,
-      pitch: 60,
+      // En 2D el mapa sigue plano también al seguir un bus.
+      pitch: this.is3D ? 60 : 0,
       bearing: bus.heading || 0,
       duration: 1200,
     });
@@ -4598,6 +5151,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.destroyed = true;
     window.removeEventListener('online', this.alCambiarRed);
     window.removeEventListener('offline', this.alCambiarRed);
+    window.removeEventListener('beforeinstallprompt', this.alPoderInstalar);
+    window.removeEventListener('appinstalled', this.alInstalarse);
     if (this.busRaf !== null) { cancelAnimationFrame(this.busRaf); this.busRaf = null; }
     this.tracking.unsubscribe();
     this.featuresService.unsubscribeNotificaciones(this.notifChannel);

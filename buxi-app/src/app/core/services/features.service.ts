@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { supabaseClient } from '../supabase-client';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { Favorito, FavoritoEmpresa, NotificacionEmpresa, Horario, Calificacion, UserPreferences, Anuncio, Boleto } from '../models/features.model';
+import { Favorito, FavoritoEmpresa, NotificacionEmpresa, Horario, Calificacion, UserPreferences, Anuncio, Boleto, ReporteBug, TipoMensajePasajero, TITULO_MENSAJE_PASAJERO, ViajePasajero } from '../models/features.model';
 import { Parada, Ruta } from '../models/transport.model';
 import { caminataEstimada } from '../utils/viaje';
 
@@ -192,6 +192,64 @@ export class FeaturesService {
     const { error } = await this.supabase
       .from('calificaciones')
       .insert({ user_id: userId, ruta_id: rutaId, estrellas, comentario: comentario || null, bus_id: busId || null });
+    if (error) throw error;
+  }
+
+  // ---- MENSAJES DEL PASAJERO (Ayuda y contacto) ----
+  // Van a reportes_bugs (20261109120200): sin empresa los lee JIRB; las quejas
+  // y felicitaciones van con la empresa y las lee también ella.
+  async enviarMensajePasajero(autorId: string, tipo: TipoMensajePasajero, descripcion: string, empresaId: string | null): Promise<void> {
+    const { error } = await this.supabase.from('reportes_bugs').insert({
+      autor_id: autorId,
+      titulo: TITULO_MENSAJE_PASAJERO[tipo],
+      descripcion,
+      empresa_id: empresaId,
+      origen: 'pasajero',
+    });
+    if (error) throw error;
+  }
+
+  async getMisMensajes(autorId: string): Promise<ReporteBug[]> {
+    const { data, error } = await this.supabase
+      .from('reportes_bugs')
+      .select('*, empresa:empresas(nombre)')
+      .eq('autor_id', autorId)
+      .eq('origen', 'pasajero')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    return data as ReporteBug[];
+  }
+
+  // ---- HISTORIAL DE VIAJES DEL PASAJERO (20261109120400) ----
+  async anotarViaje(viaje: Omit<ViajePasajero, 'id' | 'completado' | 'created_at' | 'ruta' | 'ruta2' | 'subir' | 'bajar'>): Promise<string> {
+    const { data, error } = await this.supabase.from('viajes_pasajero').insert(viaje).select('id').single();
+    if (error) throw error;
+    return (data as { id: string }).id;
+  }
+
+  async completarViaje(id: string): Promise<void> {
+    const { error } = await this.supabase.from('viajes_pasajero').update({ completado: true }).eq('id', id);
+    if (error) throw error;
+  }
+
+  async getMisViajes(): Promise<ViajePasajero[]> {
+    // Dos FK a rutas y dos a paradas: hay que nombrar cuál es cuál (PGRST201).
+    const { data, error } = await this.supabase
+      .from('viajes_pasajero')
+      .select(`*,
+        ruta:rutas!viajes_pasajero_ruta_id_fkey(nombre, color),
+        ruta2:rutas!viajes_pasajero_ruta2_id_fkey(nombre, color),
+        subir:paradas!viajes_pasajero_subir_parada_id_fkey(nombre),
+        bajar:paradas!viajes_pasajero_bajar_parada_id_fkey(nombre)`)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) throw error;
+    return data as ViajePasajero[];
+  }
+
+  async borrarViaje(id: string): Promise<void> {
+    const { error } = await this.supabase.from('viajes_pasajero').delete().eq('id', id);
     if (error) throw error;
   }
 

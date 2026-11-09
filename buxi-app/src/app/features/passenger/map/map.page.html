@@ -146,6 +146,18 @@
       </div>
     </div>
 
+    <!-- iPhone sin instalar: una vez, hasta que lo cierre. -->
+    <div class="instalar-aviso" *ngIf="mostrarAvisoInstalar && !activeRuta && !viaje" role="note">
+      <img src="assets/icon/buxci-icon-180.png" alt="" />
+      <button type="button" class="ia-texto" (click)="abrirInstalar()">
+        <strong>Instalá Buxci en tu iPhone</strong>
+        <span>Como una app, con avisos de tus buses</span>
+      </button>
+      <button type="button" class="ia-cerrar" (click)="cerrarAvisoInstalar($event)" aria-label="Cerrar el aviso">
+        <ion-icon name="close" aria-hidden="true"></ion-icon>
+      </button>
+    </div>
+
     <div class="route-header" *ngIf="activeRuta">
       <button type="button" class="route-back" (click)="clearRoute()" aria-label="Volver al mapa">
         <ion-icon name="chevron-back" aria-hidden="true"></ion-icon>
@@ -247,7 +259,7 @@
            abajo. En escritorio y con la hoja abierta no se ve. -->
       <div class="rs-rapido">
         <span class="rs-chip rs-chip--viaje" *ngIf="viajeElegido as o">
-          <ion-icon name="flag" aria-hidden="true"></ion-icon>Bajá en {{ nombreCorto(o.bajar) }} · {{ viajeMinutosTotal }} min
+          <ion-icon [name]="o.subir2 ? 'swap-horizontal' : 'flag'" aria-hidden="true"></ion-icon>{{ o.subir2 ? 'Cambiá en ' : 'Bajá en ' }}{{ nombreCorto(o.bajar) }} · {{ viajeMinutosTotal }} min
         </span>
         <button type="button" class="rs-chip" *ngIf="nearestStop && !viaje?.origen && caminataInfo as c" [class.on]="caminataActiva"
                 [disabled]="caminataCargando || !sePuedeCaminar" (click)="caminataActiva ? quitarCaminata() : comoLlegar()">
@@ -320,12 +332,30 @@
             </div>
           </li>
           <li class="itin-paso">
-            <span class="itin-ic itin-ic--fin"><ion-icon name="flag" aria-hidden="true"></ion-icon></span>
+            <span class="itin-ic" [class.itin-ic--fin]="!o.subir2"><ion-icon [name]="o.subir2 ? 'swap-horizontal' : 'flag'" aria-hidden="true"></ion-icon></span>
             <div class="itin-txt">
               <strong>Bajá en {{ nombreCorto(o.bajar) }}</strong>
               <span>{{ viajeFinalTexto }}</span>
             </div>
           </li>
+          <!-- Con transbordo: el segundo bus y dónde bajar de él. -->
+          <ng-container *ngIf="o.transbordo && o.ruta2 && o.subir2 && o.bajar2">
+            <li class="itin-paso itin-paso--bus">
+              <span class="itin-ic" [style.background]="colorRuta(o.ruta2.color)" [style.color]="tintaRuta(o.ruta2.color)"><ion-icon name="bus" aria-hidden="true"></ion-icon></span>
+              <div class="itin-txt">
+                <strong>Tomá la {{ o.ruta2.nombre }} en {{ nombreCorto(o.subir2) }}</strong>
+                <span>{{ o.transbordo.minutosEnBus }} min hacia {{ o.hacia2 }} · calculá unos {{ o.transbordo.minutosEspera }} min de espera</span>
+              </div>
+              <button type="button" class="bx-btn bx-btn--sm bx-btn--sec" (click)="seguirTransbordo()">Ver bus</button>
+            </li>
+            <li class="itin-paso">
+              <span class="itin-ic itin-ic--fin"><ion-icon name="flag" aria-hidden="true"></ion-icon></span>
+              <div class="itin-txt">
+                <strong>Bajá en {{ nombreCorto(o.bajar2) }}</strong>
+                <span>{{ viajeFinal2Texto }}</span>
+              </div>
+            </li>
+          </ng-container>
         </ol>
 
         <dl class="itin-resumen">
@@ -339,10 +369,10 @@
             <dd class="bx-mono">~{{ h }}</dd>
             <small>{{ viaje?.origen ? 'si salís ya de ' + viaje!.origen!.nombre : 'si salís ya' }}</small>
           </div>
-          <div *ngIf="o.ruta.precio">
+          <div *ngIf="precioOpcion(o) as precio">
             <dt>Pagás</dt>
-            <dd class="bx-mono">₡{{ o.ruta.precio | number:'1.0-0' }}</dd>
-            <small *ngIf="tarifaPrincipal as t">65+: {{ tarifaAM(t.tarifa_adulto_mayor) }}</small>
+            <dd class="bx-mono">₡{{ precio | number:'1.0-0' }}</dd>
+            <small *ngIf="!o.ruta2 && tarifaPrincipal as t">65+: {{ tarifaAM(t.tarifa_adulto_mayor) }}</small>
           </div>
         </dl>
       </div>
@@ -439,7 +469,17 @@
       </div>
       </div>
 
-      <button class="bx-btn bx-btn--pri bx-btn--lg bx-btn--bloque rs-comprar" *ngIf="ruta.precio"
+      <!-- Sin pasarela de pago todavía: se muestra el pasaje, no se vende. -->
+      <div class="rs-pasaje" *ngIf="ruta.precio && !ventaBoletosActiva">
+        <ion-icon name="qr-code-outline" aria-hidden="true"></ion-icon>
+        <span class="rs-pasaje-txt">
+          <span>Pasaje</span>
+          <small>Compra en la app: próximamente</small>
+        </span>
+        <b class="bx-mono">₡{{ ruta.precio | number:'1.0-0' }}</b>
+      </div>
+
+      <button class="bx-btn bx-btn--pri bx-btn--lg bx-btn--bloque rs-comprar" *ngIf="ruta.precio && ventaBoletosActiva"
               [disabled]="comprandoBoleto" [attr.aria-busy]="comprandoBoleto" (click)="comprarBoleto()">
         <span class="bx-btn__giro" *ngIf="comprandoBoleto" aria-hidden="true"></span>
         <ion-icon name="qr-code-outline" aria-hidden="true" *ngIf="!comprandoBoleto"></ion-icon>
@@ -495,19 +535,30 @@
         <button type="button" class="vj-op" *ngFor="let o of v.opciones" (click)="elegirOpcion(o)">
           <span class="vj-op-cabeza">
             <bx-ruta [nombre]="o.ruta.nombre" [color]="o.ruta.color"></bx-ruta>
-            <span class="vj-op-empresa">{{ empresaNombre(o.ruta) }}</span>
+            <ng-container *ngIf="o.ruta2">
+              <ion-icon name="arrow-forward" class="vj-op-flecha" aria-hidden="true"></ion-icon>
+              <bx-ruta [nombre]="o.ruta2.nombre" [color]="o.ruta2.color"></bx-ruta>
+            </ng-container>
+            <span class="vj-op-empresa">{{ o.ruta2 ? '' : empresaNombre(o.ruta) }}</span>
             <span class="vj-total"><strong class="bx-mono">{{ o.minutosTotal }}</strong><span>min</span></span>
           </span>
           <!-- El viaje entero en una barra: cada tramo mide lo que dura. -->
-          <span class="vj-barra" role="img" [attr.aria-label]="o.minutosAlSubir + ' minutos a pie, ' + o.minutosEnBus + ' en bus y ' + o.minutosAlDestino + ' a pie'">
+          <span class="vj-barra" role="img" [attr.aria-label]="o.transbordo
+              ? o.minutosAlSubir + ' minutos a pie, ' + o.minutosEnBus + ' en bus, ' + o.minutosAlDestino + ' a pie para cambiar, ' + o.transbordo.minutosEnBus + ' en el segundo bus y ' + o.transbordo.minutosAlDestino + ' a pie'
+              : o.minutosAlSubir + ' minutos a pie, ' + o.minutosEnBus + ' en bus y ' + o.minutosAlDestino + ' a pie'">
             <span class="vj-tramo vj-tramo--pie" [style.flex-grow]="o.minutosAlSubir"><ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlSubir }}</span>
             <span class="vj-tramo vj-tramo--bus" [style.flex-grow]="o.minutosEnBus" [style.background]="colorRuta(o.ruta.color)" [style.color]="tintaRuta(o.ruta.color)"><ion-icon name="bus" aria-hidden="true"></ion-icon>{{ o.minutosEnBus }}</span>
             <span class="vj-tramo vj-tramo--pie" [style.flex-grow]="o.minutosAlDestino"><ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.minutosAlDestino }}</span>
+            <ng-container *ngIf="o.transbordo && o.ruta2">
+              <span class="vj-tramo vj-tramo--bus" [style.flex-grow]="o.transbordo.minutosEnBus" [style.background]="colorRuta(o.ruta2.color)" [style.color]="tintaRuta(o.ruta2.color)"><ion-icon name="bus" aria-hidden="true"></ion-icon>{{ o.transbordo.minutosEnBus }}</span>
+              <span class="vj-tramo vj-tramo--pie" [style.flex-grow]="o.transbordo.minutosAlDestino"><ion-icon name="walk" aria-hidden="true"></ion-icon>{{ o.transbordo.minutosAlDestino }}</span>
+            </ng-container>
           </span>
-          <span class="vj-paradas">Subí en {{ nombreCorto(o.subir) }} · bajá en {{ nombreCorto(o.bajar) }}</span>
+          <span class="vj-paradas" *ngIf="!o.subir2">Subí en {{ nombreCorto(o.subir) }} · bajá en {{ nombreCorto(o.bajar) }}</span>
+          <span class="vj-paradas" *ngIf="o.subir2">Con un cambio de bus en {{ nombreCorto(o.bajar) }}</span>
           <span class="vj-op-pie">
             <ng-container *ngTemplateOutlet="tplEspera; context: { $implicit: esperaDe(o) }"></ng-container>
-            <span class="vj-precio bx-mono" *ngIf="o.ruta.precio">₡{{ o.ruta.precio | number:'1.0-0' }}</span>
+            <span class="vj-precio bx-mono" *ngIf="precioOpcion(o) as precio">₡{{ precio | number:'1.0-0' }}</span>
           </span>
         </button>
         <p class="vj-nota">Tiempos aproximados, sin contar la espera del bus. Tocá una ruta para ver el viaje paso a paso.</p>
@@ -588,6 +639,11 @@
       </span>
     </div>
 
+    <!-- El modelo que eligió la empresa, para reconocer el bus en la calle. -->
+    <div class="sheet-modelo" *ngIf="selectedBusModelo as m">
+      <bx-bus-modelo [modelo]="m" vista="lado" [color]="selectedBusColor"></bx-bus-modelo>
+      <span>{{ nombreModelo(m) }}</span>
+    </div>
     <!-- Lo que más importa, grande. Con el GPS viejo nunca va un número solo:
          un rango con la aclaración, o "Sin dato" (ver mostrarLlegada). -->
     <div class="bs-llegada" *ngIf="selectedBusLlegada as llegada" [class.bs-llegada--duda]="!llegada.confiable" aria-live="polite">
@@ -612,6 +668,18 @@
     <div class="sheet-updated" [ngClass]="'sheet-updated--' + selectedBusSenal">
       <span class="pulse-dot" aria-hidden="true"></span>
       Último GPS {{ selectedBusAgeText | lowercase }}
+    </div>
+
+    <!-- Calificar: una por bus y por día. -->
+    <div class="sheet-calificar">
+      <span>{{ estrellasDadas ? 'Ya calificaste este bus hoy' : '¿Cómo va este bus?' }}</span>
+      <div class="sc-estrellas" role="group" aria-label="Calificar este bus">
+        <button type="button" *ngFor="let n of UNO_A_CINCO" [class.on]="n <= estrellasDadas"
+                [disabled]="!!estrellasDadas || calificandoBus" (click)="calificarBus(n)"
+                [attr.aria-label]="'Calificar con ' + n + (n === 1 ? ' estrella' : ' estrellas')">
+          <ion-icon [name]="n <= estrellasDadas ? 'star' : 'star-outline'" aria-hidden="true"></ion-icon>
+        </button>
+      </div>
     </div>
 
     <button class="bx-btn bx-btn--lg bx-btn--bloque follow-btn" [class.bx-btn--pri]="!followingBus" [class.bx-btn--sec]="followingBus" (click)="toggleFollow()">
@@ -752,6 +820,179 @@
         <ion-icon name="chevron-forward" class="ed-chevron"></ion-icon>
       </div>
       <div class="ed-empty" *ngIf="!misBoletos.length">Todavía no comprás boletos</div>
+    </div>
+  </section>
+
+  <!-- ====== MIS VIAJES (historial) ====== -->
+  <section class="empresa-detail-screen viajes-screen" [class.open]="viajesSheetOpen" aria-label="Mis viajes">
+    <div class="ed-topbar">
+      <ion-icon name="chevron-back" class="ed-back" (click)="closeMisViajes()"></ion-icon>
+      <div class="ed-info">
+        <strong>Mis viajes</strong>
+        <span>Los viajes que armaste con Buxci</span>
+      </div>
+    </div>
+
+    <div class="ed-list">
+      <div class="mv-fila" *ngFor="let v of misViajes" (click)="repetirViaje(v)">
+        <div class="mv-cab">
+          <span class="mv-fecha">{{ v.created_at | date:'d MMM · h:mm a' }}</span>
+          <span class="mv-estado" [class.hecho]="v.completado">{{ v.completado ? 'Completado' : 'Planeado' }}</span>
+        </div>
+        <strong class="mv-destino">{{ v.destino_nombre }}</strong>
+        <div class="mv-rutas">
+          <bx-ruta *ngIf="v.ruta" [nombre]="v.ruta.nombre" [color]="v.ruta.color"></bx-ruta>
+          <ion-icon *ngIf="v.ruta2" name="arrow-forward" aria-hidden="true"></ion-icon>
+          <bx-ruta *ngIf="v.ruta2" [nombre]="v.ruta2.nombre" [color]="v.ruta2.color"></bx-ruta>
+          <span class="mv-paradas" *ngIf="v.subir || v.bajar">
+            {{ v.subir?.nombre || '—' }} → {{ v.bajar?.nombre || '—' }}
+          </span>
+        </div>
+        <div class="mv-acciones">
+          <span class="mv-repetir"><ion-icon name="refresh" aria-hidden="true"></ion-icon> Repetir</span>
+          <button type="button" class="mv-borrar" (click)="borrarViaje(v, $event)" aria-label="Borrar este viaje">
+            <ion-icon name="trash-outline" aria-hidden="true"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="lp-empty" *ngIf="misViajesCargando">
+        <ion-spinner name="dots"></ion-spinner>
+      </div>
+      <div class="lp-empty" *ngIf="!misViajesCargando && !misViajes.length">
+        <ion-icon name="time-outline"></ion-icon>
+        <strong>Todavía no hay viajes</strong>
+        <span>Buscá a dónde vas y elegí cómo llegar: el viaje queda anotado acá para repetirlo de un toque.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== INSTALAR LA APP ====== -->
+  <section class="empresa-detail-screen instalar-screen" [class.open]="instalarOpen" aria-label="Instalar Buxci">
+    <div class="ed-topbar">
+      <ion-icon name="chevron-back" class="ed-back" (click)="cerrarInstalar()"></ion-icon>
+      <div class="ed-info">
+        <strong>Instalar Buxci</strong>
+        <span>Gratis, sin pasar por la tienda de apps</span>
+      </div>
+    </div>
+
+    <div class="ay-cuerpo">
+      <div class="in-cabeza">
+        <img src="assets/icon/buxci-icon-180.png" alt="" />
+        <p>Queda en tu pantalla de inicio como cualquier app: se abre a pantalla completa y te pueden llegar los avisos de tus empresas.</p>
+      </div>
+
+      <ng-container *ngIf="esIos; else otrosTelefonos">
+        <h3 class="ay-titulo">En tu iPhone, desde Safari</h3>
+        <ol class="in-pasos">
+          <li>
+            <span class="in-ic"><ion-icon name="share-outline" aria-hidden="true"></ion-icon></span>
+            <div><strong>Tocá Compartir</strong><span>El cuadrado con la flecha hacia arriba, en la barra de Safari.</span></div>
+          </li>
+          <li>
+            <span class="in-ic"><ion-icon name="add-circle-outline" aria-hidden="true"></ion-icon></span>
+            <div><strong>Elegí «Agregar a inicio»</strong><span>Si no aparece, deslizá la lista hacia arriba.</span></div>
+          </li>
+          <li>
+            <span class="in-ic"><ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon></span>
+            <div><strong>Tocá «Agregar»</strong><span>Arriba a la derecha.</span></div>
+          </li>
+          <li>
+            <span class="in-ic"><ion-icon name="notifications-outline" aria-hidden="true"></ion-icon></span>
+            <div><strong>Abrí Buxci desde el ícono nuevo</strong><span>Y en Ajustes activá «Avisos en el teléfono».</span></div>
+          </li>
+        </ol>
+      </ng-container>
+
+      <ng-template #otrosTelefonos>
+        <button type="button" class="bx-btn bx-btn--pri bx-btn--bloque" *ngIf="puedeInstalarDirecto" (click)="instalarAhora()">
+          <ion-icon name="download-outline" aria-hidden="true"></ion-icon> Instalar Buxci
+        </button>
+        <ng-container *ngIf="!puedeInstalarDirecto">
+          <h3 class="ay-titulo">Desde el navegador</h3>
+          <ol class="in-pasos">
+            <li>
+              <span class="in-ic"><ion-icon name="ellipsis-vertical" aria-hidden="true"></ion-icon></span>
+              <div><strong>Abrí el menú del navegador</strong><span>Los tres puntos, arriba a la derecha.</span></div>
+            </li>
+            <li>
+              <span class="in-ic"><ion-icon name="download-outline" aria-hidden="true"></ion-icon></span>
+              <div><strong>Tocá «Instalar app»</strong><span>O «Agregar a pantalla principal», según el navegador.</span></div>
+            </li>
+          </ol>
+        </ng-container>
+      </ng-template>
+    </div>
+  </section>
+
+  <!-- ====== AYUDA Y CONTACTO ====== -->
+  <section class="empresa-detail-screen ayuda-screen" [class.open]="ayudaOpen" aria-label="Ayuda y contacto">
+    <div class="ed-topbar">
+      <ion-icon name="chevron-back" class="ed-back" (click)="cerrarAyuda()"></ion-icon>
+      <div class="ed-info">
+        <strong>Ayuda y contacto</strong>
+      </div>
+    </div>
+
+    <div class="ay-cuerpo">
+      <h3 class="ay-titulo">Preguntas frecuentes</h3>
+      <div class="ay-faq">
+        <div class="ay-q" *ngFor="let f of FAQ; let i = index" [class.abierta]="faqAbierta === i">
+          <button type="button" (click)="faqAbierta = faqAbierta === i ? null : i" [attr.aria-expanded]="faqAbierta === i">
+            <span>{{ f.p }}</span>
+            <ion-icon [name]="faqAbierta === i ? 'chevron-up' : 'chevron-down'" aria-hidden="true"></ion-icon>
+          </button>
+          <p *ngIf="faqAbierta === i">{{ f.r }}</p>
+        </div>
+      </div>
+
+      <h3 class="ay-titulo">Escribinos</h3>
+      <ng-container *ngIf="!esInvitado; else ayudaInvitado">
+        <div class="ay-tipos" role="radiogroup" aria-label="Sobre qué nos escribís">
+          <button type="button" *ngFor="let t of TIPOS_AYUDA" class="pp-chip" role="radio"
+                  [class.on]="ayudaTipo === t.tipo" [attr.aria-checked]="ayudaTipo === t.tipo"
+                  (click)="ayudaTipo = t.tipo">{{ t.texto }}</button>
+        </div>
+
+        <ng-container *ngIf="ayudaNecesitaEmpresa">
+          <label class="ay-label" for="ay-empresa">Empresa</label>
+          <select id="ay-empresa" class="ay-campo" [(ngModel)]="ayudaEmpresaId">
+            <option [ngValue]="null" disabled>Elegí la empresa</option>
+            <option *ngFor="let e of empresas" [ngValue]="e.id">{{ e.nombre }}</option>
+          </select>
+        </ng-container>
+
+        <label class="ay-label" for="ay-mensaje">Mensaje</label>
+        <textarea id="ay-mensaje" class="ay-campo" rows="5" maxlength="1000"
+                  [(ngModel)]="ayudaMensaje" [placeholder]="ayudaPlaceholder"></textarea>
+        <p class="ay-nota">{{ ayudaNecesitaEmpresa ? 'Lo leen la empresa y el equipo de Buxci.' : 'Lo lee el equipo de Buxci.' }}</p>
+
+        <button type="button" class="bx-btn bx-btn--pri bx-btn--bloque" [disabled]="enviandoAyuda"
+                [attr.aria-busy]="enviandoAyuda" (click)="enviarAyuda()">
+          {{ enviandoAyuda ? 'Enviando…' : 'Enviar' }}
+        </button>
+
+        <ng-container *ngIf="misMensajes.length">
+          <h3 class="ay-titulo">Tus mensajes</h3>
+          <div class="ay-msj" *ngFor="let m of misMensajes">
+            <div class="ay-msj-cab">
+              <strong>{{ tituloMensaje(m) }}</strong>
+              <span class="ay-estado" [class.ay-estado--hecho]="m.estado === 'resuelto'">{{ estadoMensaje(m) }}</span>
+            </div>
+            <p>{{ m.descripcion }}</p>
+            <p class="ay-resp" *ngIf="m.respuesta_jirb"><b>Respuesta:</b> {{ m.respuesta_jirb }}</p>
+            <small>{{ m.created_at | date:'d MMM, h:mm a' }}</small>
+          </div>
+        </ng-container>
+      </ng-container>
+
+      <ng-template #ayudaInvitado>
+        <p class="ay-nota">Para escribirnos desde la app necesitás una cuenta gratis.</p>
+        <button type="button" class="bx-btn bx-btn--sec bx-btn--bloque" (click)="irAEntrar()">Entrar o crear cuenta</button>
+      </ng-template>
+
+      <p class="ay-correo">También podés escribirnos a <a href="mailto:hola@buxci.com">hola&#64;buxci.com</a></p>
     </div>
   </section>
 
@@ -1166,7 +1407,7 @@
         <div class="lp-empty" *ngIf="!notificacionesLoading && !notificationsEnabled">
           <ion-icon name="notifications-off-outline"></ion-icon>
           <strong>Tenés las notificaciones apagadas</strong>
-          <span>Activalas desde tu perfil para volver a recibir los avisos de las empresas que seguís.</span>
+          <span>Activalas en Ajustes para volver a recibir los avisos de las empresas que seguís.</span>
         </div>
 
         <div class="lp-empty" *ngIf="!notificacionesLoading && notificationsEnabled && alertasError">
@@ -1196,10 +1437,17 @@
 
   <aside class="profile-panel" [class.open]="profilePanelOpen">
     <div class="pp-head">
-      <div class="pp-avatar">
+      <!-- Con cuenta, la foto es el botón para cambiarla. -->
+      <label class="pp-avatar" [class.pp-avatar--editable]="!esInvitado" [attr.title]="esInvitado ? null : 'Cambiar foto'">
         <ion-icon name="person"></ion-icon>
         <img *ngIf="avatarUrl as url" [src]="url" alt="" class="av-photo" />
-      </div>
+        <span class="pp-avatar-cam" *ngIf="!esInvitado" aria-hidden="true">
+          <ion-spinner *ngIf="subiendoFoto" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!subiendoFoto" name="camera"></ion-icon>
+        </span>
+        <input *ngIf="!esInvitado" type="file" accept="image/png,image/jpeg,image/webp" class="pp-avatar-input"
+               [disabled]="subiendoFoto" (change)="onFotoElegida($event)" aria-label="Cambiar foto de perfil" />
+      </label>
       <div class="pp-id">
         <strong>{{ displayName }}</strong>
         <span>{{ displayEmail }}</span>
@@ -1238,6 +1486,10 @@
             (click)="editProvincia = p">{{ p }}</button>
         </div>
 
+        <button type="button" class="pp-quitar-foto" *ngIf="avatarUrl" [disabled]="subiendoFoto" (click)="quitarFoto()">
+          Quitar foto de perfil
+        </button>
+
         <div class="pp-form-actions">
           <button class="bx-btn bx-btn--ghost" (click)="cancelEditProfile()">Cancelar</button>
           <button class="bx-btn bx-btn--pri" [disabled]="savingProfile" [attr.aria-busy]="savingProfile" (click)="saveProfile()">
@@ -1246,7 +1498,36 @@
         </div>
       </div>
 
+      <!-- ---- Cambiar contraseña, en el mismo panel ---- -->
+      <button type="button" class="pp-link pp-link--btn" *ngIf="!cambiandoClave" (click)="startCambiarClave()">
+        <ion-icon name="key-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Cambiar contraseña</span><small>Sin tener que salir de la cuenta</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
+
+      <div class="pp-form" *ngIf="cambiandoClave">
+        <label for="pp-clave">Contraseña nueva</label>
+        <input id="pp-clave" type="password" [(ngModel)]="claveNueva" autocomplete="new-password" maxlength="72" />
+
+        <label for="pp-clave2">Repetila</label>
+        <input id="pp-clave2" type="password" [(ngModel)]="claveConfirmar" autocomplete="new-password" maxlength="72" />
+
+        <p class="pp-ayuda">Tiene que tener {{ reglaClave }}.</p>
+
+        <div class="pp-form-actions">
+          <button class="bx-btn bx-btn--ghost" (click)="cancelCambiarClave()">Cancelar</button>
+          <button class="bx-btn bx-btn--pri" [disabled]="guardandoClave" [attr.aria-busy]="guardandoClave" (click)="guardarClave()">
+            {{ guardandoClave ? 'Guardando…' : 'Guardar' }}
+          </button>
+        </div>
+      </div>
+
       <h3 class="pp-seccion">Lo tuyo</h3>
+      <button type="button" class="pp-link pp-link--btn" (click)="openMisViajes()">
+        <ion-icon name="time-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Mis viajes</span><small>Los viajes que armaste, para repetirlos</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
       <button type="button" class="pp-link pp-link--btn" (click)="openMisBoletos()">
         <ion-icon name="qr-code-outline" aria-hidden="true"></ion-icon>
         <span class="pp-txt"><span>Mis boletos</span><small>El QR que escanea el chofer</small></span>
@@ -1267,6 +1548,11 @@
       <button type="button" class="pp-link pp-link--btn" (click)="abrirAjustesDesdePerfil()">
         <ion-icon name="settings-outline" aria-hidden="true"></ion-icon>
         <span class="pp-txt"><span>Ajustes</span><small>Avisos, mapa y privacidad</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+      </button>
+      <button type="button" class="pp-link pp-link--btn" (click)="abrirAyuda()">
+        <ion-icon name="help-circle-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Ayuda y contacto</span><small>Preguntas frecuentes y escribinos</small></span>
         <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
       </button>
     </div>
@@ -1342,6 +1628,22 @@
         <ion-icon name="cube-outline" aria-hidden="true"></ion-icon>
         <span class="pp-txt"><span>Vista en 3D</span><small>Edificios y mapa inclinado</small></span>
         <span class="pp-switch" [class.on]="is3D" aria-hidden="true"><i></i></span>
+      </button>
+
+      <ng-container *ngIf="!estaInstalada">
+        <h3 class="pp-seccion">App</h3>
+        <button type="button" class="pp-link pp-link--btn" (click)="abrirInstalar()">
+          <ion-icon name="download-outline" aria-hidden="true"></ion-icon>
+          <span class="pp-txt"><span>Instalar Buxci</span><small>En tu pantalla de inicio, como una app</small></span>
+          <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
+        </button>
+      </ng-container>
+
+      <h3 class="pp-seccion">Ayuda</h3>
+      <button type="button" class="pp-link pp-link--btn" (click)="abrirAyuda()">
+        <ion-icon name="help-circle-outline" aria-hidden="true"></ion-icon>
+        <span class="pp-txt"><span>Ayuda y contacto</span><small>Preguntas frecuentes y escribinos</small></span>
+        <ion-icon name="chevron-forward" class="pp-chev" aria-hidden="true"></ion-icon>
       </button>
 
       <h3 class="pp-seccion">Legal</h3>

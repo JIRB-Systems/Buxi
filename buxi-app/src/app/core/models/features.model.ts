@@ -68,6 +68,25 @@ export interface UserPreferences {
   notificaciones_vistas_at: string | null;
 }
 
+// Un viaje del historial del pasajero (20261109120400).
+export interface ViajePasajero {
+  id: string;
+  ruta_id: string | null;
+  ruta2_id: string | null;
+  subir_parada_id: string | null;
+  bajar_parada_id: string | null;
+  destino_nombre: string;
+  destino_lat: number;
+  destino_lng: number;
+  completado: boolean;
+  created_at: string;
+  ruta?: { nombre: string; color: string | null } | null;
+  ruta2?: { nombre: string; color: string | null } | null;
+  subir?: { nombre: string } | null;
+  bajar?: { nombre: string } | null;
+}
+
+
 export interface Viaje {
   id: string;
   bus_id: string;
@@ -174,7 +193,11 @@ export interface Boleto {
 
 export interface ReporteBug {
   id: string;
-  empresa_id: string;
+  // Null en los mensajes de pasajeros que no son sobre una empresa (problema
+  // con la app, sugerencia): esos solo los lee JIRB (20261109120200).
+  empresa_id: string | null;
+  // 'equipo': de la empresa o sus choferes. 'pasajero': desde Ayuda y contacto.
+  origen?: 'equipo' | 'pasajero';
   autor_id: string | null;
   titulo: string;
   descripcion: string;
@@ -186,6 +209,17 @@ export interface ReporteBug {
   empresa?: { nombre: string };
   autor?: { nombre_completo: string };
 }
+
+// Lo que el pasajero le puede escribir a Buxci o a una empresa. Los títulos
+// son los únicos que la base le acepta a un pasajero (20261109120200).
+export type TipoMensajePasajero = 'problema' | 'sugerencia' | 'queja' | 'felicitacion';
+
+export const TITULO_MENSAJE_PASAJERO: Record<TipoMensajePasajero, string> = {
+  problema: 'Pasajero: problema en la app',
+  sugerencia: 'Pasajero: sugerencia',
+  queja: 'Pasajero: queja',
+  felicitacion: 'Pasajero: felicitación',
+};
 
 export interface AvisoSistema {
   id: string;

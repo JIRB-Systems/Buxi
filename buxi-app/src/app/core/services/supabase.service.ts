@@ -210,6 +210,32 @@ export class SupabaseService {
     return data as UserProfile;
   }
 
+  // Foto de perfil en el balde `avatares`, dentro de la carpeta del usuario
+  // (20261109120100). Nombre nuevo cada vez: así cambia la URL y ningún caché
+  // sigue mostrando la vieja. Devuelve la URL pública.
+  async subirFotoPerfil(foto: Blob): Promise<string> {
+    const uid = this.currentSession?.user.id;
+    if (!uid) throw new Error('No hay sesión activa');
+    const ruta = `${uid}/${crypto.randomUUID()}.jpg`;
+    const { error } = await this.supabase.storage.from('avatares')
+      .upload(ruta, foto, { contentType: 'image/jpeg', upsert: false });
+    if (error) throw error;
+    return this.supabase.storage.from('avatares').getPublicUrl(ruta).data.publicUrl;
+  }
+
+  // Borra una foto anterior del usuario. Si la URL no es de su carpeta en
+  // `avatares` (por ejemplo, la de Google), no toca nada.
+  async borrarFotoPerfil(url: string | null | undefined): Promise<void> {
+    const uid = this.currentSession?.user.id;
+    const marca = '/storage/v1/object/public/avatares/';
+    const i = url ? url.indexOf(marca) : -1;
+    if (!uid || !url || i < 0) return;
+    const ruta = decodeURIComponent(url.slice(i + marca.length).split('?')[0]);
+    if (!ruta.startsWith(`${uid}/`)) return;
+    const { error } = await this.supabase.storage.from('avatares').remove([ruta]);
+    if (error) throw error;
+  }
+
   async updateProfile(updates: Partial<UserProfile>) {
     const session = this.currentSession;
     if (!session) throw new Error('No hay sesión activa');

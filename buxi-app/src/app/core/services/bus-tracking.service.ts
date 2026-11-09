@@ -171,6 +171,10 @@ export class BusTrackingService implements OnDestroy {
         ruta_id: f.ruta_id,
         placa: f.placa,
         numero_unidad: f.numero_unidad,
+        // Color propio y modelo (bus o flota): desde 20261109120000. Antes de
+        // esa migración llegan undefined y el mapa sigue con el de la flota.
+        color_bus: f.bus_color ?? null,
+        modelo_bus: f.modelo ?? null,
         ruta: f.ruta_id ? { nombre: f.ruta_nombre, color: f.ruta_color } : undefined,
         empresa: { nombre: f.empresa_nombre, color_bus: f.empresa_color },
       } as any,
@@ -298,19 +302,6 @@ export class BusTrackingService implements OnDestroy {
       .subscribe();
 
     return this.busLocations$;
-  }
-
-  // El Map de arriba acumula todo bus visto en la sesión y se reemite entero en
-  // cada INSERT. Al dejar de seguir una empresa, RLS deja de mandar sus puntos,
-  // pero los que ya estaban acá volverían a pintarse con el próximo evento de
-  // cualquier otro bus: por eso hay que olvidarlos también de este lado.
-  //
-  // No se reemite: quien llama ya los sacó de su propio mapa, y reemitir haría
-  // reprocesar toda la flota de nuevo. Los suscriptores reciben copias (ver el
-  // `new Map(current)` de arriba), así que tocar este Map no les cambia nada.
-  olvidarBuses(busIds: Iterable<string>) {
-    const current = this._busLocations.value;
-    for (const id of busIds) current.delete(id);
   }
 
   unsubscribe() {

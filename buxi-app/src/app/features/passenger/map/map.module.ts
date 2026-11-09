@@ -6,6 +6,7 @@ import { RouterModule } from '@angular/router';
 import { MapPage } from './map.page';
 import { DatoComponent, PlacaComponent, RutaInsigniaComponent } from '../../../shared/transporte/transporte';
 import { ArrastreHojaDirective } from '../../../shared/arrastre-hoja.directive';
+import { BusModeloComponent } from '../../../shared/transporte/bus-modelo';
 
 @NgModule({
   declarations: [MapPage],
@@ -18,6 +19,7 @@ import { ArrastreHojaDirective } from '../../../shared/arrastre-hoja.directive';
     DatoComponent,
     ArrastreHojaDirective,
     PlacaComponent,
+    BusModeloComponent,
   ],
 })
 export class MapPageModule {}
