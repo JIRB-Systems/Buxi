@@ -33,6 +33,7 @@ import { nombreCortoLugar } from '../../../core/utils/lugar';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
+  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO,
 } from '../../../core/utils/bus-sprite';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
@@ -1655,8 +1656,41 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private refrescarIconos() {
     this.busIcono.clear();
     this.busLocationsMap.forEach((loc, id) => this.busIcono.set(
-      id, this.registrarIconoBus(this.estadoDeBus(loc), this.busColor(loc), this.dirDeBus(loc))));
+      id, this.iconoDe(loc)));
     this.pintarBuses(performance.now());
+  }
+
+  // El ícono de un bus: en 2D, el bus visto desde arriba con el modelo que
+  // eligió su empresa; en 3D (o mientras el de arriba se termina de dibujar),
+  // el sprite isométrico.
+  private iconoDe(loc: BusLocation): string {
+    const estado = this.estadoDeBus(loc);
+    if (!this.is3D) {
+      const plano = registrarIconoPlano(
+        this.map, this.busModelo.get(loc.bus_id), this.colorDeEstado(estado, this.busColor(loc)),
+        this.busIconosRegistrados, this.alCargarPlano);
+      if (plano) return plano;
+    }
+    return this.registrarIconoBus(estado, this.busColor(loc), this.dirDeBus(loc));
+  }
+
+  private alCargarPlano = () => { if (!this.destroyed && !this.is3D) this.refrescarIconos(); };
+
+  // Ajusta la capa de buses a la vista: en 3D el sprite va parado y anclado
+  // abajo; en 2D va acostado, centrado y girado con el rumbo. Las etiquetas
+  // se corren porque el bus ya no queda por encima del punto sino encima.
+  private aplicarVistaBuses() {
+    if (!this.map) return;
+    aplicarLayoutIconoBus(this.map, this.BUSES_LAYER, this.is3D);
+    try {
+      if (this.map.getLayer(this.BUSES_LAYER)) {
+        this.map.setLayoutProperty(this.BUSES_LAYER, 'text-offset', this.is3D ? [0, 0.25] : [0, 2]);
+      }
+      if (this.map.getLayer(this.BUSES_COD_LAYER)) {
+        this.map.setLayoutProperty(this.BUSES_COD_LAYER, 'text-offset', this.is3D ? [1, -2.5] : [1.2, -1.2]);
+      }
+    } catch { /* el estilo se está cambiando */ }
+    this.refrescarIconos();
   }
 
   // Lo propio del pasajero es el color: el estado vivo del bus (retrasado, en
@@ -2079,6 +2113,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       setRelieve(this.map, this.tipoMapa === 'relieve', this.darkMode);
       try { capaComercios(this.map, this.darkMode); } catch {}
       try { paradasDelMapaBase(this.map, this.darkMode); } catch {}
+      // Vacías por ahora: así sus capas nacen debajo de los buses aunque la
+      // lista llegue después (agregarlas al final las ponía encima).
+      try { paradasMunicipalesPropias(this.map, this.darkMode, []); } catch {}
       this.cargarParadasPropias();
       this.engancharToqueParadas();
 
@@ -2671,6 +2708,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // deja agregar fuentes: la preferencia queda guardada igual y no se rompe.
     if (!this.mapReady) return;
     try { set3DEnabled(this.map, this.is3D, this.darkMode); } catch (e) { logError('cambiar la vista 3D', e); }
+    // El bus cambia de dibujo: parado en 3D, visto desde arriba en 2D.
+    this.aplicarVistaBuses();
     // Mismo criterio que zoomDeVista: al aplanar se abre la vista para no
     // perder los buses que se veían hacia el horizonte, y al inclinar se cierra.
     // Va después de set3DEnabled porque reemplaza su animación.
@@ -3100,12 +3139,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         source: this.BUSES_SRC,
         layout: {
           'icon-image': ['get', 'icon'],
-          // Billboard: el bus se mantiene derecho frente a la cámara, como los
-          // iconos isométricos de la referencia. NO se usa icon-rotate — el
-          // rumbo lo da cuál de los 16 sprites se elige (ver dirDeBus).
-          'icon-rotation-alignment': 'viewport',
-          'icon-pitch-alignment': 'viewport',
-          'icon-anchor': 'bottom',
+          // En 3D, billboard: el bus se mantiene derecho frente a la cámara,
+          // como los iconos isométricos de la referencia, y el rumbo lo da
+          // cuál de los 16 sprites se elige (ver dirDeBus). En 2D, el bus visto
+          // desde arriba acostado sobre el mapa y girado con icon-rotate.
+          ...layoutIconoBus(this.is3D),
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'icon-size': 1,
@@ -3115,7 +3153,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           'text-font': this.fuenteDelEstilo(),
           'text-size': 11,
           'text-anchor': 'top',
-          'text-offset': [0, 0.25],
+          'text-offset': this.is3D ? [0, 0.25] : [0, 2],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
         },
@@ -3152,7 +3190,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           'text-font': this.fuenteNegrita(),
           'text-size': 11,
           'text-anchor': 'bottom-left',
-          'text-offset': [1, -2.5],
+          'text-offset': this.is3D ? [1, -2.5] : [1.2, -1.2],
           'text-max-width': 8,
           'text-padding': 2,
           'icon-image': ['get', 'pastilla'],
@@ -3226,6 +3264,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       const edadS = Math.max(0, (ahora - Date.parse(loc.timestamp)) / 1000);
       const senal = calidadSenal(edadS);
       const cod = this.codigoDeRuta(this.busRuta.get(busId));
+      // El ícono se resuelve cuando llega un punto nuevo, no acá: esto corre
+      // en cada cuadro y calcular estado + color 60 veces por segundo por bus
+      // es trabajo tirado.
+      const icon = this.busIcono.get(busId) || this.iconoDe(loc);
       features.push({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [lng, lat] },
@@ -3238,11 +3280,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           pastilla: cod ? this.pastillaDe(cod.fondo) : '',
           fondo: cod?.fondo ?? '#8292aa',
           tinta: cod?.tinta ?? '#ffffff',
-          // El ícono se resuelve cuando llega un punto nuevo, no acá: esto
-          // corre en cada cuadro y calcular estado + color 60 veces por segundo
-          // por bus es trabajo tirado.
-          icon: this.busIcono.get(busId)
-                || this.registrarIconoBus(this.estadoDeBus(loc), this.busColor(loc), this.dirDeBus(loc)),
+          icon,
+          // Solo el bus visto desde arriba se gira; el isométrico ya trae el
+          // rumbo dibujado.
+          rot: icon.startsWith(PREFIJO_ICONO_PLANO) ? head : 0,
         },
       });
     });
@@ -3291,8 +3332,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (this.busPedido === location.bus_id) setTimeout(() => this.seguirBusCompartido(location));
     this.busIcono.set(
       location.bus_id,
-      this.registrarIconoBus(this.estadoDeBus(location), this.busColor(location),
-                             this.dirDeBus(location)),
+      this.iconoDe(location),
     );
 
     if (previo) {

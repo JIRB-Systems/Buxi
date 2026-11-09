@@ -26,21 +26,22 @@ export class ChoferService {
     return data as Bus | null;
   }
 
-  // El color que la empresa eligió para sus buses en Personalización, o null
-  // si no eligió ninguno (y entonces vale el de cada ruta, como siempre).
+  // El color y el modelo que la empresa eligió para sus buses en
+  // Personalización, o null si no eligió (y entonces vale el color de cada
+  // ruta y el bus urbano, como siempre).
   //
   // Consulta aparte y tolerante al fallo por la misma razón que del lado del
   // pasajero: `color_bus` es una columna nueva (20260919000000). Embebida en
   // el select de getAssignedBus, un 400 por migración sin aplicar dejaría al
   // chofer sin bus asignado — que es toda su pantalla.
-  async getColorBusEmpresa(empresaId: string): Promise<string | null> {
+  async getPersonalizacionEmpresa(empresaId: string): Promise<{ color: string | null; modelo: string | null }> {
     const { data, error } = await this.supabase
-      .from('empresas').select('color_bus').eq('id', empresaId).maybeSingle();
+      .from('empresas').select('color_bus, modelo_bus').eq('id', empresaId).maybeSingle();
     if (error) {
       logError('cargar el color de bus de la empresa', error);
-      return null;
+      return { color: null, modelo: null };
     }
-    return (data as any)?.color_bus || null;
+    return { color: (data as any)?.color_bus || null, modelo: (data as any)?.modelo_bus || null };
   }
 
   // ---- EL RESTO DE LA FLOTA ----
@@ -79,7 +80,7 @@ export class ChoferService {
       // El color de la ruta va acá porque el bus se tiñe con él, igual que en
       // el mapa del pasajero: dos unidades de rutas distintas tienen que
       // distinguirse de un vistazo.
-      .select('id, placa, numero_unidad, empresa_id, ruta:rutas(color)')
+      .select('id, placa, numero_unidad, empresa_id, modelo_bus, ruta:rutas(color)')
       .eq('empresa_id', empresaId);
     if (error) throw error;
     // as unknown de por medio: PostgREST tipa el embed de la ruta como arreglo

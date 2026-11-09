@@ -1,4 +1,5 @@
 import type * as maplibregl from 'maplibre-gl';
+import { MODELO_BUS_DEFECTO, ModeloBus, esModeloBus, svgBus } from './bus-modelos';
 
 // El bus que se ve en el mapa no es un ícono plano: son dos hojas de sprites
 // renderizadas del modelo 3D de Blender (diseno/bus_buxi.blend), con 16
@@ -118,4 +119,116 @@ export function registrarIconoBus(
     registrados.add(id);
   } catch { /* ya estaba registrada */ }
   return id;
+}
+
+// ---- EN 2D: EL BUS VISTO DESDE ARRIBA ----
+//
+// Los sprites de arriba son isométricos: están pensados para la cámara
+// inclinada del 3D. Con el mapa plano, que se mira derecho para abajo, el bus
+// parecía un juguete parado de costado sobre la calle. En 2D va la vista de
+// arriba de bus-modelos (la misma que la empresa ve en Personalización, con
+// el modelo que eligió) y la gira MapLibre con icon-rotate según el rumbo: un
+// dibujo cenital sí se puede rotar sin que se tuerza.
+//
+// Una imagen por modelo y color, no 16: el rumbo lo pone icon-rotate. Pasar
+// un SVG a imagen es asíncrono, así que la primera vez devuelve null y avisa
+// con `alCargar` cuando ya se puede registrar. Mientras tanto (o si falla) el
+// que llama usa el sprite isométrico.
+const PLANO_ESCALA = 0.36;            // px de pantalla por unidad del dibujo
+const PLANO_PR = 3;                   // nitidez en pantallas de alta densidad
+const PLANO_ANCHO = 34, PLANO_ALTO = 184; // el recorte de svgBus(…, 'arriba')
+
+// Compartido por todos los mapas: el dibujo no depende del mapa, solo el
+// registro. null = no se pudo dibujar (no se reintenta: un SVG propio que no
+// decodifica no va a decodificar la segunda vez).
+const planos = new Map<string, ImageData | null>();
+const esperandoPlano = new Map<string, Set<() => void>>();
+
+export const PREFIJO_ICONO_PLANO = 'bus-plano-';
+
+function rasterizarPlano(clave: string, modelo: ModeloBus, color: string, alCargar: () => void): void {
+  const espera = esperandoPlano.get(clave);
+  if (espera) { espera.add(alCargar); return; }
+  esperandoPlano.set(clave, new Set([alCargar]));
+
+  const terminar = (datos: ImageData | null) => {
+    planos.set(clave, datos);
+    const avisar = esperandoPlano.get(clave);
+    esperandoPlano.delete(clave);
+    avisar?.forEach(f => { try { f(); } catch { /* el aviso es de otra pantalla */ } });
+  };
+
+  const w = Math.round(PLANO_ANCHO * PLANO_ESCALA * PLANO_PR);
+  const h = Math.round(PLANO_ALTO * PLANO_ESCALA * PLANO_PR);
+  // Medidas fijas en vez del 100% de svgBus: un SVG sin tamaño propio no se
+  // dibuja en un canvas en todos los navegadores.
+  const svg = svgBus(modelo, 'arriba', color).replace('width="100%" height="100%"', `width="${w}" height="${h}"`);
+  const im = new Image();
+  im.onload = () => {
+    try {
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      if (!ctx) { terminar(null); return; }
+      ctx.drawImage(im, 0, 0, w, h);
+      terminar(ctx.getImageData(0, 0, w, h));
+    } catch {
+      terminar(null);
+    }
+  };
+  im.onerror = () => terminar(null);
+  im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+// Registra (o reutiliza) el bus visto desde arriba en ese modelo y color, y
+// devuelve el id para 'icon-image'; null si todavía no está listo.
+export function registrarIconoPlano(
+  map: maplibregl.Map,
+  modelo: string | null | undefined,
+  color: string,
+  registrados: Set<string>,
+  alCargar: () => void,
+): string | null {
+  const m: ModeloBus = esModeloBus(modelo) ? modelo : MODELO_BUS_DEFECTO;
+  const clave = `${m}-${color.replace('#', '').toLowerCase()}`;
+  const id = PREFIJO_ICONO_PLANO + clave;
+  if (registrados.has(id)) return id;
+
+  const datos = planos.get(clave);
+  if (datos === undefined) { rasterizarPlano(clave, m, color, alCargar); return null; }
+  if (datos === null) return null;
+  try {
+    if (!map.hasImage(id)) map.addImage(id, datos, { pixelRatio: PLANO_PR });
+    registrados.add(id);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+// Cómo se apoya el ícono del bus en el mapa según la vista. En 3D el sprite
+// isométrico va parado frente a la cámara, anclado abajo (las ruedas sobre el
+// punto), y el rumbo ya viene dibujado. En 2D el cenital va acostado sobre el
+// mapa, centrado en el punto y girado con el rumbo de cada bus ('rot').
+export function layoutIconoBus(is3D: boolean): Record<string, any> {
+  return is3D
+    ? {
+      'icon-rotate': 0,
+      'icon-rotation-alignment': 'viewport',
+      'icon-pitch-alignment': 'viewport',
+      'icon-anchor': 'bottom',
+    }
+    : {
+      'icon-rotate': ['coalesce', ['get', 'rot'], 0],
+      'icon-rotation-alignment': 'map',
+      'icon-pitch-alignment': 'map',
+      'icon-anchor': 'center',
+    };
+}
+
+export function aplicarLayoutIconoBus(map: maplibregl.Map, capa: string, is3D: boolean): void {
+  if (!map.getLayer(capa)) return;
+  for (const [k, v] of Object.entries(layoutIconoBus(is3D))) {
+    try { map.setLayoutProperty(capa, k, v); } catch { /* capa de otro tipo */ }
+  }
 }

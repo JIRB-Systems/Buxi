@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, OnInit, OnDestroy, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AlertController, ToastController } from '@ionic/angular';
 import * as maplibregl from 'maplibre-gl';
@@ -12,12 +12,17 @@ import { Bus, Parada } from '../../../core/models/transport.model';
 import { Viaje, Calificacion, MensajeChofer } from '../../../core/models/features.model';
 import { ChoferService } from '../../../core/services/chofer.service';
 import { GpsFondoService } from '../../../core/services/gps-fondo.service';
-import { createMap, set3DEnabled, distanceToPolylineMeters } from '../../../core/utils/maplibre';
+import {
+  createMap, set3DEnabled, distanceToPolylineMeters,
+  capaComercios, paradasDelMapaBase, paradasMunicipalesPropias,
+} from '../../../core/utils/maplibre';
+import { ParadasMunicipalesService } from '../../../core/services/paradas-municipales.service';
 import { logError } from '../../../core/utils/log';
 import { colorSeguro } from '../../../core/utils/html';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
+  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO,
 } from '../../../core/utils/bus-sprite';
 import { supabaseClient } from '../../../core/supabase-client';
 import { suscribirCambios } from '../../../core/utils/live';
@@ -38,7 +43,12 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   tracking = false;
   loading = true;
 
-  is3D = true;
+  // Arranca en 2D, igual que el mapa del pasajero: abre más rápido sin el
+  // relieve ni los edificios. El 3D se prende con el botón y queda recordado
+  // en el teléfono (la misma preferencia que la del pasajero).
+  is3D = (() => {
+    try { return localStorage.getItem('buxci.vista3d.v1') === '1'; } catch { return false; }
+  })();
   profilePanelOpen = false;
   editingProfile = false;
   editName = '';
@@ -143,6 +153,12 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   // Lo elegido por la empresa en Personalización. null = el de cada ruta.
   private colorEmpresa: string | null = null;
+  // El modelo de bus de la empresa (null = urbano) y el propio de cada unidad
+  // de la flota: en 2D se dibuja el bus visto desde arriba con ese modelo.
+  private modeloEmpresa: string | null = null;
+  private flotaModelos = new Map<string, string | null>();
+
+  private readonly paradasMunicipales = inject(ParadasMunicipalesService);
 
   // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
   // ngOnInit termine de resolver el bus asignado (son dos llamadas de red).
@@ -306,11 +322,20 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       container: 'chofer-map',
       center: [-84.0907, 9.9281],
       zoom: 15,
-      pitch: 50,
-      threeD: true,
+      pitch: this.is3D ? 50 : 0,
+      threeD: this.is3D,
       style: 'streets-v2-dark',
     });
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
+
+    // El mismo mapa base que ve el pasajero: comercios al día, paradas
+    // municipales en ámbar, terminales en azul y las que cargó JIRB. Van antes
+    // que todo lo del chofer para quedar debajo de la ruta y de los buses (las
+    // de JIRB nacen vacías por eso mismo, y se llenan cuando llega la lista).
+    try { capaComercios(this.map, true); } catch {}
+    try { paradasDelMapaBase(this.map, true); } catch {}
+    try { paradasMunicipalesPropias(this.map, true, []); } catch {}
+    this.cargarParadasMunicipales();
 
     // Antes de empezar a posicionar nada: el marcador se crea en cuanto llega
     // la primera lectura del GPS, y si los sprites no están todavía nacería
@@ -329,6 +354,16 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     if (!this.destroyed) await this.iniciarFlota();
     // Al final: retomar un viaje necesita el mapa, el GPS y las paradas.
     if (!this.destroyed) await this.revisarViajeAbierto();
+  }
+
+  private async cargarParadasMunicipales() {
+    try {
+      const filas = await this.paradasMunicipales.listar();
+      if (this.destroyed || !this.map) return;
+      paradasMunicipalesPropias(this.map, true, filas);
+    } catch (e) {
+      logError('chofer: no se pudieron cargar las paradas municipales', e);
+    }
   }
 
   // Si la app se cerró o se recargó a mitad de un viaje, ese viaje quedó
@@ -512,15 +547,35 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // pierde lo único que le dice dónde está: no es el mismo trato.
   private iconoBusPropio(): string {
     const color = this.colorDeLaFlota();
+    if (!this.is3D) {
+      const plano = registrarIconoPlano(
+        this.map, this.assignedBus?.modelo_bus || this.modeloEmpresa, color,
+        this.busIconosRegistrados, this.alCargarPlano);
+      if (plano) return plano;
+    }
     const dir = dirDeSprite(this.currentHeading, this.map ? this.map.getBearing() : 0);
     const id = registrarSpriteBus(this.map, this.sprites, color, dir, this.busIconosRegistrados);
     return this.sprites ? id : 'chofer-bus-icon';
   }
 
+  // Cuando el bus visto desde arriba termina de dibujarse, se repintan el
+  // propio y la flota (hasta ahí iban con el isométrico).
+  private alCargarPlano = () => {
+    if (this.destroyed || !this.map || this.is3D) return;
+    try {
+      if (this.currentLat !== 0 || this.currentLng !== 0) this.updateUserMarkerLayer(this.currentLng, this.currentLat);
+      // Solo si ya hay flota dibujada: renderFlota crea la capa si no existe.
+      if (this.map.getSource(this.FLOTA_SRC)) this.renderFlota();
+    } catch { /* sin estilo cargado no hay capas que tocar */ }
+  };
+
   private updateUserMarkerLayer(lng: number, lat: number) {
+    const icon = this.iconoBusPropio();
     const geojson = {
       type: 'Feature' as const,
-      properties: { icon: this.iconoBusPropio() },
+      // Solo el bus visto desde arriba se gira; el isométrico trae el rumbo
+      // dibujado.
+      properties: { icon, rot: icon.startsWith(PREFIJO_ICONO_PLANO) ? this.currentHeading : 0 },
       geometry: { type: 'Point' as const, coordinates: [lng, lat] },
     };
     const src = this.map.getSource(this.USER_SRC) as maplibregl.GeoJSONSource | undefined;
@@ -535,7 +590,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.map.addLayer({
       id: this.USER_HALO_LAYER, type: 'circle', source: this.USER_SRC,
       paint: {
-        'circle-radius': 12,
+        // En 2D el bus va acostado encima del punto: el halo lo rodea.
+        'circle-radius': this.is3D ? 12 : 18,
         'circle-color': '#00c853',
         'circle-opacity': 0.22,
         'circle-stroke-width': 2,
@@ -547,15 +603,14 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       id: this.USER_LAYER, type: 'symbol', source: this.USER_SRC,
       layout: {
         'icon-image': ['get', 'icon'],
-        // Billboard y anclado abajo, igual que en el mapa del pasajero: el
-        // rumbo va horneado en el sprite, no en icon-rotate (un dibujo
-        // isométrico rotado en pantalla se ve torcido).
+        // Igual que en el mapa del pasajero: en 3D billboard y anclado abajo,
+        // con el rumbo horneado en el sprite (un dibujo isométrico rotado en
+        // pantalla se ve torcido); en 2D el bus visto desde arriba, acostado
+        // sobre el mapa y girado con icon-rotate.
         'icon-size': 1,
-        'icon-anchor': 'bottom',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
-        'icon-pitch-alignment': 'viewport',
-        'icon-rotation-alignment': 'viewport',
+        ...layoutIconoBus(this.is3D),
       },
     });
     this.refrescarBusPropio();
@@ -609,7 +664,9 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
     // El color propio de la empresa manda sobre el de la ruta, así que se
     // resuelve antes de armar los iconos de la flota y del bus propio.
-    this.colorEmpresa = await this.choferService.getColorBusEmpresa(empresaId);
+    const personalizacion = await this.choferService.getPersonalizacionEmpresa(empresaId);
+    this.colorEmpresa = personalizacion.color;
+    this.modeloEmpresa = personalizacion.modelo;
     if (this.currentLat !== 0 || this.currentLng !== 0) {
       this.updateUserMarkerLayer(this.currentLng, this.currentLat);
     }
@@ -621,6 +678,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       const ajenos = buses.filter(b => b.id !== this.assignedBus?.id);
       this.flotaEtiquetas = new Map(ajenos.map(b => [b.id, b.numero_unidad || b.placa]));
       this.flotaColores = new Map(ajenos.map(b => [b.id, this.colorDeLaFlota(b.ruta?.color)]));
+      this.flotaModelos = new Map(ajenos.map(b => [b.id, b.modelo_bus || this.modeloEmpresa]));
     } catch (e) {
       logError('chofer: no se pudo cargar la flota de la empresa', e);
       return;
@@ -694,20 +752,26 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     const bearing = this.map.getBearing();
     const data = {
       type: 'FeatureCollection' as const,
-      features: [...this.flotaPosiciones.entries()].map(([busId, p]) => ({
-        type: 'Feature' as const,
-        properties: {
-          etiqueta: this.flotaEtiquetas.get(busId) || '',
-          icon: registrarSpriteBus(
-            this.map,
-            this.sprites,
-            this.flotaColores.get(busId) || this.COLOR_BUS_FALLBACK,
-            dirDeSprite(p.heading, bearing),
-            this.busIconosRegistrados,
-          ),
-        },
-        geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
-      })),
+      features: [...this.flotaPosiciones.entries()].map(([busId, p]) => {
+        const color = this.flotaColores.get(busId) || this.COLOR_BUS_FALLBACK;
+        const plano = this.is3D ? null : registrarIconoPlano(
+          this.map, this.flotaModelos.get(busId), color, this.busIconosRegistrados, this.alCargarPlano);
+        return {
+          type: 'Feature' as const,
+          properties: {
+            etiqueta: this.flotaEtiquetas.get(busId) || '',
+            icon: plano || registrarSpriteBus(
+              this.map,
+              this.sprites,
+              color,
+              dirDeSprite(p.heading, bearing),
+              this.busIconosRegistrados,
+            ),
+            rot: plano ? p.heading : 0,
+          },
+          geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
+        };
+      }),
     };
 
     const src = this.map.getSource(this.FLOTA_SRC) as maplibregl.GeoJSONSource | undefined;
@@ -722,11 +786,9 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       layout: {
         'icon-image': ['get', 'icon'],
         'icon-size': 1,
-        'icon-anchor': 'bottom',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
-        'icon-pitch-alignment': 'viewport',
-        'icon-rotation-alignment': 'viewport',
+        ...layoutIconoBus(this.is3D),
       },
       // Un punto por debajo del propio: son contexto, no el protagonista.
       paint: { 'icon-opacity': 0.9 },
@@ -736,7 +798,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       layout: {
         'text-field': ['get', 'etiqueta'],
         'text-size': 10,
-        'text-offset': [0, 1.4],
+        'text-offset': this.is3D ? [0, 1.4] : [0, 2.2],
         'text-anchor': 'top',
         'text-allow-overlap': false,
         'text-pitch-alignment': 'viewport',
@@ -1156,7 +1218,23 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   toggle3D() {
     this.is3D = !this.is3D;
-    set3DEnabled(this.map, this.is3D, true);
+    try { localStorage.setItem('buxci.vista3d.v1', this.is3D ? '1' : '0'); } catch {}
+    // Sin estilo cargado (sin red, clave rechazada) MapLibre no deja tocar
+    // capas: la preferencia queda guardada igual y no se rompe nada.
+    if (!this.map) return;
+    try { set3DEnabled(this.map, this.is3D, true); } catch (e) { logError('chofer: cambiar la vista 3D', e); }
+    // El bus cambia de dibujo: parado en 3D, visto desde arriba en 2D.
+    aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D);
+    aplicarLayoutIconoBus(this.map, this.FLOTA_LAYER, this.is3D);
+    try {
+      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.is3D ? 12 : 18);
+      if (this.map.getLayer(this.FLOTA_LABEL_LAYER)) this.map.setLayoutProperty(this.FLOTA_LABEL_LAYER, 'text-offset', this.is3D ? [0, 1.4] : [0, 2.2]);
+    } catch { /* el estilo no está listo */ }
+    try {
+      if (this.currentLat !== 0 || this.currentLng !== 0) this.updateUserMarkerLayer(this.currentLng, this.currentLat);
+      // Solo si ya hay flota dibujada: renderFlota crea la capa si no existe.
+      if (this.map.getSource(this.FLOTA_SRC)) this.renderFlota();
+    } catch { /* sin estilo cargado no hay capas que tocar */ }
   }
 
   // ---- REPORTAR INCIDENTE ----
