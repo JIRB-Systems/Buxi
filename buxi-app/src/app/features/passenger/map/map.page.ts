@@ -1589,6 +1589,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     return this.followBusId !== null;
   }
 
+  // Siguiendo un bus, la ficha queda chica (placa, estado, cuánto falta y los
+  // botones): abierta entera tapaba medio mapa y no se veía el bus que se
+  // estaba siguiendo. Tocando la rayita se abre y se vuelve a achicar.
+  fichaChica = true;
+
+  alternarFicha() {
+    if (!this.followingBus) return;
+    this.fichaChica = !this.fichaChica;
+  }
+
   get avatarUrl(): string | null { return this.profile?.foto_url || null; }
   get displayName(): string { return this.profile?.nombre_completo || 'Invitado'; }
   get displayEmail(): string { return this.profile?.correo || ''; }
@@ -5481,6 +5491,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
     const bus = this.selectedBus;
     this.followBusId = bus.bus_id;
+    this.fichaChica = true;
 
     const rutaId = (bus.bus as any)?.ruta_id || this.activeRuta?.id;
     if (rutaId && !this.activeRuta) {
@@ -5499,6 +5510,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       } catch {}
     }
 
+    // Un instante después, para medir el lugar libre con la ficha ya chica.
+    await new Promise(r => setTimeout(r, 60));
+    if (this.followBusId !== bus.bus_id) return;
     this.map.flyTo({
       center: [bus.longitud, bus.latitud],
       zoom: 16.5,
@@ -5531,9 +5545,6 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // ruta e imagen de "Ubicación en vivo": api/compartir.js). En local no hay
     // esa función, así que ahí va el enlace directo al mapa.
     const local = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-    const url = local
-      ? `${window.location.origin}/passenger/map?bus=${encodeURIComponent(id)}`
-      : `${window.location.origin}/v/${encodeURIComponent(id)}`;
 
     // Los puntos que llegan por Realtime no traen el bus: unidad y ruta salen
     // de lo que el mapa ya sabe de él.
@@ -5546,25 +5557,39 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // Arriba de ese bus, el mensaje dice adónde llega y cuándo, como en
     // "Voy en el bus R12 y llego a la terminal en 12 min".
     const ab = this.aBordoBusId === id ? this.aBordo : null;
+    const llega = ab?.bajas && ab.parada && ab.llegada && (ab.llegada === 'Llegando' || /\d/.test(ab.llegada))
+      ? { parada: ab.parada, en: ab.llegada } : null;
     let texto = `Seguí en vivo ${elBus} en Buxci`;
     if (ab) {
       texto = `Voy en ${elBus}`;
-      if (ab.bajas && ab.parada && ab.llegada) {
-        texto += ab.llegada === 'Llegando'
-          ? ` y ya estoy llegando a ${ab.parada}`
-          : /\d/.test(ab.llegada) ? ` y llego a ${ab.parada} en ${ab.llegada}` : '';
+      if (llega) {
+        texto += llega.en === 'Llegando' ? ` y ya estoy llegando a ${llega.parada}` : ` y llego a ${llega.parada} en ${llega.en}`;
       }
       texto += '. Seguime en vivo en Buxci';
     }
+
+    // Adónde llega y en cuánto viaja en el enlace: así lo dice la tarjeta
+    // ("Llega a la Terminal en 12 min"), que es lo que se ve en WhatsApp.
+    const q = new URLSearchParams();
+    if (llega) { q.set('a', llega.parada.slice(0, 60)); q.set('en', llega.en.slice(0, 16)); }
+    const extra = q.toString() ? '?' + q.toString() : '';
+    const url = local
+      ? `${window.location.origin}/passenger/map?bus=${encodeURIComponent(id)}`
+      : `${window.location.origin}/v/${encodeURIComponent(id)}${extra}`;
+
     try {
       if (navigator.share) {
-        await navigator.share({ title: 'Mi bus en Buxci', text: texto, url });
+        // Solo el enlace, sin texto: con texto y enlace juntos WhatsApp (sobre
+        // todo en iPhone) lo manda como texto común y no arma la tarjeta. La
+        // tarjeta ya dice qué bus es, la ruta y adónde llega.
+        await navigator.share({ title: `Bus${unidad ? ' ' + unidad : ''} en vivo`, url });
         return;
       }
     } catch (e: any) {
       // Cancelar el menú de compartir no es un error.
       if (e?.name === 'AbortError') return;
     }
+    // En la compu (WhatsApp Web) va el mensaje con el enlace.
     window.open(`https://wa.me/?text=${encodeURIComponent(`${texto}: ${url}`)}`, '_blank', 'noopener');
   }
 

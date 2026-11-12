@@ -51,7 +51,19 @@ module.exports = async function handler(req, res) {
   const id = String((req.query && req.query.bus) || '').trim();
   const valido = UUID.test(id);
   const destino = valido ? '/passenger/map?bus=' + encodeURIComponent(id) : '/passenger/map';
-  const enlace = valido ? APP + '/v/' + id : APP + '/passenger/map';
+
+  // Adónde llega y en cuánto (lo pone la app cuando quien comparte va arriba
+  // del bus): texto corto y sin nada raro, que termina en la tarjeta.
+  const limpio = (v, max) => String(v || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+  const llegaA = limpio(req.query && req.query.a, 60);
+  const llegaEn = limpio(req.query && req.query.en, 16);
+  const llega = llegaA && (llegaEn === 'Llegando' || /^[~\d][\d–\- ]*min$/.test(llegaEn)) ? { a: llegaA, en: llegaEn } : null;
+
+  // La dirección exacta que se compartió (con la llegada), para que la tarjeta
+  // de cada envío sea la suya.
+  const enlace = valido
+    ? APP + '/v/' + id + (llega ? '?a=' + encodeURIComponent(llega.a) + '&en=' + encodeURIComponent(llega.en) : '')
+    : APP + '/passenger/map';
   const ua = String((req.headers && req.headers['user-agent']) || '');
   // Para saber en los registros de Vercel quién arma las tarjetas (WhatsApp,
   // Facebook...) y qué se le respondió. Sin datos de la persona: solo el
@@ -80,6 +92,11 @@ module.exports = async function handler(req, res) {
       : '';
     titulo = 'Bus ' + placa + ' en vivo' + (bus.ruta_nombre ? ' · ' + bus.ruta_nombre : '');
     descripcion = [bus.empresa_nombre, unidad, 'Tocá para ver por dónde va en el mapa de Buxci.'].filter(Boolean).join(' · ');
+  }
+  // Como en la tarjeta del video: "Llega a la Terminal en 12 min".
+  if (llega) {
+    const frase = llega.en === 'Llegando' ? 'Ya está llegando a ' + llega.a : 'Llega a ' + llega.a + ' en ' + llega.en;
+    descripcion = frase + ' · ' + descripcion;
   }
 
   const html = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'

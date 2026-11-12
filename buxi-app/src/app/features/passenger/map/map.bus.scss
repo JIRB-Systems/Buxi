@@ -71,3 +71,29 @@
   &--demorada .pulse-dot { background: var(--bx-warning); animation: none; }
   &--perdida { color: var(--bx-danger); .pulse-dot { background: var(--bx-danger); animation: none; } }
 }
+
+// ---- Siguiendo el bus: la ficha chica ----
+// Queda lo que se mira de reojo (placa, estado, cuánto falta) y los botones;
+// el resto vuelve tocando la rayita. Así el bus que se sigue se ve.
+.sheet-bar--toque {
+  cursor: pointer;
+  // Más fácil de tocar que la rayita sola, sin agrandar el dibujo.
+  position: relative;
+  &::after { content: ''; position: absolute; inset: -12px -40px; }
+}
+
+.bus-sheet.chica {
+  .sheet-route, .sheet-modelo, .sheet-grid, .sheet-updated, .sheet-calificar { display: none; }
+  .bs-llegada {
+    flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 4px 10px;
+    margin-top: 8px; padding: 8px 12px;
+    strong { font-size: 20px; }
+    small { flex-basis: 100%; }
+  }
+  // Los dos botones en una fila.
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 8px;
+  > :not(.follow-btn):not(.share-btn) { grid-column: 1 / -1; }
+  .follow-btn, .share-btn { margin-top: 10px; --bx-btn-h: 44px; font-size: 14px; }
+}

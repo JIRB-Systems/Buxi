@@ -623,8 +623,13 @@
   </div>
 
   <!-- ====== FICHA DEL BUS ====== -->
-  <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus" role="dialog" aria-label="Detalle del bus">
-    <div class="sheet-bar"></div>
+  <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus" [class.chica]="followingBus && fichaChica" role="dialog" aria-label="Detalle del bus">
+    <!-- Siguiendo el bus la ficha se achica para que el bus se vea; la
+         rayita la vuelve a abrir (y a cerrar). -->
+    <div class="sheet-bar" [class.sheet-bar--toque]="followingBus" (click)="alternarFicha()"
+         [attr.role]="followingBus ? 'button' : null" [attr.tabindex]="followingBus ? 0 : null"
+         [attr.aria-label]="followingBus ? (fichaChica ? 'Ver más del bus' : 'Achicar la ficha') : null"
+         (keydown.enter)="alternarFicha()" (keydown.space)="alternarFicha(); $event.preventDefault()"></div>
 
     <div class="sheet-row">
       <bx-placa [placa]="selectedBusPlaca" [grande]="true"></bx-placa>
@@ -697,7 +702,7 @@
     </button>
     <button type="button" class="bx-btn bx-btn--ghost bx-btn--bloque share-btn" (click)="shareBusLocation()">
       <ion-icon name="share-social-outline" aria-hidden="true"></ion-icon>
-      Compartir viaje en vivo
+      {{ followingBus && fichaChica ? 'Compartir' : 'Compartir viaje en vivo' }}
     </button>
   </div>
 
