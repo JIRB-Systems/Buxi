@@ -11,6 +11,10 @@
       "destination": "/__chunk-inexistente"
     },
     {
+      "source": "/v/:bus",
+      "destination": "/api/compartir?bus=:bus"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

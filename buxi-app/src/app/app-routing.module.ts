@@ -1,5 +1,5 @@
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
+import { NgModule, inject } from '@angular/core';
+import { Router, RouterModule, Routes } from '@angular/router';
 import { PreloadSelectivo } from './core/preload-selectivo';
 import { NoAuthGuard } from './core/guards/no-auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
@@ -49,6 +49,9 @@ const routes: Routes = [
   },
   // Personal de una empresa con la cuenta o la empresa pausada (ver RoleGuard).
   { path: 'acceso-pausado', loadChildren: () => import('./features/auth/acceso-pausado/acceso-pausado.module').then(m => m.AccesoPausadoPageModule) },
+  // Enlace de un bus compartido. En producción lo atiende api/compartir.js
+  // (la tarjeta de WhatsApp); si llega igual a la app, va al mapa con ese bus.
+  { path: 'v/:bus', redirectTo: ({ params }) => inject(Router).createUrlTree(['/passenger/map'], { queryParams: { bus: params['bus'] } }) },
   { path: '**', redirectTo: 'splash' },
 ];
 

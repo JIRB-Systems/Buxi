@@ -3026,6 +3026,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         if (b.ruta_id) this.busRuta.set(b.id, b.ruta_id);
         if (b.empresa_id) this.busEmpresa.set(b.id, b.empresa_id);
         if (b.numero_unidad || b.placa) this.busEtiqueta.set(b.id, b.numero_unidad || b.placa);
+        if (b.placa) this.busPlaca.set(b.id, b.placa);
       }
       this.paradasPorRuta.clear();
       this.trazados.clear();
@@ -3335,6 +3336,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (location.retraso_min !== undefined) this.busRetraso.set(location.bus_id, location.retraso_min);
     const datosBus = location.bus as any;
     if (datosBus?.numero_unidad || datosBus?.placa) this.busEtiqueta.set(location.bus_id, datosBus.numero_unidad || datosBus.placa);
+    if (datosBus?.placa) this.busPlaca.set(location.bus_id, datosBus.placa);
     this.actualizarMarcha(location);
     this.revisarABordo(location);
     if (this.activeRuta) this.updateETA();
@@ -3683,6 +3685,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   private readonly ABORDO_REGISTRO_MS = 2 * 60 * 1000;
   // bus -> unidad o placa. Los puntos de Realtime no traen el bus.
   private busEtiqueta = new Map<string, string>();
+  // bus -> placa, para el mensaje de compartir (por la misma razón).
+  private busPlaca = new Map<string, string>();
   private sesionHoy: { dia: string; id: string } | null = null;
 
   private alSubir(busId: string) {
@@ -5509,8 +5513,36 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // apenas el bus se movía.
   async shareBusLocation() {
     if (!this.selectedBus) return;
-    const url = `${window.location.origin}/passenger/map?bus=${encodeURIComponent(this.selectedBus.bus_id)}`;
-    const texto = `Seguí en vivo el bus ${this.selectedBusPlaca} (${this.selectedBusRuta}) en Buxci`;
+    const id = this.selectedBus.bus_id;
+    // El enlace corto /v/<bus> trae la tarjeta del bus en WhatsApp (unidad,
+    // ruta e imagen de "Ubicación en vivo": api/compartir.js). En local no hay
+    // esa función, así que ahí va el enlace directo al mapa.
+    const local = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+    const url = local
+      ? `${window.location.origin}/passenger/map?bus=${encodeURIComponent(id)}`
+      : `${window.location.origin}/v/${encodeURIComponent(id)}`;
+
+    // Los puntos que llegan por Realtime no traen el bus: unidad y ruta salen
+    // de lo que el mapa ya sabe de él.
+    const datos = this.selectedBus.bus as any;
+    const unidad = datos?.placa || this.busPlaca.get(id) || this.busEtiqueta.get(id) || '';
+    const rutaId = this.rutaDelBus(id);
+    const ruta = datos?.ruta?.nombre || (rutaId ? this.allRutas.find(r => r.id === rutaId)?.nombre : '') || '';
+    const elBus = `el bus${unidad ? ' ' + unidad : ''}${ruta ? ` (${ruta})` : ''}`;
+
+    // Arriba de ese bus, el mensaje dice adónde llega y cuándo, como en
+    // "Voy en el bus R12 y llego a la terminal en 12 min".
+    const ab = this.aBordoBusId === id ? this.aBordo : null;
+    let texto = `Seguí en vivo ${elBus} en Buxci`;
+    if (ab) {
+      texto = `Voy en ${elBus}`;
+      if (ab.bajas && ab.parada && ab.llegada) {
+        texto += ab.llegada === 'Llegando'
+          ? ` y ya estoy llegando a ${ab.parada}`
+          : /\d/.test(ab.llegada) ? ` y llego a ${ab.parada} en ${ab.llegada}` : '';
+      }
+      texto += '. Seguime en vivo en Buxci';
+    }
     try {
       if (navigator.share) {
         await navigator.share({ title: 'Mi bus en Buxci', text: texto, url });
