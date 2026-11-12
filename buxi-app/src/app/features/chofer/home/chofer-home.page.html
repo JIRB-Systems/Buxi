@@ -1,4 +1,4 @@
-<ion-content [fullscreen]="true" class="chofer-content" [scrollY]="false" [class.con-parada]="!!(nextParada && tracking)" [class.mapa-limpio]="mapaLimpio">
+<ion-content [fullscreen]="true" class="chofer-content" [scrollY]="false" [class.con-parada]="!!(nextParada && tracking)" [class.mapa-gesto]="ocultoPorGesto" [class.mapa-solo]="ocultoPorToque">
 
   <div id="chofer-map"></div>
 
@@ -67,23 +67,31 @@
 
   <!-- Próxima parada -->
   <ng-template #tplParada>
-    <!-- Lo que se mira de reojo manejando: va en grande. -->
+    <!-- Una barra que se lee de reojo: la parada a la izquierda, la distancia
+         y la velocidad a la derecha. Antes era una tarjeta alta que tapaba el
+         mapa. -->
     <div class="next-stop-card" *ngIf="nextParada && tracking">
+      <span class="ns-ic" aria-hidden="true"><ion-icon name="flag"></ion-icon></span>
       <div class="ns-info">
         <span>Próxima parada</span>
         <strong [title]="nextParada.nombre">{{ nextParada.nombre }}</strong>
       </div>
-      <div class="ns-dato" *ngIf="nextParadaDistanceKm !== null">
-        <b class="bx-mono">{{ nextParadaDistanceKm! < 1 ? (nextParadaDistanceKm! * 1000 | number:'1.0-0') : (nextParadaDistanceKm! | number:'1.1-1') }}</b>
-        <span>{{ nextParadaDistanceKm! < 1 ? 'm' : 'km' }}</span>
-      </div>
-      <div class="ns-dato ns-vel">
-        <b class="bx-mono">{{ velocidadKmh }}</b>
-        <span>km/h</span>
+      <div class="ns-cifras">
+        <div class="ns-dato" *ngIf="nextParadaDistanceKm !== null">
+          <b class="bx-mono">{{ nextParadaDistanceKm! < 1 ? (nextParadaDistanceKm! * 1000 | number:'1.0-0') : (nextParadaDistanceKm! | number:'1.1-1') }}</b>
+          <span>{{ nextParadaDistanceKm! < 1 ? 'm' : 'km' }}</span>
+        </div>
+        <div class="ns-dato ns-vel">
+          <b class="bx-mono">{{ velocidadKmh }}</b>
+          <span>km/h</span>
+        </div>
       </div>
     </div>
   </ng-template>
   <ng-container *ngTemplateOutlet="tplParada"></ng-container>
+
+  <!-- Con el mapa solo (un toque), cómo volver: se ve un momento y se va. -->
+  <div class="toque-aviso" *ngIf="ocultoPorToque" aria-live="polite">Tocá el mapa para ver los controles</div>
 
   <!-- Loading -->
   <div class="loading-overlay" *ngIf="loading">

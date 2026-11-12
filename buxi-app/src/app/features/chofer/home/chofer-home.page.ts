@@ -169,10 +169,14 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // con el zoom elegido (ver engancharSeguimiento).
   siguiendo = true;
   private gestoDelChofer = false;
-  // Mientras el chofer toca el mapa: se esconden la tarjeta de la próxima
-  // parada, el SOS y los botones de la derecha (no los avisos ni los botones
-  // de abajo, que no pueden faltar).
-  mapaLimpio = false;
+  // Lo que flota sobre el mapa se esconde de dos maneras:
+  //  · mientras el chofer toca el mapa (arrastre, pellizco, giro): la barra de
+  //    la próxima parada, el SOS y los botones de la derecha, y vuelven solos
+  //    al soltar;
+  //  · con un toque al mapa: todo menos el SOS y los avisos de velocidad y de
+  //    desvío (el mapa solo, con el bus), hasta otro toque.
+  ocultoPorGesto = false;
+  ocultoPorToque = false;
   private volverTimer: any = null;
 
   // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
@@ -1260,7 +1264,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       if (!e?.originalEvent) return;
       this.gestoDelChofer = true;
       clearTimeout(this.volverTimer);
-      this.mapaLimpio = true;
+      this.ocultoPorGesto = true;
     });
     this.map.on('moveend', () => {
       if (!this.gestoDelChofer) return;
@@ -1268,15 +1272,23 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       clearTimeout(this.volverTimer);
       this.volverTimer = setTimeout(() => {
         if (this.destroyed) return;
-        this.mapaLimpio = false;
-        // Con la tarjeta ya de vuelta, para medir bien lo que queda libre.
+        this.ocultoPorGesto = false;
+        // Con la barra ya de vuelta, para medir bien lo que queda libre.
         this.volverTimer = setTimeout(() => this.seguirCamara(), 320);
       }, 900);
+    });
+    // Un toque al mapa (sin arrastrar) deja el mapa solo con el bus; otro lo
+    // vuelve todo. Lo escondido no cuenta para centrar el bus (no recibe
+    // toques), así que la cámara se acomoda a lo que se ve.
+    this.map.on('click', () => {
+      this.ocultoPorToque = !this.ocultoPorToque;
+      clearTimeout(this.volverTimer);
+      this.volverTimer = setTimeout(() => this.seguirCamara(), 320);
     });
   }
 
   private seguirCamara() {
-    if (!this.siguiendo || this.gestoDelChofer || this.mapaLimpio || !this.map) return;
+    if (!this.siguiendo || this.gestoDelChofer || this.ocultoPorGesto || !this.map) return;
     if (this.currentLat === 0 && this.currentLng === 0) return;
     this.map.easeTo({
       center: [this.currentLng, this.currentLat],

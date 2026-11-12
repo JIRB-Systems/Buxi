@@ -1,39 +1,109 @@
 // ---- QUE EL BUS SE VEA (teléfono) ----
-// El centro del mapa queda libre: la tarjeta de la próxima parada va pegada a
+// El centro del mapa queda libre: la barra de la próxima parada va pegada a
 // los botones de abajo, a lo ancho, y el SOS y los controles van a los
 // costados, encima de ella. La cámara deja el bus en lo que queda libre (ver
-// seguirCamara). En la compu todo esto vive en el panel lateral.
-@media (max-width: 899.98px) {
-  .next-stop-card {
-    right: 14px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 82px);
-    padding: 10px 14px;
-    row-gap: 6px;
-    .ns-info { gap: 3px; strong { font-size: 20px; } }
-    .ns-dato b { font-size: 22px; }
-  }
-
+// seguirCamara). En la compu (ancho y alto) todo esto vive en el panel lateral.
+@media (max-width: 899.98px), (max-height: 559.98px) {
   .chofer-content.con-parada .panic-wrap,
   .chofer-content.con-parada .map-controls {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 178px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 150px);
   }
 
-  // Mientras el chofer toca el mapa (arrastre, pellizco, giro) se esconde lo
-  // que tapa el bus; al soltar vuelve (ver engancharSeguimiento). Los avisos
-  // y los botones de abajo no se esconden nunca.
+  // Lo que se esconde (ver ocultoPorGesto y ocultoPorToque).
   .chofer-content > .next-stop-card,
   .chofer-content > .panic-wrap,
-  .chofer-content > .map-controls {
+  .chofer-content > .map-controls,
+  .chofer-content > .bottom-control,
+  .chofer-content > .top-overlay,
+  .chofer-content > .status-chip,
+  .chofer-content > .boletos-chip {
     transition: opacity 0.22s ease, transform 0.22s ease;
   }
-  .chofer-content.mapa-limpio > .next-stop-card,
-  .chofer-content.mapa-limpio > .panic-wrap,
-  .chofer-content.mapa-limpio > .map-controls {
+
+  // Mientras el dedo está en el mapa: lo que tapa el bus.
+  .chofer-content.mapa-gesto > .next-stop-card,
+  .chofer-content.mapa-gesto > .panic-wrap,
+  .chofer-content.mapa-gesto > .map-controls,
+  // Con un toque: todo menos el SOS y los avisos de velocidad y desvío.
+  .chofer-content.mapa-solo > .next-stop-card,
+  .chofer-content.mapa-solo > .map-controls,
+  .chofer-content.mapa-solo > .bottom-control {
     opacity: 0;
     transform: translateY(14px);
     pointer-events: none;
+  }
+  .chofer-content.mapa-solo > .top-overlay,
+  .chofer-content.mapa-solo > .status-chip,
+  .chofer-content.mapa-solo > .boletos-chip {
+    opacity: 0;
+    transform: translateY(-14px);
+    pointer-events: none;
+  }
+}
+
+// ---- Teléfono acostado ----
+// Con poca altura no entra nada apilado: la barra de la parada abajo a la
+// izquierda, "Terminar ruta" abajo a la derecha, el SOS arriba de la barra y
+// los botones del mapa en fila arriba de "Terminar ruta".
+@media (max-height: 559.98px) and (orientation: landscape) {
+  .top-overlay { padding-left: calc(env(safe-area-inset-left, 0px) + 12px); }
+
+  .next-stop-card {
+    left: calc(env(safe-area-inset-left, 0px) + 12px);
+    right: auto;
+    width: calc(54% - 30px);
+    max-width: 520px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
+
+  .bottom-control {
+    left: auto;
+    right: calc(env(safe-area-inset-right, 0px) + 12px);
+    width: min(44%, 440px);
+    padding: 0 0 calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .bottom-control .bx-btn { --bx-btn-h: 52px; font-size: 16px; }
+
+  .panic-wrap,
+  .chofer-content.con-parada .panic-wrap {
+    left: calc(env(safe-area-inset-left, 0px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
+  .chofer-content.con-parada .panic-wrap { bottom: calc(env(safe-area-inset-bottom, 0px) + 80px); }
+  .panic-btn { width: 52px; height: 52px; ion-icon { font-size: 26px; } }
+
+  .map-controls,
+  .chofer-content.con-parada .map-controls {
+    flex-direction: row;
+    right: calc(env(safe-area-inset-right, 0px) + 12px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
   }
 }
 
 // El botón de ubicación, en verde: la cámara sigue al bus.
 .mc-btn.mc-seguir ion-icon { color: var(--bx-green-bright); }
+
+// Cómo volver del mapa solo: aparece abajo, se queda un momento y se va.
+.toque-aviso {
+  position: absolute;
+  left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  z-index: 1001;
+  padding: 7px 14px;
+  border-radius: var(--bx-r-pill);
+  background: rgba(10, 22, 40, 0.88);
+  border: 1px solid var(--bx-line-strong);
+  color: var(--bx-text-2);
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  pointer-events: none;
+  animation: toque-aviso 3s ease forwards;
+}
+
+@keyframes toque-aviso {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  12%, 75% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toque-aviso { animation: none; transform: translateX(-50%); }
+}
