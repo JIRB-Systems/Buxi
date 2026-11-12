@@ -334,7 +334,22 @@
     }
   }
 
-  .dock-logo { display: block; height: 30px; width: auto; margin-bottom: 18px; }
+  // La B: un botón que esconde y muestra el panel (alternarPanel). El margen
+  // negativo deja el logo donde estaba cuando era solo una imagen.
+  .dock-logo {
+    display: grid; place-items: center;
+    width: 52px; height: 44px;
+    margin: -7px 0 11px;
+    padding: 0; border: 0;
+    border-radius: var(--bx-r-md);
+    background: none;
+    cursor: pointer;
+    transition: background var(--bx-t-fast) var(--bx-ease);
+
+    img { display: block; height: 30px; width: auto; }
+    &:hover { background: rgba(255,255,255,0.06); }
+    &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 2px; }
+  }
 
   .dock-item {
     flex: none;
@@ -505,4 +520,52 @@
   .desktop-topbar .dt-search { width: $panel - 32px; }
   .empresas-sidebar, .list-panel, .empresa-detail-screen { width: $panel; }
   .live-chip, .bus-sheet { left: $shell + 16px; }
+}
+
+// ============================================================================
+// LA B ESCONDE EL PANEL (escritorio)
+//
+// Todo lo que vive en la columna del panel (empresas, rutas, favoritos,
+// alertas, la ficha de una empresa, el buscador de arriba) se va con el mismo
+// fundido corto con que se abren y cierran las secciones, y el mapa ocupa su
+// lugar: #map.sin-panel lo pone map.page.ts, que además mueve la cámara para
+// que el mapa no salte. Lo que flota sobre el mapa se corre con él.
+// ============================================================================
+@media (min-width: 900px) {
+  $barra: 72px;
+  $suave: cubic-bezier(0.16, 1, 0.3, 1);
+
+  #map.sin-panel { left: $barra; }
+
+  .desktop-topbar .dt-search {
+    transition: background 0.16s ease, border-color 0.16s ease,
+      opacity 0.26s ease, transform 0.3s $suave, visibility 0.26s;
+  }
+
+  .panel-escondido {
+    .empresas-sidebar,
+    .list-panel.open,
+    .empresa-detail-screen.open,
+    .desktop-topbar .dt-search {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateX(-24px);
+    }
+
+    .live-chip, .bus-sheet { left: $barra + 16px; }
+
+    // Con el panel escondido no se ve ninguna sección: la barra no marca
+    // ninguna (Ajustes es el cajón de la derecha y sigue igual).
+    .dock-item.active:not(.dock-item--ajustes) {
+      background: none;
+      ion-icon, span { color: var(--bx-text-2); }
+      &:hover { background: rgba(255,255,255,0.06); }
+    }
+  }
+
+  .live-chip { transition: left 0.3s $suave; }
+  .bus-sheet, .bus-sheet.following {
+    transition: left 0.3s $suave, transform 0.28s ease, opacity 0.22s ease;
+  }
 }

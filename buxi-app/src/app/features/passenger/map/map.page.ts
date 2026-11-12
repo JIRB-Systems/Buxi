@@ -570,6 +570,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.empresaDetailBusqueda = '';
     this.empresaDetailRutas = rutas.map(r => ({ ...r, proximaSalidaTexto: null }));
     this.empresaDetailOpen = true;
+    this.mostrarPanel();
 
     // Se resuelve en paralelo y aparte del render inicial: la ficha ya es
     // útil (nombre, origen/destino) sin esperar a que lleguen los horarios.
@@ -723,6 +724,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }
 
     this.closePanel();
+    this.mostrarPanel();
     if (!this.mapReady) return;
 
     if (this.buscarPara === 'origen' && this.viaje) {
@@ -823,13 +825,17 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   async openPanel(panel: 'rutas' | 'favoritos' | 'alertas' | 'lugares') {
-    this.activePanel = this.activePanel === panel ? null : panel;
+    // Con el panel escondido (la B), tocar la sección que ya estaba abierta la
+    // vuelve a mostrar en vez de cerrarla.
+    const reabrir = this.panelEscondido && this.activePanel === panel;
+    this.activePanel = this.activePanel === panel && !reabrir ? null : panel;
     this.panelSearch = '';
     if (this.activePanel) {
       // Un solo panel a la vez: perfil, ajustes y listas comparten pantalla.
       this.profilePanelOpen = false;
       this.settingsPanelOpen = false;
       this.navVisible = true;
+      this.mostrarPanel();
     }
     if (this.activePanel === 'favoritos') await this.loadFavoritos();
     if (this.activePanel === 'alertas') await this.abrirAlertas();
@@ -840,6 +846,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // "Mapa" devuelve al mapa limpio, venga de donde venga.
   showMap() {
+    this.mostrarPanel();
     this.activePanel = null;
     this.profilePanelOpen = false;
     this.settingsPanelOpen = false;
@@ -849,6 +856,49 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   closePanel() {
     this.activePanel = null;
     this.panelSearch = '';
+  }
+
+  // ---- LA B ESCONDE EL PANEL (escritorio) ----
+  // La B de la barra lateral esconde el panel entero (empresas, rutas,
+  // favoritos, el buscador) para ver el mapa de punta a punta, y otro toque
+  // lo vuelve a mostrar. Abrir algo que vive en el panel (una sección de la
+  // barra, una empresa, una ruta, un destino) también lo muestra; tocar un bus
+  // en el mapa no, eso se mira en el mapa. En el teléfono no hay panel fijo y
+  // la B ni se ve.
+  panelEscondido = false;
+  private achicarMapaTimer: any = null;
+
+  alternarPanel() {
+    if (this.panelEscondido) { this.mostrarPanel(); return; }
+    clearTimeout(this.achicarMapaTimer);
+    this.panelEscondido = true;
+    // El mapa se agranda ya, y el panel se va por encima del mapa entero.
+    this.ajustarMapaAlPanel(true);
+  }
+
+  mostrarPanel() {
+    if (!this.panelEscondido) return;
+    this.panelEscondido = false;
+    // El mapa se achica cuando el panel terminó de entrar: si no, su lugar
+    // quedaba un momento vacío.
+    clearTimeout(this.achicarMapaTimer);
+    this.achicarMapaTimer = setTimeout(() => this.ajustarMapaAlPanel(false), 320);
+  }
+
+  // Cambia el ancho del mapa sin que lo que se ve salte. MapLibre, al cambiar
+  // de tamaño, deja el mismo punto en el centro y todo se corría medio panel:
+  // se mueve la cámara lo mismo al revés y el mapa queda quieto.
+  private ajustarMapaAlPanel(sinPanel: boolean) {
+    if (this.destroyed) return;
+    const cont = this.map?.getContainer() ?? document.getElementById('map');
+    if (!cont || cont.classList.contains('sin-panel') === sinPanel) return;
+    const antes = cont.getBoundingClientRect();
+    cont.classList.toggle('sin-panel', sinPanel);
+    const despues = cont.getBoundingClientRect();
+    const corrimiento = (despues.left - antes.left) + (despues.width - antes.width) / 2;
+    if (!this.map || !corrimiento) return;
+    this.map.resize();
+    this.map.panBy([corrimiento, 0], { animate: false });
   }
 
   onPanelSearch(ev: Event) {
@@ -1011,6 +1061,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // no en otra lista.
   async selectRutaFromPanel(ruta: Ruta, opcion: OpcionVista | null = null) {
     this.closePanel();
+    this.mostrarPanel();
     if (!this.mapReady) return;
 
     this.loading = true;
@@ -1338,6 +1389,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
               const boleto = await this.featuresService.comprarBoleto(this.profile.id, ruta);
               await this.verBoletoDetalle(boleto);
               this.boletoSheetOpen = true;
+              this.mostrarPanel();
               await this.toast('Boleto generado');
             } catch (e: any) {
               await this.toast(e?.message || 'No se pudo generar el boleto', 'danger');
@@ -1389,6 +1441,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (!this.profile) { this.pedirCuenta('ver tus viajes'); return; }
     this.profilePanelOpen = false;
     this.viajesSheetOpen = true;
+    this.mostrarPanel();
     this.misViajesCargando = true;
     try {
       this.misViajes = await this.featuresService.getMisViajes();
@@ -1427,6 +1480,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.boletoDetalle = null;
     this.boletoQrUrl = null;
     this.boletoSheetOpen = true;
+    this.mostrarPanel();
     this.profilePanelOpen = false;
     try {
       this.misBoletos = await this.featuresService.getMisBoletos(this.profile.id);
@@ -5688,6 +5742,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   ngOnDestroy() {
     this.destroyed = true;
+    clearTimeout(this.achicarMapaTimer);
     window.removeEventListener('online', this.alCambiarRed);
     window.removeEventListener('offline', this.alCambiarRed);
     window.removeEventListener('beforeinstallprompt', this.alPoderInstalar);

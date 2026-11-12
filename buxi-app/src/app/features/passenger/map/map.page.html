@@ -1,4 +1,4 @@
-<ion-content [fullscreen]="true" class="map-content" [scrollY]="false" [class.light-map]="!darkMode">
+<ion-content [fullscreen]="true" class="map-content" [scrollY]="false" [class.light-map]="!darkMode" [class.panel-escondido]="panelEscondido">
 
   <div id="map"></div>
 
@@ -1110,8 +1110,14 @@
 
   <!-- ====== DOCK FLOTANTE ====== -->
   <nav class="dock" [class.hidden]="!navVisible || selectedBus" [class.route-mode]="!!activeRuta || !!viaje">
-    <!-- Solo se ve en escritorio, donde este mismo nav es la barra lateral. -->
-    <img class="dock-logo" src="assets/brand/buxci-mark.svg" alt="Buxci" />
+    <!-- Solo se ve en escritorio, donde este mismo nav es la barra lateral:
+         la B esconde el panel para ver el mapa entero y lo vuelve a mostrar. -->
+    <button type="button" class="dock-logo" (click)="alternarPanel()"
+            [attr.aria-label]="panelEscondido ? 'Mostrar el panel' : 'Esconder el panel'"
+            [attr.aria-expanded]="!panelEscondido"
+            [title]="panelEscondido ? 'Mostrar el panel' : 'Esconder el panel'">
+      <img src="assets/brand/buxci-mark.svg" alt="" />
+    </button>
 
     <button type="button" class="dock-item" [class.active]="!activePanel && !profilePanelOpen && !settingsPanelOpen" (click)="showMap()">
       <ion-icon name="map" aria-hidden="true"></ion-icon>
