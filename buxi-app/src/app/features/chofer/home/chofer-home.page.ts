@@ -14,7 +14,7 @@ import { ChoferService } from '../../../core/services/chofer.service';
 import { GpsFondoService } from '../../../core/services/gps-fondo.service';
 import {
   createMap, set3DEnabled, distanceToPolylineMeters,
-  capaComercios, paradasDelMapaBase, paradasMunicipalesPropias,
+  capaComercios, paradasDelMapaBase, paradasMunicipalesPropias, desplazamientoLibre,
 } from '../../../core/utils/maplibre';
 import { ParadasMunicipalesService } from '../../../core/services/paradas-municipales.service';
 import { logError } from '../../../core/utils/log';
@@ -31,7 +31,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 @Component({
   selector: 'app-chofer-home',
   templateUrl: './chofer-home.page.html',
-  styleUrls: ['./chofer-home.page.scss'],
+  styleUrls: ['./chofer-home.page.scss', './chofer-home.mapa.scss'],
   standalone: false,
 })
 export class ChoferHomePage implements OnInit, OnDestroy {
@@ -159,6 +159,14 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private flotaModelos = new Map<string, string | null>();
 
   private readonly paradasMunicipales = inject(ParadasMunicipalesService);
+
+  // ---- La cámara sigue al bus ----
+  // Manejando, el chofer no puede andar arrastrando el mapa para encontrarse:
+  // la cámara va con el bus y lo deja en el pedazo de mapa que no tapan la
+  // tarjeta ni los botones (desplazamientoLibre). Si el chofer arrastra el
+  // mapa deja de seguirlo, y el botón de ubicación lo vuelve a enganchar.
+  siguiendo = true;
+  private gestoDelChofer = false;
 
   // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
   // ngOnInit termine de resolver el bus asignado (son dos llamadas de red).
@@ -344,6 +352,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     if (this.destroyed) return;
     this.ensureBusIcon();
     this.engancharRotacion();
+    this.engancharSeguimiento();
     await this.startWatchingPosition();
 
     await this.asignacionLista;
@@ -838,7 +847,10 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       }
       const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true });
       this.updatePosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed, pos.coords.heading);
-      this.map.jumpTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 });
+      this.map.easeTo({
+        center: [pos.coords.longitude, pos.coords.latitude], zoom: 16,
+        offset: desplazamientoLibre(this.map), duration: 0,
+      });
 
       this.watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true },
@@ -901,6 +913,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     }
 
     this.updateUserMarkerLayer(lng, lat);
+    this.seguirCamara();
 
     this.updateNextParadaProgress();
   }
@@ -1220,9 +1233,35 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   }
 
   centerOnMe() {
+    this.siguiendo = true;
     if (this.currentLat && this.currentLng) {
-      this.map.flyTo({ center: [this.currentLng, this.currentLat], zoom: 16 });
+      this.map.flyTo({
+        center: [this.currentLng, this.currentLat],
+        zoom: Math.max(this.map.getZoom(), 16),
+        offset: desplazamientoLibre(this.map),
+      });
     }
+  }
+
+  private engancharSeguimiento() {
+    this.map.on('dragstart', () => { this.siguiendo = false; });
+    // Mientras pellizca o gira no se le pelea la cámara; al soltar, sigue.
+    for (const ev of ['zoomstart', 'rotatestart', 'pitchstart'] as const) {
+      this.map.on(ev, (e: any) => { if (e?.originalEvent) this.gestoDelChofer = true; });
+    }
+    for (const ev of ['zoomend', 'rotateend', 'pitchend'] as const) {
+      this.map.on(ev, () => { this.gestoDelChofer = false; });
+    }
+  }
+
+  private seguirCamara() {
+    if (!this.siguiendo || this.gestoDelChofer || !this.map) return;
+    if (this.currentLat === 0 && this.currentLng === 0) return;
+    this.map.easeTo({
+      center: [this.currentLng, this.currentLat],
+      offset: desplazamientoLibre(this.map),
+      duration: 700,
+    });
   }
 
   toggle3D() {

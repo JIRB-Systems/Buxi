@@ -11,7 +11,7 @@ import * as maplibregl from 'maplibre-gl';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { environment } from '../../../../environments/environment';
 import { SupabaseService } from '../../../core/services/supabase.service';
-import { AdminEmpresaService, InformeEmpresa, PuntualidadRuta } from '../../../core/services/admin-empresa.service';
+import { AdminEmpresaService, InformeEmpresa, PasajerosABordo, PuntualidadRuta } from '../../../core/services/admin-empresa.service';
 import { FeaturesService } from '../../../core/services/features.service';
 import { UserProfile } from '../../../core/models/user-profile.model';
 import { Bus, Ruta, Parada, BusLocation, Empresa } from '../../../core/models/transport.model';
@@ -765,6 +765,8 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
     this.informeCargando = true;
     this.informeError = false;
     const a = this.rangoInforme(0), b = this.rangoInforme(1);
+    // Aparte y sin esperar: si falla, el resto del informe se ve igual.
+    this.cargarABordo(a.desde, a.hasta);
     try {
       const [ahora, antes] = await Promise.all([this.admin.getInforme(a.desde, a.hasta), this.admin.getInforme(b.desde, b.hasta)]);
       this.informe = ahora;
@@ -822,6 +824,66 @@ export class EmpresaDashboardPage implements OnInit, OnDestroy {
         delta: pctP !== null && pctPp !== null ? this.deltaPeriodo(pctP, pctPp) : null,
         nota: pctP === null ? 'Cargá tus horarios para medirla' : `${pu.a_tiempo} de ${pu.comparables} salidas` },
     ];
+  }
+
+  // ---- ¿Cuánta gente viaja con Buxci? ----
+  // Pasajeros que el mapa detectó arriba de un bus de la empresa (anónimos,
+  // ver 20261111120000). Es una muestra: solo cuenta a quien viaja con Buxci
+  // abierto, y la tarjeta lo dice.
+  abordo: PasajerosABordo | null = null;
+  abordoError = false;
+  abordoHover: number | null = null;
+  // De 5 a 22: fuera de eso casi no hay servicio y las columnas vacías
+  // achicarían las que importan. Si hubo subidas fuera, se suman igual al total.
+  private readonly ABORDO_HORAS = Array.from({ length: 18 }, (_, i) => i + 5);
+
+  private async cargarABordo(desde: string, hasta: string) {
+    this.abordoError = false;
+    try {
+      this.abordo = await this.admin.getPasajerosABordo(desde, hasta);
+    } catch (e) {
+      logError('cargar los pasajeros a bordo', e);
+      this.abordo = null;
+      this.abordoError = true;
+    }
+  }
+
+  get abordoHoras(): { hora: number; n: number; alto: number; corto: string; largo: string; ver: boolean }[] {
+    const porHora = new Map((this.abordo?.por_hora || []).map(h => [h.hora, h.n]));
+    const max = Math.max(1, ...porHora.values());
+    return this.ABORDO_HORAS.map(h => {
+      const n = porHora.get(h) || 0;
+      return {
+        hora: h, n, alto: (n / max) * 100,
+        corto: String(h), largo: `De ${h}:00 a ${h + 1}:00`,
+        ver: h % 3 === 0,
+      };
+    });
+  }
+
+  get abordoMax(): number {
+    return Math.max(0, ...(this.abordo?.por_hora || []).map(h => h.n));
+  }
+
+  get abordoRutas() {
+    const r = this.abordo?.por_ruta || [];
+    const max = Math.max(1, ...r.map(x => x.n));
+    return r.map(x => ({ ...x, ancho: (x.n / max) * 100 }));
+  }
+
+  get abordoHallazgo(): string {
+    if (this.abordoError) return 'No se pudieron cargar los pasajeros a bordo. Probá de nuevo en un rato.';
+    const a = this.abordo;
+    if (!a || !a.total) {
+      return 'Todavía no hay pasajeros detectados en tus buses en este período. Se cuentan solos cuando alguien viaja con Buxci abierto.';
+    }
+    const pico = (a.por_hora || []).reduce((m, h) => (h.n > m.n ? h : m), { hora: -1, n: 0 });
+    const ruta = a.por_ruta?.[0];
+    const partes = [`${a.total} ${a.total === 1 ? 'pasajero subió' : 'pasajeros subieron'} a tus buses con Buxci abierto.`];
+    if (pico.hora >= 0) partes.push(`La hora con más gente es de ${pico.hora}:00 a ${pico.hora + 1}:00.`);
+    if (ruta && (a.por_ruta?.length || 0) > 1) partes.push(`La ruta más usada es ${ruta.nombre}.`);
+    if (a.minutos_promedio) partes.push(`Viajan unos ${a.minutos_promedio} minutos en promedio.`);
+    return partes.join(' ');
   }
 
   // Barras de viajes por día: completados abajo, cancelados arriba.

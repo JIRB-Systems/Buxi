@@ -20,7 +20,7 @@ import {
   CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, desplazamientoLibre, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
 import { claveValida, REGLA_CLAVE } from '../../../core/utils/clave';
@@ -39,6 +39,17 @@ import {
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
 // usuario mientras la geolocalización (que tarda) todavía no respondió. Evita
 // el salto feo de arrancar en San José y after moverse a Guanacaste.
+// Un uuid nuevo. randomUUID solo existe en contextos seguros; el respaldo
+// arma uno v4 con getRandomValues.
+function nuevoUuid(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 const PROVINCIA_CENTERS: Record<string, [number, number]> = {
   'san josé': [-84.0907, 9.9281],
   'san jose': [-84.0907, 9.9281],
@@ -134,7 +145,7 @@ interface Viaje {
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss', './map.cuenta.scss', './map.ficha.scss', './map.ayuda.scss'],
+  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss', './map.cuenta.scss', './map.ficha.scss', './map.ayuda.scss', './map.abordo.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -1489,7 +1500,10 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   get selectedBusEstado(): string {
     switch (this.selectedBusEstadoVivo) {
       case 'en_parada':  return 'En parada';
-      case 'retrasado':  return 'Retrasado';
+      case 'retrasado': {
+        const m = this.busRetraso.get(this.selectedBus!.bus_id);
+        return m ? `Salió ${m} min tarde` : 'Retrasado';
+      }
       case 'en_ruta':    return 'En ruta';
       default:           return 'Sin datos';
     }
@@ -1721,11 +1735,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // ---- ESTADO VIVO DEL BUS ----
   //
   // 'en_parada': casi detenido y a menos de 70 m de una parada de su ruta.
-  // 'retrasado': su salida programada ya pasó hace más de RETRASO_MIN minutos.
-  //              Se calcula contra horario_salidas, que es la fuente correcta —
-  //              hoy esa tabla está vacía, así que este estado no se enciende
-  //              nunca. Es a propósito: preferimos que no aparezca a inventar un
-  //              retraso que no podemos justificar con datos.
+  // 'retrasado': su viaje en curso salió más de RETRASO_MIN minutos tarde,
+  //              contra la salida programada más cercana de su ruta. Lo
+  //              calcula la base por bus (buses_en_vivo.retraso_min, con la
+  //              misma regla que la puntualidad de la empresa). Sin viaje en
+  //              curso o sin horario comparable no hay atraso: no se inventa.
   // 'en_ruta':   todo lo demás.
   private readonly PARADA_RADIO_KM = 0.07;
   private readonly PARADA_VEL_MAX = 3;
@@ -1762,25 +1776,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           <= this.PARADA_RADIO_KM);
       if (cerca) return 'en_parada';
     }
-    if (this.minutosDeRetraso() > this.RETRASO_MIN) return 'retrasado';
+    if ((this.busRetraso.get(loc.bus_id) ?? 0) > this.RETRASO_MIN) return 'retrasado';
     return 'en_ruta';
   }
 
-  // Minutos transcurridos desde la salida programada más reciente de la ruta
-  // activa. Sin horarios cargados devuelve 0 y nadie queda marcado como tarde.
-  private minutosDeRetraso(): number {
-    if (!this.activeSalidas?.length) return 0;
-    const ahora = new Date();
-    const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
-    let mejor = -1;
-    for (const s of this.activeSalidas) {
-      const [hh, mm] = String((s as any).hora || '').split(':').map(Number);
-      if (isNaN(hh) || isNaN(mm)) continue;
-      const m = hh * 60 + mm;
-      if (m <= minutosAhora && m > mejor) mejor = m;
-    }
-    return mejor < 0 ? 0 : minutosAhora - mejor;
-  }
+  // bus -> minutos que salió tarde su viaje en curso (null: no comparable).
+  // Llega con buses_en_vivo; los puntos de Realtime no lo traen y no lo pisan.
+  private busRetraso = new Map<string, number | null>();
 
   // Color de la ruta por bus, cacheado. Hace falta porque las dos fuentes de
   // ubicaciones no traen lo mismo: la carga inicial (getLatestLocations) viene
@@ -2750,6 +2752,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           this.busLastSeen.delete(busId);
           this.busAnim.delete(busId);
           this.busIcono.delete(busId);
+          this.busRetraso.delete(busId);
           cambio = true;
         } else {
           // Un bus que no está en vivo se repinta aunque no lleguen puntos:
@@ -3022,6 +3025,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         if (esModeloBus(b.modelo_bus)) this.busModelo.set(b.id, b.modelo_bus);
         if (b.ruta_id) this.busRuta.set(b.id, b.ruta_id);
         if (b.empresa_id) this.busEmpresa.set(b.id, b.empresa_id);
+        if (b.numero_unidad || b.placa) this.busEtiqueta.set(b.id, b.numero_unidad || b.placa);
       }
       this.paradasPorRuta.clear();
       this.trazados.clear();
@@ -3066,6 +3070,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       for (const loc of locations) {
         const previo = this.busLocationsMap.get(loc.bus_id);
         // Mismo punto que ya llegó por Realtime: no reiniciar su animación.
+        // El atraso cambia aunque el punto sea el mismo (el viaje arrancó).
+        if (loc.retraso_min !== undefined) this.busRetraso.set(loc.bus_id, loc.retraso_min);
         if (previo && Date.parse(previo.timestamp) >= Date.parse(loc.timestamp)) continue;
         this.addOrUpdateBusMarker(loc);
       }
@@ -3326,6 +3332,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const previo = this.busLocationsMap.get(location.bus_id);
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
+    if (location.retraso_min !== undefined) this.busRetraso.set(location.bus_id, location.retraso_min);
+    const datosBus = location.bus as any;
+    if (datosBus?.numero_unidad || datosBus?.placa) this.busEtiqueta.set(location.bus_id, datosBus.numero_unidad || datosBus.placa);
     this.actualizarMarcha(location);
     this.revisarABordo(location);
     if (this.activeRuta) this.updateETA();
@@ -3368,6 +3377,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         bearing: heading,
         duration: 1000,
         easing: (t) => t,
+        offset: desplazamientoLibre(this.map),
       });
     }
   }
@@ -3621,11 +3631,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const coincide = metros <= this.ABORDO_M + Math.min(p.precision, this.ABORDO_PRECISION_MAX_M);
 
     if (this.aBordoBusId === loc.bus_id) {
-      if (coincide) { this.aBordoFallos = 0; return; }
+      if (coincide) { this.aBordoFallos = 0; this.alSeguirABordo(loc); return; }
       if (++this.aBordoFallos >= 2) this.ponerABordo(null);
       return;
     }
-    if (this.aBordoBusId) return;
+    if (this.aBordoBusId || this.aBordoIgnorados.has(loc.bus_id)) return;
     if (!coincide) {
       if (this.aBordoCandidato?.busId === loc.bus_id) this.aBordoCandidato = null;
       return;
@@ -3652,10 +3662,147 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.aBordoCandidato = null;
     this.aBordoFallos = 0;
     if (this.aBordoBusId === busId) return;
+    const antes = this.aBordoBusId;
     this.aBordoBusId = busId;
     for (const m of [this.userMarker, this.userConeMarker]) {
       m?.getElement().classList.toggle('a-bordo', !!busId);
     }
+    this.zone.run(() => (busId ? this.alSubir(busId) : this.alBajar(antes)));
+  }
+
+  // ---- VIAJE A BORDO ----
+  // Arriba del bus la app lo sigue sola y dice adónde va: la parada donde se
+  // baja (si armó el viaje) o la próxima, con cuánto falta. Si la detección se
+  // equivocó (un auto al lado del bus), "No voy acá" lo descarta.
+  aBordo: { unidad: string; ruta: string; color: string; parada: string | null; bajas: boolean; llegada: string | null } | null = null;
+  private aBordoIgnorados = new Set<string>();
+  // true si el seguimiento lo prendió la subida (y no el pasajero a mano):
+  // solo ese se apaga solo al bajarse.
+  private aBordoSigue = false;
+  private aBordoRegistrado = 0;
+  private readonly ABORDO_REGISTRO_MS = 2 * 60 * 1000;
+  // bus -> unidad o placa. Los puntos de Realtime no traen el bus.
+  private busEtiqueta = new Map<string, string>();
+  private sesionHoy: { dia: string; id: string } | null = null;
+
+  private alSubir(busId: string) {
+    const loc = this.busLocationsMap.get(busId);
+    this.aBordoRegistrado = 0;
+    if (loc) {
+      this.registrarABordo(loc);
+      if (!this.followBusId && this.mapReady) {
+        this.followBusId = busId;
+        this.aBordoSigue = true;
+        // Un instante después: la subida se detecta adentro del mismo punto
+        // que después mueve la cámara del seguimiento (sin zoom), y ese
+        // movimiento cortaba este acercamiento a la mitad.
+        setTimeout(() => {
+          if (this.destroyed || this.followBusId !== busId) return;
+          const ultimo = this.busLocationsMap.get(busId) || loc;
+          this.map.flyTo({
+            center: [ultimo.longitud, ultimo.latitud],
+            zoom: Math.max(this.map.getZoom(), 16),
+            pitch: this.is3D ? 60 : 0,
+            bearing: ultimo.heading || 0,
+            duration: 1200,
+            offset: desplazamientoLibre(this.map),
+          });
+        }, 50);
+        this.map.once('dragstart', () => this.zone.run(() => {
+          this.aBordoSigue = false;
+          this.stopFollowing();
+        }));
+      }
+    }
+    this.actualizarABordo();
+  }
+
+  private alBajar(busId: string | null) {
+    if (this.aBordoSigue && busId && this.followBusId === busId) this.stopFollowing();
+    this.aBordoSigue = false;
+    this.aBordo = null;
+  }
+
+  private alSeguirABordo(loc: BusLocation) {
+    this.registrarABordo(loc);
+    this.actualizarABordo();
+  }
+
+  noVoyEnEsteBus() {
+    const id = this.aBordoBusId;
+    if (!id) return;
+    this.aBordoIgnorados.add(id);
+    this.ponerABordo(null);
+  }
+
+  // Anónimo: el bus y un id al azar del teléfono que cambia cada día (ver
+  // sesionDelDia). Una vez al subir y después cada 2 minutos, para que la
+  // empresa sepa cuánto duró el viaje. Si falla no se avisa: es estadística.
+  private registrarABordo(loc: BusLocation) {
+    const ahora = Date.now();
+    if (ahora - this.aBordoRegistrado < this.ABORDO_REGISTRO_MS) return;
+    this.aBordoRegistrado = ahora;
+    this.tracking.registrarABordo(loc.bus_id, this.sesionDelDia(), this.userLat, this.userLng)
+      .catch(e => logError('anotar el viaje a bordo', e));
+  }
+
+  // Alcanza para no contar dos veces el mismo viaje y no sirve para seguir a
+  // nadie de un día al otro. Queda también en memoria: sin almacenamiento
+  // (modo privado) cada llamada inventaría uno nuevo y contaría de más.
+  private sesionDelDia(): string {
+    const d = new Date();
+    const hoy = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    if (this.sesionHoy?.dia === hoy) return this.sesionHoy.id;
+    try {
+      const g = JSON.parse(localStorage.getItem('buxci.abordo.v1') || 'null');
+      if (g && g.dia === hoy && typeof g.id === 'string') {
+        this.sesionHoy = g;
+        return g.id;
+      }
+    } catch {}
+    this.sesionHoy = { dia: hoy, id: nuevoUuid() };
+    try { localStorage.setItem('buxci.abordo.v1', JSON.stringify(this.sesionHoy)); } catch {}
+    return this.sesionHoy.id;
+  }
+
+  private actualizarABordo() {
+    const id = this.aBordoBusId;
+    const loc = id ? this.busLocationsMap.get(id) : undefined;
+    if (!id || !loc) { this.zone.run(() => { this.aBordo = null; }); return; }
+    const rutaId = this.rutaDelBus(id);
+    const ruta = rutaId ? this.allRutas.find(r => r.id === rutaId) : undefined;
+
+    // Donde se baja si armó el viaje en esta ruta (o en la del transbordo);
+    // si no, la próxima parada que el bus tiene adelante.
+    let parada: Parada | null = null;
+    let bajas = false;
+    const o = this.viajeElegido;
+    if (o && rutaId) {
+      if (o.ruta.id === rutaId) { parada = o.bajar; bajas = true; }
+      else if (o.ruta2?.id === rutaId && o.bajar2) { parada = o.bajar2; bajas = true; }
+    }
+    if (!parada && rutaId) {
+      const t = this.trazadoDe(rutaId);
+      const m = this.busMarcha.get(id);
+      const p = t && m ? proximaParada(m.km, m.sentido, t.kmParadas) : null;
+      parada = p ? (this.paradasPorRuta.get(rutaId) || []).find(x => x.id === p.id) || null : null;
+    }
+    let llegada: string | null = null;
+    if (parada) {
+      const l = this.llegadaDe(loc, parada);
+      const edadS = Math.max(0, (Date.now() - Date.parse(loc.timestamp)) / 1000);
+      llegada = mostrarLlegada(l?.llegada ?? null, edadS)?.principal ?? null;
+      if (llegada === 'Ya pasó' || llegada === 'Sin dato') llegada = null;
+    }
+    const info = {
+      unidad: this.busEtiqueta.get(id) || '',
+      ruta: ruta?.nombre || (loc.bus as any)?.ruta?.nombre || '',
+      color: colorSeguro(this.busColor(loc)),
+      parada: parada ? this.nombreCorto(parada) : null,
+      bajas,
+      llegada,
+    };
+    this.zone.run(() => { this.aBordo = info; });
   }
 
   // ====== TIEMPO DE LLEGADA ======
@@ -5342,6 +5489,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       pitch: this.is3D ? 60 : 0,
       bearing: bus.heading || 0,
       duration: 1200,
+      // El bus en lo que no tapan la ficha ni el buscador.
+      offset: desplazamientoLibre(this.map),
     });
 
     this.map.once('dragstart', () => this.zone.run(() => this.stopFollowing()));

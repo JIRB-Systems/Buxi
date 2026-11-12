@@ -824,6 +824,44 @@
                 </div>
               </div>
             </section>
+
+            <!-- ¿Cuánta gente viaja? (pasajeros con Buxci detectados a bordo) -->
+            <section class="card inf-card" aria-labelledby="inf-abordo-tit">
+              <div class="card-header"><h3 id="inf-abordo-tit">¿Cuánta gente viaja con Buxci?</h3></div>
+              <p class="inf-hallazgo">{{ abordoHallazgo }}</p>
+              <ng-container *ngIf="abordo?.total">
+                <div class="inf-barras" role="img" [attr.aria-label]="abordoHallazgo" (mouseleave)="abordoHover = null">
+                  <div class="inf-eje"><span class="bx-mono">{{ abordoMax }}</span><span class="bx-mono">0</span></div>
+                  <div class="inf-cols">
+                    <div class="inf-col" *ngFor="let h of abordoHoras; let i = index" (mouseenter)="abordoHover = i" (focus)="abordoHover = i" tabindex="-1">
+                      <div class="inf-pila">
+                        <span class="seg seg--1" *ngIf="h.n" [style.height.%]="h.alto"></span>
+                      </div>
+                      <span class="inf-x" [class.ver]="h.ver">{{ h.corto }}</span>
+                      <div class="inf-tip" *ngIf="abordoHover === i" role="tooltip">
+                        <strong>{{ h.largo }}</strong>
+                        <span>{{ h.n }} {{ h.n === 1 ? 'pasajero' : 'pasajeros' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="inf-tabla-scroll" *ngIf="abordoRutas.length">
+                  <table class="tabla inf-tabla">
+                    <thead><tr><th scope="col">Ruta</th><th scope="col">Pasajeros con Buxci</th></tr></thead>
+                    <tbody>
+                      <tr *ngFor="let r of abordoRutas; trackBy: trackInf">
+                        <td><bx-ruta [nombre]="r.nombre" [color]="r.color || ''"></bx-ruta></td>
+                        <td><div class="inf-barra-fila"><span class="inf-bar" [style.width.%]="r.ancho"></span><span class="bx-mono">{{ r.n }}</span></div></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </ng-container>
+              <div class="inf-aviso">
+                <ion-icon name="information-circle-outline" aria-hidden="true"></ion-icon>
+                <span>Cuenta solo a quienes viajan con Buxci abierto, así que es una muestra y no el total de pasajeros. Es anónimo: no se guarda quién viajó.</span>
+              </div>
+            </section>
           </ng-container>
         </div>
 

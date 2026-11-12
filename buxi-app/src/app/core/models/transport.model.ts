@@ -85,4 +85,8 @@ export interface BusLocation {
   timestamp: string;
   anomalo?: boolean;
   bus?: Bus;
+  // Minutos que salió tarde el viaje en curso, contra la salida programada
+  // más cercana (20261111120000). Solo lo trae buses_en_vivo; null = no se
+  // puede comparar, undefined = el punto llegó por otro lado (Realtime).
+  retraso_min?: number | null;
 }

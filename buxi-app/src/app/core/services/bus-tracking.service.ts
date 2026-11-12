@@ -61,6 +61,17 @@ export class BusTrackingService implements OnDestroy {
     return (data || []) as ReporteReciente[];
   }
 
+  // Anota, anónimo, que este teléfono va arriba de ese bus (20261111120000):
+  // la empresa ve los totales en Informes. La base comprueba que el bus esté
+  // transmitiendo y que el pasajero esté al lado; si no, devuelve false.
+  async registrarABordo(busId: string, sesion: string, lat: number, lng: number): Promise<boolean> {
+    const { data, error } = await this.supabase.rpc('registrar_a_bordo', {
+      p_bus_id: busId, p_sesion: sesion, p_lat: lat, p_lng: lng,
+    });
+    if (error) throw error;
+    return data === true;
+  }
+
   // Sin `.select()`: la tabla no se lee (lleva el usuario). El límite de
   // frecuencia lo pone la base y vuelve como error con el texto para mostrar.
   async reportar(rutaId: string, paradaId: string | null, tipo: TipoReporte): Promise<void> {
@@ -165,6 +176,7 @@ export class BusTrackingService implements OnDestroy {
       heading: f.heading,
       timestamp: f.timestamp,
       anomalo: f.anomalo,
+      retraso_min: f.retraso_min ?? null,
       bus: {
         id: f.bus_id,
         empresa_id: f.empresa_id,

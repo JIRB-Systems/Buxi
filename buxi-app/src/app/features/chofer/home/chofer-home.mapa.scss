@@ -1,0 +1,30 @@
+// ---- QUE EL BUS SE VEA (teléfono) ----
+// El centro del mapa queda libre: la tarjeta de la próxima parada va pegada a
+// los botones de abajo, a lo ancho, y el SOS y los controles van a los
+// costados, encima de ella. La cámara deja el bus en lo que queda libre (ver
+// seguirCamara). En la compu todo esto vive en el panel lateral.
+@media (max-width: 899.98px) {
+  .next-stop-card {
+    right: 14px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 82px);
+    padding: 10px 14px;
+    row-gap: 6px;
+    .ns-info { gap: 3px; strong { font-size: 20px; } }
+    .ns-dato b { font-size: 22px; }
+  }
+
+  .chofer-content.con-parada .panic-wrap,
+  .chofer-content.con-parada .map-controls {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 178px);
+  }
+}
+
+// El botón de ubicación: verde mientras sigue al bus, resaltado cuando no.
+.mc-btn.mc-seguir {
+  ion-icon { color: var(--bx-green-bright); }
+  &.suelto {
+    border-color: rgba(0, 200, 83, 0.55);
+    box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.18), 0 4px 18px rgba(0,0,0,0.3);
+    ion-icon { color: var(--bx-text); }
+  }
+}

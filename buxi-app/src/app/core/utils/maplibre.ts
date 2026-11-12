@@ -783,6 +783,41 @@ export function setRelieve(map: maplibregl.Map, on: boolean, dark: boolean): voi
   }
 }
 
+// Dónde dejar lo que la cámara sigue (el bus) para que no quede debajo de lo
+// que flota encima del mapa: tarjetas, botones, hojas. Recorre la columna del
+// medio de la pantalla, busca el tramo más largo donde lo que se ve es el mapa
+// (o sus marcadores) y devuelve cuánto correr el centro para caer en el medio
+// de ese tramo. Para el `offset` de easeTo/flyTo, que no queda pegado al mapa
+// como `padding` (ese sí, y desacomoda los encuadres que vienen después).
+//
+// Mide el DOM y no usa alturas fijas: las hojas cambian de alto y cada
+// teléfono (con o sin barra del navegador) deja un lugar distinto.
+export function desplazamientoLibre(map: maplibregl.Map): [number, number] {
+  const cont = map.getContainer();
+  const r = cont.getBoundingClientRect();
+  if (!r.height || typeof document.elementFromPoint !== 'function') return [0, 0];
+  const x = r.left + r.width / 2;
+  const paso = 8;
+  let ini = -1;
+  let mejor: [number, number] = [0, 0];
+  for (let y = r.top + 2; y < r.bottom; y += paso) {
+    const el = document.elementFromPoint(x, y);
+    const libre = !!el && cont.contains(el);
+    if (libre && ini < 0) ini = y;
+    if ((!libre || y + paso >= r.bottom) && ini >= 0) {
+      const fin = libre ? y : y - paso;
+      if (fin - ini > mejor[1] - mejor[0]) mejor = [ini, fin];
+      ini = -1;
+    }
+  }
+  // Con casi nada de mapa a la vista (un panel abierto), mejor el centro.
+  // 80 px alcanzan para que el bus se vea entero, también en un teléfono chico
+  // con la ficha del bus abierta.
+  if (mejor[1] - mejor[0] < 80) return [0, 0];
+  const centro = (mejor[0] + mejor[1]) / 2 - r.top;
+  return [0, Math.round(centro - r.height / 2)];
+}
+
 export function set3DEnabled(map: maplibregl.Map, enabled: boolean, dark = true): void {
   if (enabled) {
     enable3D(map, dark);

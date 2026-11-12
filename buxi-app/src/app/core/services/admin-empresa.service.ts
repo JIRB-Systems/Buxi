@@ -371,6 +371,14 @@ export class AdminEmpresaService {
     return data as InformeEmpresa;
   }
 
+  // Pasajeros con Buxci que subieron a los buses de la empresa en el período
+  // (detectados por el mapa, anónimos): totales por hora, ruta y bus.
+  async getPasajerosABordo(desde: string, hasta: string): Promise<PasajerosABordo> {
+    const { data, error } = await this.supabase.rpc('pasajeros_a_bordo_empresa', { p_desde: desde, p_hasta: hasta });
+    if (error) throw error;
+    return data as PasajerosABordo;
+  }
+
   // El recorrido de un bus en un día (hora de Costa Rica), un punto cada 20 s.
   async getRecorrido(busId: string, dia: string): Promise<{ latitud: number; longitud: number; velocidad: number; ts: string }[]> {
     const { data, error } = await this.supabase.rpc('recorrido_bus', { p_bus_id: busId, p_dia: dia });
@@ -708,6 +716,14 @@ export class AdminEmpresaService {
     });
     if (error) throw error;
   }
+}
+
+export interface PasajerosABordo {
+  total: number;
+  minutos_promedio: number | null;
+  por_hora: { hora: number; n: number }[];
+  por_ruta: { id: string; nombre: string; color: string | null; n: number }[];
+  por_bus: { id: string; placa: string; unidad: string | null; n: number }[];
 }
 
 export interface InformeEmpresa {

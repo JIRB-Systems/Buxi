@@ -190,8 +190,18 @@
     </button>
   </div>
 
+  <!-- Va arriba de un bus (lo detecta el mapa): cuál y adónde llega. -->
+  <div class="abordo" *ngIf="aBordo as ab" role="status">
+    <span class="ab-ic" [style.background]="ab.color"><ion-icon name="bus" aria-hidden="true"></ion-icon></span>
+    <div class="ab-txt">
+      <strong>Vas en el bus{{ ab.unidad ? ' ' + ab.unidad : '' }}<small *ngIf="ab.ruta"> · {{ ab.ruta }}</small></strong>
+      <span class="ab-linea" *ngIf="ab.parada"><span class="ab-parada">{{ ab.bajas ? 'Te bajás en' : 'Próxima parada:' }} {{ ab.parada }}</span><b *ngIf="ab.llegada">{{ ab.llegada }}</b></span>
+    </div>
+    <button type="button" class="ab-no" (click)="noVoyEnEsteBus()">No voy acá</button>
+  </div>
+
   <!-- Live chip -->
-  <div class="live-chip" *ngIf="activeBusCount > 0 && !activeRuta">
+  <div class="live-chip" *ngIf="activeBusCount > 0 && !activeRuta && !aBordo">
     <bx-dato [vivo]="true">{{ conteoBuses.enVivo }} {{ conteoBuses.enVivo === 1 ? 'bus' : 'buses' }} en vivo</bx-dato><ng-container *ngIf="conteoBuses.sinSenal"> · {{ conteoBuses.sinSenal }} sin señal reciente</ng-container>
   </div>
 
