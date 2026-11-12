@@ -5,6 +5,7 @@
 // diseño:
 //   · "uxci" va inclinada como la B (12°: el asta de la B avanza 25,51 en 120
 //     de alto) y apoyada en la misma base;
+//   · la x va en verde;
 //   · el punto de la i va en verde, rodeado de dos anillos de señal que en la
 //     app laten (lo que está en vivo transmite). Los anillos se cortan donde
 //     pasa el palito de la i, con un margen, para no encimarse con él.
@@ -28,6 +29,12 @@ const nombre = readFileSync(join(MARCA, 'buxci-nombre.svg'), 'utf8');
 const trazo = nombre.match(/ d="([^"]+)"/)[1];
 // "uxci": todo el trazo del nombre desde la u (la B del nombre se descarta).
 const uxci = trazo.slice(trazo.indexOf('M93.94'));
+// La x va en verde, como la panza de la B y la señal de la i: el verde
+// recorre la palabra de punta a punta.
+const iX = uxci.indexOf('M130.78'), iC = uxci.indexOf('M219.34');
+if (iX < 0 || iC < 0) throw new Error('No encontré la x en el nombre');
+const X = uxci.slice(iX, iC);
+const SIN_X = uxci.slice(0, iX) + uxci.slice(iC);
 
 const VERDE = '#00c853';
 const BASE = 78;                              // línea de base del nombre
@@ -66,7 +73,7 @@ function logo(colorLetras) {
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 ' + arriba + ' ' + ancho + ' ' + alto + '" role="img" aria-label="Buxci"><title>Buxci</title>'
     + ESTILO + '<defs>' + MASCARA + '</defs>'
     + '<g transform="translate(0 2) scale(' + esc.toFixed(5) + ')">' + marca + '</g>'
-    + '<g transform="' + INCLINAR + '"><path fill="' + colorLetras + '" d="' + uxci + '"/></g>'
+    + '<g transform="' + INCLINAR + '"><path fill="' + colorLetras + '" d="' + SIN_X + '"/><path fill="' + VERDE + '" d="' + X + '"/></g>'
     + '<g transform="' + SENAL + '"><circle cx="' + cx.toFixed(2) + '" cy="' + cy + '" r="' + R_PUNTO + '" fill="' + VERDE + '"/></g>'
     + '<g mask="url(#bx-sin-palito)"><g transform="' + SENAL + '" fill="none" stroke="' + VERDE + '" stroke-width="' + GROSOR + '">'
     + anillo(R[0], 'onda') + anillo(R[1], 'onda onda2') + '</g></g></svg>';

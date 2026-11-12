@@ -53,6 +53,9 @@
   will-change: transform, opacity;
 }
 
+// La x en verde, como en el logo.
+.letra.verde { fill: var(--bx-green); }
+
 // El punto de la i en verde, como lo que está en vivo en la app, y sus
 // anillos latiendo.
 .senal {
