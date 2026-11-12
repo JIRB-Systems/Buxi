@@ -1813,7 +1813,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // empresa puede pintar unidades sueltas distinto del resto de la flota.
   private busColor(loc: BusLocation): string {
     const bus = loc.bus as any;
-    const crudo = bus?.color_bus || this.coloresEmpresa.get(bus?.empresa_id) || bus?.ruta?.color;
+    // El de la empresa también viene con cada bus en vivo (bus.empresa): si la
+    // lista de colores no cargó, igual gana sobre el de la ruta.
+    const crudo = bus?.color_bus || this.coloresEmpresa.get(bus?.empresa_id) || bus?.empresa?.color_bus || bus?.ruta?.color;
     if (crudo) {
       const color = colorSeguro(crudo);
       this.busColors.set(loc.bus_id, color);
@@ -3006,15 +3008,24 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // (sin el join a su ruta), ya tiene su color resuelto cuando se cree su
     // marcador. Si esta consulta falla no se corta la carga: el mapa igual
     // dibuja los buses, apenas con el color de respaldo.
+    //
+    // Cada consulta por su lado (allSettled): sin cuenta la tabla de buses da
+    // "permiso denegado", y con Promise.all esa sola falla tiraba también los
+    // colores de las empresas y las paradas. Resultado: los buses salían con
+    // el color de la ruta en vez del que eligió la empresa ("el bus cambió de
+    // color solo") y faltaban las paradas para "En parada" y "a bordo".
     try {
-      const [buses, paradas, colores] = await Promise.all([
+      const [busesR, paradasR, coloresR] = await Promise.allSettled([
         this.tracking.getActiveBuses(),
         this.tracking.getAllParadas(),
         // Antes de cebar el caché: si llegara después, los buses ya dibujados
         // se quedarían con el color de la ruta hasta el próximo refresco.
         this.tracking.getColoresBusEmpresas(),
       ]);
-      this.coloresEmpresa = colores;
+      if (coloresR.status === 'fulfilled') this.coloresEmpresa = coloresR.value;
+      // Sin cuenta no hay lista de buses: sus datos llegan con cada posición
+      // (buses_en_vivo), que ya trae el color de la empresa.
+      const buses = busesR.status === 'fulfilled' ? busesR.value : [];
       for (const b of buses) {
         // Misma precedencia que busColor(): el color que eligió la empresa
         // gana sobre el de la ruta. Si acá se cebara solo con el de la ruta,
@@ -3028,11 +3039,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         if (b.numero_unidad || b.placa) this.busEtiqueta.set(b.id, b.numero_unidad || b.placa);
         if (b.placa) this.busPlaca.set(b.id, b.placa);
       }
-      this.paradasPorRuta.clear();
-      this.trazados.clear();
-      for (const p of paradas) {
-        const arr = this.paradasPorRuta.get(p.ruta_id);
-        if (arr) arr.push(p); else this.paradasPorRuta.set(p.ruta_id, [p]);
+      if (paradasR.status === 'fulfilled') {
+        this.paradasPorRuta.clear();
+        this.trazados.clear();
+        for (const p of paradasR.value) {
+          const arr = this.paradasPorRuta.get(p.ruta_id);
+          if (arr) arr.push(p); else this.paradasPorRuta.set(p.ruta_id, [p]);
+        }
       }
       this.recalcularParadaCercana();
       if (this.viaje && !this.viajeElegido) this.planificar();
