@@ -163,10 +163,17 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // ---- La cámara sigue al bus ----
   // Manejando, el chofer no puede andar arrastrando el mapa para encontrarse:
   // la cámara va con el bus y lo deja en el pedazo de mapa que no tapan la
-  // tarjeta ni los botones (desplazamientoLibre). Si el chofer arrastra el
-  // mapa deja de seguirlo, y el botón de ubicación lo vuelve a enganchar.
+  // tarjeta ni los botones (desplazamientoLibre). Tocar el mapa no lo corta:
+  // mientras el dedo está encima la cámara no se le pelea y lo que flota se
+  // esconde para ver bien; al soltar vuelve todo y la cámara regresa al bus
+  // con el zoom elegido (ver engancharSeguimiento).
   siguiendo = true;
   private gestoDelChofer = false;
+  // Mientras el chofer toca el mapa: se esconden la tarjeta de la próxima
+  // parada, el SOS y los botones de la derecha (no los avisos ni los botones
+  // de abajo, que no pueden faltar).
+  mapaLimpio = false;
+  private volverTimer: any = null;
 
   // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
   // ngOnInit termine de resolver el bus asignado (son dos llamadas de red).
@@ -1243,19 +1250,33 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     }
   }
 
+  // Antes, arrastrar (y pellizcar, que también cuenta como arrastre) dejaba de
+  // seguir el bus y había que tocar el botón de ubicación para volver. Ahora
+  // 'movestart' con un evento del dedo, la rueda o el teclado (originalEvent;
+  // los movimientos de la app no lo traen) marca el gesto, y 'moveend' lo
+  // cierra: un segundo después vuelve lo escondido y la cámara al bus.
   private engancharSeguimiento() {
-    this.map.on('dragstart', () => { this.siguiendo = false; });
-    // Mientras pellizca o gira no se le pelea la cámara; al soltar, sigue.
-    for (const ev of ['zoomstart', 'rotatestart', 'pitchstart'] as const) {
-      this.map.on(ev, (e: any) => { if (e?.originalEvent) this.gestoDelChofer = true; });
-    }
-    for (const ev of ['zoomend', 'rotateend', 'pitchend'] as const) {
-      this.map.on(ev, () => { this.gestoDelChofer = false; });
-    }
+    this.map.on('movestart', (e: any) => {
+      if (!e?.originalEvent) return;
+      this.gestoDelChofer = true;
+      clearTimeout(this.volverTimer);
+      this.mapaLimpio = true;
+    });
+    this.map.on('moveend', () => {
+      if (!this.gestoDelChofer) return;
+      this.gestoDelChofer = false;
+      clearTimeout(this.volverTimer);
+      this.volverTimer = setTimeout(() => {
+        if (this.destroyed) return;
+        this.mapaLimpio = false;
+        // Con la tarjeta ya de vuelta, para medir bien lo que queda libre.
+        this.volverTimer = setTimeout(() => this.seguirCamara(), 320);
+      }, 900);
+    });
   }
 
   private seguirCamara() {
-    if (!this.siguiendo || this.gestoDelChofer || !this.map) return;
+    if (!this.siguiendo || this.gestoDelChofer || this.mapaLimpio || !this.map) return;
     if (this.currentLat === 0 && this.currentLng === 0) return;
     this.map.easeTo({
       center: [this.currentLng, this.currentLat],
@@ -1667,6 +1688,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyed = true;
+    clearTimeout(this.volverTimer);
     window.removeEventListener('online', this.alVolverLaRed);
     if (this.panicoTimer) clearTimeout(this.panicoTimer);
     if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);

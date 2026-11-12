@@ -1,4 +1,4 @@
-<ion-content [fullscreen]="true" class="chofer-content" [scrollY]="false" [class.con-parada]="!!(nextParada && tracking)">
+<ion-content [fullscreen]="true" class="chofer-content" [scrollY]="false" [class.con-parada]="!!(nextParada && tracking)" [class.mapa-limpio]="mapaLimpio">
 
   <div id="chofer-map"></div>
 
@@ -104,10 +104,9 @@
     <button class="mc-btn mc-text" (click)="toggle3D()" [attr.aria-label]="is3D ? 'Ver en 2D' : 'Ver en 3D'">
       {{ is3D ? '2D' : '3D' }}
     </button>
-    <!-- Encendido mientras la cámara sigue al bus; apagado, invita a volver. -->
-    <button class="mc-btn mc-seguir" [class.suelto]="!siguiendo" (click)="centerOnMe()"
-            [attr.aria-label]="siguiendo ? 'Siguiendo tu bus' : 'Volver a seguir tu bus'">
-      <ion-icon [name]="siguiendo ? 'locate' : 'locate-outline'"></ion-icon>
+    <!-- La cámara siempre sigue al bus; esto la trae de vuelta al instante. -->
+    <button class="mc-btn mc-seguir" (click)="centerOnMe()" aria-label="Centrar en tu bus">
+      <ion-icon name="locate"></ion-icon>
     </button>
   </div>
 

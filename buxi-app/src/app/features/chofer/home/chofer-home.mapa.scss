@@ -17,14 +17,23 @@
   .chofer-content.con-parada .map-controls {
     bottom: calc(env(safe-area-inset-bottom, 0px) + 178px);
   }
-}
 
-// El botón de ubicación: verde mientras sigue al bus, resaltado cuando no.
-.mc-btn.mc-seguir {
-  ion-icon { color: var(--bx-green-bright); }
-  &.suelto {
-    border-color: rgba(0, 200, 83, 0.55);
-    box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.18), 0 4px 18px rgba(0,0,0,0.3);
-    ion-icon { color: var(--bx-text); }
+  // Mientras el chofer toca el mapa (arrastre, pellizco, giro) se esconde lo
+  // que tapa el bus; al soltar vuelve (ver engancharSeguimiento). Los avisos
+  // y los botones de abajo no se esconden nunca.
+  .chofer-content > .next-stop-card,
+  .chofer-content > .panic-wrap,
+  .chofer-content > .map-controls {
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+  .chofer-content.mapa-limpio > .next-stop-card,
+  .chofer-content.mapa-limpio > .panic-wrap,
+  .chofer-content.mapa-limpio > .map-controls {
+    opacity: 0;
+    transform: translateY(14px);
+    pointer-events: none;
   }
 }
+
+// El botón de ubicación, en verde: la cámara sigue al bus.
+.mc-btn.mc-seguir ion-icon { color: var(--bx-green-bright); }
