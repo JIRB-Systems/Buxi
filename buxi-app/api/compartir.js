@@ -4,9 +4,11 @@
 // WhatsApp, Telegram, Facebook y compañía arman la tarjeta del enlace leyendo
 // las etiquetas Open Graph del HTML, sin correr JavaScript. La app es una
 // página que se dibuja con JavaScript, así que para ellos estaba vacía: el
-// enlace salía pelado, sin tarjeta. A ellos se les devuelve un HTML mínimo con
-// el bus (placa, ruta y empresa) y la imagen de "Ubicación en vivo"; a las
-// personas, una redirección directo al mapa siguiendo ese bus.
+// enlace salía pelado, sin tarjeta. Acá se devuelve, a todos por igual, un HTML
+// mínimo con el bus (placa, ruta y empresa) y la imagen de "Ubicación en vivo";
+// un script chico (assets/compartir-ir.js) pasa a las personas al mapa
+// siguiendo ese bus, y los lectores de tarjetas, que no corren JavaScript, se
+// quedan con la tarjeta.
 //
 // Sin dependencias y sin claves privadas: lee buses_en_vivo con la clave
 // pública de la app (la misma que usa cualquier pasajero sin cuenta).
@@ -38,10 +40,9 @@ async function buscarBus(id) {
   }
 }
 
-// Quién pide la página: los que arman tarjetas (WhatsApp, Facebook, iMessage,
-// Telegram...) o una persona. Cualquier cliente que no se presente como
-// navegador ("Mozilla") cuenta como robot: recibir la tarjeta no le hace mal
-// a nadie, y a una persona con un navegador raro le queda el botón para abrir.
+// Solo para los registros: quién arma las tarjetas. NO decide qué se responde:
+// WhatsApp de escritorio, por ejemplo, pide el enlace presentándose como el
+// navegador Edge, y separar por eso lo mandaba al mapa sin tarjeta.
 const ROBOT = /bot\b|crawl|spider|preview|whatsapp|facebookexternalhit|facebot|twitterbot|telegram|slack|discord|linkedin|embedly|iframely|skype|pinterest|vkshare|mastodon|signal|okhttp|curl|wget|python/i;
 function esRobot(ua) {
   return !ua || ROBOT.test(ua) || !/mozilla/i.test(ua);
@@ -69,17 +70,6 @@ module.exports = async function handler(req, res) {
   // Facebook...) y qué se le respondió. Sin datos de la persona: solo el
   // programa que pidió el enlace.
   console.log(JSON.stringify({ compartir: valido ? id : 'invalido', robot: esRobot(ua), ua: ua.slice(0, 160) }));
-
-  // Las personas van directo al mapa, sin pasar por la tarjeta.
-  // Sin caché compartida: la misma dirección responde distinto a robots y a
-  // personas, y la CDN no distingue entre ellos.
-  if (!esRobot(ua)) {
-    res.statusCode = 302;
-    res.setHeader('Location', APP + destino);
-    res.setHeader('Cache-Control', 'private, no-store');
-    res.end();
-    return;
-  }
 
   let titulo = 'Seguí este bus en vivo en Buxci';
   let descripcion = 'Mirá en el mapa por dónde va, minuto a minuto.';
@@ -118,15 +108,20 @@ module.exports = async function handler(req, res) {
     + '<meta name="twitter:title" content="' + esc(titulo) + '">'
     + '<meta name="twitter:description" content="' + esc(descripcion) + '">'
     + '<meta name="twitter:image" content="' + IMAGEN + '">'
-    // Sin redirección automática: hay lectores de tarjetas que la siguen y
-    // terminan leyendo otra página. Las personas no llegan acá (ver arriba).
     + '<meta name="theme-color" content="#0a1628">'
     + '</head><body style="margin:0;background:#0a1628;color:#fff;font-family:system-ui,sans-serif">'
     + '<p style="padding:24px">' + esc(titulo) + '. <a style="color:#00e676" href="' + esc(destino) + '">Ver en el mapa</a></p>'
+    // Las personas pasan al mapa con este script; los lectores de tarjetas no
+    // corren JavaScript, así que se quedan con las etiquetas de arriba. Ni
+    // redirección del servidor (los que parecen navegadores la seguían) ni
+    // meta refresh (algunos lectores lo siguen). Archivo aparte: la política
+    // de seguridad del sitio no deja scripts en línea.
+    + '<script src="/assets/compartir-ir.js"></script>'
     + '</body></html>';
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'private, no-store');
+  // La misma respuesta para todos, así que puede quedar un minuto en la CDN.
+  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
   res.statusCode = 200;
   res.end(html);
 };
