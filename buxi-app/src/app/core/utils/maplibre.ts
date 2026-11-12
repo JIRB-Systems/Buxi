@@ -341,6 +341,9 @@ export function createMap(opts: {
   // si no la página nunca se puede desplazar por encima del mapa.
   cooperativeGestures?: boolean;
   interactive?: boolean;
+  // Cuántos píxeles se puede mover el dedo y que siga contando como toque (y
+  // no como arrastre). MapLibre usa 3, poco para un dedo en un teléfono.
+  clickTolerance?: number;
 }): Promise<maplibregl.Map> {
   const map = new maplibregl.Map({
     container: opts.container,
@@ -352,6 +355,7 @@ export function createMap(opts: {
     attributionControl: false,
     interactive: opts.interactive ?? true,
     cooperativeGestures: opts.cooperativeGestures ?? false,
+    clickTolerance: opts.clickTolerance ?? 3,
     // Rotar con dos dedos: sin esto el gesto de rotación no existe en móvil y
     // el 3D queda sin manera de mirarse desde otro ángulo.
     pitchWithRotate: true,

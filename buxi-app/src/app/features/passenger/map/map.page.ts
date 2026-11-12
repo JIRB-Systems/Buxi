@@ -2183,6 +2183,29 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   fichaOculta = false;
   private gestoSiguiendo = false;
   private reaparecerFicha: any = null;
+  private vigiaGestoSeguimiento: any = null;
+
+  // Fin del gesto: la ficha vuelve en un momento y el bus se centra.
+  private terminarGestoSeguimiento(espera: number) {
+    this.gestoSiguiendo = false;
+    clearTimeout(this.vigiaGestoSeguimiento);
+    clearTimeout(this.reaparecerFicha);
+    this.reaparecerFicha = setTimeout(() => {
+      // Aunque se haya dejado de seguir: que nunca quede escondida.
+      this.zone.run(() => { this.fichaOculta = false; });
+      if (this.followBusId) setTimeout(() => this.recentrarSeguido(), 320);
+    }, espera);
+  }
+
+  // Por si el mapa no avisa el fin del gesto (ver la del chofer).
+  private vigilarGestoSeguimiento() {
+    clearTimeout(this.vigiaGestoSeguimiento);
+    this.vigiaGestoSeguimiento = setTimeout(() => {
+      if (this.destroyed || !this.gestoSiguiendo) return;
+      if (this.map?.isMoving()) { this.vigilarGestoSeguimiento(); return; }
+      this.terminarGestoSeguimiento(0);
+    }, 4000);
+  }
 
   private engancharGestosSeguimiento() {
     this.zone.runOutsideAngular(() => {
@@ -2191,17 +2214,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         this.gestoSiguiendo = true;
         clearTimeout(this.reaparecerFicha);
         if (!this.fichaOculta) this.zone.run(() => { this.fichaOculta = true; });
+        this.vigilarGestoSeguimiento();
       });
       this.map.on('moveend', () => {
         if (!this.gestoSiguiendo) return;
-        this.gestoSiguiendo = false;
-        clearTimeout(this.reaparecerFicha);
-        this.reaparecerFicha = setTimeout(() => {
-          if (!this.followBusId) return;
-          this.zone.run(() => { this.fichaOculta = false; });
-          // Con la ficha ya de vuelta, para medir bien lo que queda libre.
-          setTimeout(() => this.recentrarSeguido(), 320);
-        }, 900);
+        this.terminarGestoSeguimiento(900);
       });
     });
   }
@@ -5538,6 +5555,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     const bus = this.selectedBus;
     this.followBusId = bus.bus_id;
     this.fichaChica = true;
+    // Por si quedó de un seguimiento anterior cortado a la mitad de un gesto.
+    this.fichaOculta = false;
+    this.gestoSiguiendo = false;
 
     const rutaId = (bus.bus as any)?.ruta_id || this.activeRuta?.id;
     if (rutaId && !this.activeRuta) {

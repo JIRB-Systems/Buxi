@@ -177,7 +177,12 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   //    desvío (el mapa solo, con el bus), hasta otro toque.
   ocultoPorGesto = false;
   ocultoPorToque = false;
-  private volverTimer: any = null;
+  // Un temporizador por cosa: antes uno solo hacía las dos, y un toque justo
+  // después de un gesto borraba la vuelta de lo escondido (quedaba escondido).
+  private volverTimer: any = null;   // vuelve lo escondido por un gesto
+  private centrarTimer: any = null;  // centra el bus cuando ya se ve todo
+  private vigiaGesto: any = null;    // por si el fin del gesto nunca llega
+  private finDelGesto = 0;
 
   // initMap() corre en ionViewDidEnter, que puede dispararse antes de que
   // ngOnInit termine de resolver el bus asignado (son dos llamadas de red).
@@ -344,6 +349,9 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       pitch: this.is3D ? 50 : 0,
       threeD: this.is3D,
       style: 'streets-v2-dark',
+      // Un toque esconde y muestra los controles: con 3 px de tolerancia, el
+      // dedo se movía apenas, contaba como arrastre y el toque no llegaba.
+      clickTolerance: 10,
     });
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
@@ -1265,26 +1273,54 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       this.gestoDelChofer = true;
       clearTimeout(this.volverTimer);
       this.ocultoPorGesto = true;
+      this.vigilarGesto();
     });
     this.map.on('moveend', () => {
       if (!this.gestoDelChofer) return;
-      this.gestoDelChofer = false;
-      clearTimeout(this.volverTimer);
-      this.volverTimer = setTimeout(() => {
-        if (this.destroyed) return;
-        this.ocultoPorGesto = false;
-        // Con la barra ya de vuelta, para medir bien lo que queda libre.
-        this.volverTimer = setTimeout(() => this.seguirCamara(), 320);
-      }, 900);
+      this.terminarGesto(900);
     });
     // Un toque al mapa (sin arrastrar) deja el mapa solo con el bus; otro lo
     // vuelve todo. Lo escondido no cuenta para centrar el bus (no recibe
     // toques), así que la cámara se acomoda a lo que se ve.
     this.map.on('click', () => {
+      // Un "toque" en medio de un gesto o pegado a su fin (al levantar los
+      // dedos de un pellizco llega a veces uno suelto) no es un toque:
+      // escondía la barra de arriba y "Terminar ruta" sin quererlo.
+      if (this.gestoDelChofer || Date.now() - this.finDelGesto < 400) return;
       this.ocultoPorToque = !this.ocultoPorToque;
-      clearTimeout(this.volverTimer);
-      this.volverTimer = setTimeout(() => this.seguirCamara(), 320);
+      this.programarCentrado();
     });
+  }
+
+  // Fin del gesto: lo escondido vuelve después de `espera` y el bus se centra.
+  private terminarGesto(espera: number) {
+    this.gestoDelChofer = false;
+    this.finDelGesto = Date.now();
+    clearTimeout(this.vigiaGesto);
+    clearTimeout(this.volverTimer);
+    this.volverTimer = setTimeout(() => {
+      if (this.destroyed) return;
+      this.ocultoPorGesto = false;
+      this.programarCentrado();
+    }, espera);
+  }
+
+  // Por si el mapa no avisa el fin del gesto: cada 4 s se mira si sigue
+  // moviéndose (con el dedo encima, sí); si ya no, se da por terminado.
+  private vigilarGesto() {
+    clearTimeout(this.vigiaGesto);
+    this.vigiaGesto = setTimeout(() => {
+      if (this.destroyed || !this.gestoDelChofer) return;
+      if (this.map?.isMoving()) { this.vigilarGesto(); return; }
+      this.terminarGesto(0);
+    }, 4000);
+  }
+
+  // Con lo escondido ya de vuelta (o recién escondido), para medir bien lo
+  // que queda libre.
+  private programarCentrado() {
+    clearTimeout(this.centrarTimer);
+    this.centrarTimer = setTimeout(() => this.seguirCamara(), 320);
   }
 
   private seguirCamara() {
@@ -1701,6 +1737,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.destroyed = true;
     clearTimeout(this.volverTimer);
+    clearTimeout(this.centrarTimer);
+    clearTimeout(this.vigiaGesto);
     window.removeEventListener('online', this.alVolverLaRed);
     if (this.panicoTimer) clearTimeout(this.panicoTimer);
     if (this.liveChannel) supabaseClient().removeChannel(this.liveChannel);
