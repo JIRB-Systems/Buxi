@@ -115,6 +115,10 @@ a.ci:hover { color: #00c853; }
 .footer { padding: 24px 0; background: #0a1628; border-top: 1px solid rgba(255,255,255,0.04); }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; }
 .footer-logo { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #fff; }
+/* El logo (la B de la marca es la B de Buxci): diseno/logo/logo_con_b.mjs */
+.logo-svg { display: block; width: auto; }
+.nav-logo .logo-svg { height: 32px; }
+.footer-logo .logo-svg { height: 26px; }
 .footer p { font-size: 12px; color: #5a7090; }
 
 /* ====== RESPONSIVE ====== */

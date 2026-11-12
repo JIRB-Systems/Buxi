@@ -28,10 +28,9 @@
   gap: clamp(16px, 3vh, 26px);
 }
 
-// Mismas proporciones que el logo vertical: el nombre mide 1,3 veces el ancho
-// de la marca.
-.mark {
-  width: 40%; height: auto; display: block; overflow: visible;
+// El logo horizontal: la B de la marca es la B del nombre.
+.logo {
+  width: 84%; height: auto; display: block; overflow: visible;
 }
 
 // Estado inicial: fuera de cuadro. La animación (splash.page.ts) las trae.
@@ -47,20 +46,29 @@
   will-change: transform, opacity;
 }
 
-// Al 49 % las mayúsculas de «Buxci» miden lo mismo que el asta de una
-// franja, que es la proporción del logo horizontal. El punto de la i va en
-// verde, como lo que está en vivo en la app.
-.wordmark {
-  width: 49%; height: auto; display: block; overflow: visible;
+// «uxci» y la señal de la i suben por separado (splash.page.ts).
+.letra {
   fill: var(--bx-text);
+  opacity: 0;
+  will-change: transform, opacity;
+}
 
+// El punto de la i en verde, como lo que está en vivo en la app, y sus
+// anillos latiendo.
+.senal {
   .punto { fill: var(--bx-green); }
-
-  // Cada letra sube por separado.
-  > * {
-    opacity: 0;
-    will-change: transform, opacity;
+  .onda {
+    fill: none;
+    stroke: var(--bx-green);
+    stroke-width: 3.5;
+    animation: splash-onda 2.4s ease-in-out infinite;
   }
+  .onda2 { animation-delay: 0.35s; }
+}
+
+@keyframes splash-onda {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
 }
 
 .tagline {
@@ -158,6 +166,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .halo { opacity: 0.4; }
-  .franja, .panza, .wordmark > * { opacity: 1; transform: none; }
+  .franja, .panza, .letra { opacity: 1; transform: none; }
+  .senal .onda { animation: none; }
   .tagline { opacity: 1; transform: none; }
 }
