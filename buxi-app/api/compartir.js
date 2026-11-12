@@ -53,6 +53,10 @@ module.exports = async function handler(req, res) {
   const destino = valido ? '/passenger/map?bus=' + encodeURIComponent(id) : '/passenger/map';
   const enlace = valido ? APP + '/v/' + id : APP + '/passenger/map';
   const ua = String((req.headers && req.headers['user-agent']) || '');
+  // Para saber en los registros de Vercel quién arma las tarjetas (WhatsApp,
+  // Facebook...) y qué se le respondió. Sin datos de la persona: solo el
+  // programa que pidió el enlace.
+  console.log(JSON.stringify({ compartir: valido ? id : 'invalido', robot: esRobot(ua), ua: ua.slice(0, 160) }));
 
   // Las personas van directo al mapa, sin pasar por la tarjeta.
   // Sin caché compartida: la misma dirección responde distinto a robots y a
