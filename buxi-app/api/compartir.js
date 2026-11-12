@@ -4,9 +4,9 @@
 // WhatsApp, Telegram, Facebook y compañía arman la tarjeta del enlace leyendo
 // las etiquetas Open Graph del HTML, sin correr JavaScript. La app es una
 // página que se dibuja con JavaScript, así que para ellos estaba vacía: el
-// enlace salía pelado, sin tarjeta. Acá se devuelve un HTML mínimo con el bus
-// (unidad, ruta y empresa) y la imagen de "Ubicación en vivo"; a las personas
-// el mismo HTML las manda enseguida al mapa siguiendo ese bus.
+// enlace salía pelado, sin tarjeta. A ellos se les devuelve un HTML mínimo con
+// el bus (placa, ruta y empresa) y la imagen de "Ubicación en vivo"; a las
+// personas, una redirección directo al mapa siguiendo ese bus.
 //
 // Sin dependencias y sin claves privadas: lee buses_en_vivo con la clave
 // pública de la app (la misma que usa cualquier pasajero sin cuenta).
@@ -28,7 +28,7 @@ async function buscarBus(id) {
       method: 'POST',
       headers: { apikey: SUPABASE_CLAVE_PUBLICA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ p_ruta_id: null, p_max_age_minutes: 60 }),
-      signal: AbortSignal.timeout(2500),
+      signal: AbortSignal.timeout(1500),
     });
     if (!r.ok) return null;
     const filas = await r.json();
@@ -38,11 +38,32 @@ async function buscarBus(id) {
   }
 }
 
+// Quién pide la página: los que arman tarjetas (WhatsApp, Facebook, iMessage,
+// Telegram...) o una persona. Cualquier cliente que no se presente como
+// navegador ("Mozilla") cuenta como robot: recibir la tarjeta no le hace mal
+// a nadie, y a una persona con un navegador raro le queda el botón para abrir.
+const ROBOT = /bot\b|crawl|spider|preview|whatsapp|facebookexternalhit|facebot|twitterbot|telegram|slack|discord|linkedin|embedly|iframely|skype|pinterest|vkshare|mastodon|signal|okhttp|curl|wget|python/i;
+function esRobot(ua) {
+  return !ua || ROBOT.test(ua) || !/mozilla/i.test(ua);
+}
+
 module.exports = async function handler(req, res) {
   const id = String((req.query && req.query.bus) || '').trim();
   const valido = UUID.test(id);
   const destino = valido ? '/passenger/map?bus=' + encodeURIComponent(id) : '/passenger/map';
   const enlace = valido ? APP + '/v/' + id : APP + '/passenger/map';
+  const ua = String((req.headers && req.headers['user-agent']) || '');
+
+  // Las personas van directo al mapa, sin pasar por la tarjeta.
+  // Sin caché compartida: la misma dirección responde distinto a robots y a
+  // personas, y la CDN no distingue entre ellos.
+  if (!esRobot(ua)) {
+    res.statusCode = 302;
+    res.setHeader('Location', APP + destino);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.end();
+    return;
+  }
 
   let titulo = 'Seguí este bus en vivo en Buxci';
   let descripcion = 'Mirá en el mapa por dónde va, minuto a minuto.';
@@ -68,21 +89,23 @@ module.exports = async function handler(req, res) {
     + '<meta property="og:description" content="' + esc(descripcion) + '">'
     + '<meta property="og:url" content="' + esc(enlace) + '">'
     + '<meta property="og:image" content="' + IMAGEN + '">'
+    + '<meta property="og:image:secure_url" content="' + IMAGEN + '">'
+    + '<meta property="og:image:type" content="image/jpeg">'
     + '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">'
     + '<meta property="og:image:alt" content="Ubicación en vivo del bus en el mapa de Buxci">'
     + '<meta name="twitter:card" content="summary_large_image">'
-    // Las personas siguen al mapa enseguida. Meta refresh y no un script: la
-    // política de seguridad del sitio no deja correr scripts en línea.
-    + '<meta http-equiv="refresh" content="0; url=' + esc(destino) + '">'
+    + '<meta name="twitter:title" content="' + esc(titulo) + '">'
+    + '<meta name="twitter:description" content="' + esc(descripcion) + '">'
+    + '<meta name="twitter:image" content="' + IMAGEN + '">'
+    // Sin redirección automática: hay lectores de tarjetas que la siguen y
+    // terminan leyendo otra página. Las personas no llegan acá (ver arriba).
     + '<meta name="theme-color" content="#0a1628">'
     + '</head><body style="margin:0;background:#0a1628;color:#fff;font-family:system-ui,sans-serif">'
-    + '<p style="padding:24px">Abriendo el mapa… <a style="color:#00e676" href="' + esc(destino) + '">Tocá acá si no se abre</a>.</p>'
+    + '<p style="padding:24px">' + esc(titulo) + '. <a style="color:#00e676" href="' + esc(destino) + '">Ver en el mapa</a></p>'
     + '</body></html>';
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  // Un minuto: la tarjeta cambia poco y así una ola de vistas previas no
-  // golpea la base.
-  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
+  res.setHeader('Cache-Control', 'private, no-store');
   res.statusCode = 200;
   res.end(html);
 };
