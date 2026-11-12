@@ -2176,7 +2176,50 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // ~2s después de que suelta. Los listeners viven FUERA de la zona de Angular:
   // 'move' y 'rotate' disparan en cada frame y meterlos en la zona provocaría
   // un ciclo de detección de cambios por frame.
+  // ---- Gestos mientras se sigue un bus ----
+  // Al tocar el mapa (zoom, arrastre, rueda) la ficha se esconde y la cámara
+  // deja de moverse sola; al soltar, la ficha vuelve y el bus se centra de
+  // nuevo en lo que queda libre, con el zoom que dejó el pasajero.
+  fichaOculta = false;
+  private gestoSiguiendo = false;
+  private reaparecerFicha: any = null;
+
+  private engancharGestosSeguimiento() {
+    this.zone.runOutsideAngular(() => {
+      this.map.on('movestart', (e: any) => {
+        if (!e?.originalEvent || !this.followBusId) return;
+        this.gestoSiguiendo = true;
+        clearTimeout(this.reaparecerFicha);
+        if (!this.fichaOculta) this.zone.run(() => { this.fichaOculta = true; });
+      });
+      this.map.on('moveend', () => {
+        if (!this.gestoSiguiendo) return;
+        this.gestoSiguiendo = false;
+        clearTimeout(this.reaparecerFicha);
+        this.reaparecerFicha = setTimeout(() => {
+          if (!this.followBusId) return;
+          this.zone.run(() => { this.fichaOculta = false; });
+          // Con la ficha ya de vuelta, para medir bien lo que queda libre.
+          setTimeout(() => this.recentrarSeguido(), 320);
+        }, 900);
+      });
+    });
+  }
+
+  private recentrarSeguido() {
+    const id = this.followBusId;
+    if (!id || this.gestoSiguiendo || !this.mapReady) return;
+    const loc = this.busLocationsMap.get(id);
+    if (!loc) return;
+    this.map.easeTo({
+      center: [loc.longitud, loc.latitud],
+      offset: desplazamientoLibre(this.map),
+      duration: 600,
+    });
+  }
+
   private setupMapChrome() {
+    this.engancharGestosSeguimiento();
     this.zone.runOutsideAngular(() => {
       const hide = () => this.setNavVisible(false);
       const scheduleShow = () => {
@@ -3396,7 +3439,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (this.selectedBus?.bus_id === location.bus_id) {
       this.selectedBus = location;
     }
-    if (this.followBusId === location.bus_id) {
+    if (this.followBusId === location.bus_id && !this.gestoSiguiendo && !this.fichaOculta) {
       this.map.easeTo({
         center: [location.longitud, location.latitud],
         bearing: heading,
@@ -5482,9 +5525,12 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // ---- MODO SEGUIMIENTO ----
   // Centra el bus, lo persigue, inclina y rota la cámara hacia su rumbo, y
-  // dibuja su ruta con las paradas. El seguimiento se corta solo si el usuario
-  // arrastra el mapa: pelearle la cámara al dedo del usuario es lo peor que
-  // puede hacer un mapa.
+  // dibuja su ruta con las paradas. Sigue hasta tocar "Dejar de seguir": antes
+  // se cortaba con cualquier arrastre, y pellizcar para hacer zoom también
+  // cuenta como arrastre, así que acercarse al bus dejaba de seguirlo. Ahora,
+  // mientras el dedo está en el mapa la cámara no se le pelea (y la ficha se
+  // esconde para ver mejor); al soltar, vuelve al bus con el zoom elegido
+  // (ver engancharGestosSeguimiento).
   async toggleFollow() {
     if (this.followBusId) { this.stopFollowing(); return; }
     if (!this.selectedBus) return;
@@ -5524,12 +5570,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       offset: desplazamientoLibre(this.map),
     });
 
-    this.map.once('dragstart', () => this.zone.run(() => this.stopFollowing()));
   }
 
   stopFollowing() {
     if (!this.followBusId) return;
     this.followBusId = null;
+    this.gestoSiguiendo = false;
+    clearTimeout(this.reaparecerFicha);
+    this.fichaOculta = false;
     this.map.easeTo({ pitch: this.is3D ? 50 : 0, duration: 600 });
   }
 

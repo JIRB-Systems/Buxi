@@ -97,3 +97,12 @@
   > :not(.follow-btn):not(.share-btn) { grid-column: 1 / -1; }
   .follow-btn, .share-btn { margin-top: 10px; --bx-btn-h: 44px; font-size: 14px; }
 }
+
+// Mientras el dedo está en el mapa siguiendo un bus, la ficha baja y se
+// esconde; al soltar, vuelve (ver engancharGestosSeguimiento).
+.bus-sheet.following { transition: transform 0.28s ease, opacity 0.22s ease; }
+.bus-sheet.oculta {
+  transform: translateY(calc(100% + 30px));
+  opacity: 0;
+  pointer-events: none;
+}

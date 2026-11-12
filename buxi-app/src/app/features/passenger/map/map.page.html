@@ -623,7 +623,7 @@
   </div>
 
   <!-- ====== FICHA DEL BUS ====== -->
-  <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus" [class.chica]="followingBus && fichaChica" role="dialog" aria-label="Detalle del bus">
+  <div class="bus-sheet" *ngIf="selectedBus" [class.following]="followingBus" [class.chica]="followingBus && fichaChica" [class.oculta]="followingBus && fichaOculta" role="dialog" aria-label="Detalle del bus">
     <!-- Siguiendo el bus la ficha se achica para que el bus se vea; la
          rayita la vuelve a abrir (y a cerrar). -->
     <div class="sheet-bar" [class.sheet-bar--toque]="followingBus" (click)="alternarFicha()"
