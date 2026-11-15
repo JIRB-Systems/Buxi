@@ -78,15 +78,30 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // grabando, y a los pasajeros el bus se les congelaba y la app se lo pintaba
   // como "sin señal", culpando al bus de un problema del teléfono.
   //
-  // Dos fallos seguidos (10 s) antes de avisar, para no encender el cartel por
-  // un bache de red de un solo intento.
+  // Tres fallos seguidos (unos 8 s andando) antes de avisar, para no encender
+  // el cartel por un bache de red de un solo intento.
   transmisionCaida = false;
   private enviosFallidos = 0;
-  private readonly FALLOS_PARA_AVISAR = 2;
-  // Con el GPS de fondo llega una posición por segundo; al servidor se manda
-  // como mucho una cada 5 s, igual que el intervalo de siempre.
-  private readonly ENVIO_MIN_MS = 5000;
+  private readonly FALLOS_PARA_AVISAR = 3;
   private ultimoEnvio = 0;
+
+  // Cada cuánto sale un punto al servidor. Antes, siempre cada 5 s: en el
+  // mapa del pasajero el bus avanzaba a saltos y "llega en" iba atrasado. Ahora
+  // depende de cómo va el bus: andando, cada 2,5 s (el servidor no acepta
+  // menos de 2 s por bus, ver limitar_frecuencia_gps); despacio, cada 4 s; y
+  // parado, cada 8 s, que alcanza para que siga "en vivo" (se ve demorado
+  // recién a los 45 s) sin llenar la tabla de puntos repetidos.
+  private intervaloEnvio(): number {
+    if (this.currentSpeedKmh >= 8) return 2500;
+    if (this.currentSpeedKmh >= 1) return 4000;
+    return 8000;
+  }
+
+  // Corre cada medio segundo y manda cuando toca. El GPS de fondo también lo llama
+  // con cada posición que entrega.
+  private enviarSiToca() {
+    if (Date.now() - this.ultimoEnvio >= this.intervaloEnvio()) this.sendLocation();
+  }
 
   // ---- Botón de pánico ----
   sendingPanic = false;
@@ -1109,7 +1124,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.segmentStartTime = Date.now();
 
     await this.sendLocation();
-    this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
+    this.trackingInterval = setInterval(() => this.enviarSiToca(), 500);
     await this.iniciarGpsFondo();
     this.entrarEnManejo();
 
@@ -1226,7 +1241,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       this.transmisionCaida = false;
       this.enviosFallidos = 0;
       this.sendLocation();
-      this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
+      this.trackingInterval = setInterval(() => this.enviarSiToca(), 500);
       this.iniciarGpsFondo();
     }
   }
@@ -1239,7 +1254,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     if (!this.gpsFondo.disponible) return;
     const r = await this.gpsFondo.iniciar(this.assignedBus?.ruta?.nombre || null, l => {
       this.updatePosition(l.latitude, l.longitude, l.speed, l.bearing);
-      if (this.tracking && !this.paused && Date.now() - this.ultimoEnvio >= this.ENVIO_MIN_MS) this.sendLocation();
+      if (this.tracking && !this.paused) this.enviarSiToca();
     });
     if (r === 'sin-permiso') {
       const alert = await this.alertCtrl.create({

@@ -231,7 +231,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     head0: number; head1: number; t0: number;
   }>();
   private busRaf: number | null = null;
-  private readonly BUS_TWEEN_MS = 1000;
+  // Lo que tarda el bus en deslizarse de un punto al siguiente. Cerca del
+  // tiempo entre puntos (2,5-3 s), así se mueve seguido y no a saltos.
+  private readonly BUS_TWEEN_MS = 2200;
   private userMarker: maplibregl.Marker | null = null;
   private userConeMarker: maplibregl.Marker | null = null;
   private gpsHeading: number | null = null;
@@ -3256,10 +3258,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // Realtime solo entrega lo que RLS deja leer: los buses de las empresas que
   // se siguen, y nada sin cuenta. El resto de la flota llega consultando
-  // buses_en_vivo cada pocos segundos (el chofer manda un punto cada 5).
-  private readonly ENVIVO_MS = 6000;
+  // buses_en_vivo: cada 3 s mirando un bus (su ficha abierta o siguiéndolo),
+  // que es cuando se nota, y cada 5 s el resto del tiempo. El chofer manda un
+  // punto cada 2,5 s andando (ver intervaloEnvio en la pantalla del chofer).
+  private readonly ENVIVO_MS = 5000;
+  private readonly ENVIVO_MIRANDO_MS = 3000;
   private envivoInterval: any = null;
   private refrescandoEnVivo = false;
+  private envivoEn = 0;
+
+  private refrescarEnVivoSiToca() {
+    const cada = this.selectedBus || this.followBusId ? this.ENVIVO_MIRANDO_MS : this.ENVIVO_MS;
+    if (Date.now() - this.envivoEn < cada) return;
+    this.envivoEn = Date.now();
+    this.refrescarEnVivo();
+  }
 
   private async refrescarEnVivo() {
     if (this.refrescandoEnVivo || this.destroyed || document.hidden) return;
@@ -3291,7 +3304,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   }
 
   private startRealtimeTracking() {
-    this.envivoInterval = setInterval(() => this.refrescarEnVivo(), this.ENVIVO_MS);
+    this.envivoInterval = setInterval(() => this.refrescarEnVivoSiToca(), 1000);
     this.locationSub = this.tracking.subscribeToLocations().subscribe((locations) => {
       locations.forEach((loc) => this.addOrUpdateBusMarker(loc));
       // El conteo sale de los buses que hay en el mapa, no de `locations`: ese
@@ -3586,7 +3599,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         center: [location.longitud, location.latitud],
         pitch: this.PITCH_SEGUIR,
         bearing: this.rumboSeguido(location),
-        duration: 1000,
+        // Lo mismo que tarda el bus en deslizarse: la cámara va con él.
+        duration: this.BUS_TWEEN_MS,
         easing: (t) => t,
         offset: desplazamientoLibre(this.map, this.ALTURA_SEGUIR),
       });
