@@ -20,7 +20,7 @@ import {
   CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, desplazamientoLibre, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, desplazamientoLibre, lugaresDelMapa, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
 import { claveValida, REGLA_CLAVE } from '../../../core/utils/clave';
@@ -2326,9 +2326,34 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (!loc) return;
     this.map.easeTo({
       center: [loc.longitud, loc.latitud],
-      offset: desplazamientoLibre(this.map),
+      pitch: this.PITCH_SEGUIR,
+      bearing: this.rumboSeguido(loc),
+      offset: desplazamientoLibre(this.map, this.ALTURA_SEGUIR),
       duration: 600,
     });
+  }
+
+  // ---- SEGUIR UN BUS: LA MISMA VISTA QUE EL CHOFER ----
+  // Como en Uber: el mapa inclinado, girado hacia donde va el bus (adelante =
+  // arriba) y el bus en la parte de abajo de lo libre, para ver por dónde va
+  // a pasar. Mientras se sigue, el mapa va sin comercios ni lugares (las
+  // paradas quedan). Al dejar de seguir vuelve norte arriba y como estaba.
+  private readonly PITCH_SEGUIR = 55;
+  private readonly ALTURA_SEGUIR = 0.72;
+  private rumboSeguimiento: number | null = null;
+
+  // El rumbo solo cambia con el bus andando y si el cambio no es ruido: con
+  // el bus quieto el GPS da rumbos al azar y el mapa daría vueltas.
+  private rumboSeguido(loc: BusLocation): number {
+    const nuevo = loc.heading || 0;
+    if (this.rumboSeguimiento === null) return (this.rumboSeguimiento = nuevo);
+    const diferencia = Math.abs(((nuevo - this.rumboSeguimiento + 540) % 360) - 180);
+    if ((loc.velocidad || 0) >= 4 && diferencia >= 6) this.rumboSeguimiento = nuevo;
+    return this.rumboSeguimiento;
+  }
+
+  private mapaLimpioAlSeguir(limpio: boolean) {
+    try { lugaresDelMapa(this.map, !limpio); } catch { /* sin estilo */ }
   }
 
   private setupMapChrome() {
@@ -3556,12 +3581,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.selectedBus = location;
     }
     if (this.followBusId === location.bus_id && !this.gestoSiguiendo && !this.fichaOculta) {
+      this.mapaLimpioAlSeguir(true);
       this.map.easeTo({
         center: [location.longitud, location.latitud],
-        bearing: heading,
+        pitch: this.PITCH_SEGUIR,
+        bearing: this.rumboSeguido(location),
         duration: 1000,
         easing: (t) => t,
-        offset: desplazamientoLibre(this.map),
+        offset: desplazamientoLibre(this.map, this.ALTURA_SEGUIR),
       });
     }
   }
@@ -3885,13 +3912,15 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         setTimeout(() => {
           if (this.destroyed || this.followBusId !== busId) return;
           const ultimo = this.busLocationsMap.get(busId) || loc;
+          this.rumboSeguimiento = null;
+          this.mapaLimpioAlSeguir(true);
           this.map.flyTo({
             center: [ultimo.longitud, ultimo.latitud],
-            zoom: Math.max(this.map.getZoom(), 16),
-            pitch: this.is3D ? 60 : 0,
-            bearing: ultimo.heading || 0,
+            zoom: Math.max(this.map.getZoom(), 17),
+            pitch: this.PITCH_SEGUIR,
+            bearing: this.rumboSeguido(ultimo),
             duration: 1200,
-            offset: desplazamientoLibre(this.map),
+            offset: desplazamientoLibre(this.map, this.ALTURA_SEGUIR),
           });
         }, 50);
         this.map.once('dragstart', () => this.zone.run(() => {
@@ -5774,15 +5803,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     // Un instante después, para medir el lugar libre con la ficha ya chica.
     await new Promise(r => setTimeout(r, 60));
     if (this.followBusId !== bus.bus_id) return;
+    this.rumboSeguimiento = null;
+    this.mapaLimpioAlSeguir(true);
     this.map.flyTo({
       center: [bus.longitud, bus.latitud],
-      zoom: 16.5,
-      // En 2D el mapa sigue plano también al seguir un bus.
-      pitch: this.is3D ? 60 : 0,
-      bearing: bus.heading || 0,
+      zoom: 17,
+      pitch: this.PITCH_SEGUIR,
+      bearing: this.rumboSeguido(bus),
       duration: 1200,
-      // El bus en lo que no tapan la ficha ni el buscador.
-      offset: desplazamientoLibre(this.map),
+      // El bus abajo de lo que no tapan la ficha ni el buscador.
+      offset: desplazamientoLibre(this.map, this.ALTURA_SEGUIR),
     });
 
   }
@@ -5793,7 +5823,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.gestoSiguiendo = false;
     clearTimeout(this.reaparecerFicha);
     this.fichaOculta = false;
-    this.map.easeTo({ pitch: this.is3D ? 50 : 0, duration: 600 });
+    this.rumboSeguimiento = null;
+    this.mapaLimpioAlSeguir(false);
+    this.map.easeTo({ pitch: this.is3D ? 50 : 0, bearing: 0, duration: 600 });
   }
 
   // ---- COMPARTIR EL VIAJE EN VIVO ----
