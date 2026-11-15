@@ -3322,7 +3322,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         const id = e.features?.[0]?.properties?.['bus_id'];
         if (!id) return;
         const loc = this.busLocationsMap.get(String(id));
-        if (loc) this.zone.run(() => { this.paradaAbierta = null; this.selectedBus = loc; });
+        if (loc) this.zone.run(() => { this.paradaAbierta = null; this.selectedBus = loc; this.asomarAlMapa(loc.longitud, loc.latitud); });
       });
     }
 
@@ -3359,7 +3359,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.map.on('click', this.BUSES_COD_LAYER, (e) => {
         const id = e.features?.[0]?.properties?.['bus_id'];
         const loc = id ? this.busLocationsMap.get(String(id)) : undefined;
-        if (loc) this.zone.run(() => { this.paradaAbierta = null; this.selectedBus = loc; });
+        if (loc) this.zone.run(() => { this.paradaAbierta = null; this.selectedBus = loc; this.asomarAlMapa(loc.longitud, loc.latitud); });
       });
       this.map.on('mouseenter', this.BUSES_LAYER, () => {
         this.map.getCanvas().style.cursor = 'pointer';
@@ -4453,9 +4453,33 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       nombre, lat, lng, paradas,
       terminal: !!terminalBase || paradas.some(p => this.esTerminal(p.nombre)),
     };
+    this.asomarAlMapa(lng, lat);
   }
 
   cerrarParada() { this.paradaAbierta = null; }
+
+  // Al abrir la ficha de un bus o de una parada, lo que se tocó no puede
+  // quedar debajo de la ficha (pasaba seguido en el teléfono, donde la ficha
+  // ocupa la mitad de abajo). Si queda tapado o fuera de la pantalla, el mapa
+  // se corre hasta el centro de lo que queda libre; si se ve, no se mueve.
+  private asomarAlMapa(lng: number, lat: number) {
+    if (this.followingBus) return;
+    setTimeout(() => {
+      if (this.destroyed || !this.map) return;
+      const cont = this.map.getContainer();
+      const r = cont.getBoundingClientRect();
+      const p = this.map.project([lng, lat]);
+      const margen = 28;
+      const dentro = p.x > margen && p.y > margen && p.x < r.width - margen && p.y < r.height - margen;
+      // El punto y un poco arriba y abajo (el dibujo del bus tiene alto).
+      const libre = dentro && [-18, 0, 18].every(dy => {
+        const e = document.elementFromPoint(r.left + p.x, r.top + p.y + dy);
+        return !!e && cont.contains(e);
+      });
+      if (libre) return;
+      this.map.easeTo({ center: [lng, lat], offset: desplazamientoLibre(this.map), duration: 650 });
+    }, 90);
+  }
 
   // "Cómo llegar" desde la ficha: la parada pasa a ser el destino del viaje,
   // igual que si se la hubiera buscado en "¿A dónde vas?".

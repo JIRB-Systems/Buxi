@@ -118,7 +118,7 @@
 
   <!-- Tirador para reabrir el menu. Solo aparece cuando esta cerrado, para no
        competir con el propio panel. -->
-  <button class="sidebar-handle" *ngIf="!sidebarOpen" (click)="toggleSidebar()" aria-label="Ver empresas">
+  <button class="sidebar-handle" *ngIf="!sidebarOpen && !selectedBus && !paradaAbierta && !activeRuta && !viaje" (click)="toggleSidebar()" aria-label="Ver empresas">
     <ion-icon name="business"></ion-icon>
   </button>
 
@@ -649,7 +649,7 @@
     <div class="sheet-route">
       <bx-ruta [nombre]="selectedBusRuta" [color]="selectedBus.bus?.ruta?.color"></bx-ruta>
       <span class="bs-hacia" *ngIf="selectedBusHacia as hacia">
-        <ion-icon name="arrow-forward" aria-hidden="true"></ion-icon>Hacia {{ hacia }}
+        <ion-icon name="arrow-forward" aria-hidden="true"></ion-icon><span>Hacia {{ hacia }}</span>
       </span>
     </div>
 
@@ -676,10 +676,11 @@
       <div class="sg-cell">
         <span class="sg-label">Velocidad</span>
         <strong>{{ selectedBus.velocidad | number:'1.0-0' }} km/h</strong>
+        <span class="sg-sub sg-gps" *ngIf="selectedBusSenal === 'en_vivo'"><i class="pulse-dot" aria-hidden="true"></i>GPS {{ selectedBusAgeText | lowercase }}</span>
       </div>
     </div>
 
-    <div class="sheet-updated" [ngClass]="'sheet-updated--' + selectedBusSenal">
+    <div class="sheet-updated" *ngIf="selectedBusSenal !== 'en_vivo'" [ngClass]="'sheet-updated--' + selectedBusSenal">
       <span class="pulse-dot" aria-hidden="true"></span>
       Último GPS {{ selectedBusAgeText | lowercase }}
     </div>
@@ -696,14 +697,17 @@
       </div>
     </div>
 
-    <button class="bx-btn bx-btn--lg bx-btn--bloque follow-btn" [class.bx-btn--pri]="!followingBus" [class.bx-btn--sec]="followingBus" (click)="toggleFollow()">
-      <ion-icon [name]="followingBus ? 'close-circle-outline' : 'navigate-circle-outline'"></ion-icon>
-      {{ followingBus ? 'Dejar de seguir' : 'Seguir recorrido' }}
-    </button>
-    <button type="button" class="bx-btn bx-btn--ghost bx-btn--bloque share-btn" (click)="shareBusLocation()">
-      <ion-icon name="share-social-outline" aria-hidden="true"></ion-icon>
-      {{ followingBus && fichaChica ? 'Compartir' : 'Compartir viaje en vivo' }}
-    </button>
+    <!-- Los dos botones en una fila: apilados, la ficha tapaba medio mapa. -->
+    <div class="bs-acciones">
+      <button class="bx-btn bx-btn--lg follow-btn" [class.bx-btn--pri]="!followingBus" [class.bx-btn--sec]="followingBus" (click)="toggleFollow()">
+        <ion-icon [name]="followingBus ? 'close-circle-outline' : 'navigate-circle-outline'"></ion-icon>
+        {{ followingBus ? 'Dejar de seguir' : 'Seguir recorrido' }}
+      </button>
+      <button type="button" class="bx-btn bx-btn--lg bx-btn--sec share-btn" (click)="shareBusLocation()" aria-label="Compartir el viaje en vivo">
+        <ion-icon name="share-social-outline" aria-hidden="true"></ion-icon>
+        Compartir
+      </button>
+    </div>
   </div>
 
   <!-- ====== FICHA DE PARADA ======

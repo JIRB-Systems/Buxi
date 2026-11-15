@@ -500,6 +500,9 @@
   .mc-btn { width: 44px; height: 44px; }
 
   // La ficha del bus se apoya abajo a la izquierda del mapa, junto al panel.
+  // .map-content: map.cuenta.scss (que va después) pone el lado del teléfono.
+  .map-content .parada-sheet { left: $shell + 16px; }
+
   .bus-sheet {
     left: $shell + 16px; right: auto;
     width: 380px; margin: 0;
@@ -519,7 +522,7 @@
   #map { left: $shell; }
   .desktop-topbar .dt-search { width: $panel - 32px; }
   .empresas-sidebar, .list-panel, .empresa-detail-screen { width: $panel; }
-  .live-chip, .bus-sheet { left: $shell + 16px; }
+  .live-chip, .bus-sheet, .map-content .parada-sheet { left: $shell + 16px; }
 }
 
 // ============================================================================
@@ -553,7 +556,7 @@
       transform: translateX(-24px);
     }
 
-    .live-chip, .bus-sheet { left: $barra + 16px; }
+    .live-chip, .bus-sheet, .parada-sheet { left: $barra + 16px; }
 
     // Con el panel escondido no se ve ninguna sección: la barra no marca
     // ninguna (Ajustes es el cajón de la derecha y sigue igual).

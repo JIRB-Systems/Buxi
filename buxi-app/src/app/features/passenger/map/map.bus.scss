@@ -18,10 +18,12 @@
   // El chip ya dice el nombre de la ruta; al lado, hacia dónde va.
   .bs-hacia {
     display: inline-flex; align-items: center; gap: 4px;
-    flex: 1; min-width: 0; justify-content: flex-end;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1; min-width: 0;
     color: var(--bx-text); font-weight: 700;
-    ion-icon { font-size: 14px; color: var(--bx-text-3); }
+    ion-icon { flex: none; font-size: 14px; color: var(--bx-text-3); }
+    // El recorte va en el texto, al final: con el ícono adentro del mismo
+    // renglón se cortaba por el principio ("acia Terminal...").
+    span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; }
   }
 }
 
@@ -52,6 +54,22 @@
 
 .sg-cell--ancha { flex: 2; min-width: 0; strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } }
 .sg-sub { font-size: 12px; color: var(--bx-text-3); }
+.sg-gps {
+  display: inline-flex; align-items: center; gap: 6px;
+  .pulse-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--bx-green-bright);
+    animation: live-pulse 1.8s ease-out infinite;
+  }
+}
+
+// Seguir (lo principal) y compartir, lado a lado.
+.bs-acciones {
+  display: flex; gap: 8px;
+  margin-top: 12px;
+  .follow-btn { flex: 1; min-width: 0; margin: 0; }
+  .share-btn { flex: none; margin: 0; padding: 0 16px; }
+}
 
 .sheet-updated {
   display: flex;
@@ -90,12 +108,8 @@
     strong { font-size: 20px; }
     small { flex-basis: 100%; }
   }
-  // Los dos botones en una fila.
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  column-gap: 8px;
-  > :not(.follow-btn):not(.share-btn) { grid-column: 1 / -1; }
-  .follow-btn, .share-btn { margin-top: 10px; --bx-btn-h: 44px; font-size: 14px; }
+  .bs-acciones { margin-top: 10px; }
+  .follow-btn, .share-btn { --bx-btn-h: 44px; font-size: 14px; }
 }
 
 // Mientras el dedo está en el mapa siguiendo un bus, la ficha baja y se

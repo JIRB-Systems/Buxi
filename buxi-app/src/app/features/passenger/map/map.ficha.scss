@@ -9,11 +9,8 @@
 
 .sheet-calificar {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  margin-top: 12px;
-  padding: 8px 6px 8px 12px;
-  border-radius: var(--bx-r-md);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--bx-line);
+  margin-top: 8px;
+  padding: 0 0 0 2px;
 
   > span { font-size: 13px; font-weight: 600; color: var(--bx-text-2); }
 }
@@ -23,7 +20,7 @@
 
   button {
     display: grid; place-items: center;
-    width: 34px; height: 34px;
+    width: 32px; height: 32px;
     padding: 0;
     border: 0; border-radius: 8px;
     background: transparent;

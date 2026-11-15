@@ -222,7 +222,9 @@ a.pp-link {
 }
 
 @media (min-width: 900px) {
-  .parada-sheet { left: auto; right: 24px; bottom: 24px; width: 380px; }
+  // Abajo a la izquierda, como la ficha del bus: a la derecha tapaba los
+  // botones del mapa (ubicación, 3D). El lado lo pone map.desktop.scss.
+  .parada-sheet { right: auto; bottom: 24px; width: 380px; }
 }
 
 .ps-cabeza { display: flex; align-items: center; gap: 12px; }
