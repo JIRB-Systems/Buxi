@@ -177,6 +177,7 @@ export class BusTrackingService implements OnDestroy {
       timestamp: f.timestamp,
       anomalo: f.anomalo,
       retraso_min: f.retraso_min ?? null,
+      ocupacion: f.ocupacion ?? null,
       bus: {
         id: f.bus_id,
         empresa_id: f.empresa_id,

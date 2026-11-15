@@ -140,12 +140,18 @@ interface Viaje {
   paradaDestinoKm: number | null;
 }
 
+// Un renglón de "próximos buses" de una parada: en vivo o según horario.
+type FilaParada = { clave: string; ruta: Ruta; hacia: string; minutos: number | null; horario: string | null };
+// Una parada guardada con la estrella. `base`: el nombre de la terminal del
+// mapa base, si se guardó desde una (para volver a abrirla igual).
+type ParadaFavorita = { clave: string; nombre: string; lat: number; lng: number; base?: string };
+
 @Component({
   selector: 'app-map',
   templateUrl: './map.page.html',
   // El layout de escritorio vive aparte: junto con el móvil, la hoja superaba
   // el presupuesto de estilos por componente.
-  styleUrls: ['./map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss', './map.cuenta.scss', './map.ficha.scss', './map.ayuda.scss', './map.abordo.scss'],
+  styleUrls: ['./map.favoritas.scss', './map.page.scss', './map.panels.scss', './map.desktop.scss', './map.llegar.scss', './map.viaje.scss', './map.cliente.scss', './map.tarifas.scss', './map.invitado.scss', './map.red.scss', './map.bus.scss', './map.buscador.scss', './map.cuenta.scss', './map.ficha.scss', './map.ayuda.scss', './map.abordo.scss'],
   standalone: false,
 })
 export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter, ViewDidEnter {
@@ -1875,6 +1881,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // bus -> minutos que salió tarde su viaje en curso (null: no comparable).
   // Llega con buses_en_vivo; los puntos de Realtime no lo traen y no lo pisan.
   private busRetraso = new Map<string, number | null>();
+  // bus -> lo que marcó el chofer con "Bus lleno". Igual que el atraso: llega
+  // con buses_en_vivo y los puntos de Realtime no lo pisan.
+  private busOcupacion = new Map<string, 'espacio' | 'lleno' | null>();
+
+  get selectedBusOcupacion(): 'espacio' | 'lleno' | null {
+    return this.selectedBus ? this.busOcupacion.get(this.selectedBus.bus_id) ?? null : null;
+  }
 
   // Color de la ruta por bus, cacheado. Hace falta porque las dos fuentes de
   // ubicaciones no traen lo mismo: la carga inicial (getLatestLocations) viene
@@ -2057,6 +2070,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.allParadas = paradas;
       this.dibujarParadasTodas();
       this.recomputeEmpresasCercanas();
+      this.recalcularFavoritas();
     } catch {}
 
     // Aparte: si falla, "Cerca tuyo" solo se queda sin la próxima salida.
@@ -2907,6 +2921,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           this.busAnim.delete(busId);
           this.busIcono.delete(busId);
           this.busRetraso.delete(busId);
+          this.busOcupacion.delete(busId);
           cambio = true;
         } else {
           // Un bus que no está en vivo se repinta aunque no lleguen puntos:
@@ -3238,6 +3253,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         // Mismo punto que ya llegó por Realtime: no reiniciar su animación.
         // El atraso cambia aunque el punto sea el mismo (el viaje arrancó).
         if (loc.retraso_min !== undefined) this.busRetraso.set(loc.bus_id, loc.retraso_min);
+        if (loc.ocupacion !== undefined) this.busOcupacion.set(loc.bus_id, loc.ocupacion);
         if (previo && Date.parse(previo.timestamp) >= Date.parse(loc.timestamp)) continue;
         this.addOrUpdateBusMarker(loc);
       }
@@ -3499,6 +3515,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.busLastSeen.set(location.bus_id, Date.parse(location.timestamp) || Date.now());
     this.busLocationsMap.set(location.bus_id, location);
     if (location.retraso_min !== undefined) this.busRetraso.set(location.bus_id, location.retraso_min);
+    if (location.ocupacion !== undefined) this.busOcupacion.set(location.bus_id, location.ocupacion);
     const datosBus = location.bus as any;
     if (datosBus?.numero_unidad || datosBus?.placa) this.busEtiqueta.set(location.bus_id, datosBus.numero_unidad || datosBus.placa);
     if (datosBus?.placa) this.busPlaca.set(location.bus_id, datosBus.placa);
@@ -4461,30 +4478,97 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // La parada abierta: el punto tocado y las paradas (una por ruta) que hay
   // ahí. `paradas` puede venir vacío: una terminal del mapa base por donde
   // todavía no pasa ninguna ruta de Buxi.
-  paradaAbierta: { nombre: string; lat: number; lng: number; paradas: Parada[]; terminal: boolean } | null = null;
+  paradaAbierta: { nombre: string; lat: number; lng: number; paradas: Parada[]; terminal: boolean; base?: string } | null = null;
 
   // `terminalBase`: el nombre de una terminal del mapa base tocada; con él la
   // ficha se abre aunque no haya paradas de Buxi en ese punto.
   abrirParada(lat: number, lng: number, terminalBase?: string) {
-    const juntas = this.allParadas
-      .map(p => ({ p, d: this.featuresService.distanceKm(lat, lng, p.latitud, p.longitud) }))
-      .filter(x => x.d <= (terminalBase ? 0.15 : this.PARADA_JUNTAS_KM))
-      .sort((a, b) => a.d - b.d);
-    // Una por ruta: la más cercana al toque.
-    const porRuta = new Map<string, Parada>();
-    for (const { p } of juntas) if (!porRuta.has(p.ruta_id)) porRuta.set(p.ruta_id, p);
-    const paradas = [...porRuta.values()];
+    const paradas = this.paradasJuntas(lat, lng, terminalBase);
     if (!paradas.length && !terminalBase) return;
     this.selectedBus = null;
     const nombre = paradas.length && !terminalBase ? this.nombreParadaCorto(paradas[0].nombre) : (terminalBase || '');
     this.paradaAbierta = {
       nombre, lat, lng, paradas,
       terminal: !!terminalBase || paradas.some(p => this.esTerminal(p.nombre)),
+      base: terminalBase,
     };
     this.asomarAlMapa(lng, lat);
   }
 
   cerrarParada() { this.paradaAbierta = null; this.fichaEscondida = false; }
+
+  // Las paradas de Buxi en un punto: una por ruta, la más cercana.
+  private paradasJuntas(lat: number, lng: number, terminalBase?: string): Parada[] {
+    const juntas = this.allParadas
+      .map(p => ({ p, d: this.featuresService.distanceKm(lat, lng, p.latitud, p.longitud) }))
+      .filter(x => x.d <= (terminalBase ? 0.15 : this.PARADA_JUNTAS_KM))
+      .sort((a, b) => a.d - b.d);
+    const porRuta = new Map<string, Parada>();
+    for (const { p } of juntas) if (!porRuta.has(p.ruta_id)) porRuta.set(p.ruta_id, p);
+    return [...porRuta.values()];
+  }
+
+  // ---- TUS PARADAS ----
+  // Las que el pasajero guarda con la estrella de la ficha de parada: al
+  // abrir Buxci las ve arriba, con el próximo bus de cada una, sin buscar
+  // nada. Viven en este teléfono, como Casa y Trabajo (sirven sin cuenta).
+  private readonly MAX_FAVORITAS = 5;
+  paradasFavoritas: ParadaFavorita[] = this.leerLocal<ParadaFavorita[]>('buxci.paradas.v1', []);
+  favoritasVista: (ParadaFavorita & { proxima: FilaParada | null; rutas: number })[] = [];
+
+  private claveParada(lat: number, lng: number): string {
+    return lat.toFixed(4) + ',' + lng.toFixed(4);
+  }
+
+  get paradaEsFavorita(): boolean {
+    const pa = this.paradaAbierta;
+    if (!pa) return false;
+    const clave = this.claveParada(pa.lat, pa.lng);
+    return this.paradasFavoritas.some(f => f.clave === clave);
+  }
+
+  async alternarParadaFavorita() {
+    const pa = this.paradaAbierta;
+    if (!pa) return;
+    const clave = this.claveParada(pa.lat, pa.lng);
+    if (this.paradasFavoritas.some(f => f.clave === clave)) {
+      this.paradasFavoritas = this.paradasFavoritas.filter(f => f.clave !== clave);
+      this.toast('Quitada de tus paradas');
+    } else {
+      if (this.paradasFavoritas.length >= this.MAX_FAVORITAS) {
+        await this.toast(`Podés guardar hasta ${this.MAX_FAVORITAS} paradas. Quitá una para sumar esta.`, 'warning');
+        return;
+      }
+      // El nombre entero hasta la primera coma: el de la ficha viene recortado
+      // con "…" y dos terminales quedaban iguales ("Terminal de Buses de…").
+      const nombre = pa.base || (pa.paradas[0]?.nombre || pa.nombre).split(',')[0].trim() || pa.nombre;
+      this.paradasFavoritas = [...this.paradasFavoritas, { clave, nombre, lat: pa.lat, lng: pa.lng, base: pa.base }];
+      this.toast('Guardada: la vas a ver arriba al abrir Buxci');
+    }
+    this.escribirLocal('buxci.paradas.v1', this.paradasFavoritas);
+    this.recalcularFavoritas();
+  }
+
+  // Desde "Tus paradas": se abre su ficha y el mapa va hasta ella (puede
+  // estar lejos de lo que se estaba viendo).
+  abrirParadaFavorita(f: ParadaFavorita) {
+    this.abrirParada(f.lat, f.lng, f.base);
+    if (!this.paradaAbierta) return;
+    setTimeout(() => {
+      if (this.destroyed || !this.map) return;
+      this.map.easeTo({ center: [f.lng, f.lat], zoom: Math.max(this.map.getZoom(), 15), offset: desplazamientoLibre(this.map), duration: 700 });
+    }, 120);
+  }
+
+  private recalcularFavoritas() {
+    if (!this.paradasFavoritas.length || !this.allParadas.length) { this.favoritasVista = []; return; }
+    this.favoritasVista = this.paradasFavoritas.map(f => {
+      const paradas = this.paradasJuntas(f.lat, f.lng, f.base);
+      return { ...f, proxima: this.filasDeParadas(paradas)[0] ?? null, rutas: paradas.length };
+    });
+  }
+
+  trackFavorita = (_: number, f: { clave: string }) => f.clave;
 
   // Al abrir la ficha de un bus o de una parada, lo que se tocó no puede
   // quedar debajo de la ficha (pasaba seguido en el teléfono, donde la ficha
@@ -4526,12 +4610,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   // Qué viene a esta parada, ruta por ruta y para cada lado. Se recalcula en
   // cada detección de cambios: los buses se mueven y el número tiene que seguirlos.
-  get paradaFilas(): { clave: string; ruta: Ruta; hacia: string; minutos: number | null; horario: string | null }[] {
-    const pa = this.paradaAbierta;
-    if (!pa) return [];
+  get paradaFilas(): FilaParada[] {
+    return this.paradaAbierta ? this.filasDeParadas(this.paradaAbierta.paradas) : [];
+  }
+
+  private filasDeParadas(paradas: Parada[]): FilaParada[] {
     const ahora = Date.now();
-    const filas: { clave: string; ruta: Ruta; hacia: string; minutos: number | null; horario: string | null }[] = [];
-    for (const parada of pa.paradas) {
+    const filas: FilaParada[] = [];
+    for (const parada of paradas) {
       const ruta = this.allRutas.find(r => r.id === parada.ruta_id);
       if (!ruta) continue;
       const mejor = new Map<number, number>();
@@ -4959,7 +5045,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   get cercaVisible(): boolean {
     return !this.activeRuta && !this.viaje && !this.selectedBus && this.navVisible
       && !this.activePanel && !this.sidebarOpen && !this.profilePanelOpen && !this.settingsPanelOpen
-      && (this.cercanas.length > 0 || !!this.paradaCercana || this.tieneUbicacion);
+      && (this.cercanas.length > 0 || !!this.paradaCercana || this.tieneUbicacion || this.favoritasVista.length > 0);
   }
 
   // ---- Tres alturas de la hoja (teléfono) ----
@@ -5080,6 +5166,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   private recalcularCercanas() {
     this.cercanasEn = Date.now();
+    this.recalcularFavoritas();
     if (!this.tieneUbicacion || this.paradasPorRuta.size === 0) {
       this.cercanas = [];
       return;

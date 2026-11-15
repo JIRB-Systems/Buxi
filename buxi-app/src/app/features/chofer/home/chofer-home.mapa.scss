@@ -107,3 +107,22 @@
 @media (prefers-reduced-motion: reduce) {
   .toque-aviso { animation: none; transform: translateX(-50%); }
 }
+
+// ---- Bus lleno (alternarLleno) ----
+// Con una etiqueta abajo: el ícono solo no se entiende. Lleno, ámbar entero,
+// para que el chofer vea de un vistazo que está marcado.
+.mc-btn.mc-lleno {
+  position: relative;
+  flex-direction: column;
+  ion-icon { color: var(--bx-text); font-size: 19px; margin-top: -6px; }
+  .mc-tag {
+    position: absolute; left: 0; right: 0; bottom: 4px;
+    font: 800 8px/1 var(--bx-font); letter-spacing: 0.02em;
+    color: var(--bx-text-2); text-align: center;
+  }
+  &.on {
+    background: var(--bx-warning);
+    border-color: var(--bx-warning);
+    ion-icon, .mc-tag { color: #1a1200; }
+  }
+}

@@ -167,3 +167,15 @@
 @media (min-width: 900px) {
   .ficha-pestana { transform: none; bottom: 24px; max-width: 380px; animation: none; }
 }
+
+// ---- Ocupación que marcó el chofer ----
+.bs-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.bs-ocupa {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px 3px 7px;
+  border-radius: var(--bx-r-pill);
+  font-size: 12px; font-weight: 700;
+  color: var(--bx-green-bright); background: var(--bx-green-soft);
+  ion-icon { font-size: 13px; }
+  &--lleno { color: var(--bx-warning); background: var(--bx-warning-soft); }
+}

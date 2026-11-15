@@ -175,6 +175,48 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   //    al soltar;
   //  · con un toque al mapa: todo menos el SOS y los avisos de velocidad y de
   //    desvío (el mapa solo, con el bus), hasta otro toque.
+  // ---- BUS LLENO ----
+  // Un toque marca el bus como lleno y otro, que volvió a haber espacio. Lo
+  // ven los pasajeros en la ficha del bus. Al empezar y al terminar cada
+  // viaje se borra; mientras está puesta se vuelve a mandar cada 30 min,
+  // porque el servidor deja de mostrar una marca de más de 90 min.
+  ocupacion: 'espacio' | 'lleno' | null = null;
+  private ocupacionTimer: any = null;
+
+  async alternarLleno() {
+    const bus = this.assignedBus;
+    if (!bus) return;
+    const antes = this.ocupacion;
+    const nueva = antes === 'lleno' ? 'espacio' : 'lleno';
+    this.ocupacion = nueva;
+    try {
+      await this.choferService.setOcupacion(bus.id, nueva);
+      clearInterval(this.ocupacionTimer);
+      this.ocupacionTimer = setInterval(() => {
+        if (!this.tracking || !this.ocupacion || !this.assignedBus) return;
+        this.choferService.setOcupacion(this.assignedBus.id, this.ocupacion).catch(() => {});
+      }, 30 * 60 * 1000);
+      const t = await this.toastCtrl.create({
+        message: nueva === 'lleno' ? 'Marcado como lleno: los pasajeros lo ven en el mapa' : 'Listo: los pasajeros ven que hay espacio',
+        duration: 2200, position: 'top', color: nueva === 'lleno' ? 'warning' : 'success',
+      });
+      await t.present();
+    } catch {
+      this.ocupacion = antes;
+      const t = await this.toastCtrl.create({ message: 'No se pudo marcar. Revisá tu conexión', duration: 3000, position: 'top', color: 'danger' });
+      await t.present();
+    }
+  }
+
+  // Al empezar o terminar un viaje: sin marca (no se arrastra la del anterior).
+  private borrarOcupacion() {
+    clearInterval(this.ocupacionTimer);
+    this.ocupacionTimer = null;
+    this.ocupacion = null;
+    const bus = this.assignedBus;
+    if (bus) this.choferService.setOcupacion(bus.id, null).catch(() => {});
+  }
+
   ocultoPorGesto = false;
   ocultoPorToque = false;
   // Un temporizador por cosa: antes uno solo hacía las dos, y un toque justo
@@ -1034,6 +1076,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       return;
     }
 
+    if (!retomar) this.borrarOcupacion();
     if (retomar) {
       this.choferService.retomarViaje(retomar.id);
     } else if (this.profile && this.assignedBus!.ruta_id) {
@@ -1090,6 +1133,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   private async stopTracking() {
     this.tracking = false;
+    this.borrarOcupacion();
     this.refrescarBusPropio();
     this.setRouteVisible(false);
     this.paused = false;
@@ -1736,6 +1780,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.destroyed = true;
+    clearInterval(this.ocupacionTimer);
     clearTimeout(this.volverTimer);
     clearTimeout(this.centrarTimer);
     clearTimeout(this.vigiaGesto);

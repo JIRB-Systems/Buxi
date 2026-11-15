@@ -89,4 +89,7 @@ export interface BusLocation {
   // más cercana (20261111120000). Solo lo trae buses_en_vivo; null = no se
   // puede comparar, undefined = el punto llegó por otro lado (Realtime).
   retraso_min?: number | null;
+  // Lo que marcó el chofer con "Bus lleno" (20261115120000), si es de la
+  // última hora y media. Solo lo trae buses_en_vivo.
+  ocupacion?: 'espacio' | 'lleno' | null;
 }

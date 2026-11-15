@@ -103,6 +103,14 @@
 
   <!-- ====== CONTROLES FLOTANTES (derecha) ====== -->
   <div class="map-controls">
+    <!-- Bus lleno: lo ven los pasajeros en la ficha del bus. -->
+    <button type="button" class="mc-btn mc-lleno" *ngIf="tracking" [class.on]="ocupacion === 'lleno'" (click)="alternarLleno()"
+            [attr.aria-pressed]="ocupacion === 'lleno'"
+            [attr.aria-label]="ocupacion === 'lleno' ? 'El bus va lleno. Tocá cuando vuelva a haber espacio' : 'Marcar el bus como lleno'"
+            [title]="ocupacion === 'lleno' ? 'Va lleno (tocá cuando haya espacio)' : 'Marcar bus lleno'">
+      <ion-icon [name]="ocupacion === 'lleno' ? 'people' : 'people-outline'" aria-hidden="true"></ion-icon>
+      <span class="mc-tag">{{ ocupacion === 'lleno' ? 'LLENO' : 'Lleno' }}</span>
+    </button>
     <button class="mc-btn mc-scan" (click)="openScanner()" aria-label="Escanear boleto">
       <ion-icon name="qr-code-outline"></ion-icon>
     </button>

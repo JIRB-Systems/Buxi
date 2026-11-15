@@ -101,6 +101,9 @@
     </div>
 
     <div class="ds-section ds-inicio" *ngIf="!activeRuta && !viaje">
+      <div class="ds-card fav-card" *ngIf="favoritasVista.length">
+        <ng-container *ngTemplateOutlet="tplFavoritas"></ng-container>
+      </div>
       <div class="ds-card cerca-card">
         <ng-container *ngTemplateOutlet="tplCerca"></ng-container>
       </div>
@@ -637,8 +640,14 @@
       <div class="sheet-info">
         <!-- Estado de la conexión: con señal en vivo dice qué hace el bus;
              si no, que la señal está demorada o perdida. -->
-        <span class="bs-senal" [ngClass]="'bs-senal--' + selectedBusSenal">
-          <i aria-hidden="true"></i>{{ selectedBusSenal === 'en_vivo' ? selectedBusEstado : selectedBusSenalTexto }}
+        <span class="bs-chips">
+          <span class="bs-senal" [ngClass]="'bs-senal--' + selectedBusSenal">
+            <i aria-hidden="true"></i>{{ selectedBusSenal === 'en_vivo' ? selectedBusEstado : selectedBusSenalTexto }}
+          </span>
+          <!-- Lo que marcó el chofer ("Bus lleno"). -->
+          <span class="bs-ocupa" *ngIf="selectedBusOcupacion as o" [class.bs-ocupa--lleno]="o === 'lleno'">
+            <ion-icon [name]="o === 'lleno' ? 'people' : 'people-outline'" aria-hidden="true"></ion-icon>{{ o === 'lleno' ? 'Va lleno' : 'Con espacio' }}
+          </span>
         </span>
         <span>{{ selectedBusUnidad ? selectedBusUnidad + ' · ' : '' }}{{ selectedBusEmpresa }}</span>
       </div>
@@ -734,6 +743,12 @@
         <strong [title]="pa.paradas[0]?.nombre || pa.nombre">{{ pa.nombre }}</strong>
         <small *ngIf="paradaDistancia as d">{{ d }}</small>
       </div>
+      <button type="button" class="ps-cerrar ps-fav" *ngIf="pa.paradas.length" [class.on]="paradaEsFavorita" (click)="alternarParadaFavorita()"
+              [attr.aria-pressed]="paradaEsFavorita"
+              [attr.aria-label]="paradaEsFavorita ? 'Quitar de tus paradas' : 'Guardar en tus paradas'"
+              [title]="paradaEsFavorita ? 'Quitar de tus paradas' : 'Guardar en tus paradas'">
+        <ion-icon [name]="paradaEsFavorita ? 'star' : 'star-outline'" aria-hidden="true"></ion-icon>
+      </button>
       <button type="button" class="ps-cerrar" (click)="esconderFicha()" aria-label="Esconder la ficha" title="Esconder la ficha">
         <ion-icon name="chevron-down" aria-hidden="true"></ion-icon>
       </button>
@@ -1042,6 +1057,30 @@
        La respuesta a "¿cuándo pasa mi bus?" sin tocar nada: las rutas con
        una parada cerca y el próximo bus de cada una. En escritorio esto mismo
        va en el panel. -->
+  <!-- ====== TUS PARADAS ======
+       Las guardadas con la estrella de la ficha de parada, con el próximo bus
+       de cada una. Va arriba de "Cerca tuyo". -->
+  <ng-template #tplFavoritas let-max="max">
+    <div class="fav-paradas" *ngIf="favoritasVista.length">
+      <h3 class="fav-titulo"><ion-icon name="star" aria-hidden="true"></ion-icon>Tus paradas</h3>
+      <button type="button" class="fav-fila" *ngFor="let f of favoritasVista.slice(0, max || 5); trackBy: trackFavorita" (click)="abrirParadaFavorita(f)">
+        <span class="fav-info">
+          <strong>{{ f.nombre }}</strong>
+          <span class="fav-ruta" *ngIf="f.proxima as p">
+            <bx-ruta [nombre]="p.ruta.nombre" [color]="p.ruta.color"></bx-ruta>
+            <span *ngIf="f.rutas > 1">+{{ f.rutas - 1 }} {{ f.rutas === 2 ? 'ruta' : 'rutas' }}</span>
+          </span>
+        </span>
+        <span class="fav-cuando" *ngIf="f.proxima as p">
+          <bx-dato *ngIf="p.minutos !== null" [vivo]="true">{{ p.minutos === 0 ? 'Llegando' : p.minutos + ' min' }}</bx-dato>
+          <bx-dato *ngIf="p.minutos === null && p.horario" [vivo]="false">{{ p.horario }}</bx-dato>
+          <span class="fav-nada" *ngIf="p.minutos === null && !p.horario">Sin datos</span>
+        </span>
+        <ion-icon name="chevron-forward" class="fav-chev" aria-hidden="true"></ion-icon>
+      </button>
+    </div>
+  </ng-template>
+
   <ng-template #tplCerca let-cabeza="cabeza">
     <div class="cerca-cabeza" *ngIf="cabeza !== false">
       <h2 class="cerca-titulo">Cerca tuyo</h2>
@@ -1093,7 +1132,7 @@
   <!-- Teléfono: hoja con tres alturas (mini, resumen, lista). Se cambia
        arrastrando el asa o tocando el encabezado. -->
   <section class="cerca-hoja" #hoja data-hoja [attr.data-altura]="cercaAltura"
-           *ngIf="!activeRuta && !viaje && !paradaAbierta && (cercanas.length || paradaCercana || tieneUbicacion)"
+           *ngIf="!activeRuta && !viaje && !paradaAbierta && (cercanas.length || paradaCercana || tieneUbicacion || favoritasVista.length)"
            [class.oculta]="!cercaVisible" aria-label="Cerca tuyo">
     <div class="cerca-asa" bxArrastreHoja (soltar)="soltarCerca($event)">
       <div class="cerca-grip" aria-hidden="true"></div>
@@ -1117,6 +1156,7 @@
     </div>
 
     <ng-container *ngIf="cercaAltura === 'resumen'">
+      <ng-container *ngTemplateOutlet="tplFavoritas; context: { max: 2 }"></ng-container>
       <ng-container *ngIf="cercaDestacada as c">
         <ng-container *ngTemplateOutlet="tplCercaFila; context: { $implicit: c }"></ng-container>
       </ng-container>
@@ -1124,6 +1164,7 @@
     </ng-container>
 
     <div class="cerca-lista" *ngIf="cercaAltura === 'lista'">
+      <ng-container *ngTemplateOutlet="tplFavoritas"></ng-container>
       <ng-container *ngTemplateOutlet="tplCerca; context: { cabeza: false }"></ng-container>
     </div>
   </section>

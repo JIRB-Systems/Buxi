@@ -323,6 +323,13 @@ export class ChoferService {
   // ---- MIS CALIFICACIONES ----
   // "calificaciones" ya tiene lectura pública (RLS), así que el chofer puede
   // ver directo cómo lo califican en el bus que tiene asignado ahora.
+  // "Bus lleno": el chofer marca su bus lleno o con espacio (null = sin
+  // marca). Lo ven los pasajeros en la ficha del bus. Ver 20261115120000.
+  async setOcupacion(busId: string, ocupacion: 'espacio' | 'lleno' | null): Promise<void> {
+    const { error } = await this.supabase.rpc('chofer_set_ocupacion', { p_bus_id: busId, p_ocupacion: ocupacion });
+    if (error) throw error;
+  }
+
   async getCalificacionesDelBus(busId: string): Promise<Calificacion[]> {
     const { data, error } = await this.supabase
       .from('calificaciones')
