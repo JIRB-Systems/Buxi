@@ -388,6 +388,7 @@ export function createMap(opts: {
     dragRotate: true,
     maxPitch: 70,
   });
+  asentarSobreElRelieve(map);
 
   return new Promise((resolve) => {
     let settled = false;
@@ -420,6 +421,35 @@ export function createMap(opts: {
     map.on('error', done);
     setTimeout(done, 8000);
   });
+}
+
+// ---- La cámara sobre el suelo con el relieve prendido ----
+// MapLibre, cada vez que mueve la cámara con el relieve prendido, fija la
+// altura del centro del mapa con el relieve que tenga cargado en ese momento,
+// y después no la vuelve a mirar. Si el relieve todavía no había llegado
+// (recién tocado "3D", o un mapa que abre en 3D y se mueve enseguida) la
+// altura queda en 0, el nivel del mar. En Liberia no se nota; en San José, con
+// el suelo a ~1.600 m (con la exageración), la cámara quedaba enterrada en la
+// montaña y el mapa se veía negro. Acá, cuando la cámara se queda quieta o
+// llega un pedazo de relieve, el centro se asienta sobre el suelo real.
+function asentarSobreElRelieve(map: maplibregl.Map): void {
+  let timer: any = null;
+  const asentar = () => {
+    timer = null;
+    const terreno = (map as any).terrain;
+    if (!terreno || map.isMoving()) return;
+    try {
+      const suelo = terreno.getElevationForLngLatZoom(map.getCenter(), (map as any).transform.tileZoom);
+      if (Number.isFinite(suelo) && Math.abs(suelo - map.getCenterElevation()) > 2) map.setCenterElevation(suelo);
+    } catch { /* relieve a medio cargar: la próxima vez */ }
+  };
+  const programar = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(asentar, 250);
+  };
+  map.on('moveend', programar);
+  map.on('terrain', programar);
+  map.on('sourcedata', (e: any) => { if (e.sourceId === 'terrain-dem' && e.tile) programar(); });
 }
 
 // El id de la fuente vectorial cambia según el estilo de MapTiler, así que en
