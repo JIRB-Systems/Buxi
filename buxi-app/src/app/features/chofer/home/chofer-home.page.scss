@@ -271,12 +271,14 @@
 
 .panic-btn {
   position: relative;
-  width: 60px; height: 60px;
+  // 48 y no 60: con 60 y su brillo rojo era lo más grande de la pantalla,
+  // más que el bus. Sigue siendo fácil de encontrar y de mantener apretado.
+  width: 48px; height: 48px;
   padding: 0;
   border: none;
   border-radius: 50%;
   background: var(--bx-danger);
-  box-shadow: 0 6px 20px rgba(255, 84, 73, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 3px 10px rgba(255, 84, 73, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   display: grid; place-items: center;
   cursor: pointer;
   touch-action: none;
@@ -288,7 +290,7 @@
   &:active { transform: scale(0.94); }
   &[disabled] { opacity: 0.6; }
 
-  ion-icon { position: relative; font-size: 30px; color: #fff; }
+  ion-icon { position: relative; font-size: 24px; color: #fff; }
 }
 
 .panic-anillo {
@@ -315,11 +317,11 @@
 @keyframes panico-llena { to { stroke-dashoffset: 0; } }
 
 .panic-ayuda {
-  padding: 3px 7px;
+  padding: 2px 6px;
   border-radius: 6px;
   background: rgba(10, 22, 40, 0.86);
   color: #ffb3ae;
-  font: 800 10px/1 var(--bx-font);
+  font: 800 9px/1 var(--bx-font);
   letter-spacing: 0.04em;
   white-space: nowrap;
 }

@@ -70,7 +70,7 @@
     bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
   }
   .chofer-content.con-parada .panic-wrap { bottom: calc(env(safe-area-inset-bottom, 0px) + 80px); }
-  .panic-btn { width: 52px; height: 52px; ion-icon { font-size: 26px; } }
+  .panic-btn { width: 44px; height: 44px; ion-icon { font-size: 22px; } }
 
   .map-controls,
   .chofer-content.con-parada .map-controls {
