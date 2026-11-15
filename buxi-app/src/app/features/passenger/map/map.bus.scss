@@ -120,3 +120,50 @@
   opacity: 0;
   pointer-events: none;
 }
+
+// ---- Ficha escondida a pedido (esconderFicha) ----
+// Baja y desaparece; queda la pestaña de abajo para volver a abrirla.
+.bus-sheet, .parada-sheet {
+  transition: transform 0.28s ease, opacity 0.22s ease, left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.bus-sheet.escondida, .parada-sheet.escondida {
+  transform: translateY(calc(100% + 30px));
+  opacity: 0;
+  pointer-events: none;
+}
+// Entre la flechita y la X: las dos juntas, sin separarse.
+.sheet-bajar { margin-right: -4px; }
+
+.ficha-pestana {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  z-index: 1500;
+  display: inline-flex; align-items: center; gap: 8px;
+  max-width: calc(100% - 120px);
+  height: 44px; padding: 0 18px 0 14px;
+  border-radius: var(--bx-r-pill);
+  border: 1px solid var(--bx-line-strong);
+  background: var(--bx-glass-strong);
+  backdrop-filter: var(--bx-glass-blur);
+  -webkit-backdrop-filter: var(--bx-glass-blur);
+  box-shadow: var(--bx-shadow-2);
+  color: var(--bx-text);
+  font: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  animation: pestana-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  ion-icon { flex: none; font-size: 18px; color: var(--bx-green-bright); }
+  span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  b { font-family: var(--bx-font-mono); font-weight: 700; }
+  &:focus-visible { outline: 2px solid var(--bx-green-bright); outline-offset: 2px; }
+}
+@keyframes pestana-in {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+// Escritorio: donde van las fichas (el lado lo pone map.desktop.scss).
+@media (min-width: 900px) {
+  .ficha-pestana { transform: none; bottom: 24px; max-width: 380px; animation: none; }
+}

@@ -1653,6 +1653,34 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.fichaChica = !this.fichaChica;
   }
 
+  // ---- ESCONDER LA FICHA A PEDIDO ----
+  // La ficha del bus (también la chica, siguiéndolo) y la de la parada se
+  // pueden esconder del todo con la flechita o deslizándolas hacia abajo:
+  // queda una pestaña abajo que la vuelve a abrir. Cada bus o parada nueva
+  // abre su ficha a la vista.
+  fichaEscondida = false;
+  private fichaToqueY: number | null = null;
+
+  esconderFicha() { this.fichaEscondida = true; this.recentrarSiSigue(); }
+  mostrarFicha() { this.fichaEscondida = false; this.recentrarSiSigue(); }
+  // Siguiendo un bus, que quede en el medio de lo que ahora se ve.
+  private recentrarSiSigue() {
+    if (this.followBusId) setTimeout(() => this.recentrarSeguido(), 340);
+  }
+
+  // Deslizar hacia abajo desde la parte de arriba de la ficha (la rayita o la
+  // cabecera; no desde la lista, que se desliza para leerla).
+  fichaToqueInicio(ev: TouchEvent) {
+    const t = ev.target as HTMLElement | null;
+    this.fichaToqueY = t?.closest('.sheet-bar, .sheet-row, .ps-cabeza') ? ev.touches[0]?.clientY ?? null : null;
+  }
+  fichaToqueFin(ev: TouchEvent) {
+    const y0 = this.fichaToqueY;
+    this.fichaToqueY = null;
+    const y1 = ev.changedTouches[0]?.clientY;
+    if (y0 !== null && y1 !== undefined && y1 - y0 > 50) this.esconderFicha();
+  }
+
   get avatarUrl(): string | null { return this.profile?.foto_url || null; }
   get displayName(): string { return this.profile?.nombre_completo || 'Invitado'; }
   get displayEmail(): string { return this.profile?.correo || ''; }
@@ -4456,13 +4484,14 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.asomarAlMapa(lng, lat);
   }
 
-  cerrarParada() { this.paradaAbierta = null; }
+  cerrarParada() { this.paradaAbierta = null; this.fichaEscondida = false; }
 
   // Al abrir la ficha de un bus o de una parada, lo que se tocó no puede
   // quedar debajo de la ficha (pasaba seguido en el teléfono, donde la ficha
   // ocupa la mitad de abajo). Si queda tapado o fuera de la pantalla, el mapa
   // se corre hasta el centro de lo que queda libre; si se ve, no se mueve.
   private asomarAlMapa(lng: number, lat: number) {
+    this.fichaEscondida = false;
     if (this.followingBus) return;
     setTimeout(() => {
       if (this.destroyed || !this.map) return;
@@ -5547,6 +5576,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   closeBusInfo() {
     this.stopFollowing();
     this.selectedBus = null;
+    this.fichaEscondida = false;
   }
 
   // ---- CALIFICAR EL BUS ----
@@ -5759,6 +5789,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   private seguirBusCompartido(loc: BusLocation) {
     this.busPedido = null;
+    this.fichaEscondida = false;
     this.selectedBus = loc;
     this.toggleFollow();
   }
