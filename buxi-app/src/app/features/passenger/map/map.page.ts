@@ -33,7 +33,7 @@ import { nombreCortoLugar } from '../../../core/utils/lugar';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
-  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO, segunEscalaBus,
+  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO, segunEscalaBus, AUMENTO_BUS_MANEJO,
 } from '../../../core/utils/bus-sprite';
 
 // Centro aproximado de cada provincia, para abrir el mapa ya en la zona del
@@ -1894,7 +1894,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // se alejan a medida que el bus crece con el zoom.
   private aplicarVistaBuses() {
     if (!this.map) return;
-    aplicarLayoutIconoBus(this.map, this.BUSES_LAYER, this.is3D);
+    aplicarLayoutIconoBus(this.map, this.BUSES_LAYER, this.is3D, this.AUMENTO_SEGUIDO);
     try {
       if (this.map.getLayer(this.BUSES_LAYER)) {
         this.map.setLayoutProperty(this.BUSES_LAYER, 'text-offset', this.offsetEtiquetaBus());
@@ -1909,14 +1909,32 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
   // "hace 2 min", debajo del bus. En 3D el bus crece hacia arriba (está
   // anclado abajo) y la etiqueta no se mueve; en 2D crece para los dos lados.
   private offsetEtiquetaBus(): any {
-    return this.is3D ? [0, 0.25] : segunEscalaBus(false, e => [0, 2 * e]);
+    return this.is3D ? [0, 0.25] : this.segunTamanoDelBus(false, e => [0, 2 * e]);
   }
 
   // El código de la ruta, arriba a la derecha del bus.
   private offsetCodigoBus(): any {
     return this.is3D
-      ? segunEscalaBus(true, e => [e, -2.5 * e])
-      : segunEscalaBus(false, e => [1.2 * e, -1.2 * e]);
+      ? this.segunTamanoDelBus(true, e => [e, -2.5 * e])
+      : this.segunTamanoDelBus(false, e => [1.2 * e, -1.2 * e]);
+  }
+
+  // El bus que se sigue (vista inclinada, como el chofer manejando) va más
+  // grande: con el mapa inclinado queda lejos de la cámara y se veía chico.
+  // Lo marca la propiedad 'grande' que pone pintarBuses.
+  private readonly AUMENTO_SEGUIDO: any[] = ['case', ['==', ['get', 'grande'], true], AUMENTO_BUS_MANEJO, 1];
+  private busGrandePintado: string | null = null;
+
+  // Una medida que sigue al tamaño del bus (segunEscalaBus), también para el
+  // que va agrandado.
+  private segunTamanoDelBus(is3D: boolean, valor: (escala: number) => number[]): any {
+    const normal = segunEscalaBus(is3D, valor);
+    const grande = segunEscalaBus(is3D, e => valor(e * AUMENTO_BUS_MANEJO));
+    const pasos: any[] = [];
+    for (let i = 3; i < normal.length; i += 2) {
+      pasos.push(normal[i], ['case', ['==', ['get', 'grande'], true], grande[i + 1], normal[i + 1]]);
+    }
+    return ['interpolate', ['linear'], ['zoom'], ...pasos];
   }
 
   // Lo propio del pasajero es el color: el estado vivo del bus (retrasado, en
@@ -2455,6 +2473,9 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
 
   private mapaLimpioAlSeguir(limpio: boolean) {
     try { lugaresDelMapa(this.map, !limpio); } catch { /* sin estilo */ }
+    // El bus seguido se agranda (o vuelve a su tamaño) sin esperar el próximo
+    // punto.
+    if (this.busLayerListo && this.busGrandePintado !== this.followBusId) this.pintarBuses(performance.now());
   }
 
   private setupMapChrome() {
@@ -3480,7 +3501,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           // como los iconos isométricos de la referencia, y el rumbo lo da
           // cuál de los 16 sprites se elige (ver dirDeBus). En 2D, el bus visto
           // desde arriba acostado sobre el mapa y girado con icon-rotate.
-          ...layoutIconoBus(this.is3D),
+          ...layoutIconoBus(this.is3D, this.AUMENTO_SEGUIDO),
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           // Debajo de un bus que no está en vivo, desde cuándo no reporta
@@ -3626,11 +3647,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           // Solo el bus visto desde arriba se gira; el isométrico ya trae el
           // rumbo dibujado.
           rot: icon.startsWith(PREFIJO_ICONO_PLANO) ? head : 0,
+          grande: busId === this.followBusId,
         },
       });
     });
 
     src.setData({ type: 'FeatureCollection', features } as any);
+    this.busGrandePintado = this.followBusId;
   }
 
   // Un único rAF para toda la flota. Se apaga solo cuando ninguna interpolación

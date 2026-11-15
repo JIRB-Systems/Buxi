@@ -22,7 +22,7 @@ import { colorSeguro } from '../../../core/utils/html';
 import {
   SpritesBus, SPRITE_PASO_MEDIO, cargarSpritesBus, dirDeSprite,
   registrarIconoBus as registrarSpriteBus,
-  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO, segunEscalaBus,
+  registrarIconoPlano, layoutIconoBus, aplicarLayoutIconoBus, PREFIJO_ICONO_PLANO, segunEscalaBus, AUMENTO_BUS_MANEJO,
 } from '../../../core/utils/bus-sprite';
 import { supabaseClient } from '../../../core/supabase-client';
 import { suscribirCambios } from '../../../core/utils/live';
@@ -646,7 +646,22 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // El halo del bus propio y la placa de los demás siguen al bus cuando crece
   // con el zoom. En 3D la placa no se mueve: el bus crece hacia arriba.
   private radioHalo(): any {
-    return segunEscalaBus(this.is3D, e => (this.is3D ? 12 : 18) * e);
+    const k = this.aumentoBusPropio();
+    return segunEscalaBus(this.is3D, e => (this.is3D ? 12 : 18) * e * k);
+  }
+
+  // En la vista de manejo (viaje en marcha) el bus propio va más grande.
+  private aumentoBusPropio(): number {
+    return this.tracking ? AUMENTO_BUS_MANEJO : 1;
+  }
+
+  // Al entrar o salir de la vista de manejo, el bus propio cambia de tamaño.
+  private tamanoBusPropio() {
+    if (!this.map) return;
+    aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D, this.aumentoBusPropio());
+    try {
+      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.radioHalo());
+    } catch { /* el estilo no está listo */ }
   }
 
   private offsetEtiquetaFlota(): any {
@@ -719,7 +734,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         // sobre el mapa y girado con icon-rotate.
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
-        ...layoutIconoBus(this.is3D),
+        ...layoutIconoBus(this.is3D, this.aumentoBusPropio()),
       },
     });
     this.refrescarBusPropio();
@@ -1423,6 +1438,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.siguiendo = true;
     if (!this.map) return;
     try { lugaresDelMapa(this.map, false); } catch { /* sin estilo todavía */ }
+    this.tamanoBusPropio();
     if (this.currentLat === 0 && this.currentLng === 0) return;
     this.map.easeTo({
       center: [this.currentLng, this.currentLat],
@@ -1438,6 +1454,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.rumboCamara = null;
     if (!this.map) return;
     try { lugaresDelMapa(this.map, true); } catch { /* sin estilo */ }
+    this.tamanoBusPropio();
     this.map.easeTo({ pitch: this.is3D ? 55 : 0, bearing: 0, offset: desplazamientoLibre(this.map), duration: 900 });
   }
 
@@ -1470,7 +1487,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     if (!this.map) return;
     try { set3DEnabled(this.map, this.is3D, true); } catch (e) { logError('chofer: cambiar la vista 3D', e); }
     // El bus cambia de dibujo: parado en 3D, visto desde arriba en 2D.
-    aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D);
+    aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D, this.aumentoBusPropio());
     aplicarLayoutIconoBus(this.map, this.FLOTA_LAYER, this.is3D);
     try {
       if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.radioHalo());

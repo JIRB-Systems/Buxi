@@ -213,17 +213,20 @@ export function registrarIconoPlano(
 // isométrico va parado frente a la cámara, anclado abajo (las ruedas sobre el
 // punto), y el rumbo ya viene dibujado. En 2D el cenital va acostado sobre el
 // mapa, centrado en el punto y girado con el rumbo de cada bus ('rot').
-export function layoutIconoBus(is3D: boolean): Record<string, any> {
+//
+// `aumento` agranda el bus por encima de esa curva: un número para toda la
+// capa o una expresión por bus (el que se sigue en la vista de manejo).
+export function layoutIconoBus(is3D: boolean, aumento: number | any[] = 1): Record<string, any> {
   return is3D
     ? {
-      'icon-size': escalaBus(true),
+      'icon-size': escalaBus(true, aumento),
       'icon-rotate': 0,
       'icon-rotation-alignment': 'viewport',
       'icon-pitch-alignment': 'viewport',
       'icon-anchor': 'bottom',
     }
     : {
-      'icon-size': escalaBus(false),
+      'icon-size': escalaBus(false, aumento),
       'icon-rotate': ['coalesce', ['get', 'rot'], 0],
       'icon-rotation-alignment': 'map',
       'icon-pitch-alignment': 'map',
@@ -231,9 +234,9 @@ export function layoutIconoBus(is3D: boolean): Record<string, any> {
     };
 }
 
-export function aplicarLayoutIconoBus(map: maplibregl.Map, capa: string, is3D: boolean): void {
+export function aplicarLayoutIconoBus(map: maplibregl.Map, capa: string, is3D: boolean, aumento: number | any[] = 1): void {
   if (!map.getLayer(capa)) return;
-  for (const [k, v] of Object.entries(layoutIconoBus(is3D))) {
+  for (const [k, v] of Object.entries(layoutIconoBus(is3D, aumento))) {
     try { map.setLayoutProperty(capa, k, v); } catch { /* capa de otro tipo */ }
   }
 }
@@ -259,6 +262,16 @@ export function segunEscalaBus(is3D: boolean, valor: (escala: number) => number 
   return ['interpolate', ['linear'], ['zoom'], ...pasos];
 }
 
-export function escalaBus(is3D: boolean): any {
-  return segunEscalaBus(is3D, e => e);
+export function escalaBus(is3D: boolean, aumento: number | any[] = 1): any {
+  if (typeof aumento === 'number') return segunEscalaBus(is3D, e => e * aumento);
+  // Por bus: cada parada de la curva multiplicada por la expresión (MapLibre
+  // acepta datos del bus dentro de una interpolación por zoom).
+  const pasos = (is3D ? ESCALA_ISO : ESCALA_PLANO).flatMap(([z, e]) => [z, ['*', e, aumento]]);
+  return ['interpolate', ['linear'], ['zoom'], ...pasos];
 }
+
+// ---- EL BUS EN LA VISTA DE MANEJO ----
+// Con el mapa inclinado el bus queda lejos de la cámara y se ve chico (el de
+// arriba, además, acostado y aplastado por la perspectiva). En la vista de
+// manejo, el bus propio o el que se sigue va más grande, como el auto en Uber.
+export const AUMENTO_BUS_MANEJO = 1.45;
