@@ -96,6 +96,32 @@ function esconderComerciosMapTiler(map: maplibregl.Map) {
   }
 }
 
+// Vista de manejo del chofer: el mapa sin comercios ni lugares (restaurantes,
+// tiendas, iglesias...), como Uber o Waze mientras se maneja; inclinado y de
+// cerca, eran un montón de íconos tapando la calle. Las paradas y terminales
+// (capas buxci-) quedan. Al volver, cada capa vuelve como estaba.
+const ocultasPorManejo = new WeakMap<maplibregl.Map, string[]>();
+export function lugaresDelMapa(map: maplibregl.Map, visibles: boolean): void {
+  if (!visibles) {
+    // Se puede llamar seguido: suma las que aparecieron después (los
+    // comercios llegan tarde, cuando carga su archivo).
+    const ids = ocultasPorManejo.get(map) ?? [];
+    for (const l of map.getStyle()?.layers ?? []) {
+      if (l.type !== 'symbol') continue;
+      const deLugares = l.id === CAPA_COMERCIOS || ((l as any)['source-layer'] === 'poi' && !l.id.startsWith('buxci-'));
+      if (!deLugares || map.getLayoutProperty(l.id, 'visibility') === 'none') continue;
+      map.setLayoutProperty(l.id, 'visibility', 'none');
+      ids.push(l.id);
+    }
+    ocultasPorManejo.set(map, ids);
+    return;
+  }
+  const ids = ocultasPorManejo.get(map);
+  if (!ids) return;
+  ocultasPorManejo.delete(map);
+  for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
+}
+
 export function capaComercios(map: maplibregl.Map, dark: boolean): void {
   const url = environment.comerciosUrl;
   if (!url || map.getSource(FUENTE_COMERCIOS)) return;
@@ -796,7 +822,9 @@ export function setRelieve(map: maplibregl.Map, on: boolean, dark: boolean): voi
 //
 // Mide el DOM y no usa alturas fijas: las hojas cambian de alto y cada
 // teléfono (con o sin barra del navegador) deja un lugar distinto.
-export function desplazamientoLibre(map: maplibregl.Map): [number, number] {
+// `fraccion`: a qué altura de lo libre va el punto (0.5, al medio; más, más
+// abajo: la vista de manejo del chofer deja el bus abajo para ver adelante).
+export function desplazamientoLibre(map: maplibregl.Map, fraccion = 0.5): [number, number] {
   const cont = map.getContainer();
   const r = cont.getBoundingClientRect();
   if (!r.height || typeof document.elementFromPoint !== 'function') return [0, 0];
@@ -818,7 +846,7 @@ export function desplazamientoLibre(map: maplibregl.Map): [number, number] {
   // 80 px alcanzan para que el bus se vea entero, también en un teléfono chico
   // con la ficha del bus abierta.
   if (mejor[1] - mejor[0] < 80) return [0, 0];
-  const centro = (mejor[0] + mejor[1]) / 2 - r.top;
+  const centro = mejor[0] + (mejor[1] - mejor[0]) * fraccion - r.top;
   return [0, Math.round(centro - r.height / 2)];
 }
 

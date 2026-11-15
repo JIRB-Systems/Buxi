@@ -14,7 +14,7 @@ import { ChoferService } from '../../../core/services/chofer.service';
 import { GpsFondoService } from '../../../core/services/gps-fondo.service';
 import {
   createMap, set3DEnabled, distanceToPolylineMeters,
-  capaComercios, paradasDelMapaBase, paradasMunicipalesPropias, desplazamientoLibre,
+  capaComercios, paradasDelMapaBase, paradasMunicipalesPropias, desplazamientoLibre, lugaresDelMapa,
 } from '../../../core/utils/maplibre';
 import { ParadasMunicipalesService } from '../../../core/services/paradas-municipales.service';
 import { logError } from '../../../core/utils/log';
@@ -649,6 +649,17 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     } catch { /* sin estilo cargado no hay capas que tocar */ }
   };
 
+  // El bus propio siempre arriba de todo: las capas que se agregan después
+  // (comercios, paradas) quedaban encima y lo tapaban.
+  private subirBusPropio() {
+    try {
+      const orden = this.map.getLayersOrder();
+      if (orden[orden.length - 1] === this.USER_LAYER) return;
+      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.moveLayer(this.USER_HALO_LAYER);
+      if (this.map.getLayer(this.USER_LAYER)) this.map.moveLayer(this.USER_LAYER);
+    } catch { /* estilo cambiando */ }
+  }
+
   private updateUserMarkerLayer(lng: number, lat: number) {
     const icon = this.iconoBusPropio();
     const geojson = {
@@ -661,6 +672,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     const src = this.map.getSource(this.USER_SRC) as maplibregl.GeoJSONSource | undefined;
     if (src) {
       src.setData(geojson as any);
+      this.subirBusPropio();
       return;
     }
     this.map.addSource(this.USER_SRC, { type: 'geojson', data: geojson as any });
@@ -678,6 +690,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         'circle-stroke-width': 2,
         'circle-stroke-color': '#00e676',
         'circle-stroke-opacity': 0.9,
+        // Acostado en el piso cuando el mapa se inclina (vista de manejo).
+        'circle-pitch-alignment': 'map',
       },
     });
     this.map.addLayer({
@@ -1097,6 +1111,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     await this.sendLocation();
     this.trackingInterval = setInterval(() => this.sendLocation(), 5000);
     await this.iniciarGpsFondo();
+    this.entrarEnManejo();
 
     const toast = await this.toastCtrl.create({
       message: retomar ? 'Viaje retomado — transmitiendo ubicación' : 'Viaje iniciado — transmitiendo ubicación',
@@ -1134,6 +1149,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private async stopTracking() {
     this.tracking = false;
     this.borrarOcupacion();
+    this.salirDeManejo();
     this.refrescarBusPropio();
     this.setRouteVisible(false);
     this.paused = false;
@@ -1367,9 +1383,63 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.centrarTimer = setTimeout(() => this.seguirCamara(), 320);
   }
 
+  // ---- VISTA DE MANEJO ----
+  // Con el viaje en marcha la cámara va como en Uber o Waze: inclinada, con
+  // el mapa girado hacia donde va el bus (adelante = arriba) y el bus en la
+  // parte de abajo de lo libre, para ver lo que viene. Fuera de viaje, el
+  // mapa de siempre: norte arriba, plano o 3D según el botón. Si el chofer
+  // gira o inclina el mapa con los dedos, al soltar vuelve a esta vista.
+  private readonly PITCH_MANEJO = 55;
+  private readonly ZOOM_MANEJO = 17;
+  private rumboCamara: number | null = null;
+
+  private rumboDeManejo(): number {
+    // Quieto, el GPS da rumbos al azar y el mapa daría vueltas: el rumbo solo
+    // se toma andando, y un cambio chico (ruido) no gira el mapa.
+    const nuevo = this.currentHeading || 0;
+    if (this.rumboCamara === null) return (this.rumboCamara = nuevo);
+    const diferencia = Math.abs(((nuevo - this.rumboCamara + 540) % 360) - 180);
+    if (this.currentSpeedKmh >= 4 && diferencia >= 6) this.rumboCamara = nuevo;
+    return this.rumboCamara;
+  }
+
+  private entrarEnManejo() {
+    this.rumboCamara = null;
+    this.siguiendo = true;
+    if (!this.map) return;
+    try { lugaresDelMapa(this.map, false); } catch { /* sin estilo todavía */ }
+    if (this.currentLat === 0 && this.currentLng === 0) return;
+    this.map.easeTo({
+      center: [this.currentLng, this.currentLat],
+      zoom: Math.max(this.map.getZoom(), this.ZOOM_MANEJO),
+      pitch: this.PITCH_MANEJO,
+      bearing: this.rumboDeManejo(),
+      offset: desplazamientoLibre(this.map, 0.72),
+      duration: 1200,
+    });
+  }
+
+  private salirDeManejo() {
+    this.rumboCamara = null;
+    if (!this.map) return;
+    try { lugaresDelMapa(this.map, true); } catch { /* sin estilo */ }
+    this.map.easeTo({ pitch: this.is3D ? 55 : 0, bearing: 0, offset: desplazamientoLibre(this.map), duration: 900 });
+  }
+
   private seguirCamara() {
     if (!this.siguiendo || this.gestoDelChofer || this.ocultoPorGesto || !this.map) return;
     if (this.currentLat === 0 && this.currentLng === 0) return;
+    if (this.tracking) {
+      try { lugaresDelMapa(this.map, false); } catch { /* sin estilo */ }
+      this.map.easeTo({
+        center: [this.currentLng, this.currentLat],
+        pitch: this.PITCH_MANEJO,
+        bearing: this.rumboDeManejo(),
+        offset: desplazamientoLibre(this.map, 0.72),
+        duration: 900,
+      });
+      return;
+    }
     this.map.easeTo({
       center: [this.currentLng, this.currentLat],
       offset: desplazamientoLibre(this.map),
