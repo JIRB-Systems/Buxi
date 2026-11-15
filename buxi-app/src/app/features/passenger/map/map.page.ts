@@ -231,6 +231,105 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     head0: number; head1: number; t0: number;
   }>();
   private busRaf: number | null = null;
+
+  // ---- PREDICCIÓN SOBRE LA RUTA (como Uber) ----
+  // Los buses van por su ruta establecida. Entre una señal y la siguiente el
+  // bus no se queda quieto esperando ni salta: sigue avanzando por el trazado
+  // de su ruta, a la velocidad que traía, desde el último punto que mandó y
+  // contando lo que ese punto tardó en llegar (así se ve dónde va AHORA y no
+  // dónde estaba hace unos segundos). Cuando llega el punto real, el dibujo
+  // se corrige de a poco, sin saltos. Solo con el bus andando, con señal y
+  // sobre su ruta; parado, sin señal o desviado se dibuja donde dice el GPS.
+  private busPred = new Map<string, {
+    rutaId: string; sentido: Sentido; velKmh: number;
+    kmReal: number; tReal: number;   // el último punto real y cuándo se tomó (reloj de la pantalla)
+    kmVisto: number; rumboVisto: number;
+  }>();
+  // Dónde quedó dibujado cada bus en el último cuadro: el punto nuevo arranca
+  // desde ahí, no desde el punto real anterior (si no, saltaba hacia atrás).
+  private busVisto = new Map<string, { lng: number; lat: number; head: number }>();
+  private readonly PRED_MAX_S = 8;            // lo más que se adivina desde un punto real
+  private readonly PRED_VEL_MIN_KMH = 8;      // más despacio, el bus está parando
+  private readonly PRED_DESVIO_MAX_KM = 0.06; // más lejos del trazado, se desvió
+  private readonly PRED_CORRIGE_MS = 900;     // en cuánto se absorbe una corrección
+  private ultimoCuadro = 0;
+
+  // Con cada punto nuevo: si se puede predecir, se arma la predicción de este bus.
+  private actualizarPrediccion(loc: BusLocation): boolean {
+    const id = loc.bus_id;
+    const rutaId = this.rutaDelBus(id);
+    const t = rutaId ? this.trazadoDe(rutaId) : null;
+    const marcha = this.busMarcha.get(id);
+    const vel = loc.velocidad ?? 0;
+    const edadMs = Date.now() - Date.parse(loc.timestamp);
+    const sirve = !!rutaId && !!t && !!marcha && marcha.desvioKm <= this.PRED_DESVIO_MAX_KM
+      && Number.isFinite(edadMs) && edadMs < this.PRED_MAX_S * 1000;
+    const previa = this.busPred.get(id);
+    // Un bus parado recién se empieza a predecir cuando arranca; uno que ya se
+    // venía prediciendo sigue, con velocidad 0, así al frenar el dibujo vuelve
+    // despacio en vez de saltar hacia atrás.
+    if (!sirve || (!previa && vel < this.PRED_VEL_MIN_KMH)) { this.busPred.delete(id); return false; }
+
+    let kmVisto: number;
+    let rumboVisto: number;
+    if (previa && previa.rutaId === rutaId) {
+      kmVisto = previa.kmVisto;
+      rumboVisto = previa.rumboVisto;
+    } else {
+      // Arranca donde estaba dibujado (o en el punto nuevo, si es el primero).
+      const visto = this.busVisto.get(id);
+      kmVisto = visto ? t!.trazado.proyectar(visto.lat, visto.lng, marcha!.km).km : marcha!.km;
+      rumboVisto = visto?.head ?? (loc.heading || 0);
+    }
+    this.busPred.set(id, {
+      rutaId: rutaId!, sentido: marcha!.sentido, velKmh: vel >= this.PRED_VEL_MIN_KMH ? Math.min(vel, 90) : 0,
+      kmReal: marcha!.km, tReal: performance.now() - Math.max(0, edadMs),
+      kmVisto, rumboVisto,
+    });
+    return true;
+  }
+
+  // Siguiendo un bus que se predice: dónde va a estar dibujado cuando llegue
+  // el punto siguiente (o al tope de la predicción, lo que pase antes).
+  private destinoCamaraSeguir(id: string): { lng: number; lat: number; rumbo: number; ms: number } | null {
+    const p = this.busPred.get(id);
+    const tr = p ? this.trazados.get(p.rutaId)?.trazado : null;
+    if (!p || !tr) return null;
+    const ms = this.ENVIVO_MIRANDO_MS;
+    const desdeReal = (performance.now() - p.tReal) / 1000;
+    const seg = Math.min(this.PRED_MAX_S, Math.max(0, desdeReal) + ms / 1000);
+    const punto = tr.puntoEn(p.kmReal + p.sentido * p.velKmh * seg / 3600);
+    return { lng: punto.lng, lat: punto.lat, rumbo: (punto.rumbo + (p.sentido === -1 ? 180 : 0)) % 360, ms };
+  }
+
+  // Dónde dibujar un bus que se está prediciendo, en el cuadro `t`.
+  private posicionPredicha(id: string, t: number, dt: number): { lng: number; lat: number; head: number } | null {
+    const p = this.busPred.get(id);
+    const tr = p ? this.trazados.get(p.rutaId)?.trazado : null;
+    if (!p || !tr) return null;
+    const seg = (t - p.tReal) / 1000;
+    const kmObjetivo = p.kmReal + p.sentido * p.velKmh * Math.min(this.PRED_MAX_S, Math.max(0, seg)) / 3600;
+    // Primero avanza lo que anda el bus en este cuadro; después corrige de a
+    // poco la diferencia con la predicción (lo que trajo un punto nuevo).
+    if (seg < this.PRED_MAX_S) p.kmVisto += p.sentido * p.velKmh * dt / 3600000;
+    let error = kmObjetivo - p.kmVisto;
+    // Si el punto nuevo quedó un poco atrás del dibujo: andando, el dibujo
+    // espera en vez de retroceder (el bus lo alcanza); parado, vuelve hasta
+    // donde está el bus, despacio. Con más de 40 m se corrige normal.
+    let corrige = this.PRED_CORRIGE_MS;
+    if (error * p.sentido < 0 && Math.abs(error) < 0.04) {
+      if (p.velKmh > 0) error = 0; else corrige = 2500;
+    }
+    p.kmVisto += error * (1 - Math.exp(-dt / corrige));
+
+    const punto = tr.puntoEn(p.kmVisto);
+    const rumbo = (punto.rumbo + (p.sentido === -1 ? 180 : 0)) % 360;
+    // El giro en las esquinas, suave.
+    const d = ((rumbo - p.rumboVisto + 540) % 360) - 180;
+    p.rumboVisto = (p.rumboVisto + d * (1 - Math.exp(-dt / 350)) + 360) % 360;
+    return { lng: punto.lng, lat: punto.lat, head: p.rumboVisto };
+  }
+
   // Lo que tarda el bus en deslizarse de un punto al siguiente. Cerca del
   // tiempo entre puntos (2,5-3 s), así se mueve seguido y no a saltos.
   private readonly BUS_TWEEN_MS = 2200;
@@ -2946,6 +3045,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
           this.busLocationsMap.delete(busId);
           this.busLastSeen.delete(busId);
           this.busAnim.delete(busId);
+          this.busPred.delete(busId);
+          this.busVisto.delete(busId);
           this.busIcono.delete(busId);
           this.busRetraso.delete(busId);
           this.busOcupacion.delete(busId);
@@ -3172,6 +3273,8 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.busLocationsMap.clear();
     this.busLastSeen.clear();
     this.busAnim.clear();
+    this.busPred.clear();
+    this.busVisto.clear();
     this.busIcono.clear();
     if (this.busLayerListo) this.pintarBuses(performance.now());
     this.activeBusCount = 0;
@@ -3481,11 +3584,16 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     if (!src) return;
 
     const ahora = Date.now();
+    const dt = Math.min(100, Math.max(0, t - this.ultimoCuadro));
+    this.ultimoCuadro = t;
     const features: any[] = [];
     this.busLocationsMap.forEach((loc, busId) => {
       const a = this.busAnim.get(busId);
       let lng = loc.longitud, lat = loc.latitud, head = loc.heading || 0;
-      if (a) {
+      const predicha = this.busPred.has(busId) ? this.posicionPredicha(busId, t, dt) : null;
+      if (predicha) {
+        ({ lng, lat, head } = predicha);
+      } else if (a) {
         const k = Math.min(1, (t - a.t0) / this.BUS_TWEEN_MS);
         const e = k * (2 - k);                       // ease-out suave
         lng = a.lng0 + (a.lng1 - a.lng0) * e;
@@ -3494,6 +3602,7 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
         let d = ((a.head1 - a.head0 + 540) % 360) - 180;
         head = (a.head0 + d * e + 360) % 360;
       }
+      this.busVisto.set(busId, { lng, lat, head });
       const edadS = Math.max(0, (ahora - Date.parse(loc.timestamp)) / 1000);
       const senal = calidadSenal(edadS);
       const cod = this.codigoDeRuta(this.busRuta.get(busId));
@@ -3533,6 +3642,13 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     this.busAnim.forEach((a, id) => {
       if (t - a.t0 >= this.BUS_TWEEN_MS) this.busAnim.delete(id);
       else vivo = true;
+    });
+    // Un bus prediciéndose se sigue moviendo hasta el tope de la predicción
+    // y un poco más, lo que tarda en asentarse la última corrección.
+    // Parado y ya asentado no hace falta seguir dibujando cuadros.
+    this.busPred.forEach(p => {
+      const asentado = p.velKmh === 0 && Math.abs(p.kmVisto - p.kmReal) < 0.0005;
+      if (!asentado && (t - p.tReal) / 1000 < this.PRED_MAX_S + 2) vivo = true;
     });
     this.busRaf = vivo && !this.destroyed ? requestAnimationFrame(this.tickBuses) : null;
   };
@@ -3574,11 +3690,15 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
       this.iconoDe(location),
     );
 
-    if (previo) {
+    if (this.actualizarPrediccion(location)) {
+      this.busAnim.delete(location.bus_id);
+      this.arrancarTick();
+    } else if (previo) {
+      const visto = this.busVisto.get(location.bus_id);
       this.busAnim.set(location.bus_id, {
-        lng0: previo.longitud, lat0: previo.latitud,
+        lng0: visto?.lng ?? previo.longitud, lat0: visto?.lat ?? previo.latitud,
         lng1: location.longitud, lat1: location.latitud,
-        head0: previo.heading || 0, head1: heading,
+        head0: visto?.head ?? (previo.heading || 0), head1: heading,
         t0: performance.now(),
       });
       this.arrancarTick();
@@ -3595,6 +3715,21 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }
     if (this.followBusId === location.bus_id && !this.gestoSiguiendo && !this.fichaOculta) {
       this.mapaLimpioAlSeguir(true);
+      // Con el bus prediciéndose, la cámara va hacia donde va a estar dibujado
+      // dentro de unos segundos (cuando suele llegar el punto siguiente), al
+      // mismo paso: el bus queda quieto en la pantalla y el mapa corre debajo.
+      const destino = this.destinoCamaraSeguir(location.bus_id);
+      if (destino) {
+        this.map.easeTo({
+          center: [destino.lng, destino.lat],
+          pitch: this.PITCH_SEGUIR,
+          bearing: this.rumboSeguido({ ...location, heading: destino.rumbo }),
+          duration: destino.ms,
+          easing: (t) => t,
+          offset: desplazamientoLibre(this.map, this.ALTURA_SEGUIR),
+        });
+        return;
+      }
       this.map.easeTo({
         center: [location.longitud, location.latitud],
         pitch: this.PITCH_SEGUIR,

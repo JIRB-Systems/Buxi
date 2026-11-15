@@ -45,6 +45,32 @@ describe('eta: TrazadoRuta', () => {
     expect(idaYVuelta.proyectar(LAT, lng, 3.6).km).toBeCloseTo(3.5, 1);
   });
 
+  it('con la pista un poco atrás, no lo lleva al final del tramo anterior', () => {
+    // Una calle recta dibujada en tramos de 20 m: el punto está a 1,07 km y la
+    // pista (el punto anterior) a 1,06. Antes caía en el final del tramo
+    // anterior (1,06): el bus quedaba 10 m atrás de donde estaba.
+    const tramos: LatLng[] = [];
+    for (let i = 0; i <= 100; i++) tramos.push([LAT, LNG + (ESTE_2KM / 100) * i]);
+    const calle = new TrazadoRuta(tramos);
+    const lng = LNG + ESTE_2KM * (1.07 / 2);
+    expect(calle.proyectar(LAT, lng, 1.06).km).toBeCloseTo(1.07, 2); // ±5 m; antes daba 1,06
+  });
+
+  it('da el punto que está a tantos km del inicio, con el rumbo del tramo', () => {
+    const mitad = trazado.puntoEn(1);
+    expect(mitad.lat).toBeCloseTo(LAT, 6);
+    expect(mitad.lng).toBeCloseTo(LNG + ESTE_2KM / 2, 4);
+    expect(mitad.rumbo).toBeCloseTo(90, 0);
+    const subiendo = trazado.puntoEn(2.5);
+    expect(subiendo.lat).toBeCloseTo(LAT + NORTE_1KM / 2, 4);
+    expect(subiendo.rumbo).toBeCloseTo(0, 0);
+    // Fuera del largo, el extremo.
+    expect(trazado.puntoEn(10).lat).toBeCloseTo(LAT + NORTE_1KM, 6);
+    expect(trazado.puntoEn(-1).lng).toBeCloseTo(LNG, 6);
+    // Ida y vuelta: el punto es el mismo y lo inverso, el kilómetro.
+    expect(trazado.proyectar(mitad.lat, mitad.lng).km).toBeCloseTo(1, 3);
+  });
+
   it('un trazado vacío o de un solo punto no es válido y no rompe', () => {
     expect(new TrazadoRuta([]).valido).toBeFalse();
     expect(new TrazadoRuta([[LAT, LNG]]).valido).toBeFalse();

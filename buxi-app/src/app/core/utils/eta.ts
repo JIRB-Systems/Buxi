@@ -110,18 +110,24 @@ export class TrazadoRuta {
       candidatos.push({ km: this.acum[i] + t * (this.acum[i + 1] - this.acum[i]), d, i });
     }
 
-    // Sin pista gana el más cercano. Con pista, entre los que están a menos
-    // de 30 m del mejor, el más próximo al avance anterior.
+    // Gana el más cercano. Con pista, otra pasada por la misma calle (a menos
+    // de 30 m del mejor, pero en otro tramo del recorrido: más de 100 m de
+    // avance de diferencia) le gana si queda más cerca del avance anterior.
+    //
+    // Lo de "otra pasada" importa: los tramos vecinos al punto también quedan
+    // a menos de 30 m (su extremo) y antes competían; con la pista un poco
+    // atrás, ganaba el final del tramo anterior y el bus quedaba ubicado
+    // hasta 30 m más atrás de donde estaba.
     const TOLERANCIA_KM = 0.03;
-    let elegido = candidatos[0];
-    let hay = false;
-    for (const c of candidatos) {
-      if (pistaKm === undefined) {
-        if (!hay || c.d < elegido.d) { elegido = c; hay = true; }
-        continue;
+    const OTRA_PASADA_KM = 0.1;
+    let cercano = candidatos[0];
+    for (const c of candidatos) if (c.d < cercano.d) cercano = c;
+    let elegido = cercano;
+    if (pistaKm !== undefined) {
+      for (const c of candidatos) {
+        if (c.d > mejor + TOLERANCIA_KM || Math.abs(c.km - cercano.km) < OTRA_PASADA_KM) continue;
+        if (Math.abs(c.km - pistaKm) < Math.abs(elegido.km - pistaKm)) elegido = c;
       }
-      if (c.d > mejor + TOLERANCIA_KM) continue;
-      if (!hay || Math.abs(c.km - pistaKm) < Math.abs(elegido.km - pistaKm)) { elegido = c; hay = true; }
     }
 
     return {
@@ -129,6 +135,26 @@ export class TrazadoRuta {
       desvioKm: elegido.d,
       rumbo: rumboEntre(this.pts[elegido.i], this.pts[elegido.i + 1]),
     };
+  }
+
+  /**
+   * El punto que está a `km` del inicio del trazado (acotado a su largo) y el
+   * rumbo del tramo, mirando hacia el final del trazado. Lo usa el mapa del
+   * pasajero para dibujar el bus sobre su ruta entre una señal y la otra.
+   */
+  puntoEn(km: number): { lat: number; lng: number; rumbo: number } {
+    if (!this.valido) return { lat: this.pts[0]?.[0] ?? 0, lng: this.pts[0]?.[1] ?? 0, rumbo: 0 };
+    const k = Math.min(this.largoKm, Math.max(0, km));
+    // El tramo que contiene k, por búsqueda binaria en los acumulados.
+    let lo = 0, hi = this.acum.length - 1;
+    while (hi - lo > 1) {
+      const medio = (lo + hi) >> 1;
+      if (this.acum[medio] <= k) lo = medio; else hi = medio;
+    }
+    const a = this.pts[lo], b = this.pts[hi];
+    const largo = this.acum[hi] - this.acum[lo];
+    const f = largo > 0 ? Math.min(1, Math.max(0, (k - this.acum[lo]) / largo)) : 0;
+    return { lat: a[0] + (b[0] - a[0]) * f, lng: a[1] + (b[1] - a[1]) * f, rumbo: rumboEntre(a, b) };
   }
 }
 
