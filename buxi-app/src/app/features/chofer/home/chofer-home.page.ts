@@ -143,7 +143,6 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // las paradas y emergencias del mapa de empresa.
   private readonly USER_SRC = 'chofer-self';
   private readonly USER_LAYER = 'chofer-self-icon';
-  private readonly USER_HALO_LAYER = 'chofer-self-halo';
   private readonly PARADAS_SRC = 'chofer-paradas';
   private readonly PARADAS_CIRCLE_LAYER = 'chofer-paradas-circle';
   private readonly PARADAS_LABEL_LAYER = 'chofer-paradas-label';
@@ -642,9 +641,18 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // Si los sprites no cargaron se cae al ícono de reserva. El pasajero en ese
   // caso simplemente no dibuja buses, pero un chofer sin su propio marcador
   // pierde lo único que le dice dónde está: no es el mismo trato.
+  // El bus parado (el dibujo isométrico, de pie frente a la cámara y mirando
+  // hacia donde va) en 3D y también en la vista de manejo: con el mapa
+  // inclinado y los edificios con volumen, el bus visto desde arriba quedaba
+  // acostado y aplastado, como una calcomanía en el piso. Plano solo con el
+  // mapa plano.
+  private get busParado(): boolean {
+    return this.is3D || this.tracking;
+  }
+
   private iconoBusPropio(): string {
     const color = this.colorDeLaFlota();
-    if (!this.is3D) {
+    if (!this.busParado) {
       const plano = registrarIconoPlano(
         this.map, this.assignedBus?.modelo_bus || this.modeloEmpresa, color,
         this.busIconosRegistrados, this.alCargarPlano);
@@ -655,35 +663,41 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     return this.sprites ? id : 'chofer-bus-icon';
   }
 
-  // El halo del bus propio y la placa de los demás siguen al bus cuando crece
-  // con el zoom. En 3D la placa no se mueve: el bus crece hacia arriba.
-  private radioHalo(): any {
-    const k = this.aumentoBusPropio();
-    return segunEscalaBus(this.is3D, e => (this.is3D ? 12 : 18) * e * k);
-  }
-
   // En la vista de manejo (viaje en marcha) el bus propio va más grande.
   private aumentoBusPropio(): number {
     return this.tracking ? AUMENTO_BUS_MANEJO : 1;
   }
 
-  // Al entrar o salir de la vista de manejo, el bus propio cambia de tamaño.
+  // Al entrar o salir de la vista de manejo, los buses cambian de dibujo
+  // (parado o plano) y el propio de tamaño.
   private tamanoBusPropio() {
+    this.aplicarDibujoBuses();
+  }
+
+  // El dibujo de los buses según la vista: parado o visto desde arriba. Se
+  // repinta todo porque cambia el ícono, no solo cómo se apoya.
+  private aplicarDibujoBuses() {
     if (!this.map) return;
-    aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D, this.aumentoBusPropio());
+    aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.busParado, this.aumentoBusPropio());
+    aplicarLayoutIconoBus(this.map, this.FLOTA_LAYER, this.busParado);
     try {
-      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.radioHalo());
+      if (this.map.getLayer(this.FLOTA_LABEL_LAYER)) this.map.setLayoutProperty(this.FLOTA_LABEL_LAYER, 'text-offset', this.offsetEtiquetaFlota());
     } catch { /* el estilo no está listo */ }
+    try {
+      if (this.currentLat !== 0 || this.currentLng !== 0) this.updateUserMarkerLayer(this.currentLng, this.currentLat);
+      // Solo si ya hay flota dibujada: renderFlota crea la capa si no existe.
+      if (this.map.getSource(this.FLOTA_SRC)) this.renderFlota();
+    } catch { /* sin estilo cargado no hay capas que tocar */ }
   }
 
   private offsetEtiquetaFlota(): any {
-    return this.is3D ? [0, 1.4] : segunEscalaBus(false, e => [0, 2.2 * e]);
+    return this.busParado ? [0, 1.4] : segunEscalaBus(false, e => [0, 2.2 * e]);
   }
 
   // Cuando el bus visto desde arriba termina de dibujarse, se repintan el
   // propio y la flota (hasta ahí iban con el isométrico).
   private alCargarPlano = () => {
-    if (this.destroyed || !this.map || this.is3D) return;
+    if (this.destroyed || !this.map || this.busParado) return;
     try {
       if (this.currentLat !== 0 || this.currentLng !== 0) this.updateUserMarkerLayer(this.currentLng, this.currentLat);
       // Solo si ya hay flota dibujada: renderFlota crea la capa si no existe.
@@ -697,7 +711,6 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     try {
       const orden = this.map.getLayersOrder();
       if (orden[orden.length - 1] === this.USER_LAYER) return;
-      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.moveLayer(this.USER_HALO_LAYER);
       if (this.map.getLayer(this.USER_LAYER)) this.map.moveLayer(this.USER_LAYER);
     } catch { /* estilo cambiando */ }
   }
@@ -718,24 +731,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       return;
     }
     this.map.addSource(this.USER_SRC, { type: 'geojson', data: geojson as any });
-    // El halo va DEBAJO del bus y solo lo lleva el propio. Con el mismo sprite
-    // y el mismo color de ruta que el resto de la flota, es lo único que dice
-    // cuál de todos los buses en pantalla sos vos.
-    this.map.addLayer({
-      id: this.USER_HALO_LAYER, type: 'circle', source: this.USER_SRC,
-      paint: {
-        // En 2D el bus va acostado encima del punto: el halo lo rodea. Crece
-        // con el zoom, como el bus.
-        'circle-radius': this.radioHalo(),
-        'circle-color': '#00c853',
-        'circle-opacity': 0.22,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#00e676',
-        'circle-stroke-opacity': 0.9,
-        // Acostado en el piso cuando el mapa se inclina (vista de manejo).
-        'circle-pitch-alignment': 'map',
-      },
-    });
+    // Sin círculo alrededor: el bus propio se distingue por ir encima de todo,
+    // más grande en la vista de manejo y con la cámara siguiéndolo.
     this.map.addLayer({
       id: this.USER_LAYER, type: 'symbol', source: this.USER_SRC,
       layout: {
@@ -746,7 +743,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         // sobre el mapa y girado con icon-rotate.
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
-        ...layoutIconoBus(this.is3D, this.aumentoBusPropio()),
+        ...layoutIconoBus(this.busParado, this.aumentoBusPropio()),
       },
     });
     this.refrescarBusPropio();
@@ -785,11 +782,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     if (!this.map) return;
     const activo = this.busPropioActivo;
     if (this.map.getLayer(this.USER_LAYER)) {
-      this.map.setPaintProperty(this.USER_LAYER, 'icon-opacity', activo ? 1 : 0.45);
-    }
-    if (this.map.getLayer(this.USER_HALO_LAYER)) {
-      this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-opacity', activo ? 0.22 : 0.08);
-      this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-stroke-opacity', activo ? 0.9 : 0.3);
+      this.map.setPaintProperty(this.USER_LAYER, 'icon-opacity', activo ? 1 : 0.8);
     }
   }
 
@@ -890,7 +883,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       type: 'FeatureCollection' as const,
       features: [...this.flotaPosiciones.entries()].map(([busId, p]) => {
         const color = this.flotaColores.get(busId) || this.COLOR_BUS_FALLBACK;
-        const plano = this.is3D ? null : registrarIconoPlano(
+        const plano = this.busParado ? null : registrarIconoPlano(
           this.map, this.flotaModelos.get(busId), color, this.busIconosRegistrados, this.alCargarPlano);
         return {
           type: 'Feature' as const,
@@ -923,7 +916,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
         'icon-image': ['get', 'icon'],
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
-        ...layoutIconoBus(this.is3D),
+        ...layoutIconoBus(this.busParado),
       },
       // Un punto por debajo del propio: son contexto, no el protagonista.
       paint: { 'icon-opacity': 0.9 },
@@ -1497,20 +1490,11 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     // capas: la preferencia queda guardada igual y no se rompe nada.
     if (!this.map) return;
     try { set3DEnabled(this.map, this.is3D, true); } catch (e) { logError('chofer: cambiar la vista 3D', e); }
-    // El bus cambia de dibujo: parado en 3D, visto desde arriba en 2D.
-    aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D, this.aumentoBusPropio());
-    aplicarLayoutIconoBus(this.map, this.FLOTA_LAYER, this.is3D);
     // Los edificios con volumen nacen al prender el 3D: también apagados.
     try { mapaSobrio(this.map); } catch {}
-    try {
-      if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.radioHalo());
-      if (this.map.getLayer(this.FLOTA_LABEL_LAYER)) this.map.setLayoutProperty(this.FLOTA_LABEL_LAYER, 'text-offset', this.offsetEtiquetaFlota());
-    } catch { /* el estilo no está listo */ }
-    try {
-      if (this.currentLat !== 0 || this.currentLng !== 0) this.updateUserMarkerLayer(this.currentLng, this.currentLat);
-      // Solo si ya hay flota dibujada: renderFlota crea la capa si no existe.
-      if (this.map.getSource(this.FLOTA_SRC)) this.renderFlota();
-    } catch { /* sin estilo cargado no hay capas que tocar */ }
+    // El bus cambia de dibujo: parado en 3D (y manejando), visto desde arriba
+    // en 2D.
+    this.aplicarDibujoBuses();
   }
 
   // ---- REPORTAR INCIDENTE ----
