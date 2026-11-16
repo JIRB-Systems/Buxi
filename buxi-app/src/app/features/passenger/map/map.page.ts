@@ -20,7 +20,7 @@ import {
   CalidadSenal, LlegadaMostrada, calidadSenal, haceTexto, mostrarLlegada, proximaParada,
 } from '../../../core/utils/eta';
 import { OpcionViaje, RutaParaViaje, SinViaje, planificarViaje } from '../../../core/utils/viaje';
-import { createMap, desplazamientoLibre, lugaresDelMapa, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_PARADAS_MUNICIPALES, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
+import { createMap, desplazamientoLibre, lugaresDelMapa, estiloCargo, soloParadasBuxci, paradasDelMapaBase, paradasMunicipalesPropias, capaComercios, CAPAS_TERMINALES_MAPA, htmlMarkerEl, set3DEnabled, enable3D, mapStyleUrl, tintLightMap, setRelieve, TipoMapa } from '../../../core/utils/maplibre';
 import { logError } from '../../../core/utils/log';
 import { normalizarTelefono } from '../../../core/utils/telefono';
 import { claveValida, REGLA_CLAVE } from '../../../core/utils/clave';
@@ -4596,12 +4596,11 @@ export class MapPage implements OnInit, AfterViewInit, OnDestroy, ViewWillEnter,
     }, antes);
   }
 
-  // Con una ruta en pantalla se esconden también las paradas municipales: con
-  // las de la ruta alcanza, y dos íconos por esquina confunden. Las terminales
-  // del mapa base quedan: son referencia.
+  // Con una ruta en pantalla se esconden las paradas de las otras rutas. Las
+  // municipales (las doradas, las oficiales de la calle) y las terminales del
+  // mapa base quedan: son referencia, y el pasajero ve dónde puede esperar.
   private readonly CAPAS_PARADAS_TODAS = [
     ...['-circ', '-terminal-circ', '-terminal-txt'].map(s => `paradas-todas${s}`),
-    ...CAPAS_PARADAS_MUNICIPALES,
   ];
 
   // Capas donde un toque abre la parada: las generales (también las
