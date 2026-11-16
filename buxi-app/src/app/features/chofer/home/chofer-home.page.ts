@@ -14,7 +14,7 @@ import { ChoferService } from '../../../core/services/chofer.service';
 import { GpsFondoService } from '../../../core/services/gps-fondo.service';
 import {
   createMap, set3DEnabled, distanceToPolylineMeters,
-  capaComercios, paradasDelMapaBase, paradasMunicipalesPropias, desplazamientoLibre, lugaresDelMapa,
+  paradasDelMapaBase, paradasMunicipalesPropias, desplazamientoLibre, lugaresDelMapa, mapaSobrio,
 } from '../../../core/utils/maplibre';
 import { ParadasMunicipalesService } from '../../../core/services/paradas-municipales.service';
 import { logError } from '../../../core/utils/log';
@@ -412,11 +412,23 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     });
     if (this.destroyed) { try { this.map.remove(); } catch {} return; }
 
-    // El mismo mapa base que ve el pasajero: comercios al día, paradas
-    // municipales en ámbar, terminales en azul y las que cargó JIRB. Van antes
-    // que todo lo del chofer para quedar debajo de la ruta y de los buses (las
-    // de JIRB nacen vacías por eso mismo, y se llenan cuando llega la lista).
-    try { capaComercios(this.map, true); } catch {}
+    // Un mapa de trabajo, como el de Uber: sin comercios ni lugares (tiendas,
+    // iglesias, hoteles...), con los edificios apagados. Quedan las calles, las
+    // paradas municipales en ámbar, las terminales en azul y las que cargó
+    // JIRB. Van antes que todo lo del chofer para quedar debajo de la ruta y
+    // de los buses (las de JIRB nacen vacías por eso mismo, y se llenan cuando
+    // llega la lista).
+    //
+    // createMap también vuelve si algo del mapa falla antes de que termine de
+    // cargar el estilo (una tesela que no llega): entonces todavía no hay
+    // capas que apagar, y se repite cuando el mapa queda quieto por primera vez.
+    const sobrio = () => {
+      if (this.destroyed || !this.map) return;
+      try { lugaresDelMapa(this.map, false); } catch {}
+      try { mapaSobrio(this.map); } catch {}
+    };
+    sobrio();
+    this.map.once('idle', sobrio);
     try { paradasDelMapaBase(this.map, true); } catch {}
     try { paradasMunicipalesPropias(this.map, true, []); } catch {}
     this.cargarParadasMunicipales();
@@ -1453,7 +1465,6 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   private salirDeManejo() {
     this.rumboCamara = null;
     if (!this.map) return;
-    try { lugaresDelMapa(this.map, true); } catch { /* sin estilo */ }
     this.tamanoBusPropio();
     this.map.easeTo({ pitch: this.is3D ? 55 : 0, bearing: 0, offset: desplazamientoLibre(this.map), duration: 900 });
   }
@@ -1489,6 +1500,8 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     // El bus cambia de dibujo: parado en 3D, visto desde arriba en 2D.
     aplicarLayoutIconoBus(this.map, this.USER_LAYER, this.is3D, this.aumentoBusPropio());
     aplicarLayoutIconoBus(this.map, this.FLOTA_LAYER, this.is3D);
+    // Los edificios con volumen nacen al prender el 3D: también apagados.
+    try { mapaSobrio(this.map); } catch {}
     try {
       if (this.map.getLayer(this.USER_HALO_LAYER)) this.map.setPaintProperty(this.USER_HALO_LAYER, 'circle-radius', this.radioHalo());
       if (this.map.getLayer(this.FLOTA_LABEL_LAYER)) this.map.setLayoutProperty(this.FLOTA_LABEL_LAYER, 'text-offset', this.offsetEtiquetaFlota());

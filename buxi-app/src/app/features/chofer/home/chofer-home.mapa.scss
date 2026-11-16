@@ -41,6 +41,68 @@
   }
 }
 
+// ---- FUERA DE SERVICIO (teléfono parado) ----
+// La barra de abajo y el botón redondo, como el "Conectarse" de Uber. Solo con
+// el teléfono parado: acostado y en la compu queda lo de siempre.
+.fuera-barra { display: none; }
+
+@media (max-width: 899.98px) and (orientation: portrait) {
+  .chofer-content.fuera {
+    > .bottom-control,
+    > .status-chip { display: none; }
+
+    > .panic-wrap,
+    > .map-controls { bottom: calc(env(safe-area-inset-bottom, 0px) + 116px); }
+  }
+
+  .fuera-barra {
+    display: block;
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 1000;
+    padding: 44px 20px calc(16px + env(safe-area-inset-bottom, 0px));
+    background: #0b1422;
+    border-top: 1px solid var(--bx-line);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+    text-align: center;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+
+  .go-btn {
+    position: absolute;
+    left: 50%; top: 0;
+    transform: translate(-50%, -50%);
+    width: 78px; height: 78px;
+    padding: 0;
+    border-radius: 50%;
+    border: 4px solid #0b1422;
+    background: var(--bx-green, #00c853);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(0, 200, 83, 0.35), 0 0 0 2px rgba(0, 200, 83, 0.25);
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: transform 0.14s ease;
+
+    span { font-size: 14px; font-weight: 800; letter-spacing: 0.6px; }
+    &:active { transform: translate(-50%, -50%) scale(0.94); }
+    &[disabled] { background: #3a4558; box-shadow: none; cursor: default; }
+  }
+
+  .fb-texto {
+    display: flex; flex-direction: column; gap: 3px;
+    strong { font-size: 17px; font-weight: 800; color: var(--bx-text); letter-spacing: -0.01em; }
+    span { font-size: 13px; color: var(--bx-text-2); }
+  }
+
+  // Con un toque, el mapa solo: la barra también se va.
+  .chofer-content.mapa-solo > .fuera-barra {
+    opacity: 0;
+    transform: translateY(14px);
+    pointer-events: none;
+  }
+}
+
 // ---- Teléfono acostado ----
 // Con poca altura no entra nada apilado: la barra de la parada abajo a la
 // izquierda, "Terminar ruta" abajo a la derecha, el SOS arriba de la barra y

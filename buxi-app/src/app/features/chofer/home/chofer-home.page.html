@@ -1,4 +1,4 @@
-<ion-content [fullscreen]="true" class="chofer-content" [scrollY]="false" [class.con-parada]="!!(nextParada && tracking)" [class.mapa-gesto]="ocultoPorGesto" [class.mapa-solo]="ocultoPorToque">
+<ion-content [fullscreen]="true" class="chofer-content" [scrollY]="false" [class.con-parada]="!!(nextParada && tracking)" [class.mapa-gesto]="ocultoPorGesto" [class.mapa-solo]="ocultoPorToque" [class.fuera]="!tracking">
 
   <div id="chofer-map"></div>
 
@@ -162,6 +162,20 @@
     </div>
   </ng-template>
   <ng-container *ngTemplateOutlet="tplControl"></ng-container>
+
+  <!-- ====== FUERA DE SERVICIO (teléfono parado) ======
+       Como el "Conectarse" de Uber: una barra abajo que dice en qué estado
+       estás y un botón redondo grande para salir a ruta. Con el viaje en
+       marcha vuelve el control de siempre (pausa y terminar). -->
+  <div class="fuera-barra" *ngIf="!tracking">
+    <button type="button" class="go-btn" (click)="toggleTracking()" [disabled]="!assignedBus" aria-label="Iniciar ruta">
+      <span>INICIAR</span>
+    </button>
+    <div class="fb-texto">
+      <strong>{{ assignedBus ? 'Fuera de servicio' : sinBusTexto }}</strong>
+      <span>{{ assignedBus ? 'Iniciá la ruta para transmitir en vivo' : 'Tu empresa te lo asigna desde su panel' }}</span>
+    </div>
+  </div>
 
   <!-- ====== PANEL LATERAL DE PERFIL ====== -->
   <div class="panel-scrim pp-scrim" [class.open]="profilePanelOpen" (click)="toggleProfilePanel()"></div>

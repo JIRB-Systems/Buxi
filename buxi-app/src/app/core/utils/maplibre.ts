@@ -122,6 +122,29 @@ export function lugaresDelMapa(map: maplibregl.Map, visibles: boolean): void {
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
 }
 
+// El mapa del chofer, sobrio como el de Uber: los edificios casi del color
+// del suelo (en el estilo oscuro iban en un azul fuerte que competía con la
+// ruta y con el bus) y en 3D también apagados. Lo que importa es la calle, la
+// ruta y dónde está uno. Se puede llamar de nuevo (al prender el 3D aparecen
+// los edificios con volumen).
+export function mapaSobrio(map: maplibregl.Map): void {
+  for (const l of map.getStyle()?.layers ?? []) {
+    if ((l as any)['source-layer'] !== 'building' && l.id !== 'buxi-buildings-3d') continue;
+    try {
+      if (l.type === 'fill') {
+        map.setPaintProperty(l.id, 'fill-color', '#1e2736');
+        map.setPaintProperty(l.id, 'fill-outline-color', '#283244');
+      } else if (l.type === 'fill-extrusion') {
+        map.setPaintProperty(l.id, 'fill-extrusion-color', [
+          'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 0],
+          0, '#1f2837', 50, '#263043', 200, '#2d384d',
+        ]);
+        map.setPaintProperty(l.id, 'fill-extrusion-opacity', 0.75);
+      }
+    } catch { /* capa a medio cargar */ }
+  }
+}
+
 export function capaComercios(map: maplibregl.Map, dark: boolean): void {
   const url = environment.comerciosUrl;
   if (!url || map.getSource(FUENTE_COMERCIOS)) return;
