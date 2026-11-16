@@ -903,11 +903,51 @@ export function desplazamientoLibre(map: maplibregl.Map, fraccion = 0.5): [numbe
   return [0, Math.round(centro - r.height / 2)];
 }
 
+// Al prender el 3D la cámara se inclina recién cuando llegó el relieve de la
+// zona: si se inclinaba enseguida, durante un segundo el suelo todavía estaba
+// a nivel del mar para MapLibre, la montaña se dibujaba más arriba y la
+// cámara quedaba adentro (se veían paredes azules y el piso negro). Se espera
+// a que carguen las teselas del relieve (a lo sumo 4 s), se apoya el centro
+// sobre el suelo y ahí se inclina.
+const esperaRelieve = new WeakMap<maplibregl.Map, () => void>();
+function inclinarCuandoHayaRelieve(map: maplibregl.Map, pitch: number): void {
+  esperaRelieve.get(map)?.();
+  let listo = false;
+  let timer: any = null;
+  const cancelar = () => { listo = true; clearTimeout(timer); map.off('sourcedata', revisar); esperaRelieve.delete(map); };
+  const inclinar = () => {
+    if (listo) return;
+    cancelar();
+    const terreno = (map as any).terrain;
+    if (!terreno) return;
+    try {
+      const suelo = terreno.getElevationForLngLatZoom(map.getCenter(), (map as any).transform.tileZoom);
+      if (Number.isFinite(suelo)) map.setCenterElevation(suelo);
+    } catch { /* sin relieve: se inclina igual */ }
+    map.easeTo({ pitch, duration: 600 });
+  };
+  const revisar = (e?: any) => {
+    if (e && e.sourceId !== 'terrain-dem') return;
+    // Con el suelo de la zona ya a la vista (o todo el relieve cargado: a nivel
+    // del mar el suelo es 0 de verdad) se puede inclinar.
+    try {
+      const terreno = (map as any).terrain;
+      const suelo = terreno ? terreno.getElevationForLngLatZoom(map.getCenter(), (map as any).transform.tileZoom) : 0;
+      if (suelo > 0 || map.isSourceLoaded('terrain-dem')) inclinar();
+    } catch { /* fuente recién agregada */ }
+  };
+  esperaRelieve.set(map, cancelar);
+  map.on('sourcedata', revisar);
+  timer = setTimeout(inclinar, 4000);
+  revisar();
+}
+
 export function set3DEnabled(map: maplibregl.Map, enabled: boolean, dark = true): void {
   if (enabled) {
     enable3D(map, dark);
-    map.easeTo({ pitch: 55, duration: 600 });
+    inclinarCuandoHayaRelieve(map, 55);
   } else {
+    esperaRelieve.get(map)?.();
     map.setTerrain(null);
     if (map.getLayer('buxi-buildings-3d')) map.setLayoutProperty('buxi-buildings-3d', 'visibility', 'none');
     map.easeTo({ pitch: 0, bearing: 0, duration: 600 });
