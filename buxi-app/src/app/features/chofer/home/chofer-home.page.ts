@@ -647,7 +647,24 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   // acostado y aplastado, como una calcomanía en el piso. Plano solo con el
   // mapa plano.
   private get busParado(): boolean {
-    return this.is3D || this.tracking;
+    return this.is3D || (this.tracking && !this.manejoPlano);
+  }
+
+  // Manejando, el mapa va inclinado (como en Uber) aunque el modo sea 2D, y
+  // el botón decía "3D" con el mapa ya en 3D. Ahora el botón dice lo que se
+  // ve: manejando cambia entre la vista inclinada y la plana (de arriba, con
+  // el mapa girado hacia donde va el bus); fuera de viaje, el modo 3D de
+  // siempre (relieve y edificios). Lo que se elige manejando queda guardado.
+  manejoPlano = (() => {
+    try { return localStorage.getItem('buxci.manejo-plano.v1') === '1'; } catch { return false; }
+  })();
+
+  get vistaEn3D(): boolean {
+    return this.tracking ? !this.manejoPlano : this.is3D;
+  }
+
+  private get pitchManejo(): number {
+    return this.manejoPlano ? 0 : this.PITCH_MANEJO;
   }
 
   private iconoBusPropio(): string {
@@ -1448,7 +1465,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
     this.map.easeTo({
       center: [this.currentLng, this.currentLat],
       zoom: Math.max(this.map.getZoom(), this.ZOOM_MANEJO),
-      pitch: this.PITCH_MANEJO,
+      pitch: this.pitchManejo,
       bearing: this.rumboDeManejo(),
       offset: desplazamientoLibre(this.map, 0.72),
       duration: 1200,
@@ -1469,7 +1486,7 @@ export class ChoferHomePage implements OnInit, OnDestroy {
       try { lugaresDelMapa(this.map, false); } catch { /* sin estilo */ }
       this.map.easeTo({
         center: [this.currentLng, this.currentLat],
-        pitch: this.PITCH_MANEJO,
+        pitch: this.pitchManejo,
         bearing: this.rumboDeManejo(),
         offset: desplazamientoLibre(this.map, 0.72),
         duration: 900,
@@ -1484,6 +1501,15 @@ export class ChoferHomePage implements OnInit, OnDestroy {
   }
 
   toggle3D() {
+    if (this.tracking) {
+      this.manejoPlano = !this.manejoPlano;
+      try { localStorage.setItem('buxci.manejo-plano.v1', this.manejoPlano ? '1' : '0'); } catch {}
+      this.aplicarDibujoBuses();
+      // La cámara pasa ya a la vista nueva (y vuelve a seguir al bus).
+      this.siguiendo = true;
+      this.seguirCamara();
+      return;
+    }
     this.is3D = !this.is3D;
     try { localStorage.setItem('buxci.vista3d.v1', this.is3D ? '1' : '0'); } catch {}
     // Sin estilo cargado (sin red, clave rechazada) MapLibre no deja tocar

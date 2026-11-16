@@ -117,8 +117,8 @@
     <button class="mc-btn mc-warn" (click)="reportarIncidente()" aria-label="Reportar incidente">
       <ion-icon name="warning-outline"></ion-icon>
     </button>
-    <button class="mc-btn mc-text" (click)="toggle3D()" [attr.aria-label]="is3D ? 'Ver en 2D' : 'Ver en 3D'">
-      {{ is3D ? '2D' : '3D' }}
+    <button class="mc-btn mc-text" (click)="toggle3D()" [attr.aria-label]="vistaEn3D ? 'Ver en 2D' : 'Ver en 3D'">
+      {{ vistaEn3D ? '2D' : '3D' }}
     </button>
     <!-- La cámara siempre sigue al bus; esto la trae de vuelta al instante. -->
     <button class="mc-btn mc-seguir" (click)="centerOnMe()" aria-label="Centrar en tu bus">
